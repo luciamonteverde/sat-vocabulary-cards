@@ -104,7 +104,24 @@ border:1px solid var(--good);color:var(--good);font-weight:600}
 <script>
 
 (function(){
-  var total = 3, cleared = 0;
+  var total = 3, cleared = 0, t0 = Date.now();
+  // Host protocol copied from the production vocabulary cards
+  // (alphawords-vocab-pipeline/vocab_pipeline/sat_card_gen.py). Do not invent a
+  // shape here: an earlier draft of this file posted {type:'lessonProgress'},
+  // which no host listens for.
+  function embedded(){ return window.parent && window.parent !== window; }
+  function runningTime(){ return Math.round((Date.now() - t0) / 1000); }
+  function post(pct){
+    try { if (embedded()) window.parent.postMessage({ type: 'progress', percent: pct }, '*'); } catch(e) {}
+  }
+  function sendState(pct, completed, ready){
+    try { if (embedded()) window.parent.postMessage({ type: 'CONTENT_STATE_CHANGE',
+      isCompleted: completed, isReadyToAdvance: ready, progressPercentage: pct,
+      runningTimeSeconds: runningTime() }, '*'); } catch(e) {}
+  }
+  post(0);
+  try { if (embedded()) window.parent.postMessage({ type: 'CONTENT_READY' }, '*'); } catch(e) {}
+  sendState(0, false, false);
   function unlock(i){
     var el = document.getElementById('stage-'+i);
     if(!el) return;
@@ -139,10 +156,12 @@ border:1px solid var(--good);color:var(--good);font-weight:600}
       });
       cleared++;
       unlock(gi + 1);
-      if(cleared === total){
+      var pct = Math.round(cleared / total * 100);
+      post(pct);
+      var finished = cleared === total;
+      sendState(pct, finished, finished);
+      if(finished){
         var d = document.getElementById('done'); if(d) d.hidden = false;
-        try{ parent.postMessage({type:'lessonProgress', isReadyToAdvance:true,
-              lesson:'1A-01', gatesCleared:cleared, gatesTotal:total}, '*'); }catch(e){}
       }
     }
   };
