@@ -324,7 +324,15 @@ def grade(task_id, sentence, client=None, tasks=None, rubric=None, model=None):
                 "max_total": sum(d["max"] for d in rubric["dimensions"])}
 
     if client is None:
-        client, model = make_client()
+        # INSIDE the mapped path, not before it. This used to sit outside the try, so a
+        # failure to construct a client escaped grade() entirely and hit the handler's
+        # bare except -- which returns the generic "unavailable right now, try again".
+        # That is the wrong message for a missing credential: it tells a student to
+        # retry something that can never succeed, and tells us nothing.
+        try:
+            client, model = make_client()
+        except Exception as e:
+            return {"stage": "error", "error": _error_message(e), "passed": False}
     else:
         # A CALLER THAT SUPPLIES A CLIENT MUST ALSO SUPPLY ITS MODEL ID. Bedrock ids
         # carry an `anthropic.` prefix the first-party API rejects and vice versa, so
@@ -399,6 +407,18 @@ def _load_credentials():
         return
 
 
+class CredentialMissing(Exception):
+    """No usable credential is configured for the selected backend.
+
+    Exists because the SDK does NOT raise a recognisable error for this. With no key at
+    all, `anthropic.Anthropic()` constructs fine and the FIRST CALL raises a bare
+    `TypeError` -- which no exception map would think to catch, so a plainly fixable
+    misconfiguration was reporting as a transient outage. Detecting it up front turns
+    "try again in a moment" into "this is misconfigured", which is the difference
+    between a student retrying forever and someone setting an environment variable.
+    """
+
+
 def make_client():
     _load_credentials()
     """(client, model_id) for whichever backend is credentialled.
@@ -420,11 +440,21 @@ def make_client():
             "AWS_DEFAULT_REGION") or "us-east-1"
         return (anthropic.AnthropicBedrockMantle(aws_region=region),
                 MODEL if MODEL.startswith("anthropic.") else "anthropic." + MODEL)
+    if not have_key:
+        raise CredentialMissing(
+            "no ANTHROPIC_API_KEY or ANTHROPIC_AUTH_TOKEN in the environment")
     return anthropic.Anthropic(), MODEL
 
 
 def _error_message(e):
     """Student-facing text for an API failure. Never leaks a key, model or stack."""
+    # Checked before the SDK types, because these two are the CONFIGURATION failures --
+    # they will never fix themselves, so "try again in a moment" is actively misleading.
+    if isinstance(e, CredentialMissing):
+        return "The grader is not set up yet. Tell your teacher."
+    if isinstance(e, TypeError):
+        # what the SDK actually raises on its first call when no key is configured
+        return "The grader is not set up yet. Tell your teacher."
     try:
         import anthropic
     except ImportError:
