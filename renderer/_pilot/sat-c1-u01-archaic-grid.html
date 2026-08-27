@@ -1,0 +1,292 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Sort the words &#8212; SAT card section 2 prototype</title>
+<!--
+  Sarah's "Sort the words" grid, built from her 2026-08-27 screenshot.
+  STANDALONE PROTOTYPE. Drop-in seam is at the bottom: window.SortGrid.onResult.
+
+  THE ONE DESIGN DECISION THAT MATTERS, and why it is this way
+  -----------------------------------------------------------
+  Correct cells do NOT lock between attempts. It looks kinder to lock them, and it is
+  the single change that would break the activity. Per-cell right/wrong marking is
+  itself information, so if a correct cell banks, every submit is a free probe and the
+  grid falls to elimination in at most 19 submits with ZERO word knowledge (6 rows x 3
+  wrong guesses + 1). Measured in ../grid_guessability.py. Blind guessing is 1 in 4096,
+  so locking is ~215x more generous than chance -- it does not soften the activity, it
+  removes it.
+
+  So: their answers stay visible, wrong ones are marked, and all six must be right in
+  ONE submit -- which is exactly what Sarah's own subtitle says. Feedback teaches
+  without ever banking progress.
+
+  A wrong cell is marked wrong and the correct one is NOT revealed, per Sarah in the
+  meeting: "probably don't give them the answer. They have to then go and redo it."
+
+  NO CHEVRON / NO COLLAPSE CONTROL. Sarah's mock has one; Andy's review asked for those
+  to go, so this deliberately has none.
+-->
+<style>
+  :root {
+    --ink: #1f2430;
+    --muted: #5b6478;
+    --line: #dfe3ec;
+    --panel: #f5f7fc;
+    --brand: #3b4ee0;
+    --ok-bg: #d8f3e3;  --ok-ink: #17693c;  --ok-line: #7dcfa3;
+    --no-bg: #fdeadb;  --no-ink: #a8460f;  --no-line: #f0b183;
+  }
+  * { box-sizing: border-box; }
+  body {
+    margin: 0; padding: 28px 20px; background: #fff; color: var(--ink);
+    font: 16px/1.5 "Segoe UI", system-ui, -apple-system, sans-serif;
+  }
+  .wrap { max-width: 860px; margin: 0 auto; }
+  h2 { color: var(--brand); font-size: 26px; margin: 0 0 6px; }
+  .sub { color: var(--muted); margin: 0 0 18px; }
+  .prompt { font-weight: 600; margin: 0 0 14px; }
+  .panel { background: var(--panel); border-radius: 14px; padding: 14px; }
+
+  table { width: 100%; border-collapse: separate; border-spacing: 0 8px; }
+  th { font-size: 12px; letter-spacing: .06em; text-transform: uppercase;
+       color: var(--muted); font-weight: 700; padding: 0 6px 6px; text-align: center; }
+  th.s { text-align: left; }
+  td.s {
+    background: #fff; border: 1px solid var(--line); border-radius: 10px;
+    padding: 14px 16px; width: 46%;
+  }
+  td.c { width: 13.5%; padding: 0 3px; }
+
+  /* the whole cell is the hit target, not a 14px radio dot */
+  td.c label {
+    display: flex; align-items: center; justify-content: center;
+    height: 100%; min-height: 58px; background: #fff;
+    border: 1px solid var(--line); border-radius: 10px; cursor: pointer;
+    font-size: 22px; line-height: 1; transition: background .12s, border-color .12s;
+  }
+  td.c label:hover { background: #eef1fa; }
+  td.c input { position: absolute; opacity: 0; width: 0; height: 0; }
+  td.c input:checked + span { color: var(--brand); }
+  td.c input:checked ~ .mark,
+  td.c label.picked { border-color: var(--brand); background: #e9edfd; }
+  td.c label.picked { box-shadow: inset 0 0 0 1px var(--brand); }
+  /* visible keyboard focus -- a radio grid is unusable without it */
+  td.c input:focus-visible + span { outline: 3px solid var(--brand); outline-offset: 4px;
+                                    border-radius: 4px; }
+
+  td.c label.right { background: var(--ok-bg); border-color: var(--ok-line);
+                     color: var(--ok-ink); box-shadow: none; }
+  td.c label.wrong { background: var(--no-bg); border-color: var(--no-line);
+                     color: var(--no-ink); box-shadow: none; }
+
+  .bar { display: flex; align-items: center; gap: 14px; margin-top: 18px; }
+  button {
+    font: 600 16px/1 inherit; padding: 13px 26px; border-radius: 10px;
+    border: 0; background: var(--brand); color: #fff; cursor: pointer;
+  }
+  button:disabled { background: #c3c9dc; cursor: not-allowed; }
+  .msg { font-weight: 600; }
+  .msg.ok { color: var(--ok-ink); }
+  .msg.no { color: var(--no-ink); }
+  .count { color: var(--muted); font-weight: 400; font-size: 14px; }
+  .done { margin-top: 16px; padding: 14px 16px; border-radius: 10px;
+          background: var(--ok-bg); color: var(--ok-ink); font-weight: 600; }
+</style>
+</head>
+<body>
+<div class="wrap">
+  <h2>Sort the words</h2>
+  <p class="sub">All six must be right to continue.</p>
+  <p class="prompt" id="prompt">Which word fits each gap best?</p>
+
+  <div class="panel">
+    <table id="grid" role="grid" aria-labelledby="prompt"><tbody></tbody></table>
+  </div>
+
+  <div class="bar">
+    <button id="check" disabled>Check</button>
+    <span class="msg" id="msg"></span>
+    <span class="count" id="count"></span>
+  </div>
+  <div class="done" id="done" hidden></div>
+</div>
+
+<script>
+(function () {
+  "use strict";
+
+  // ---- content ------------------------------------------------------------------
+  // Inlined rather than fetched so the prototype is one file with no server. In the
+  // real card this comes from grid_content_archaic.json at build time.
+  var WORDS = ["archaic", "obsolete", "antiquated", "ancient"];
+  var ROWS = [
+    { s: "The dictionary lists ‘thou’ as ____: nobody speaks it now, though it survives in old hymns.", k: "archaic" },
+    { s: "Within five years the new digital format had made the studio’s tape machines ____.", k: "obsolete" },
+    { s: "His ____ opinions about which jobs women could hold belonged in another century.", k: "antiquated" },
+    { s: "The ____ oak in the churchyard was already standing when the church was built.", k: "ancient" },
+    { s: "Legal contracts still use ____ expressions such as ‘hereinafter’ and ‘aforesaid’.", k: "archaic" },
+    { s: "The hospital’s ____ record system still ran on paper cards, slowing every appointment.", k: "antiquated" }
+  ];
+
+  // ---- column order ------------------------------------------------------------
+  // Shuffled per load. Sarah's own mock is not alphabetical, and a fixed order means a
+  // shared screenshot ("it's 1-2-4-1-3-2") transfers between students. Shuffling costs
+  // nothing and makes a leaked answer key useless.
+  function shuffled(a) {
+    a = a.slice();
+    for (var i = a.length - 1; i > 0; i--) {
+      var j = Math.floor(Math.random() * (i + 1));
+      var t = a[i]; a[i] = a[j]; a[j] = t;
+    }
+    return a;
+  }
+  var COLS = shuffled(WORDS);
+
+  var tbody = document.querySelector("#grid tbody");
+  var btn = document.getElementById("check");
+  var msg = document.getElementById("msg");
+  var count = document.getElementById("count");
+  var doneBox = document.getElementById("done");
+
+  var head = document.createElement("tr");
+  head.innerHTML = '<th class="s" scope="col">Sentence</th>';
+  COLS.forEach(function (w) {
+    var th = document.createElement("th");
+    th.scope = "col";
+    th.textContent = w;
+    head.appendChild(th);
+  });
+  tbody.appendChild(head);
+
+  ROWS.forEach(function (row, ri) {
+    var tr = document.createElement("tr");
+    var td = document.createElement("td");
+    td.className = "s";
+    // the gap is rendered as four underscores, the house convention across the estate
+    td.textContent = row.s;
+    tr.appendChild(td);
+
+    COLS.forEach(function (w) {
+      var cell = document.createElement("td");
+      cell.className = "c";
+      var lab = document.createElement("label");
+      var inp = document.createElement("input");
+      inp.type = "radio";
+      inp.name = "row" + ri;
+      inp.value = w;
+      // a screen reader otherwise announces six identical unlabelled radios per row
+      inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+      var dot = document.createElement("span");
+      dot.textContent = " ";
+      lab.appendChild(inp);
+      lab.appendChild(dot);
+      cell.appendChild(lab);
+      tr.appendChild(cell);
+    });
+    tbody.appendChild(tr);
+  });
+
+  var attempts = 0;
+  var solved = false;
+
+  function chosen() {
+    return ROWS.map(function (_, ri) {
+      var el = document.querySelector('input[name="row' + ri + '"]:checked');
+      return el ? el.value : null;
+    });
+  }
+
+  function repaint() {
+    // clear every mark, then re-mark only the current selection
+    Array.prototype.forEach.call(document.querySelectorAll("td.c label"), function (l) {
+      l.classList.remove("picked");
+    });
+    chosen().forEach(function (v, ri) {
+      if (!v) return;
+      var el = document.querySelector('input[name="row' + ri + '"][value="' + v + '"]');
+      if (el) el.parentNode.classList.add("picked");
+    });
+    var n = chosen().filter(Boolean).length;
+    btn.disabled = solved || n < ROWS.length;
+    count.textContent = solved ? "" : n + " of " + ROWS.length + " answered";
+  }
+
+  tbody.addEventListener("change", function (e) {
+    if (solved || e.target.type !== "radio") return;
+    // clear last attempt's verdicts as soon as they change anything, so a stale green
+    // tick can never be read as "this one is banked"
+    Array.prototype.forEach.call(document.querySelectorAll("td.c label"), function (l) {
+      l.classList.remove("right", "wrong");
+    });
+    msg.textContent = "";
+    msg.className = "msg";
+    repaint();
+  });
+
+  btn.addEventListener("click", function () {
+    if (solved) return;
+    var picks = chosen();
+    if (picks.some(function (v) { return !v; })) return;
+    attempts++;
+
+    var wrong = 0;
+    picks.forEach(function (v, ri) {
+      var el = document.querySelector('input[name="row' + ri + '"][value="' + v + '"]');
+      var lab = el.parentNode;
+      lab.classList.remove("picked");
+      if (v === ROWS[ri].k) {
+        lab.classList.add("right");
+      } else {
+        lab.classList.add("wrong");
+        wrong++;
+      }
+      // NOTE: nothing marks the row's correct cell. Revealing it would end the task.
+    });
+
+    if (wrong === 0) {
+      solved = true;
+      btn.disabled = true;
+      msg.textContent = "All six right.";
+      msg.className = "msg ok";
+      count.textContent = "";
+      doneBox.hidden = false;
+      doneBox.textContent = attempts === 1
+        ? "All six on the first try."
+        : "All six right, on attempt " + attempts + ".";
+      emit(true);
+    } else {
+      msg.textContent = wrong === 1
+        ? "One is not right yet. Change it and check again."
+        : wrong + " are not right yet. Change them and check again.";
+      msg.className = "msg no";
+      emit(false);
+    }
+  });
+
+  // ---- the seam the card wires to ----------------------------------------------
+  // The card owns the TimeBack contract; this component only reports what happened.
+  // `firstTry` is the XP-bearing fact under Lucia's 2026-08-27 decision to award XP on
+  // first-try-correct, and `graded` is deliberately ALWAYS true: unlike the writing
+  // task there is no local-checklist stage here, so every submit is a real judgement.
+  function emit(passed) {
+    var detail = { activity: "sort-the-words", passed: passed, attempts: attempts,
+                   firstTry: passed && attempts === 1, rows: ROWS.length,
+                   graded: true };
+    if (window.SortGrid && typeof window.SortGrid.onResult === "function") {
+      window.SortGrid.onResult(detail);
+    }
+    window.dispatchEvent(new CustomEvent("sortgrid:result", { detail: detail }));
+  }
+
+  window.SortGrid = window.SortGrid || {};
+  window.SortGrid.state = function () {
+    return { attempts: attempts, solved: solved, answered: chosen().filter(Boolean).length };
+  };
+
+  repaint();
+})();
+</script>
+</body>
+</html>
