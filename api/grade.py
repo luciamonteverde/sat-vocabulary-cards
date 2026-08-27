@@ -30,7 +30,7 @@ MAX_SENTENCE_CHARS = 600
 # stale Vercel deploy returns HTTP 200 with the previous file; the function needs the
 # same, or "is the new code live?" and "is the code wrong?" cannot be told apart -- which
 # is exactly the ambiguity that cost a diagnosis cycle here. Bump on every api change.
-BUILD = "2026-08-27c"
+BUILD = "ea28563451"
 
 # Reported so a deployment problem is visible in one fetch instead of inferred. Both
 # are booleans and a name: no key value, no prefix, nothing sensitive.
