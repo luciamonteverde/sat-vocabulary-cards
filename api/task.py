@@ -43,7 +43,7 @@ class handler(BaseHTTPRequestHandler):
         q = parse_qs(urlparse(self.path).query)
         tid = (q.get("id") or [""])[0].strip()
         try:
-            tasks = grader._load("tasks.json")
+            tasks = grader._load("_tasks.json")
         except Exception:
             return self._send(500, {"error": "task store unavailable"})
         t = tasks.get(tid)
