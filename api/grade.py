@@ -26,6 +26,21 @@ import _grader as grader  # noqa: E402
 MAX_BODY = 8192          # a sentence; anything larger is not a sentence
 MAX_SENTENCE_CHARS = 600
 
+# A BUILD MARKER, echoed on every response. The card already carries one because a
+# stale Vercel deploy returns HTTP 200 with the previous file; the function needs the
+# same, or "is the new code live?" and "is the code wrong?" cannot be told apart -- which
+# is exactly the ambiguity that cost a diagnosis cycle here. Bump on every api change.
+BUILD = "2026-08-27c"
+
+# Reported so a deployment problem is visible in one fetch instead of inferred. Both
+# are booleans and a name: no key value, no prefix, nothing sensitive.
+def _diag():
+    import importlib.util
+    return {"build": BUILD,
+            "sdk_installed": importlib.util.find_spec("anthropic") is not None,
+            "key_configured": bool(os.environ.get("ANTHROPIC_API_KEY")
+                                   or os.environ.get("ANTHROPIC_AUTH_TOKEN"))}
+
 
 def _cors(h):
     """Permissive CORS on purpose: the card may be served from a different origin.
@@ -58,9 +73,15 @@ class handler(BaseHTTPRequestHandler):
         self.end_headers()
 
     def do_GET(self):
-        # a browser hitting the URL should get a usable message, not a stack trace
-        self._send(405, {"error": "POST {id, sentence} to this endpoint.",
-                         "passed": False, "stage": "error"})
+        # A GET is also the diagnostic surface: a browser hitting the URL should get a
+        # usable message, and so should whoever is trying to work out why grading fails.
+        d = {"error": "POST {id, sentence} to this endpoint.",
+             "passed": False, "stage": "error"}
+        try:
+            d.update(_diag())
+        except Exception:
+            pass
+        self._send(405, d)
 
     def do_POST(self):
         try:
@@ -89,6 +110,15 @@ class handler(BaseHTTPRequestHandler):
             return self._send(200, {"error": "The grader is unavailable right now. "
                                              "Try again in a moment.",
                                     "passed": False, "stage": "error"})
+
+        # stamp the build on every response, so a stale deploy is visible on the very
+        # path the card uses rather than only on the diagnostic GET
+        out["build"] = BUILD
+        if out.get("stage") == "error":
+            try:
+                out.update(_diag())
+            except Exception:
+                pass
 
         # 200 even for a failing grade: a failed grade is a normal outcome, not an HTTP
         # error, and a non-2xx would send Barbara-shaped clients down their network-error

@@ -455,10 +455,17 @@ def _error_message(e):
     if isinstance(e, TypeError):
         # what the SDK actually raises on its first call when no key is configured
         return "The grader is not set up yet. Tell your teacher."
+    # 🚨 ImportError USED TO RETURN THE GENERIC MESSAGE, which made a missing dependency
+    # indistinguishable from a transient outage -- and that is very likely what the live
+    # endpoint was reporting: its checklist path works (it imports nothing) while only
+    # the graded path fails (it imports anthropic). Conflating "the package is not
+    # installed" with "try again in a moment" cost a full diagnosis cycle.
+    if isinstance(e, ImportError):
+        return "The grader is not installed correctly. Tell your teacher."
     try:
         import anthropic
     except ImportError:
-        return "The grader is unavailable right now. Try again in a moment."
+        return "The grader is not installed correctly. Tell your teacher."
     # most specific first -- a single broad except loses retryable vs not
     if isinstance(e, anthropic.RateLimitError):
         return "The grader is busy. Wait a few seconds and check again."
