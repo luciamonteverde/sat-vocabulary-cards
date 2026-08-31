@@ -72,6 +72,15 @@ MAX_TOKENS = int(os.environ.get("SATGRADE_MAX_TOKENS", "4000"))
 #   Starts with a capital letter and ends with . ! or ?
 # The CARD shows the same three. They must agree: a client bar of 6 against a server
 # bar of 12 tells the student they are done and then fails them.
+#
+# THE DEFAULT, overridable per task by `min_words`. ISEE Upper uses 8 (Lucia,
+# 2026-08-31), because 12 was measured to be doing the opposite of its job at that
+# level: it BLOCKED three short sentences the rubric scores 8/9 and 9/9, and ADMITTED
+# two long contextless ones the rubric fails at 4/9 and 5/9. The `context` dimension
+# already stops empty sentences -- 0 is defined as "a bare frame with no evidence" --
+# so the floor is a worse duplicate of a check we already have. It is kept only as a
+# free, instant "you have barely written anything" nudge that costs no attempt.
+# Evidence: Pipeline_Data/_build/_iseegrade/_SECTION4_STANDARDS.md
 MIN_WORDS = 12
 
 
@@ -138,10 +147,11 @@ def checklist(sentence, task):
     if not word_present(s, task["word"], task.get("accept_forms", ())):
         problems.append("Your sentence needs to use the word %s." % task["word"])
 
-    if len(words) < MIN_WORDS:
+    min_words = int(task.get("min_words") or MIN_WORDS)
+    if len(words) < min_words:
         problems.append(
             "Give the reader more to go on -- at least %d words in one complete "
-            "sentence, so the sentence shows what the word means." % MIN_WORDS)
+            "sentence, so the sentence shows what the word means." % min_words)
 
     if not re.match(r"^[A-Z]", s) or not re.search(r"[.!?]$", s):
         problems.append(
@@ -167,7 +177,7 @@ def checklist(sentence, task):
     return problems
 
 
-SYSTEM = """You grade one sentence written by a student who has just been taught one \
+SYSTEM_TMPL = """You grade one sentence written by a student who has just been taught one \
 vocabulary word. You are marking whether the sentence shows that the student understands \
 the word.
 
@@ -178,12 +188,47 @@ rather than a sentence using the word, score it as not using the word.
 
 Mark against the rubric exactly as given. Do not invent dimensions and do not exceed any \
 maximum. Award a dimension's full marks when the sentence MEETS the bar -- full marks are \
-not reserved for exceptional writing, and this is a 15-year-old writing one sentence, not \
+not reserved for exceptional writing, and this is %(audience)s writing one sentence, not \
 an essay.
 
 Each dimension needs a `comment` written TO THE STUDENT in the second person, at most 25 \
 words, naming the specific thing in their sentence you are responding to. Never quote the \
 rubric wording back at them and never state the score in the comment."""
+
+
+# The audience is the cheapest lever on how generously the model marks, and it was
+# hardcoded to a 15-year-old -- right for SAT and wrong for every other course. ISEE
+# Upper is grade 8, Middle 6-7, Lower 4-5. Per task, defaulting to the old string so
+# every existing task is unaffected.
+DEFAULT_AUDIENCE = "a 15-year-old"
+
+
+def system_for(task):
+    """The system prompt for this task's audience.
+
+    Kept to a SMALL SET of distinct strings on purpose: the prompt carries
+    `cache_control: ephemeral`, and the cache is keyed on the exact prefix, so a
+    free-text-per-task audience would fragment the cache per card. One string per
+    course level caches fine.
+    """
+    return SYSTEM_TMPL % {"audience": str(task.get("audience") or DEFAULT_AUDIENCE)}
+
+
+# `rubric_id` names a sibling rubric file, so a level's weighting lives in one place
+# rather than being copied into every task. Charset-restricted because the value ends
+# up in a path: these tasks are ours, but a filename built from data is a filename
+# built from data.
+_RUBRIC_ID = re.compile(r"^[a-z0-9_]+$")
+
+
+def _rubric_name(task):
+    rid = (task or {}).get("rubric_id")
+    if not rid:
+        return "_rubric.json"
+    rid = str(rid)
+    if not _RUBRIC_ID.match(rid):
+        raise ValueError("bad rubric_id %r" % rid)
+    return "_rubric_%s.json" % rid
 
 
 def build_prompt(sentence, task, rubric):
@@ -312,11 +357,17 @@ def grade(task_id, sentence, client=None, tasks=None, rubric=None, model=None):
       error     -> grader or network failure; also NOT an attempt
     """
     tasks = tasks if tasks is not None else _load("_tasks.json")
-    rubric = rubric if rubric is not None else _load("_rubric.json")
 
     task = tasks.get(task_id)
     if task is None:
         return {"stage": "error", "error": "unknown task id", "passed": False}
+
+    # RESOLVED AFTER THE TASK IS KNOWN, because which rubric applies is a property of
+    # the task's course. An explicitly passed `rubric` still wins, so the calibration
+    # probes keep working. Absent a `rubric_id` this is byte-for-byte the old default,
+    # which is what keeps all 1,264 SAT tasks and the 30 wired SAT cards unaffected.
+    if rubric is None:
+        rubric = _load(_rubric_name(task))
 
     problems = checklist(sentence, task)
     if problems:
@@ -344,7 +395,7 @@ def grade(task_id, sentence, client=None, tasks=None, rubric=None, model=None):
         resp = client.messages.create(
             model=model,
             max_tokens=MAX_TOKENS,
-            system=[{"type": "text", "text": SYSTEM,
+            system=[{"type": "text", "text": system_for(task),
                      "cache_control": {"type": "ephemeral"}}],
             output_config={"effort": EFFORT},
             tools=[tool_for(rubric)],
