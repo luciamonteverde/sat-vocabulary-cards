@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="b2576efe839a">
+<meta name="build" content="02c27c3708b2">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>generative &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "generative", "gradeUrl": "/api/grade", "taskId": "generative", "minWords": 12, "items": {"s1": {"q": "Four study habits are compared at a club meeting. Which practice is generative?", "opts": {"A": "Photocopying the exact same worksheet every single week of the term.", "B": "Memorizing the same fixed list of terms handed out on day one.", "C": "Repeating last year's meeting schedule completely unchanged.", "D": "A weekly 'what if' session that has already produced three new club programs."}, "key": "D", "fb": {"correct": "Right — a weekly session that has already produced three brand-new programs keeps bringing new things into being, which is what generative means.", "A": "Photocopying 'the exact same worksheet' every week only recycles what exists; nothing fresh ever comes out of it. Generative practices create — look for the habit with original results to show for itself.", "B": "Memorizing 'the same fixed list' from day one keeps knowledge frozen exactly as it was handed out. Generative work adds to the world; find the routine that keeps creating things that did not exist before.", "C": "'Completely unchanged' is the tell — rerunning an old schedule guarantees nothing original appears. Generative describes whatever brings fresh things into being; look for evidence of genuine invention."}}, "s3a": {"q": "As it is used in the passage, \"generative\" most nearly means", "opts": {"A": "producing a steady flow of genuinely new things beyond its makers' plans", "B": "capable of generating electrical power for the building", "C": "profitable enough to fund the department's programs", "D": "so popular that students constantly used it"}, "key": "A", "fb": {"correct": "Right — the machine 'kept making' makers: new instruments, a workshop, a listening night, a festival, none of it planned.", "B": "The passage never mentions power or electricity doing anything — what the synthesizer set off was new activities and new builders, not current.", "C": "No money changes hands anywhere in the passage; the growth it describes is workshops and festivals, not funding.", "D": "Students did crowd around it, but the paragraph's point is what grew out of the machine — instruments, a workshop, a festival — not how often it was used."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fertile", "B": "generative", "C": "productive", "D": "creative"}, "key": "B", "fb": {"correct": "Right. The cards did not simply turn out more cloth — they kept originating new machines, <em>devices their inventor never imagined<\/em>, <em>arriving one after another for more than a century<\/em>. That ongoing power to produce the genuinely new is exactly what the word names.", "D": "Creative puts the credit on a person's imagination. This passage runs the praise the other way: these were <em>devices their inventor never imagined<\/em> — the novelty outran the very man who designed the cards.", "A": "Fertile praises promise that has not yet produced — rich soil, a mind full of possibility. These cards were long past promise: new machines kept <em>arriving one after another for more than a century<\/em>.", "C": "Productive would praise sheer output — thousands of anything. What the passage stresses is newness, not volume: <em>each unlike anything built before it<\/em>."}}}, "grid": {"words": ["generative", "creative", "fertile", "productive"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The open-data archive turned out to be ____: within a year, strangers had built forecasting tools and mapping apps that its designers never planned or foresaw.", "ks": ["generative"], "fb": {"creative": "That word credits a person's imagination — a director, a solution. Here the praise belongs to the archive itself: 'strangers had built' things 'its designers never planned or foresaw.'", "fertile": "Rich-in-possibility is a promise about what could grow. This archive is past promise — 'within a year' the tools were actually built, one after another.", "productive": "Plenty of output alone would not need the stronger word: these were apps the designers 'never planned or foresaw' — genuinely new, not just numerous."}}, {"s": "One classroom rule proved quietly ____: it kept spawning new games, new jokes, and new projects long after the teacher who wrote it had moved on.", "ks": ["generative"], "fb": {"creative": "That praise credits a person's imagination. The teacher 'had moved on' long ago — whatever is doing this, it is the rule itself, not its author.", "fertile": "That word describes latent promise, a field that could grow things. This rule is past could: new games and projects 'kept spawning' in fact.", "productive": "That word praises the amount a process turns out. The sentence stresses that what appears is new — 'new games, new jokes, and new projects' — not that there is a lot of it."}}, {"s": "The award praised the set designer as endlessly ____, crediting her own imagination for the paper-lantern skyline that filled the stage.", "ks": ["creative"], "fb": {"generative": "The praise lands on a person — 'crediting her own imagination' — not on an idea or place that keeps making new things on its own.", "fertile": "Full-of-possibility is not the claim: the skyline is done and 'filled the stage.' Nothing here is waiting to grow.", "productive": "Output volume is not praised — only one skyline is named, and the award is for imagination, not for how much was turned out."}}, {"s": "The judges kept one ____ entry on display: a bridge imagined by a single student, its whole novelty owed to her mind and to no method at all.", "ks": ["creative"], "fb": {"generative": "That reading praises a source that keeps making new things on its own. This sentence says the opposite — the novelty is 'owed to her mind and to no method at all.'", "fertile": "The entry is finished and 'on display' — realized work, not a plot of unrealized promise.", "productive": "Volume is beside the point: it is 'one' entry, prized for its novelty, not for how much anything churned out."}}, {"s": "Reviewers called the half-finished notebook ____ ground — dense with possibilities that no one, so far, had actually done anything with.", "ks": ["fertile"], "fb": {"generative": "That word describes power caught in the act — new things actually appearing. Here 'no one, so far, had actually done anything with' the possibilities.", "creative": "That praise goes to a person's imagination. This sentence praises the notebook as promising ground — no maker is being credited with anything.", "productive": "There is no output to measure: the notebook is 'half-finished' and its possibilities untouched, which is the opposite of turning things out."}}, {"s": "The assembly line stayed impressively ____, turning out thousands of identical chairs a week without a single new design among them.", "ks": ["productive"], "fb": {"generative": "That stronger word requires genuinely new things. This line turns out 'thousands of identical chairs' — 'without a single new design among them.'", "creative": "Imagination is exactly what is missing — the chairs are 'identical,' with not 'a single new design among them.'", "fertile": "Latent promise is not the picture: the line is already running at full tilt, and what it makes is 'identical,' not newly grown."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a source that keeps producing new things even after its maker steps back — the reader should see the stream continuing on its own. Try working in a word like <i>keeps<\/i>, <i>spawned<\/i>, <i>long after<\/i> or <i>another<\/i>."}};
+  var CFG = {"word": "generative", "gradeUrl": "/api/grade", "taskId": "generative", "minWords": 12, "items": {"s1": {"q": "Four study habits are compared at a club meeting. Which practice is generative?", "opts": {"A": "Photocopying the exact same worksheet every single week of the term.", "B": "Memorizing the same fixed list of terms handed out on day one.", "C": "Repeating last year's meeting schedule completely unchanged.", "D": "A weekly 'what if' session that has already produced three new club programs."}, "key": "D", "fb": {"correct": "Right — a weekly session that has already produced three brand-new programs keeps bringing new things into being, which is what generative means.", "A": "Photocopying 'the exact same worksheet' every week only recycles what exists; nothing fresh ever comes out of it. Generative practices create — look for the habit with original results to show for itself.", "B": "Memorizing 'the same fixed list' from day one keeps knowledge frozen exactly as it was handed out. Generative work adds to the world; find the routine that keeps creating things that did not exist before.", "C": "'Completely unchanged' is the tell — rerunning an old schedule guarantees nothing original appears. Generative describes whatever brings fresh things into being; look for evidence of genuine invention."}}, "s3a": {"q": "As it is used in the passage, \"generative\" most nearly means", "opts": {"A": "producing a steady flow of genuinely new things beyond its makers' plans", "B": "capable of generating electrical power for the building", "C": "profitable enough to fund the department's programs", "D": "so popular that students constantly used it"}, "key": "A", "fb": {"correct": "Right — the machine 'kept making' makers: new instruments, a workshop, a listening night, a festival, none of it planned.", "B": "The passage never mentions power or electricity doing anything — what the synthesizer set off was new activities and new builders, not current.", "C": "No money changes hands anywhere in the passage; the growth it describes is workshops and festivals, not funding.", "D": "Students did crowd around it, but the paragraph's point is what grew out of the machine — instruments, a workshop, a festival — not how often it was used."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fertile", "B": "generative", "C": "productive", "D": "creative"}, "key": "B", "fb": {"correct": "Right. The cards did not simply turn out more cloth — they kept originating new machines, <em>devices their inventor never imagined<\/em>, <em>arriving one after another for more than a century<\/em>. That ongoing power to produce the genuinely new is exactly what the word names.", "D": "Creative puts the credit on a person's imagination. This passage runs the praise the other way: these were <em>devices their inventor never imagined<\/em> — the novelty outran the very man who designed the cards.", "A": "Fertile praises promise that has not yet produced — rich soil, a mind full of possibility. These cards were long past promise: new machines kept <em>arriving one after another for more than a century<\/em>.", "C": "Productive would praise sheer output — thousands of anything. What the passage stresses is newness, not volume: <em>each unlike anything built before it<\/em>."}}}, "pairwise": {"rows": [{"sentence": "One classroom rule proved quietly ____: it kept spawning new games, new jokes, and new projects long after the teacher who wrote it had moved on.", "options": ["generative", "creative"], "key": "generative", "pair": "creative", "why_right": "The tell is <em>long after the teacher who wrote it had moved on<\/em> - the maker is gone, so the praise belongs to the rule itself, not a person's imagination.", "why_wrong": "That praise credits a person's imagination. The teacher 'had moved on' long ago — whatever is doing this, it is the rule itself, not its author."}, {"sentence": "The award praised the set designer as endlessly ____, crediting her own imagination for the paper-lantern skyline that filled the stage.", "options": ["generative", "creative"], "key": "creative", "pair": "creative", "why_right": "The tell is <em>crediting her own imagination<\/em> - the award praises a person's imagination for bringing something new into existence, which is exactly the claim creative makes.", "why_wrong": "The praise lands on a person — 'crediting her own imagination' — not on an idea or place that keeps making new things on its own."}, {"sentence": "The judges kept one ____ entry on display: a bridge imagined by a single student, its whole novelty owed to her mind and to no method at all.", "options": ["generative", "creative"], "key": "creative", "pair": "creative", "why_right": "The tell is <em>owed to her mind and to no method at all<\/em> - the novelty is credited to one person's imagination; nothing here is a source producing beyond its maker.", "why_wrong": "That reading praises a source that keeps making new things on its own. This sentence says the opposite — the novelty is 'owed to her mind and to no method at all.'"}, {"sentence": "The open-data archive turned out to be ____: within a year, strangers had built forecasting tools and mapping apps that its designers never planned or foresaw.", "options": ["generative", "fertile"], "key": "generative", "pair": "fertile", "why_right": "The tell is <em>within a year, strangers had built<\/em> - this power is caught in the act, new things actually appearing one after another, not latent promise still waiting to grow.", "why_wrong": "Rich-in-possibility is a promise about what could grow. This archive is past promise — 'within a year' the tools were actually built, one after another."}, {"sentence": "Reviewers called the half-finished notebook ____ ground — dense with possibilities that no one, so far, had actually done anything with.", "options": ["generative", "fertile"], "key": "fertile", "pair": "fertile", "why_right": "The tell is <em>no one, so far, had actually done anything with<\/em> - the notebook is rich in latent possibility only, promise waiting to grow, not power caught in the act.", "why_wrong": "That word describes power caught in the act — new things actually appearing. Here 'no one, so far, had actually done anything with' the possibilities."}, {"sentence": "The assembly line stayed impressively ____, turning out thousands of identical chairs a week without a single new design among them.", "options": ["generative", "productive"], "key": "productive", "pair": "productive", "why_right": "The tell is <em>without a single new design among them<\/em> - plenty of output with nothing genuinely new in it is exactly what the weaker word productive claims.", "why_wrong": "That stronger word requires genuinely new things. This line turns out 'thousands of identical chairs' — 'without a single new design among them.'"}, {"sentence": "The label presses barely four records a year, yet it has proved ____, each release founding a sound that other studios then spend a decade exploring.", "options": ["generative", "productive"], "key": "generative", "pair": "productive", "why_right": "The tell is <em>each release founding a sound<\/em> - originating genuinely new things is the claim, and it holds even though the output itself stays tiny at four records a year.", "why_wrong": "That word praises how much a process turns out, and the sentence denies exactly that - 'barely four records a year.' The praise left is newness: each release founds a sound."}, {"sentence": "The seminar publishes almost nothing, yet colleagues call it ____: nearly every field the department now studies began as a question raised at its table.", "options": ["generative", "productive"], "key": "generative", "pair": "productive", "why_right": "The tell is <em>began as a question raised at its table<\/em> - whole fields originate there, genuinely new things, while the output itself is next to nothing.", "why_wrong": "That word measures how much gets turned out, and this seminar 'publishes almost nothing.' Its praise is for what begins there: whole new fields, one raised question at a time."}], "display_order": [2, 5, 1, 6, 3, 0, 4, 7], "dimension_order": ["creative", "fertile", "productive"], "dimension_feedback": {"creative": "Creative means bringing new things into existence, and it usually credits a person's imagination — a creative director, a creative solution. Generative shifts the praise to the source itself: a generative idea, place, or practice keeps producing new things beyond its maker's plans.", "fertile": "Fertile means rich in the power to produce new growth, a soil metaphor: a fertile mind or field is full of latent possibility. Generative is that power caught in the act — actually originating new things, one after another, rather than merely being capable of them.", "productive": "Productive is weaker than generative: a productive process turns out plenty of output, while a generative one originates genuinely new things."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a source that keeps producing new things even after its maker steps back — the reader should see the stream continuing on its own. Try working in a word like <i>keeps<\/i>, <i>spawned<\/i>, <i>long after<\/i> or <i>another<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="56a922478238">
+<meta name="build" content="311773007548">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>upbraid &#8212; SAT Vocabulary, Course 3 Unit 22</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "upbraid", "gradeUrl": "/api/grade", "taskId": "upbraid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses upbraid correctly?", "opts": {"A": "The captain upbraided the deckhands with a single typed line pinned to the galley corkboard overnight.", "B": "The harbormaster upbraided the ferry crew for leaving the dock before the all-clear.", "C": "She upbraided the puppy with one soft 'no' and went straight back to her book by the fire.", "D": "The league upbraided the club by silently docking it three points and granting no meeting at all."}, "key": "B", "fb": {"correct": "Correct! A severe, pointed scolding aimed at a fault the scolder can name — that is upbraiding.", "A": "One typed line on a corkboard is a notice. Upbraiding is a severe scolding delivered directly.", "C": "A soft 'no' and back to the fire is gentle correction. Upbraiding scolds sharply and at length.", "D": "Docking points in silence is a penalty. Upbraiding means saying the reproach out loud to somebody."}}, "s3a": {"q": "As used in this passage, what does it mean that the registrar began to upbraid the crew?", "opts": {"A": "to file a formal complaint with their employer", "B": "to deliver a long, detailed telling-off in person, fault by fault", "C": "to fire off one sharp word and move on", "D": "to calmly walk them through the museum's checklist so future shipments would go right"}, "key": "B", "fb": {"correct": "Right -- 'item by item,' forty minutes long, and 'delivered to your face': a sustained, personal inventory of faults.", "A": "The passage rules this out twice: 'Nothing she said went into a file, and she never raised the matter with their employer.'", "C": "The movers 'expected a single sharp word' -- and got forty minutes instead. One sting is exactly what this was not.", "D": "She works through the skipped checklist, but as an angry reckoning, not instruction -- the dock veterans call it a telling-off, not a training."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rebuke", "B": "scold", "C": "upbraid", "D": "reprimand"}, "key": "C", "fb": {"correct": "Right. This is a severe, itemized telling-off delivered face to face — <em>itemizing the unbalanced till, the misfiled slips, the transposed figures<\/em> — with nothing official behind it. That is exactly what it means to upbraid someone.", "D": "A reprimand is official — written, on the record, its weight borrowed from the office behind it. Ferro is set against exactly that kind of manager: <em>Nothing went to head office afterward<\/em>, so nothing here carries official weight.", "A": "A rebuke is one sharp sentence that marks the fault and stops. The passage rules that out: <em>a single stern word would have been a mercy<\/em> — what Ferro delivers instead is a long, itemized list.", "B": "A scolding is quick and hot, over in a moment. Ferro's method is slow, thorough, and severe — <em>until the list itself became the punishment<\/em> — more than scold, the mildest of these words, can carry."}}}, "grid": {"words": ["upbraid", "reprimand", "rebuke", "scold"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Rather than let it go, the roommate began to ____ her over the shared car's dented fender, itemizing aloud every scrape and parking ticket back to September before finally running out of breath.", "ks": ["upbraid"], "fb": {"reprimand": "That word is an official censure whose weight comes from an office, often landing on the record. A roommate holds no office, and none of this goes in any file.", "rebuke": "That word stings once -- one stern sentence that marks the fault and stops. <em>Itemizing aloud every scrape and parking ticket back to September<\/em> is a sustained inventory, not a single sting.", "scold": "That word is the quick, hot, everyday flare-up, over by dinner. This telling-off runs through months of faults and only ends when the speaker is <em>finally running out of breath<\/em>."}}, {"s": "Witnesses said the playwright kept the lead actor behind after notes and continued to ____ him, cataloguing every dropped line and mangled cue until the ushers had gone home.", "ks": ["upbraid"], "fb": {"reprimand": "That word borrows its force from an office and often lands on the record. A playwright holds no office over the cast, and nothing here is filed anywhere.", "rebuke": "One stern sentence would have marked the fault and stopped. <em>Cataloguing every dropped line and mangled cue<\/em> keeps going -- the opposite of stinging once.", "scold": "The everyday word is quick and hot and soon over. This went on <em>until the ushers had gone home<\/em> -- a sustained, point-by-point performance."}}, {"s": "After the third medication error, the hospital's review board voted to formally ____ the nurse, a decision recorded in her personnel file in two terse sentences.", "ks": ["reprimand"], "fb": {"upbraid": "That word is personal and wordy -- a face-to-face inventory of faults delivered aloud. <em>Two terse sentences<\/em> in a personnel file are the opposite of wordy.", "rebuke": "That word is a sharp sting in the moment, usually one stern spoken sentence. This is an official act -- <em>voted<\/em>, then <em>recorded in her personnel file<\/em> -- whose force is the office behind it.", "scold": "That is the mild, everyday flare of temper, over by dinner. A <em>review board<\/em> filing paper is as far from a kitchen flash as it gets."}}, {"s": "The academy's handbook lets the dean ____ a cadet in writing for a first offense, the letter carrying the full weight of her office even when no word is spoken aloud.", "ks": ["reprimand"], "fb": {"upbraid": "That word lists every fault aloud, face to face. This letter works <em>even when no word is spoken aloud<\/em> -- the exact opposite.", "rebuke": "That word's sting lives in a stern sentence itself; here the force comes from <em>the full weight of her office<\/em>, and it arrives in writing.", "scold": "Nothing here is quick or hot: a handbook, a letter, an office. The everyday word belongs to slammed doors and spilled juice, not official stationery."}}, {"s": "When the trainee interrupted the client, the account director needed only to ____ him -- one icy sentence, 'We do not talk over guests,' -- and the meeting moved on.", "ks": ["rebuke"], "fb": {"upbraid": "That word keeps going -- an itemized, point-by-point lecture. Here the correction is <em>one icy sentence<\/em> and <em>the meeting moved on<\/em>.", "reprimand": "That word is official and tends to leave a record. Nothing is filed here; the sting lives entirely in the sentence itself.", "scold": "The everyday word runs hot. <em>One icy sentence<\/em> is cold, controlled, and instantly over -- a different temperature altogether."}}, {"s": "Grandmother would ____ us for tracking mud across her clean kitchen floor -- a quick flash of hot words, over in a moment and forgotten entirely by bedtime.", "ks": ["scold"], "fb": {"upbraid": "That word walks through the offense point by point and takes its time. A <em>quick flash of hot words ... forgotten entirely by bedtime<\/em> is neither itemized nor lasting.", "reprimand": "That word carries an office's weight and often goes on a record. A grandmother's kitchen has neither files nor formality.", "rebuke": "That word is a single stern sentence, cold and sharp. A <em>flash of hot words<\/em> is heat, not sternness -- homely rather than icy."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a scolding that keeps going -- personal, face to face, and fault by fault, not one sharp word. Give it length and detail: try working in a word like <i>every<\/i>, <i>listed<\/i>, <i>minutes<\/i> or <i>lecture<\/i>."}};
+  var CFG = {"word": "upbraid", "gradeUrl": "/api/grade", "taskId": "upbraid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses upbraid correctly?", "opts": {"A": "The captain upbraided the deckhands with a single typed line pinned to the galley corkboard overnight.", "B": "The harbormaster upbraided the ferry crew for leaving the dock before the all-clear.", "C": "She upbraided the puppy with one soft 'no' and went straight back to her book by the fire.", "D": "The league upbraided the club by silently docking it three points and granting no meeting at all."}, "key": "B", "fb": {"correct": "Correct! A severe, pointed scolding aimed at a fault the scolder can name — that is upbraiding.", "A": "One typed line on a corkboard is a notice. Upbraiding is a severe scolding delivered directly.", "C": "A soft 'no' and back to the fire is gentle correction. Upbraiding scolds sharply and at length.", "D": "Docking points in silence is a penalty. Upbraiding means saying the reproach out loud to somebody."}}, "s3a": {"q": "As used in this passage, what does it mean that the registrar began to upbraid the crew?", "opts": {"A": "to file a formal complaint with their employer", "B": "to deliver a long, detailed telling-off in person, fault by fault", "C": "to fire off one sharp word and move on", "D": "to calmly walk them through the museum's checklist so future shipments would go right"}, "key": "B", "fb": {"correct": "Right -- 'item by item,' forty minutes long, and 'delivered to your face': a sustained, personal inventory of faults.", "A": "The passage rules this out twice: 'Nothing she said went into a file, and she never raised the matter with their employer.'", "C": "The movers 'expected a single sharp word' -- and got forty minutes instead. One sting is exactly what this was not.", "D": "She works through the skipped checklist, but as an angry reckoning, not instruction -- the dock veterans call it a telling-off, not a training."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rebuke", "B": "scold", "C": "upbraid", "D": "reprimand"}, "key": "C", "fb": {"correct": "Right. This is a severe, itemized telling-off delivered face to face — <em>itemizing the unbalanced till, the misfiled slips, the transposed figures<\/em> — with nothing official behind it. That is exactly what it means to upbraid someone.", "D": "A reprimand is official — written, on the record, its weight borrowed from the office behind it. Ferro is set against exactly that kind of manager: <em>Nothing went to head office afterward<\/em>, so nothing here carries official weight.", "A": "A rebuke is one sharp sentence that marks the fault and stops. The passage rules that out: <em>a single stern word would have been a mercy<\/em> — what Ferro delivers instead is a long, itemized list.", "B": "A scolding is quick and hot, over in a moment. Ferro's method is slow, thorough, and severe — <em>until the list itself became the punishment<\/em> — more than scold, the mildest of these words, can carry."}}}, "pairwise": {"rows": [{"sentence": "Rather than let it go, the roommate began to ____ her over the shared car's dented fender, itemizing aloud every scrape and parking ticket back to September before finally running out of breath.", "options": ["upbraid", "reprimand"], "key": "upbraid", "pair": "reprimand", "why_right": "The tell is <em>the roommate<\/em> - no office stands behind this telling-off and nothing goes on any record; it is personal, wordy, and itemized aloud, which the card gives to upbraid.", "why_wrong": "That word is an official censure whose weight comes from an office, often landing on the record. A roommate holds no office, and none of this goes in any file."}, {"sentence": "After the third medication error, the hospital's review board voted to formally ____ the nurse, a decision recorded in her personnel file in two terse sentences.", "options": ["upbraid", "reprimand"], "key": "reprimand", "pair": "reprimand", "why_right": "The tell is <em>two terse sentences<\/em> - the scolding is voted, filed and brief, its weight the office behind it; upbraiding is personal and wordy, every fault listed aloud face to face.", "why_wrong": "That word is personal and wordy -- a face-to-face inventory of faults delivered aloud. <em>Two terse sentences<\/em> in a personnel file are the opposite of wordy."}, {"sentence": "The academy's handbook lets the dean ____ a cadet in writing for a first offense, the letter carrying the full weight of her office even when no word is spoken aloud.", "options": ["upbraid", "reprimand"], "key": "reprimand", "pair": "reprimand", "why_right": "The tell is <em>even when no word is spoken aloud<\/em> - the letter carries the full weight of an office in writing; upbraiding lists every fault aloud, face to face.", "why_wrong": "That word lists every fault aloud, face to face. This letter works <em>even when no word is spoken aloud<\/em> -- the exact opposite."}, {"sentence": "Over the back fence the neighbor stopped to ____ him about the borrowed ladder -- every bent rung, every unreturned weekend since the spring, all of it aloud while his grill burned.", "options": ["upbraid", "reprimand"], "key": "upbraid", "pair": "reprimand", "why_right": "The tell is <em>Over the back fence<\/em> - a neighbor holds no office and nothing here goes on any record; the card's reprimand borrows its weight from the office behind it.", "why_wrong": "That word is an official scolding, its weight borrowed from the office behind it and often on the record. A neighbor holds no office, and nothing here is filed."}, {"sentence": "Witnesses said the playwright kept the lead actor behind after notes and continued to ____ him, cataloguing every dropped line and mangled cue until the ushers had gone home.", "options": ["upbraid", "rebuke"], "key": "upbraid", "pair": "rebuke", "why_right": "The tell is <em>cataloguing every dropped line and mangled cue<\/em> - the scolding keeps going, point by point, until the ushers have gone; the card's rebuke is one stern sentence that stops.", "why_wrong": "One stern sentence would have marked the fault and stopped. <em>Cataloguing every dropped line and mangled cue<\/em> keeps going -- the opposite of stinging once."}, {"sentence": "When the trainee interrupted the client, the account director needed only to ____ him -- one icy sentence, 'We do not talk over guests,' -- and the meeting moved on.", "options": ["upbraid", "rebuke"], "key": "rebuke", "pair": "rebuke", "why_right": "The tell is <em>one icy sentence<\/em> - the fault is marked and the meeting moves on, the card's rebuke that stings once; upbraiding would keep going, itemizing the offense point by point.", "why_wrong": "That word keeps going -- an itemized, point-by-point lecture. Here the correction is <em>one icy sentence<\/em> and <em>the meeting moved on<\/em>."}, {"sentence": "The pharmacist followed the deliveryman out to the van to ____ him, going through the crushed box, the missing signature, and the warm insulin in turn while the line inside grew.", "options": ["upbraid", "rebuke"], "key": "upbraid", "pair": "rebuke", "why_right": "The tell is <em>the crushed box, the missing signature, and the warm insulin<\/em> - the scolding walks through the offense point by point; the card's rebuke stings once and stops.", "why_wrong": "That word is one stern sentence that marks the fault and stops. Working through the crushed box, the missing signature, and the warm insulin is a lecture, not a single sting."}, {"sentence": "The lunch lady would ____ the boys for cutting the line -- a hot burst over the steam trays, finished before the next tray came out, and back to humming with the radio.", "options": ["upbraid", "scold"], "key": "scold", "pair": "scold", "why_right": "The tell is <em>finished before the next tray came out<\/em> - a quick, hot burst over almost at once, the card's milder rung; an upbraiding is a sustained, itemized lecture.", "why_wrong": "That word is a severe, itemized telling-off that walks through the offense point by point. A hot burst over the steam trays, finished before the next tray, is quicker and milder."}], "display_order": [1, 4, 0, 5, 2, 7, 6, 3], "dimension_order": ["reprimand", "rebuke", "scold"], "dimension_feedback": {"reprimand": "A reprimand is an official scolding — often written, often on the record, its weight borrowed from the office behind it. To upbraid is personal and wordy: a severe, itemized telling-off delivered face to face. A reprimand can be one cold paragraph in a file; an upbraiding lists every fault aloud.", "rebuke": "A rebuke is a sharp expression of disapproval — usually one stern sentence that marks the fault and stops. To upbraid is to keep going: a sustained, detailed scolding that walks through the offense point by point. A rebuke stings once; an upbraiding is a lecture.", "scold": "Scold is milder than upbraid — quicker, hotter, and over by dinner."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a scolding that keeps going -- personal, face to face, and fault by fault, not one sharp word. Give it length and detail: try working in a word like <i>every<\/i>, <i>listed<\/i>, <i>minutes<\/i> or <i>lecture<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

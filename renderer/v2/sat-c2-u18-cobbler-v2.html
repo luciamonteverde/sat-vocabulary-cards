@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="e852f3106316">
+<meta name="build" content="bb926f7e3f3e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cobbler &#8212; SAT Vocabulary, Course 2 Unit 18</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "cobbler", "gradeUrl": "/api/grade", "taskId": "cobbler", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cobbler correctly?", "opts": {"A": "The village cobbler rewired the whole fuse box on a Saturday and had the lights back on by supper.", "B": "We ordered a tall frosted cobbler of fresh lemonade and three striped straws for the porch table.", "C": "Her prize cobbler of scarlet geraniums has won the balcony contest two summers in a row now.", "D": "The groom took his father's cracked oxfords to a cobbler, who rebuilt them around the original stitching."}, "key": "D", "fb": {"correct": "Correct. Rebuilding cracked oxfords around their stitching is shoe repair — the cobbler's trade exactly.", "A": "Rewiring 'the whole fuse box' is an electrician's job — the sentence borrows the title for the wrong trade. A cobbler's bench holds leather, soles, and heels; look for work on actual footwear.", "B": "There is a chilled drink called a cobbler, but this card's word is the tradesman — and 'three striped straws' confirm a beverage, not a workshop. The cobbler being taught mends footwear for a living.", "C": "Flowers winning 'the balcony contest' sit in a planter or basket — no sense of cobbler names a flower arrangement. Keep the word for the shoe trade: a person who makes and mends footwear."}}, "s3a": {"q": "Based on the passage, a \"cobbler\" is best described as...", "opts": {"A": "a repairer of worn footwear", "B": "a designer of athletic sneakers", "C": "a collector of well-loved and worn-out boots", "D": "a factory machine operator on a stitching line"}, "key": "A", "fb": {"correct": "Yes -- his work began where a factory's ended, and nothing new was ever made there.", "B": "That is Amara's ambition, and the passage sets it against her grandfather's trade.", "C": "The worn boots cross his counter to be fixed, not kept.", "D": "Machines had given up on those seams -- his bench picks up where they stop."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cobbler", "B": "mender", "C": "shoemaker", "D": "patcher"}, "key": "A", "fb": {"correct": "Right. Cobbler is the one word that covers all three facts: footwear only, repair rather than making, and craft deep enough to hold for a season.", "C": "A shoemaker builds new shoes from the first cut of leather — and this passage rules that out in its second sentence: <em>Nothing new left his hands<\/em>. Every boot he worked on already existed.", "B": "A mender puts anything back into working order, but this man's door was narrower than that: his <em>contract covered footwear alone<\/em>, and he sent <em>torn tents and harness straps toward the blacksmith's shed<\/em>. The blank needs the word for that one trade.", "D": "A patcher offers the quick fix and hands the shoe straight back; these repairs are the opposite — <em>heels stripped to the wood and built back, seams sewn twice<\/em> — work made to last a season, not to get someone out the door."}}}, "grid": {"words": ["cobbler", "shoemaker", "mender", "patcher"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Half the town brings its worn boots to the ____ on Canal Street, whose bench sends split soles and run-down heels home with another year of walking in them.", "ks": ["cobbler"], "fb": {"shoemaker": "That trade cuts new leather and builds from scratch. This bench takes in <em>worn boots<\/em> and restores them -- the other half of the trade.", "mender": "True as far as it goes -- but that word fixes anything: nets, kettles, hems. A bench that takes only footwear has a narrower name.", "patcher": "Glue slapped where a sole comes loose wouldn't buy <em>another year of walking<\/em>. This is the deeper repair."}}, {"s": "For forty years the ____ near the courthouse has rebuilt run-down heels and re-stitched loose soles, and his repairs outlast the factory's own stitching.", "ks": ["cobbler"], "fb": {"shoemaker": "Building a pair from the first cut is that trade. Forty years of <em>rebuilt heels<\/em> is the restoring trade.", "mender": "That word takes whatever comes -- kettles, nets, coats. This bench takes one trade's work: footwear.", "patcher": "Quick glue doesn't <em>outlast the factory's own stitching<\/em>. This is craft that runs deeper than the fix."}}, {"s": "Working from a wooden last carved to the customer's foot, the ____ cuts the first piece of leather herself and builds each pair from nothing.", "ks": ["shoemaker"], "fb": {"cobbler": "That trade restores what someone else built -- the worn heel brought back to life. Here the pair is built <em>from nothing<\/em>, first cut onward.", "mender": "A fixer needs something broken. Nothing arrives at this bench but raw leather and a carved last.", "patcher": "There is no loose sole to glue -- there is no old thing here at all."}}, {"s": "Rather than repair the cracked riding boots, the stable sent an order to the ____ for a brand-new pair, built to the rider's measurements from fresh hide.", "ks": ["shoemaker"], "fb": {"cobbler": "The sentence turns that down in its first clause: <em>rather than repair<\/em>. A new pair from fresh hide is the making trade.", "mender": "Fixing of every kind was declined. What's ordered is construction, not repair.", "patcher": "Nobody wants the crack glued -- the boots are being replaced from fresh hide."}}, {"s": "Every village once had its ____, who put whatever came through the door back into working order for good -- kettles one morning, fishing nets the next, a split axe handle by dusk.", "ks": ["mender"], "fb": {"cobbler": "Kettles and fishing nets would be turned away at that counter -- that trade takes footwear and only footwear.", "shoemaker": "Nothing here is built new, and none of it is a boot. The village needed its broken things brought back, whatever they were.", "patcher": "A quick slap-on fix fails by winter. <em>Back into working order for good<\/em> is the standard here."}}, {"s": "Ten minutes and a tube of glue: the market-stall ____ sticks a peeling heel-cap back down while you stand there, and takes no orders for anything deeper.", "ks": ["patcher"], "fb": {"cobbler": "That bench rebuilds heels to outlast the glue -- and this stall <em>takes no orders for anything deeper<\/em>.", "shoemaker": "From first cut to finished pair is a different counter altogether; nothing is built here.", "mender": "That word covers whoever fixes kettles, nets, and hems. This stall offers one ten-minute trick with a glue tube."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show footwear being repaired -- not made new, and not just anything fixed. Try working in a word like <i>soles<\/i>, <i>heels<\/i>, <i>worn<\/i> or <i>resoled<\/i>."}};
+  var CFG = {"word": "cobbler", "gradeUrl": "/api/grade", "taskId": "cobbler", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cobbler correctly?", "opts": {"A": "The village cobbler rewired the whole fuse box on a Saturday and had the lights back on by supper.", "B": "We ordered a tall frosted cobbler of fresh lemonade and three striped straws for the porch table.", "C": "Her prize cobbler of scarlet geraniums has won the balcony contest two summers in a row now.", "D": "The groom took his father's cracked oxfords to a cobbler, who rebuilt them around the original stitching."}, "key": "D", "fb": {"correct": "Correct. Rebuilding cracked oxfords around their stitching is shoe repair — the cobbler's trade exactly.", "A": "Rewiring 'the whole fuse box' is an electrician's job — the sentence borrows the title for the wrong trade. A cobbler's bench holds leather, soles, and heels; look for work on actual footwear.", "B": "There is a chilled drink called a cobbler, but this card's word is the tradesman — and 'three striped straws' confirm a beverage, not a workshop. The cobbler being taught mends footwear for a living.", "C": "Flowers winning 'the balcony contest' sit in a planter or basket — no sense of cobbler names a flower arrangement. Keep the word for the shoe trade: a person who makes and mends footwear."}}, "s3a": {"q": "Based on the passage, a \"cobbler\" is best described as...", "opts": {"A": "a repairer of worn footwear", "B": "a designer of athletic sneakers", "C": "a collector of well-loved and worn-out boots", "D": "a factory machine operator on a stitching line"}, "key": "A", "fb": {"correct": "Yes -- his work began where a factory's ended, and nothing new was ever made there.", "B": "That is Amara's ambition, and the passage sets it against her grandfather's trade.", "C": "The worn boots cross his counter to be fixed, not kept.", "D": "Machines had given up on those seams -- his bench picks up where they stop."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cobbler", "B": "mender", "C": "shoemaker", "D": "patcher"}, "key": "A", "fb": {"correct": "Right. Cobbler is the one word that covers all three facts: footwear only, repair rather than making, and craft deep enough to hold for a season.", "C": "A shoemaker builds new shoes from the first cut of leather — and this passage rules that out in its second sentence: <em>Nothing new left his hands<\/em>. Every boot he worked on already existed.", "B": "A mender puts anything back into working order, but this man's door was narrower than that: his <em>contract covered footwear alone<\/em>, and he sent <em>torn tents and harness straps toward the blacksmith's shed<\/em>. The blank needs the word for that one trade.", "D": "A patcher offers the quick fix and hands the shoe straight back; these repairs are the opposite — <em>heels stripped to the wood and built back, seams sewn twice<\/em> — work made to last a season, not to get someone out the door."}}}, "pairwise": {"rows": [{"sentence": "Half the town brings its worn boots to the ____ on Canal Street, whose bench sends split soles and run-down heels home with another year of walking in them.", "options": ["cobbler", "shoemaker"], "key": "cobbler", "pair": "shoemaker", "why_right": "The tell is <em>split soles and run-down heels<\/em> - worn footwear restored, not built; the making trade starts from the first cut of leather, and nothing here begins that way.", "why_wrong": "That trade cuts new leather and builds from scratch. This bench takes in <em>worn boots<\/em> and restores them -- the other half of the trade."}, {"sentence": "Working from a wooden last carved to the customer's foot, the ____ cuts the first piece of leather herself and builds each pair from nothing.", "options": ["cobbler", "shoemaker"], "key": "shoemaker", "pair": "shoemaker", "why_right": "The tell is <em>cuts the first piece of leather herself<\/em> - this is the making half of the trade, new shoes built from the first cut, with nothing worn arriving to restore.", "why_wrong": "That trade restores what someone else built -- the worn heel brought back to life. Here the pair is built <em>from nothing<\/em>, first cut onward."}, {"sentence": "Rather than repair the cracked riding boots, the stable sent an order to the ____ for a brand-new pair, built to the rider's measurements from fresh hide.", "options": ["cobbler", "shoemaker"], "key": "shoemaker", "pair": "shoemaker", "why_right": "The tell is <em>rather than repair<\/em> - the mending half of the trade is declined in the first clause; a brand-new pair from fresh hide is the making trade's work.", "why_wrong": "The sentence turns that down in its first clause: <em>rather than repair<\/em>. A new pair from fresh hide is the making trade."}, {"sentence": "The ____ waved the cracked leather satchel toward the luggage shop next door, then took in the customer's scuffed brogues and promised them new heels by Thursday.", "options": ["cobbler", "mender"], "key": "cobbler", "pair": "mender", "why_right": "The tell is <em>waved the cracked leather satchel toward the luggage shop<\/em> - a counter that turns repairs away by trade is not the anything-fixer; only shoe work crosses it.", "why_wrong": "That word means anyone who repairs anything -- yet the satchel is sent to another shop. A counter that keeps only shoe work carries the single trade's narrower name."}, {"sentence": "The lighthouse keeper doubled as the island's ____, bringing a jammed clock, a cracked lantern, and the schoolhouse door latch all back into service within the week.", "options": ["cobbler", "mender"], "key": "mender", "pair": "mender", "why_right": "The tell is <em>a jammed clock, a cracked lantern<\/em> - nothing here is footwear, and the word for whoever repairs anything at all is the broad one; the shoe trade never enters it.", "why_wrong": "That trade takes shoes and only shoes -- bring it a clock or a lantern and you are at the wrong counter. This docket has no footwear on it anywhere."}, {"sentence": "For forty years the ____ near the courthouse has rebuilt run-down heels and re-stitched loose soles, and his repairs outlast the factory's own stitching.", "options": ["cobbler", "patcher"], "key": "cobbler", "pair": "patcher", "why_right": "The tell is <em>outlast the factory's own stitching<\/em> - repair made to last is the deeper craft; the quick while-you-wait glue fix is the milder trade and stops at the surface.", "why_wrong": "Quick glue doesn't <em>outlast the factory's own stitching<\/em>. This is craft that runs deeper than the fix."}, {"sentence": "At the station kiosk the ____ presses a stick-on sole over each worn tread in under five minutes, and points anyone asking about re-stitching to the shop across town.", "options": ["cobbler", "patcher"], "key": "patcher", "pair": "patcher", "why_right": "The tell is <em>points anyone asking about re-stitching to the shop across town<\/em> - the deeper craft is sent elsewhere; a five-minute surface fix is the milder rung of the card's scale.", "why_wrong": "That word owns the deeper craft -- repair made to outlast the glue -- and this kiosk sends exactly that work across town. Five-minute surface fixes are the milder trade."}, {"sentence": "Before the pilgrimage road reopened, walkers queued at the ____, whose rebuilt soles and hand-stitched welts were known to survive the whole five hundred miles.", "options": ["cobbler", "patcher"], "key": "cobbler", "pair": "patcher", "why_right": "The tell is <em>survive the whole five hundred miles<\/em> - repair built to outlast the road is the deeper craft; a quick surface fix would fail long before the first town.", "why_wrong": "That word means the quick surface fix -- glue on a flapping sole, handed back while you wait. Rebuilt soles and hand-stitched welts are the deeper craft, made to last the road."}], "display_order": [1, 6, 3, 0, 7, 2, 5, 4], "dimension_order": ["shoemaker", "mender", "patcher"], "dimension_feedback": {"shoemaker": "A shoemaker builds new shoes from the first cut of leather; tradition hands the cobbler the other half of the trade — mending what someone else built. The two crafts overlap at the bench, but the split survives: shoemaker for the making, cobbler for the worn heel brought back to life.", "mender": "A mender is anyone who repairs anything — nets, kettles, fences, hems. Cobbler narrows the field to a single trade: shoes, and only shoes, mended by hand. Every cobbler is a mender the moment a sole crosses the bench; bring a cobbler your torn coat and you are at the wrong counter.", "patcher": "A patcher is milder than a cobbler on this scale — glue slapped where the sole flaps, the shoe handed back while you wait; the cobbler owns the deeper craft, repairing the shoe to outlast the glue."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show footwear being repaired -- not made new, and not just anything fixed. Try working in a word like <i>soles<\/i>, <i>heels<\/i>, <i>worn<\/i> or <i>resoled<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

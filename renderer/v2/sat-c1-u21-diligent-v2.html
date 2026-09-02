@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="d861c00bcb04">
+<meta name="build" content="f826b2fe93df">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>diligent &#8212; SAT Vocabulary, Course 1 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "diligent", "gradeUrl": "/api/grade", "taskId": "diligent", "minWords": 12, "items": {"s1": {"q": "A history teacher assigns a semester-long research project. Which student is diligent?", "opts": {"A": "Wes works on his sources for thirty focused minutes every school day from September to January.", "B": "Xander sits at his desk an hour a day but only reformats his notes, never reading a source.", "C": "Yara devours half the reading in one eager six-hour sprint, then never opens her notes again until December.", "D": "Zoe recruits three classmates to split the sources and stitches their summaries together in December."}, "key": "A", "fb": {"correct": "Right — Wes puts in steady, focused effort every school day for months. That consistent, careful work over time is exactly what makes a student diligent.", "B": "An hour a day sounds steady, but Xander's hours never touch the actual work — reformatting notes and tidying files is motion without progress on the sources. Diligence is steady effort plus careful attention to the task itself, not busywork beside it.", "C": "One eager six-hour sprint shows real enthusiasm, but diligence is measured across time: steady, careful effort sustained from September to January. A single burst followed by months of silence is the opposite of steady, however energetic the burst felt.", "D": "Splitting the sources among classmates is resourceful teamwork, but the steady, careful effort was theirs, not Zoe's. Diligence describes a person's own sustained work on a task — stitching together other people's summaries in December shows none of it."}}, "s3a": {"q": "As it is used in the passage, \"diligent\" most nearly means:", "opts": {"A": "producing more work than anyone else", "B": "showing steady, careful attention in one's work", "C": "staying at a task for longer hours than others", "D": "doing only what a supervisor requires"}, "key": "B", "fb": {"correct": "Right — the passage ties the word to Priya's method: cleaning each negative, entering every date and donor, and re-checking each evening. It is the care in the work, not the amount of it.", "A": "That describes Jonah — his count was nearly double Priya's — and the passage sets him up as the contrast, not the example.", "C": "The passage never says Priya worked longer hours; it says she worked more carefully, checking and re-checking as she went.", "D": "Re-checking every upload and logging donors for every file goes beyond what anyone required; the word here points to extra care, not the minimum."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "dutiful", "B": "diligent", "C": "industrious", "D": "hardworking"}, "key": "B", "fb": {"correct": "Right. Her output is the lowest on the shift and her hours are ordinary — what sets her apart is the care: every panel smoothed, every line traced, a second inspection no regulation demands. Steady, attentive effort of that kind is exactly what diligent names.", "C": "Industrious points at output — always busy, always producing, impressing by how much gets done. The passage points the other way: <em>she packs fewer parachutes in a shift than any other rigger<\/em>. Volume is exactly what she does not offer.", "D": "Hardworking is about the sheer quantity of effort — long hours, real exertion. But <em>her shifts run no longer than anyone else's<\/em>; the hours are ordinary, and the school prizes something else about them.", "A": "A dutiful rigger would do what the rules require and stop there. Marisol does not stop there: <em>The regulations ask for one inspection; she gives each chute two<\/em>."}}}, "grid": {"words": ["diligent", "industrious", "hardworking", "dutiful"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The copy editor was ____ rather than fast: she finished the manuscript in a single unhurried afternoon, reading every line twice and flagging each inconsistency, however small.", "ks": ["diligent"], "fb": {"industrious": "She finished in <em>a single unhurried afternoon<\/em> — nothing here is about being always busy or producing volume. The sentence praises how carefully every line was handled.", "hardworking": "Long hours and heavy exertion are exactly what the sentence rules out: <em>a single unhurried afternoon<\/em>. What stands out is the double-checking, not the toil.", "dutiful": "Someone doing only what the job demands would not be <em>flagging each inconsistency, however small<\/em> — this work goes past bare obligation."}}, {"s": "Supervisors described Wei as ____: he logged fewer samples than anyone and never stayed late, yet he repeated each measurement to be certain and ran daily the calibration checks the manual asked for only weekly.", "ks": ["diligent"], "fb": {"industrious": "His output was the weak point — <em>fewer samples than anyone<\/em>. What the supervisors valued was the repeated, careful checking, not volume of production.", "hardworking": "He <em>never stayed late<\/em>, so sheer hours and exertion cannot be the trait being named. The praise is for how attentively each measurement was handled.", "dutiful": "The manual asked for weekly checks and he <em>ran daily<\/em> ones — that is effort beyond what was required, not the bare minimum."}}, {"s": "Neighbors called Mr. Okafor ____: by breakfast, unasked, he had mended the gate, potted seedlings, and begun a shelf, his breaks turning into little projects he never seemed to strain over — though the shelf, like much of what he made, wobbled.", "ks": ["industrious"], "fb": {"diligent": "Much of what he made <em>wobbled<\/em> — work done properly, with nothing skipped, is precisely what this sentence does not show.", "hardworking": "He <em>never seemed to strain<\/em> — the sentence shows easy, habitual producing rather than long hours of real exertion.", "dutiful": "Everything here was <em>unasked<\/em> — a person doing only what is required would not fill his breaks with extra projects."}}, {"s": "From her first week the apprentice baker was plainly ____ — trays of rolls, racks of loaves, one batch after another crowding the counter out of sheer habit, even if the icing was often smudged and she was gone by noon.", "ks": ["industrious"], "fb": {"diligent": "The <em>icing was often smudged<\/em> — this is output without careful finishing, the opposite of work checked and done properly.", "hardworking": "She was <em>gone by noon<\/em>, so long hours and heavy exertion are not what the sentence praises — it is the stream of finished batches.", "dutiful": "Baking <em>out of sheer habit<\/em>, batch after batch, goes well past anything the job asked of her."}}, {"s": "Renata was ____ by any measure — twelve-hour shifts, weekends included, real sweat behind every load of brick — though her wall rose no faster than anyone else's and the mortar joints, she admitted, were rough.", "ks": ["hardworking"], "fb": {"diligent": "By her own admission <em>the mortar joints were rough<\/em> — the effort was huge, but nothing here was done with special care.", "industrious": "Her <em>wall rose no faster than anyone else's<\/em> — the sentence does not praise output or busy production; it counts hours and sweat.", "dutiful": "<em>Weekends included<\/em> goes far past any requirement — this is not a person doing only what was demanded."}}, {"s": "As club treasurer, Howard was ____ at best: he filed exactly the reports the bylaws required and not one page more, and since the post rarely filled an afternoon, his records — complete but never rechecked — were done by two o'clock.", "ks": ["dutiful"], "fb": {"diligent": "Records <em>complete but never rechecked<\/em>, and <em>not one page more<\/em> than required — there is no careful extra effort here to name.", "industrious": "The post <em>rarely filled an afternoon<\/em> and he never added to it — nothing shows a habit of constant, productive busyness.", "hardworking": "Finished <em>by two o'clock<\/em>, with so light a post — hours and exertion are exactly what this sentence lacks."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show care inside the effort — something examined, repeated, or never skipped — not just lots of effort. Try working in a word like <i>twice<\/i>, <i>every<\/i>, <i>checked<\/i> or <i>nothing skipped<\/i>."}};
+  var CFG = {"word": "diligent", "gradeUrl": "/api/grade", "taskId": "diligent", "minWords": 12, "items": {"s1": {"q": "A history teacher assigns a semester-long research project. Which student is diligent?", "opts": {"A": "Wes works on his sources for thirty focused minutes every school day from September to January.", "B": "Xander sits at his desk an hour a day but only reformats his notes, never reading a source.", "C": "Yara devours half the reading in one eager six-hour sprint, then never opens her notes again until December.", "D": "Zoe recruits three classmates to split the sources and stitches their summaries together in December."}, "key": "A", "fb": {"correct": "Right — Wes puts in steady, focused effort every school day for months. That consistent, careful work over time is exactly what makes a student diligent.", "B": "An hour a day sounds steady, but Xander's hours never touch the actual work — reformatting notes and tidying files is motion without progress on the sources. Diligence is steady effort plus careful attention to the task itself, not busywork beside it.", "C": "One eager six-hour sprint shows real enthusiasm, but diligence is measured across time: steady, careful effort sustained from September to January. A single burst followed by months of silence is the opposite of steady, however energetic the burst felt.", "D": "Splitting the sources among classmates is resourceful teamwork, but the steady, careful effort was theirs, not Zoe's. Diligence describes a person's own sustained work on a task — stitching together other people's summaries in December shows none of it."}}, "s3a": {"q": "As it is used in the passage, \"diligent\" most nearly means:", "opts": {"A": "producing more work than anyone else", "B": "showing steady, careful attention in one's work", "C": "staying at a task for longer hours than others", "D": "doing only what a supervisor requires"}, "key": "B", "fb": {"correct": "Right — the passage ties the word to Priya's method: cleaning each negative, entering every date and donor, and re-checking each evening. It is the care in the work, not the amount of it.", "A": "That describes Jonah — his count was nearly double Priya's — and the passage sets him up as the contrast, not the example.", "C": "The passage never says Priya worked longer hours; it says she worked more carefully, checking and re-checking as she went.", "D": "Re-checking every upload and logging donors for every file goes beyond what anyone required; the word here points to extra care, not the minimum."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "dutiful", "B": "diligent", "C": "industrious", "D": "hardworking"}, "key": "B", "fb": {"correct": "Right. Her output is the lowest on the shift and her hours are ordinary — what sets her apart is the care: every panel smoothed, every line traced, a second inspection no regulation demands. Steady, attentive effort of that kind is exactly what diligent names.", "C": "Industrious points at output — always busy, always producing, impressing by how much gets done. The passage points the other way: <em>she packs fewer parachutes in a shift than any other rigger<\/em>. Volume is exactly what she does not offer.", "D": "Hardworking is about the sheer quantity of effort — long hours, real exertion. But <em>her shifts run no longer than anyone else's<\/em>; the hours are ordinary, and the school prizes something else about them.", "A": "A dutiful rigger would do what the rules require and stop there. Marisol does not stop there: <em>The regulations ask for one inspection; she gives each chute two<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The copy editor was ____ rather than fast: she finished the manuscript in a single unhurried afternoon, reading every line twice and flagging each inconsistency, however small.", "options": ["diligent", "hardworking"], "key": "diligent", "pair": "hardworking", "why_right": "The tell is <em>reading every line twice and flagging each inconsistency, however small<\/em> - care inside the effort, while the single unhurried afternoon shows hours and exertion were never the point.", "why_wrong": "Long hours and heavy exertion are exactly what the sentence rules out: <em>a single unhurried afternoon<\/em>. What stands out is the double-checking, not the toil."}, {"sentence": "Supervisors described Wei as ____: he logged fewer samples than anyone and never stayed late, yet he repeated each measurement to be certain and ran daily the calibration checks the manual asked for only weekly.", "options": ["diligent", "dutiful"], "key": "diligent", "pair": "dutiful", "why_right": "The tell is <em>ran daily the calibration checks the manual asked for only weekly<\/em> - careful effort far beyond what was required, where the minimum-only word stops at obligation.", "why_wrong": "The manual asked for weekly checks and he <em>ran daily<\/em> ones — that is effort beyond what was required, not the bare minimum."}, {"sentence": "Neighbors called Mr. Okafor ____: by breakfast, unasked, he had mended the gate, potted seedlings, and begun a shelf, his breaks turning into little projects he never seemed to strain over — though the shelf, like much of what he made, wobbled.", "options": ["diligent", "industrious"], "key": "industrious", "pair": "industrious", "why_right": "The tell is <em>his breaks turning into little projects<\/em> - habitual, constant producing, while the wobbling shelf shows the careful-effort word cannot survive work never done properly.", "why_wrong": "Much of what he made <em>wobbled<\/em> — work done properly, with nothing skipped, is precisely what this sentence does not show."}, {"sentence": "From her first week the apprentice baker was plainly ____ — trays of rolls, racks of loaves, one batch after another crowding the counter out of sheer habit, even if the icing was often smudged and she was gone by noon.", "options": ["diligent", "industrious"], "key": "industrious", "pair": "industrious", "why_right": "The tell is <em>one batch after another crowding the counter out of sheer habit<\/em> - constant output by habit, while the smudged icing rules out work done carefully with nothing skipped.", "why_wrong": "The <em>icing was often smudged<\/em> — this is output without careful finishing, the opposite of work checked and done properly."}, {"sentence": "Renata was ____ by any measure — twelve-hour shifts, weekends included, real sweat behind every load of brick — though her wall rose no faster than anyone else's and the mortar joints, she admitted, were rough.", "options": ["diligent", "hardworking"], "key": "hardworking", "pair": "hardworking", "why_right": "The tell is <em>twelve-hour shifts, weekends included, real sweat behind every load of brick<\/em> - sheer hours and exertion, while the rough mortar joints rule out any claim of careful work.", "why_wrong": "By her own admission <em>the mortar joints were rough<\/em> — the effort was huge, but nothing here was done with special care."}, {"sentence": "As club treasurer, Howard was ____ at best: he filed exactly the reports the bylaws required and not one page more, and since the post rarely filled an afternoon, his records — complete but never rechecked — were done by two o'clock.", "options": ["diligent", "dutiful"], "key": "dutiful", "pair": "dutiful", "why_right": "The tell is <em>exactly the reports the bylaws required and not one page more<\/em> - obligation met and stopped at, with records never rechecked; nothing shows careful effort beyond the minimum.", "why_wrong": "Records <em>complete but never rechecked<\/em>, and <em>not one page more<\/em> than required — there is no careful extra effort here to name."}, {"sentence": "Colleagues call the archive's new cataloguer ____: only one box a day crosses her desk, hardly a flood by anyone's standard, yet every folder leaves it labeled, dated, entered in the register, and cross-checked against the master index.", "options": ["diligent", "industrious"], "key": "diligent", "pair": "industrious", "why_right": "The tell is <em>only one box a day crosses her desk<\/em> - output is modest, so the praise is the careful checking; the busy-producing word impresses by volume, and volume is absent.", "why_wrong": "That word is always busy, always producing - it impresses by how much gets done. One box a day is the opposite of volume; the praise is the cross-checking of every folder."}, {"sentence": "Riders never see how ____ the night mechanic is: the depot requires one brake test per bus, and she runs three, then walks the length of each coach rechecking doors and logging every gauge long after the form is technically full.", "options": ["diligent", "dutiful"], "key": "diligent", "pair": "dutiful", "why_right": "The tell is <em>the depot requires one brake test per bus, and she runs three<\/em> - steady, careful effort past bare obligation, where the weaker word stops at exactly what is required.", "why_wrong": "That word does what is required and stops there. Three brake tests where the depot asks one, gauges logged past obligation - care the minimum-only word cannot cover."}], "display_order": [2, 1, 4, 7, 6, 0, 5, 3], "dimension_order": ["industrious", "hardworking", "dutiful"], "dimension_feedback": {"industrious": "Industrious means hardworking by habit - an industrious person is always busy, always producing, filling the hours with output. Diligent adds care to the effort: the work is not only steady but attentive, done properly with nothing skipped. An industrious worker impresses by how much gets done; a diligent one by how carefully.", "hardworking": "Hardworking means putting in consistent effort - long hours, real exertion, no slacking. Diligent describes the quality of that effort as much as the quantity: steady work carried out carefully, again and again, over time. A hardworking student puts in the hours; a diligent one also checks every answer before handing the test in.", "dutiful": "Dutiful is weaker — a dutiful worker does what is required and no more; a diligent one brings steady, careful effort that goes beyond mere obligation."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show care inside the effort — something examined, repeated, or never skipped — not just lots of effort. Try working in a word like <i>twice<\/i>, <i>every<\/i>, <i>checked<\/i> or <i>nothing skipped<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

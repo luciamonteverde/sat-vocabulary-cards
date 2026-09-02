@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="2108c253bf1f">
+<meta name="build" content="1fd6139dc3e6">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>antagonistic &#8212; SAT Vocabulary, Course 2 Unit 11</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "antagonistic", "gradeUrl": "/api/grade", "taskId": "antagonistic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses antagonistic correctly?", "opts": {"A": "The intern stayed antagonistic all quarter, agreeing with every plan and thanking the reviewers for each correction.", "B": "The councilman was openly antagonistic toward the audit, blocking interviews and burying the records the auditors had requested.", "C": "The delivery drone's antagonistic crash into the parked bus was traced to a firmware bug, not to anything either driver had done.", "D": "After the semifinal loss, the antagonistic goalkeeper sat alone at the end of the bench, saying nothing to anyone for an hour."}, "key": "B", "fb": {"correct": "Correct! Antagonistic means showing active opposition or hostility toward someone or something, and the councilman supplies exactly that: interviews blocked and records buried are opposition doing daily work against the audit.", "A": "Not quite! Antagonistic means showing active opposition or hostility toward someone or something, so it's not the correct choice here because this intern agrees with every plan and thanks the reviewers — cooperation points the opposite way from working against anyone.", "C": "Not quite! Antagonistic means showing active opposition or hostility, so it's not the correct choice here because a firmware bug is an accident. The word names a stance someone takes against another side, and a malfunction takes no stance at all.", "D": "Not quite! Antagonistic means showing active opposition or hostility, so it's not the correct choice here because the goalkeeper has gone silent and inward. Dejection aims at no one; antagonistic ill will is pointed outward at another side."}}, "s3a": {"q": "In this passage, \"antagonistic\" most nearly means", "opts": {"A": "actively working against something", "B": "rude and cold in his personal manner", "C": "eager for loud public arguments", "D": "secretly jealous of the garden's founders"}, "key": "A", "fb": {"correct": "Right -- complaints, rerouted water, petitions: opposition organized into steady effort, even while he stays pleasant.", "B": "He 'greeted the gardeners pleasantly by name' -- his manner is fine; his actions are the problem.", "C": "He 'never once shouted.' The opposition runs through paperwork, not arguments.", "D": "The passage never gives his motive -- only his methodical actions against the garden."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hostile", "B": "confrontational", "C": "unfriendly", "D": "antagonistic"}, "key": "C", "fb": {"correct": "Right. Unfriendly is the precise word: he withholds the warmth — no wave, no names — and nothing more. There is no glare to make it hostile, no campaign against anyone, and no appetite for a showdown.", "D": "Antagonistic means the opposition has turned active — someone is being worked against, on purpose. This pilot works against no one: <em>he holds the ramp for latecomers unasked<\/em>. Silence is not a campaign.", "A": "Hostile ill will shows itself — a glare, a slammed door, a cold refusal. The passage rules those out directly: <em>Nobody can recall a glare or a sharp word from him<\/em>. Whatever the passengers are naming, it is quieter than open ill will.", "B": "Confrontational names the appetite for the face-to-face clash. Handed exactly that chance, this man declined it: <em>when a tourist berated him over a missed crossing, he simply tapped the tide chart and waited<\/em>. He does not seek the showdown; he outlasts it."}}}, "grid": {"words": ["antagonistic", "hostile", "confrontational", "unfriendly"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Without ever raising the issue in a meeting, the deputy ran a quietly ____ campaign against the merger: misfiled paperwork, delayed signatures, and briefings that somehow never reached the board.", "ks": ["antagonistic"], "fb": {"confrontational": "That word names the appetite for a face-to-face showdown. The deputy <em>never raises the issue in a meeting<\/em> -- the working-against happens entirely offstage.", "hostile": "Hostile ill will is out in the open -- a glare, a slammed door. This campaign is run <em>quietly<\/em>: nothing is displayed, and everything is aimed.", "unfriendly": "Unfriendly only withholds warmth. <em>Misfiled paperwork and delayed signatures<\/em> are effort -- opposition organized into action."}}, {"s": "Week after week the columnist stayed ____ toward the stadium plan, hunting down unflattering cost figures, courting objectors, and lining up council votes against it.", "ks": ["antagonistic"], "fb": {"hostile": "Hostile says the ill will shows -- a glare radiates whether or not anything gets done. This columnist is all doing: <em>hunting down cost figures<\/em> and <em>lining up council votes<\/em>.", "confrontational": "That word names the appetite for the face-to-face clash itself. Her tools are print and procedure -- <em>cost figures<\/em>, <em>objectors<\/em>, votes -- not a showdown.", "unfriendly": "Unfriendly withholds warmth and stops there. <em>Week after week<\/em> of organized effort against the plan is active opposition, not coolness."}}, {"s": "When the consultants arrived, the staff's mood was frankly ____ -- folded arms, dead stares, doors that closed a beat too loudly -- though no one lifted a finger to block the review.", "ks": ["hostile"], "fb": {"antagonistic": "That word needs the ill will organized into working against someone. Here <em>no one lifted a finger to block the review<\/em> -- the feeling radiates but does nothing.", "confrontational": "Confrontational wants the face-to-face clash. Nobody raises anything -- just <em>folded arms<\/em> and <em>dead stares<\/em>.", "unfriendly": "Unfriendly merely withholds warmth. <em>Doors that closed a beat too loudly<\/em> put the ill will on open display -- a step past coolness."}}, {"s": "The veteran doorman greeted the film crew with openly ____ scowls, muttering at their cables and glaring at the director, though he unlocked every door they were entitled to.", "ks": ["hostile"], "fb": {"antagonistic": "That word requires working against someone. The doorman <em>unlocked every door they were entitled to<\/em> -- nothing was ever done against the crew.", "confrontational": "Confrontational raises the issue and wants the showdown. He never engages at all -- he <em>mutters<\/em> and <em>glares<\/em> and turns the key.", "unfriendly": "Unfriendly just withholds the warmth. <em>Muttering<\/em> and <em>glaring<\/em> put the ill will on open display, which is a step stronger."}}, {"s": "Rosa is cheerfully ____ by temperament: at the first hint of a buried problem she calls the person in, lays the complaint on the table, and asks them to argue it out with her then and there.", "ks": ["confrontational"], "fb": {"antagonistic": "That word sets you against someone, working for their side to lose. Rosa is <em>cheerful<\/em> about it and just wants the issue <em>argued out then and there<\/em> -- a style, not a campaign.", "hostile": "Hostile means ill will on open display. There is none here -- she is <em>cheerfully<\/em> direct, not seething.", "unfriendly": "Unfriendly withholds warmth. Rosa <em>calls the person in<\/em> and engages head-on, warmly -- the opposite of keeping a cold distance."}}, {"s": "The new librarian is ____ rather than anything worse: no greeting, no small talk, eyes back on the catalog the moment your question ends -- but every request is answered fully.", "ks": ["unfriendly"], "fb": {"hostile": "Hostile ill will is out in the open -- a glare, a slammed door. Here nothing is displayed at all; the warmth is simply missing.", "antagonistic": "That word means actively working against someone. She <em>answers every request fully<\/em> -- no one is being opposed.", "confrontational": "Confrontational seeks the face-to-face clash. She barely engages beyond the catalog -- no issue raised, no showdown wanted."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone actively working against a person or plan -- not just disliking it. Give the effort a visible form: try working in a word like <i>blocked<\/i>, <i>campaign<\/i>, <i>petition<\/i> or <i>sabotage<\/i>."}};
+  var CFG = {"word": "antagonistic", "gradeUrl": "/api/grade", "taskId": "antagonistic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses antagonistic correctly?", "opts": {"A": "The intern stayed antagonistic all quarter, agreeing with every plan and thanking the reviewers for each correction.", "B": "The councilman was openly antagonistic toward the audit, blocking interviews and burying the records the auditors had requested.", "C": "The delivery drone's antagonistic crash into the parked bus was traced to a firmware bug, not to anything either driver had done.", "D": "After the semifinal loss, the antagonistic goalkeeper sat alone at the end of the bench, saying nothing to anyone for an hour."}, "key": "B", "fb": {"correct": "Correct! Antagonistic means showing active opposition or hostility toward someone or something, and the councilman supplies exactly that: interviews blocked and records buried are opposition doing daily work against the audit.", "A": "Not quite! Antagonistic means showing active opposition or hostility toward someone or something, so it's not the correct choice here because this intern agrees with every plan and thanks the reviewers — cooperation points the opposite way from working against anyone.", "C": "Not quite! Antagonistic means showing active opposition or hostility, so it's not the correct choice here because a firmware bug is an accident. The word names a stance someone takes against another side, and a malfunction takes no stance at all.", "D": "Not quite! Antagonistic means showing active opposition or hostility, so it's not the correct choice here because the goalkeeper has gone silent and inward. Dejection aims at no one; antagonistic ill will is pointed outward at another side."}}, "s3a": {"q": "In this passage, \"antagonistic\" most nearly means", "opts": {"A": "actively working against something", "B": "rude and cold in his personal manner", "C": "eager for loud public arguments", "D": "secretly jealous of the garden's founders"}, "key": "A", "fb": {"correct": "Right -- complaints, rerouted water, petitions: opposition organized into steady effort, even while he stays pleasant.", "B": "He 'greeted the gardeners pleasantly by name' -- his manner is fine; his actions are the problem.", "C": "He 'never once shouted.' The opposition runs through paperwork, not arguments.", "D": "The passage never gives his motive -- only his methodical actions against the garden."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hostile", "B": "confrontational", "C": "unfriendly", "D": "antagonistic"}, "key": "C", "fb": {"correct": "Right. Unfriendly is the precise word: he withholds the warmth — no wave, no names — and nothing more. There is no glare to make it hostile, no campaign against anyone, and no appetite for a showdown.", "D": "Antagonistic means the opposition has turned active — someone is being worked against, on purpose. This pilot works against no one: <em>he holds the ramp for latecomers unasked<\/em>. Silence is not a campaign.", "A": "Hostile ill will shows itself — a glare, a slammed door, a cold refusal. The passage rules those out directly: <em>Nobody can recall a glare or a sharp word from him<\/em>. Whatever the passengers are naming, it is quieter than open ill will.", "B": "Confrontational names the appetite for the face-to-face clash. Handed exactly that chance, this man declined it: <em>when a tourist berated him over a missed crossing, he simply tapped the tide chart and waited<\/em>. He does not seek the showdown; he outlasts it."}}}, "pairwise": {"rows": [{"sentence": "Without ever raising the issue in a meeting, the deputy ran a quietly ____ campaign against the merger: misfiled paperwork, delayed signatures, and briefings that somehow never reached the board.", "options": ["antagonistic", "hostile"], "key": "antagonistic", "pair": "hostile", "why_right": "The tell is <em>misfiled paperwork, delayed signatures<\/em> - the ill will is organized into working against something, while nothing at all is displayed; the open-display word needs the feeling shown.", "why_wrong": "Hostile ill will is out in the open -- a glare, a slammed door. This campaign is run <em>quietly<\/em>: nothing is displayed, and everything is aimed."}, {"sentence": "When the consultants arrived, the staff's mood was frankly ____ -- folded arms, dead stares, doors that closed a beat too loudly -- though no one lifted a finger to block the review.", "options": ["antagonistic", "hostile"], "key": "hostile", "pair": "hostile", "why_right": "The tell is <em>no one lifted a finger<\/em> - the ill will sits on open display, folded arms and dead stares, and nothing is ever organized into working against the review.", "why_wrong": "That word needs the ill will organized into working against someone. Here <em>no one lifted a finger to block the review<\/em> -- the feeling radiates but does nothing."}, {"sentence": "The veteran doorman greeted the film crew with openly ____ scowls, muttering at their cables and glaring at the director, though he unlocked every door they were entitled to.", "options": ["antagonistic", "hostile"], "key": "hostile", "pair": "hostile", "why_right": "The tell is <em>unlocked every door<\/em> - the scowling and glaring put ill will out in the open while nothing is done against the crew; display without effort is exactly this word's ground.", "why_wrong": "That word requires working against someone. The doorman <em>unlocked every door they were entitled to<\/em> -- nothing was ever done against the crew."}, {"sentence": "The senior curator never once challenged the redesign to its architect's face, yet stayed steadily ____, rehanging test walls after hours and steering donor tours back through the old galleries.", "options": ["antagonistic", "confrontational"], "key": "antagonistic", "pair": "confrontational", "why_right": "The tell is <em>never once challenged the redesign to its architect's face<\/em> - quiet obstruction that never raises its voice, where the other word wants exactly that face-to-face clash.", "why_wrong": "That word names the appetite for the face-to-face clash itself, raising the issue directly and wanting the showdown. This curator avoids all of that, and works against the redesign anyway."}, {"sentence": "Rosa is cheerfully ____ by temperament: at the first hint of a buried problem she calls the person in, lays the complaint on the table, and asks them to argue it out with her then and there.", "options": ["antagonistic", "confrontational"], "key": "confrontational", "pair": "confrontational", "why_right": "The tell is <em>argue it out with her then and there<\/em> - she wants the face-to-face clash itself, cheerfully, and is set against no one; nothing here works for anybody's defeat.", "why_wrong": "That word sets you against someone, working for their side to lose. Rosa is <em>cheerful<\/em> about it and just wants the issue <em>argued out then and there<\/em> -- a style, not a campaign."}, {"sentence": "Week after week the columnist stayed ____ toward the stadium plan, hunting down unflattering cost figures, courting objectors, and lining up council votes against it.", "options": ["antagonistic", "unfriendly"], "key": "antagonistic", "pair": "unfriendly", "why_right": "The tell is <em>week after week<\/em> - sustained, organized effort aimed against the plan is opposition turned active, far past a coolness that merely withholds warmth and stops there.", "why_wrong": "Unfriendly withholds warmth and stops there. <em>Week after week<\/em> of organized effort against the plan is active opposition, not coolness."}, {"sentence": "Warm as ever at staff picnics, the head chef has been ____ toward the new pastry section, scheduling its bakers onto dead shifts and leaving their desserts off every tasting menu.", "options": ["antagonistic", "unfriendly"], "key": "antagonistic", "pair": "unfriendly", "why_right": "The tell is <em>warm as ever at staff picnics<\/em> - nothing about warmth is withheld here; what the scene shows is opposition turned active, aimed at the pastry section and working against it.", "why_wrong": "That word just withholds the warmth and stops there. This chef withholds nothing at the picnic -- and dead shifts and vanished desserts are organized effort against the section, not coolness."}, {"sentence": "The upstairs neighbor is ____: nods at the mailboxes go unreturned and invitations lapse, yet he forwards misdelivered letters the same day and salts the shared steps every frost.", "options": ["antagonistic", "unfriendly"], "key": "unfriendly", "pair": "unfriendly", "why_right": "The tell is <em>forwards misdelivered letters the same day<\/em> - only the warmth is withheld; a man doing his neighbors prompt good turns is working against no one, so the stronger word fails.", "why_wrong": "That word means active opposition, ill will organized into working against someone. Nothing here opposes anyone -- he helps with the mail and the ice; only the warmth is missing."}], "display_order": [5, 1, 6, 3, 2, 4, 0, 7], "dimension_order": ["hostile", "confrontational", "unfriendly"], "dimension_feedback": {"hostile": "Hostile says the ill will is out in the open — a glare, a slammed door, a cold refusal all qualify, whether or not anything gets done about it. Antagonistic adds direction and effort: the ill will is organized into working against someone. A hostile silence radiates; an antagonistic campaign pushes back.", "confrontational": "Confrontational names the appetite for the face-to-face clash itself: raising the issue directly, wanting the showdown. Antagonistic is wider — it covers any stance set against another side, including quiet obstruction that never raises its voice.", "unfriendly": "An unfriendly clerk just withholds the warmth; antagonistic is stronger — the opposition turns active, aimed at someone and working against them."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone actively working against a person or plan -- not just disliking it. Give the effort a visible form: try working in a word like <i>blocked<\/i>, <i>campaign<\/i>, <i>petition<\/i> or <i>sabotage<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

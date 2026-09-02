@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4fb572321ca3">
+<meta name="build" content="38a14b4eab95">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>prosaic &#8212; SAT Vocabulary, Course 3 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "prosaic", "gradeUrl": "/api/grade", "taskId": "prosaic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses prosaic correctly?", "opts": {"A": "The pilot's prosaic mayday call was a sonnet of extended metaphors that the control tower needed three full readings to decode.", "B": "His prosaic wedding vows ran to such wild imagery — falcons, comets, burning libraries — that the officiant lost her place twice.", "C": "The invention that changed the harbor was prosaic to look at: a rubber flap, a hinge, and a bucket of grease.", "D": "Her prosaic film adaptation replaced the novel's plain office scenes with dream sequences, talking statues, and a chorus of masked dancers."}, "key": "C", "fb": {"correct": "Right — a rubber flap, a hinge, and a bucket of grease: plain, ordinary, utterly unglamorous. Prosaic describes exactly that flat everyday quality — even in something that turns out to matter.", "A": "A mayday 'sonnet of extended metaphors' needing 'three full readings to decode' is elaborate verbal showmanship — the reverse of prosaic. The word means plain and unimaginative; find flatness, not poetry.", "B": "Vows crowded with 'falcons, comets, burning libraries' overflow with imagination — prosaic is the wrong label for wild imagery. Prosaic writing is dull and ordinary; pick the sentence where nothing sparkles.", "D": "This sentence pins prosaic on an adaptation full of 'dream sequences, talking statues, and a chorus of masked dancers' — pure spectacle. Prosaic means flat and ordinary; the 'plain office scenes' it discarded were the prosaic part."}}, "s3a": {"q": "In the passage, prosaic most nearly means that manual writing is…", "opts": {"A": "kept literal and free of imagery on purpose", "B": "tedious for a real writer to produce day after day", "C": "aimed at readers who dislike poetry of any kind", "D": "simplified until key steps go missing"}, "key": "A", "fb": {"correct": "Right. Water is water, a hose is a hose — language held deliberately literal, with the images saved for the poems.", "B": "He 'keeps correcting' exactly that assumption. The passage gives no sign he finds the work a burden — he defends it as a craft.", "C": "The manuals' readers are people with flooding kitchens, not poetry-haters. Nothing in the passage sorts readers by taste.", "D": "The manual walks the reader 'straight to the shutoff valve' — nothing is missing. The style is stripped of images, not of steps."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unimaginative", "B": "pedestrian", "C": "prosaic", "D": "plain"}, "key": "B", "fb": {"correct": "Right. Pedestrian is the complaint that the season simply bores: it <em>trudges at the same tempo<\/em>, and <em>listeners admit checking how many minutes remain<\/em>. The failure is dullness itself — not literal-mindedness, and not a lack of ideas.", "C": "Prosaic diagnoses one particular cause of dullness — language that stays earthbound and literal, refusing every chance at imagery. This season is the opposite case: <em>nothing here stays literal<\/em>, and the metaphors keep coming. The show plods for a different reason.", "A": "Unimaginative is the charge that no invention went in at all. The passage rejects it in so many words — <em>The trouble was never a shortage of invention<\/em> — and the <em>framing conceits no rival show would risk<\/em> prove the point.", "D": "Plain is honest, unadorned simplicity, often a virtue. A season with a <em>fondness for elaborate metaphor<\/em> is anything but unadorned — whatever is wrong here, it is not simplicity."}}}, "grid": {"words": ["prosaic", "pedestrian", "unimaginative", "plain"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Her field notes stay stubbornly ____ — every sunset is logged as 'sunset, 6:41, orange' — yet no one doubts a single fact she records.", "ks": ["prosaic"], "fb": {"pedestrian": "That word complains that writing trudges and bores. Nobody here is bored — the notes are trusted and useful. The charge is different: the wording refuses every image.", "unimaginative": "Aim that at the ideas, and her ideas are fine — the facts stand. What stays earthbound is the language: 'sunset, 6:41, orange.'", "plain": "Simple wording can be a virtue, and this goes further than simple. <em>Stubbornly<\/em> is an accusation: the notes decline every chance at color."}}, {"s": "The travel column reads ____ even in Venice: canals become 'water streets,' palaces 'old buildings,' and not one sentence risks a figure of speech.", "ks": ["prosaic"], "fb": {"pedestrian": "That is the broad complaint that writing trudges. This sentence hands you the cause instead: literal glosses — 'water streets,' 'old buildings' — and no figure anywhere.", "unimaginative": "The column does not lack material or ideas — it is standing in Venice. What it lacks is lift in the wording, the literal-mindedness the blank names.", "plain": "Simplicity can be honest and even admirable. Refusing every figure of speech in Venice is not simplicity; it is flatness held as policy."}}, {"s": "The committee's ____ proposal for the centennial turned out to be last year's banquet, unchanged except for the dates.", "ks": ["unimaginative"], "fb": {"prosaic": "That word diagnoses wording — flat, literal, refusing imagery. No wording is quoted here; the failure is the idea, a straight copy of last year.", "pedestrian": "That is a complaint about writing that trudges along. The proposal's pages might read beautifully; the trouble is that nothing new went in.", "plain": "A deliberately simple centennial could be a virtue. Recycling last year's banquet is not a choice of simplicity — it is a blank where the new idea should be."}}, {"s": "Asked to rethink the plaza, the firm returned a strikingly ____ scheme: the current layout, redrawn in cleaner ink.", "ks": ["unimaginative"], "fb": {"prosaic": "That word faults language for staying literal and refusing imagery. A site plan has no language to fault; what is missing is a single new idea.", "pedestrian": "That belongs to writing that plods. The complaint here is emptier and simpler: asked to rethink, the firm did not think at all.", "plain": "If the firm had chosen simplicity, that could be praise. They chose nothing — the scheme is the old plaza with tidier lines."}}, {"s": "Two hundred pages of ____ recaps sank the biography: sentence after sentence trudged from date to date without one spark of surprise.", "ks": ["pedestrian"], "fb": {"prosaic": "Close cousin, but that word diagnoses flat, literal wording — and often concedes the writing still informs. This complaint is simpler and harsher: the sentences bore, page after page.", "unimaginative": "Aim that at the ideas behind a book. The biography's material may be fine; what fails is the writing, trudging from date to date.", "plain": "Simple sentences are not the crime — boring ones are. Two hundred pages without one spark is well past honest simplicity."}}, {"s": "The manual's ____ instructions — short words, numbered steps, no flourishes — are exactly why the volunteers love it.", "ks": ["plain"], "fb": {"prosaic": "That word carries an accusation — writing that refuses every image. No one here is accusing; the volunteers love the style, which makes it a virtue.", "pedestrian": "That means the writing trudges and bores. These instructions are quick, useful, and loved — the opposite of a trudge.", "unimaginative": "That faults a missing idea. Short words and numbered steps ARE the idea — simplicity chosen on purpose and doing its job."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show language or a plan kept flat and literal, refusing any spark — not just simple. Try working in words like <i>literal<\/i>, <i>flat<\/i> or <i>ordinary<\/i>."}};
+  var CFG = {"word": "prosaic", "gradeUrl": "/api/grade", "taskId": "prosaic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses prosaic correctly?", "opts": {"A": "The pilot's prosaic mayday call was a sonnet of extended metaphors that the control tower needed three full readings to decode.", "B": "His prosaic wedding vows ran to such wild imagery — falcons, comets, burning libraries — that the officiant lost her place twice.", "C": "The invention that changed the harbor was prosaic to look at: a rubber flap, a hinge, and a bucket of grease.", "D": "Her prosaic film adaptation replaced the novel's plain office scenes with dream sequences, talking statues, and a chorus of masked dancers."}, "key": "C", "fb": {"correct": "Right — a rubber flap, a hinge, and a bucket of grease: plain, ordinary, utterly unglamorous. Prosaic describes exactly that flat everyday quality — even in something that turns out to matter.", "A": "A mayday 'sonnet of extended metaphors' needing 'three full readings to decode' is elaborate verbal showmanship — the reverse of prosaic. The word means plain and unimaginative; find flatness, not poetry.", "B": "Vows crowded with 'falcons, comets, burning libraries' overflow with imagination — prosaic is the wrong label for wild imagery. Prosaic writing is dull and ordinary; pick the sentence where nothing sparkles.", "D": "This sentence pins prosaic on an adaptation full of 'dream sequences, talking statues, and a chorus of masked dancers' — pure spectacle. Prosaic means flat and ordinary; the 'plain office scenes' it discarded were the prosaic part."}}, "s3a": {"q": "In the passage, prosaic most nearly means that manual writing is…", "opts": {"A": "kept literal and free of imagery on purpose", "B": "tedious for a real writer to produce day after day", "C": "aimed at readers who dislike poetry of any kind", "D": "simplified until key steps go missing"}, "key": "A", "fb": {"correct": "Right. Water is water, a hose is a hose — language held deliberately literal, with the images saved for the poems.", "B": "He 'keeps correcting' exactly that assumption. The passage gives no sign he finds the work a burden — he defends it as a craft.", "C": "The manuals' readers are people with flooding kitchens, not poetry-haters. Nothing in the passage sorts readers by taste.", "D": "The manual walks the reader 'straight to the shutoff valve' — nothing is missing. The style is stripped of images, not of steps."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unimaginative", "B": "pedestrian", "C": "prosaic", "D": "plain"}, "key": "B", "fb": {"correct": "Right. Pedestrian is the complaint that the season simply bores: it <em>trudges at the same tempo<\/em>, and <em>listeners admit checking how many minutes remain<\/em>. The failure is dullness itself — not literal-mindedness, and not a lack of ideas.", "C": "Prosaic diagnoses one particular cause of dullness — language that stays earthbound and literal, refusing every chance at imagery. This season is the opposite case: <em>nothing here stays literal<\/em>, and the metaphors keep coming. The show plods for a different reason.", "A": "Unimaginative is the charge that no invention went in at all. The passage rejects it in so many words — <em>The trouble was never a shortage of invention<\/em> — and the <em>framing conceits no rival show would risk<\/em> prove the point.", "D": "Plain is honest, unadorned simplicity, often a virtue. A season with a <em>fondness for elaborate metaphor<\/em> is anything but unadorned — whatever is wrong here, it is not simplicity."}}}, "pairwise": {"rows": [{"sentence": "Her field notes stay stubbornly ____ — every sunset is logged as 'sunset, 6:41, orange' — yet no one doubts a single fact she records.", "options": ["prosaic", "pedestrian"], "key": "prosaic", "pair": "pedestrian", "why_right": "The tell is <em>no one doubts a single fact she records<\/em> - prosaic is flat, literal wording that can still inform, while the loser means writing that merely bores, which trusted, useful notes do not.", "why_wrong": "That word complains that writing trudges and bores. Nobody here is bored — the notes are trusted and useful. The charge is different: the wording refuses every image."}, {"sentence": "The court reporter's ____ summary — a bare log of who entered and spoke — is kept for being exact and complete.", "options": ["prosaic", "pedestrian"], "key": "prosaic", "pair": "pedestrian", "why_right": "The tell is <em>exact and complete<\/em> - prosaic is flat, literal wording that still informs, while the loser means writing that merely bores, which a prized, exact record does not.", "why_wrong": "That word complains that writing trudges and bores. This summary is prized and kept close for its exactness, so the fault is not tedium but language that never leaves the literal ground."}, {"sentence": "Two hundred pages of ____ recaps sank the biography: sentence after sentence trudged from date to date without one spark of surprise.", "options": ["prosaic", "pedestrian"], "key": "pedestrian", "pair": "pedestrian", "why_right": "The tell is <em>without one spark of surprise<\/em> - pedestrian is the plain complaint that writing trudges and bores; nothing here diagnoses literal wording or grants the still-informs credit of the other word.", "why_wrong": "Close cousin, but that word diagnoses flat, literal wording — and often concedes the writing still informs. This complaint is simpler and harsher: the sentences bore, page after page."}, {"sentence": "The travel column reads ____ even in Venice: canals become 'water streets,' palaces 'old buildings,' and not one sentence risks a figure of speech.", "options": ["prosaic", "unimaginative"], "key": "prosaic", "pair": "unimaginative", "why_right": "The tell is <em>not one sentence risks a figure of speech<\/em> - prosaic faults flat, literal wording, while the loser faults missing ideas; Venice supplies the ideas and only the wording stays earthbound.", "why_wrong": "The column does not lack material or ideas — it is standing in Venice. What it lacks is lift in the wording, the literal-mindedness the blank names."}, {"sentence": "The committee's ____ proposal for the centennial turned out to be last year's banquet, unchanged except for the dates.", "options": ["prosaic", "unimaginative"], "key": "unimaginative", "pair": "unimaginative", "why_right": "The tell is <em>last year's banquet, unchanged<\/em> - unimaginative is the blunt complaint that no invention went in; no wording is at stake here, only a recycled idea, so the wording word misses.", "why_wrong": "That word diagnoses wording — flat, literal, refusing imagery. No wording is quoted here; the failure is the idea, a straight copy of last year."}, {"sentence": "Asked to rethink the plaza, the firm returned a strikingly ____ scheme: the current layout, redrawn in cleaner ink.", "options": ["prosaic", "unimaginative"], "key": "unimaginative", "pair": "unimaginative", "why_right": "The tell is <em>the current layout, redrawn<\/em> - unimaginative means no new idea went in; a drawing has no wording to fault, so the literal-wording word cannot apply here.", "why_wrong": "That word faults language for staying literal and refusing imagery. A site plan has no language to fault; what is missing is a single new idea."}, {"sentence": "Reviewers panned this epic's ____ writing — dragons rendered as large red flying reptiles — faulted for declining a single image.", "options": ["prosaic", "plain"], "key": "prosaic", "pair": "plain", "why_right": "The tell is <em>declining a single image<\/em> - prosaic is the accusation that writing refuses imagination; the milder word names honest simplicity, which can be a virtue and carries no such charge.", "why_wrong": "That word means honest simplicity, which can be a virtue. This flat writing is condemned, not chosen; a book faulted for refusing every image draws an accusation the milder word never makes."}, {"sentence": "The manual's ____ instructions — short words, numbered steps, no flourishes — are exactly why the volunteers love it.", "options": ["prosaic", "plain"], "key": "plain", "pair": "plain", "why_right": "The tell is <em>the volunteers love it<\/em> - plain is honest simplicity that can be a virtue; praised, deliberate simplicity carries none of the accusation the harsher word makes.", "why_wrong": "That word carries an accusation — writing that refuses every image. No one here is accusing; the volunteers love the style, which makes it a virtue."}], "display_order": [3, 2, 5, 7, 1, 4, 0, 6], "dimension_order": ["pedestrian", "unimaginative", "plain"], "dimension_feedback": {"pedestrian": "Pedestrian writing trudges along without lift or surprise — the complaint is about dullness. Prosaic overlaps, but it diagnoses the cause: language that stays literal and earthbound, refusing every chance at imagery. A pedestrian paragraph merely bores; a prosaic one may still inform you — it just never leaves the ground.", "unimaginative": "Unimaginative is the blunt complaint that no invention went in — no new idea, no fresh angle anywhere. Prosaic adds the texture of the result: flat, literal, everyday wording. An unimaginative plan lacks ideas; prosaic language can carry a decent idea and still plod, word by earthbound word.", "plain": "Plain is honest simplicity and can even be a virtue — milder than prosaic, which begins to accuse the writing of having no imagination at all."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show language or a plan kept flat and literal, refusing any spark — not just simple. Try working in words like <i>literal<\/i>, <i>flat<\/i> or <i>ordinary<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

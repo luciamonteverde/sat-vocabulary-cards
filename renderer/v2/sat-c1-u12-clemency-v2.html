@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="614df7db4f5b">
+<meta name="build" content="26f71092ccbd">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>clemency &#8212; SAT Vocabulary, Course 1 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "clemency", "gradeUrl": "/api/grade", "taskId": "clemency", "minWords": 12, "items": {"s1": {"q": "Mr. Okafor's tenant missed a rent payment for the first time in six years while hospitalized after an accident. The lease entitles Mr. Okafor to charge a steep late fee. Which choice shows clemency?", "opts": {"A": "Charging the full late fee immediately, just as the lease allows him to do.", "B": "Waiving the late fee entirely because of the circumstances, even though the rent really was late.", "C": "Insisting that the rent was never actually late, so there is no fee to consider at all.", "D": "Raising next month's rent to make up for the inconvenience of the missed payment."}, "key": "B", "fb": {"correct": "Right. The rent truly was late and the lease allows the fee, but Mr. Okafor softens the punishment out of mercy for a hospitalized tenant — that is clemency.", "A": "Charging 'the full late fee immediately' is strict enforcement of the lease, not mercy. Clemency only appears when someone with power chooses to soften a punishment the other person genuinely earned.", "C": "'Insisting that the rent was never actually late' rewrites the facts instead of forgiving them. Clemency begins by admitting the wrong truly happened — mercy exists only where a punishment was deserved in the first place.", "D": "'Raising next month's rent' piles a fresh penalty on top of the missed payment — the opposite of mercy. Clemency moves a deserved punishment downward; ask which action leaves the tenant owing less, not more."}}, "s3a": {"q": "In the passage, what does \"clemency\" most nearly mean?", "opts": {"A": "a ruling by the appeals court that the conviction itself was flawed", "B": "an official act of mercy that softens a deserved punishment", "C": "the governor's private feeling of pity for the prisoner's family", "D": "quiet restraint by prosecutors in demanding the full nine years"}, "key": "B", "fb": {"correct": "Right — the petition 'did not argue innocence'; it asked the governor to soften a punishment everyone agreed was deserved, and she did so by official act.", "A": "The appeals court 'upheld every finding' — the conviction stood, and the family never challenged it.", "C": "Whatever the governor felt, the word names what her office did: the formal commutation of the term.", "D": "The prosecutors demanded and got the full term — the softening came later, by the governor's official act."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forbearance", "B": "compassion", "C": "clemency", "D": "mercy"}, "key": "A", "fb": {"correct": "Right. Provoked for three seasons and holding proof enough to end it, she held back and did nothing — <em>she corrected nothing, published nothing<\/em> — and that patient self-restraint is exactly what this word names.", "C": "Clemency is an act of office: a judge, governor, or board formally softening a punishment someone has earned. There is no office, no sentence, and no decree anywhere in this scene — only a musician who <em>corrected nothing, published nothing<\/em>.", "D": "Mercy is kind treatment of someone you have the power to punish. Nobody here stands before a punisher: the conductor is the attacker — he <em>used his newspaper column to needle<\/em> her — and she offers him no treatment at all, kindly or otherwise.", "B": "Compassion is sympathy felt for someone who is suffering. The conductor is not suffering — he is the one on the attack, and the passage simply lets his campaign <em>burn itself out<\/em>. Nothing in it reports her feelings at all."}}}, "grid": {"words": ["clemency", "mercy", "forbearance", "compassion"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The parole board's grant of ____ cut the remaining sentence to a year of supervision: its members agreed the term had been deserved, and agreed, formally and on the record, to soften it anyway.", "ks": ["clemency"], "fb": {"mercy": "That word is the broad one — anyone with power over another can show it, anywhere. A parole board softening a deserved term on the record is the official version.", "forbearance": "That word is self-restraint — holding back, doing nothing. This board acted: it formally cut the sentence.", "compassion": "That word names a feeling, which may lead to nothing at all. This sentence describes what the board formally did."}}, {"s": "Petitions for ____ landed on the governor's desk each December, and once a term she signed one — never disputing the conviction, only using her office to lift part of the punishment it had earned.", "ks": ["clemency"], "fb": {"mercy": "That word covers kind treatment by anyone holding power — a captor, a rival, a parent. Petitions to a governor seek the official act, by decree.", "forbearance": "That word means patiently holding back. A governor signing away part of a sentence is doing something, not refraining from something.", "compassion": "That word is the emotion of sympathy, and a governor can feel it and still sign nothing. The petitions asked for the signature."}}, {"s": "The bandit chief showed unexpected ____ to the captured couriers, feeding them and turning them loose at the border — no court, no office, and no telling what he felt; just a man with every power to punish, treating them kindly.", "ks": ["mercy"], "fb": {"clemency": "That word is the official act — a judge, governor, or board softening a deserved punishment. There is no court or office within miles of this border.", "forbearance": "That word is restraint — holding back from what you are owed or from striking back. The chief acts: he feeds his captives and frees them.", "compassion": "That word names what someone feels, and the sentence says outright there is no telling what he felt. What it reports is the kind treatment itself."}}, {"s": "Medieval chronicles praise the count who took the surrendered town and showed ____ at its gates: the garrison spared, the granaries left full — kindness from the one man free to do his worst, with no tribunal anywhere in it.", "ks": ["mercy"], "fb": {"clemency": "That word wants an official act — a sentence formally softened by a judge, governor, or board. No tribunal exists here; a conqueror simply chooses kindness.", "forbearance": "That word is patient holding-back — an owed debt unclaimed, a provocation unanswered. The count gives kind treatment outright: lives spared, granaries full.", "compassion": "That word is the feeling of sympathy, and it can end there. The chronicles praise what the count did at the gates, not what he felt."}}, {"s": "Though the tenant was three months behind and the lease allowed eviction that week, the landlady's ____ held: she demanded nothing, filed nothing, and waited out the winter without a word.", "ks": ["forbearance"], "fb": {"clemency": "That word is an official act that softens a deserved punishment. The landlady performs no act at all — her whole kindness is in the waiting.", "mercy": "That word is kind treatment of someone in your power to punish. Back rent is a debt, not a punishment — and what she shows is restraint from collecting it.", "compassion": "That word names the sympathy someone feels. The sentence records no feeling — only that she held back, all winter, without a word."}}, {"s": "Reading the flood diaries, the archivist was overcome with ____ for families she could never help — a century too late for anything but the feeling itself.", "ks": ["compassion"], "fb": {"clemency": "That word is a formal act of state that softens a deserved punishment. Nobody here is punished, and nothing can be done — only felt.", "mercy": "That word is kind treatment of someone in your power. These families are a century gone; no treatment of any kind is possible.", "forbearance": "That word is restraint — leaving a debt unclaimed, a provocation unanswered. The archivist has nothing to restrain; she can only feel."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone in official power softening a punishment the person actually deserved — an act, not a feeling. Try working in words like <i>governor<\/i>, <i>sentence<\/i>, <i>reduced<\/i> or <i>deserved<\/i>."}};
+  var CFG = {"word": "clemency", "gradeUrl": "/api/grade", "taskId": "clemency", "minWords": 12, "items": {"s1": {"q": "Mr. Okafor's tenant missed a rent payment for the first time in six years while hospitalized after an accident. The lease entitles Mr. Okafor to charge a steep late fee. Which choice shows clemency?", "opts": {"A": "Charging the full late fee immediately, just as the lease allows him to do.", "B": "Waiving the late fee entirely because of the circumstances, even though the rent really was late.", "C": "Insisting that the rent was never actually late, so there is no fee to consider at all.", "D": "Raising next month's rent to make up for the inconvenience of the missed payment."}, "key": "B", "fb": {"correct": "Right. The rent truly was late and the lease allows the fee, but Mr. Okafor softens the punishment out of mercy for a hospitalized tenant — that is clemency.", "A": "Charging 'the full late fee immediately' is strict enforcement of the lease, not mercy. Clemency only appears when someone with power chooses to soften a punishment the other person genuinely earned.", "C": "'Insisting that the rent was never actually late' rewrites the facts instead of forgiving them. Clemency begins by admitting the wrong truly happened — mercy exists only where a punishment was deserved in the first place.", "D": "'Raising next month's rent' piles a fresh penalty on top of the missed payment — the opposite of mercy. Clemency moves a deserved punishment downward; ask which action leaves the tenant owing less, not more."}}, "s3a": {"q": "In the passage, what does \"clemency\" most nearly mean?", "opts": {"A": "a ruling by the appeals court that the conviction itself was flawed", "B": "an official act of mercy that softens a deserved punishment", "C": "the governor's private feeling of pity for the prisoner's family", "D": "quiet restraint by prosecutors in demanding the full nine years"}, "key": "B", "fb": {"correct": "Right — the petition 'did not argue innocence'; it asked the governor to soften a punishment everyone agreed was deserved, and she did so by official act.", "A": "The appeals court 'upheld every finding' — the conviction stood, and the family never challenged it.", "C": "Whatever the governor felt, the word names what her office did: the formal commutation of the term.", "D": "The prosecutors demanded and got the full term — the softening came later, by the governor's official act."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forbearance", "B": "compassion", "C": "clemency", "D": "mercy"}, "key": "A", "fb": {"correct": "Right. Provoked for three seasons and holding proof enough to end it, she held back and did nothing — <em>she corrected nothing, published nothing<\/em> — and that patient self-restraint is exactly what this word names.", "C": "Clemency is an act of office: a judge, governor, or board formally softening a punishment someone has earned. There is no office, no sentence, and no decree anywhere in this scene — only a musician who <em>corrected nothing, published nothing<\/em>.", "D": "Mercy is kind treatment of someone you have the power to punish. Nobody here stands before a punisher: the conductor is the attacker — he <em>used his newspaper column to needle<\/em> her — and she offers him no treatment at all, kindly or otherwise.", "B": "Compassion is sympathy felt for someone who is suffering. The conductor is not suffering — he is the one on the attack, and the passage simply lets his campaign <em>burn itself out<\/em>. Nothing in it reports her feelings at all."}}}, "pairwise": {"rows": [{"sentence": "The parole board's grant of ____ cut the remaining sentence to a year of supervision: its members agreed the term had been deserved, and agreed, formally and on the record, to soften it anyway.", "options": ["clemency", "forbearance"], "key": "clemency", "pair": "forbearance", "why_right": "The tell is <em>agreed, formally and on the record, to soften it anyway<\/em> - the board acts by decree, formally reducing a deserved punishment, rather than quietly holding anything back.", "why_wrong": "That word is self-restraint — holding back, doing nothing. This board acted: it formally cut the sentence."}, {"sentence": "Petitions for ____ landed on the governor's desk each December, and once a term she signed one — never disputing the conviction, only using her office to lift part of the punishment it had earned.", "options": ["clemency", "compassion"], "key": "clemency", "pair": "compassion", "why_right": "The tell is <em>using her office to lift part of the punishment<\/em> - a concrete official act of softening a deserved punishment, not a feeling, which may lead to nothing at all.", "why_wrong": "That word is the emotion of sympathy, and a governor can feel it and still sign nothing. The petitions asked for the signature."}, {"sentence": "The bandit chief showed unexpected ____ to the captured couriers, feeding them and turning them loose at the border — no court, no office, and no telling what he felt; just a man with every power to punish, treating them kindly.", "options": ["clemency", "mercy"], "key": "mercy", "pair": "mercy", "why_right": "The tell is <em>no court, no office<\/em> - kind treatment from a man with every power to punish, with the official register absent; anyone, anywhere, can show this broad form.", "why_wrong": "That word is the official act — a judge, governor, or board softening a deserved punishment. There is no court or office within miles of this border."}, {"sentence": "Medieval chronicles praise the count who took the surrendered town and showed ____ at its gates: the garrison spared, the granaries left full — kindness from the one man free to do his worst, with no tribunal anywhere in it.", "options": ["clemency", "mercy"], "key": "mercy", "pair": "mercy", "why_right": "The tell is <em>no tribunal anywhere in it<\/em> - kindness from the one man holding the power to punish, entirely outside any official act by judge, governor, or board.", "why_wrong": "That word wants an official act — a sentence formally softened by a judge, governor, or board. No tribunal exists here; a conqueror simply chooses kindness."}, {"sentence": "Though the tenant was three months behind and the lease allowed eviction that week, the landlady's ____ held: she demanded nothing, filed nothing, and waited out the winter without a word.", "options": ["clemency", "forbearance"], "key": "forbearance", "pair": "forbearance", "why_right": "The tell is <em>demanded nothing, filed nothing<\/em> - patient self-restraint from claiming what she is owed; the kindness here is done entirely by doing nothing, not by decree.", "why_wrong": "That word is an official act that softens a deserved punishment. The landlady performs no act at all — her whole kindness is in the waiting."}, {"sentence": "Reading the flood diaries, the archivist was overcome with ____ for families she could never help — a century too late for anything but the feeling itself.", "options": ["clemency", "compassion"], "key": "compassion", "pair": "compassion", "why_right": "The tell is <em>a century too late for anything but the feeling itself<\/em> - sympathy felt for others' suffering, an emotion leading to nothing; no act, official or otherwise, is possible.", "why_wrong": "That word is a formal act of state that softens a deserved punishment. Nobody here is punished, and nothing can be done — only felt."}, {"sentence": "No one at the league doubted the striker had earned his eight-match ban; the commissioner's written order of ____ simply cut it to three, issued under her official seal that same afternoon.", "options": ["clemency", "forbearance"], "key": "clemency", "pair": "forbearance", "why_right": "The tell is <em>simply cut it to three<\/em> - the commissioner acts by decree, formally softening a ban the striker had earned, rather than holding back and doing nothing.", "why_wrong": "That word means patiently holding back from what you are owed - kindness by doing nothing. The commissioner did something: a written order cutting a ban the striker had earned."}, {"sentence": "Unmoved by the poacher's tearful appeal, the panel granted ____ anyway, on narrow legal grounds, halving a term its members agreed he had fully deserved.", "options": ["clemency", "compassion"], "key": "clemency", "pair": "compassion", "why_right": "The tell is <em>halving a term its members agreed he had fully deserved<\/em> - the concrete official act of softening a deserved punishment, performed here without any sympathy felt at all.", "why_wrong": "That word names the sympathy you feel for another's suffering, and this panel felt none - it was unmoved. What the sentence records is the official act that halved the term."}], "display_order": [1, 4, 5, 0, 2, 6, 7, 3], "dimension_order": ["mercy", "forbearance", "compassion"], "dimension_feedback": {"mercy": "Mercy is the broad name for kind treatment of someone you have the power to punish — anyone, anywhere, can show mercy. Clemency is mercy in its official form: an act by a judge, governor, or board that deliberately softens a punishment the person genuinely deserves.", "forbearance": "Forbearance is self-restraint — patiently holding back from demanding what you are owed or striking back when provoked. Clemency is not restraint but action: someone in power steps in and formally reduces a deserved punishment. You show forbearance by doing nothing; you grant clemency by decree.", "compassion": "Compassion is the sympathy you feel for another person's suffering. It is an emotion, and it may lead to nothing at all. Clemency is what a person in power actually does: the concrete official act of softening a deserved punishment. A judge can feel compassion yet still refuse clemency."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone in official power softening a punishment the person actually deserved — an act, not a feeling. Try working in words like <i>governor<\/i>, <i>sentence<\/i>, <i>reduced<\/i> or <i>deserved<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

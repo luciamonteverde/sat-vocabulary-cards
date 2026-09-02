@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="850ed661484a">
+<meta name="build" content="9b6e94bf2523">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>divulge &#8212; SAT Vocabulary, Course 3 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "divulge", "gradeUrl": "/api/grade", "taskId": "divulge", "minWords": 12, "items": {"s1": {"q": "Which sentence uses divulge correctly?", "opts": {"A": "Pressed by the board, the engineer divulged the formula only she and the founder knew.", "B": "The senator divulged his position by repeating exactly what his own press release had said all week.", "C": "She divulged the surprise party by keeping the guest list locked in her desk until the very night.", "D": "The museum divulged its opening hours, which had been painted on the front door for decades."}, "key": "A", "fb": {"correct": "Right. The formula was a secret held by two people, and telling the board hands it to outsiders — divulging, precisely.", "B": "Repeating 'exactly what his own press release' already said reveals nothing new — the position was public all week. Divulging requires a genuine secret finally reaching people who didn't have it.", "C": "Keeping the guest list 'locked in her desk' conceals the surprise — the very opposite of letting it out. This sentence runs divulge backwards; the word means releasing a secret, and here nothing escapes.", "D": "Hours 'painted on the front door for decades' were never hidden from a soul. Only something secret can be divulged — announcing information the public has always had doesn't count."}}, "s3a": {"q": "As it is used in the passage, \"divulge\" most nearly means", "opts": {"A": "to discuss the technical details of costume construction", "B": "to pass a guarded secret to someone outside the circle", "C": "to gossip idly about fellow performers", "D": "to admit to a mistake made on the job"}, "key": "B", "fb": {"correct": "Right — who wears which character is a guarded secret, and the rule forbids handing it to anyone outside the circle, 'not even to other employees outside the costume department.'", "A": "Construction details are never the worry; identities are.", "C": "Gossip is idle by nature. The fired performer's podcast answer was a deliberate handover of the one guarded fact.", "D": "No mistake is involved anywhere — the offense is passing the secret on, not erring."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hint", "B": "reveal", "C": "let slip", "D": "divulge"}, "key": "D", "fb": {"correct": "Right. To divulge is to hand a genuine secret, deliberately, to someone outside the circle — and the word carries an accusation. Venice <em>guarded the making of its mirrors jealously<\/em>, and the masters who traded it away <em>for pensions and workshops of their own<\/em> did precisely that.", "B": "Reveal is the neutral, general word — a curtain can reveal a stage, and no secret has to be involved. What the oath forbade was narrower and darker: Venice <em>guarded the making of its mirrors jealously<\/em>, and breaking that guard for pay was a betrayal, not a mere unveiling. The most precise word is the one that accuses.", "C": "Let slip is the accidental leak — a name dropped mid-story before the speaker can catch it. Nothing about this was accidental: the transfer was negotiated in advance, made <em>for pensions and workshops of their own<\/em>, and delivered deliberately, step by step.", "A": "A hint lets one corner of the secret show and makes the listener do the rest of the work. What Paris got was everything: the emigrants <em>taught the royal factory each step, furnace temperatures included<\/em>."}}}, "grid": {"words": ["divulge", "reveal", "let slip", "hint"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Only under subpoena, and after two continuances, did the accountant agree to ____ which of the shell companies actually held the yacht.", "ks": ["divulge"], "fb": {"reveal": "That is the neutral word — a curtain can do it to a stage, and no secret is required. What crosses the table here is a guarded secret, surrendered under subpoena, and the word that accuses fits.", "let slip": "Nothing escapes by accident. She resisted through two continuances and then agreed — a deliberate handover, which is that word's exact opposite.", "hint": "That shows one corner and makes the listener do the rest. A subpoena does not settle for corners; the actual company gets named."}}, {"s": "The recipe stayed inside the family for a century, until a disgruntled cousin chose to ____ the full recipe, measurements and all, to a food blogger.", "ks": ["divulge"], "fb": {"reveal": "Neutral making-known needs no secret and no betrayal — a curtain does it to a stage. A century-old family secret handed to an outsider on purpose takes the word that accuses.", "let slip": "An accident would earn that word. 'Chose to' closes that door — this cousin decided.", "hint": "'Measurements and all' is everything, not a teasing corner. The secret does not peek out; it walks out whole."}}, {"s": "Wedding planners make the best man rehearse, because a nervous speaker can ____ the courthouse elopement without ever meaning to.", "ks": ["let slip"], "fb": {"divulge": "That is the deliberate act — the teller chooses to hand the secret over. 'Without ever meaning to' is the opposite of choosing.", "reveal": "The neutral word for making anything known, blunder or no. This sentence turns on the blunder — a secret escaping a nervous mouth — and there is a word for exactly that accident.", "hint": "A corner of the secret would be surviving the toast. What escapes here is the whole elopement, courthouse and all."}}, {"s": "Production staff on the quiz show sign three separate agreements, yet a tired crew member can still ____ next week's category without meaning to.", "ks": ["let slip"], "fb": {"divulge": "Choosing to hand a secret over is that word's whole content. A tired crew member chooses nothing — the evening does it.", "reveal": "That neutral word would cover a press release just as well. The sentence is about a guarded fact escaping through fatigue — an accident with a name of its own.", "hint": "A vague nudge would leave the audience guessing. The category itself gets out — whole, not cornered."}}, {"s": "At noon the restorers will ____ the cleaned fresco, and the whole town is invited to watch the scaffolding come down.", "ks": ["reveal"], "fb": {"divulge": "That word accuses — a genuine secret handed to someone outside the circle. A public unveiling the whole town is invited to has no circle and no secret.", "let slip": "Accidents do not run on a noon schedule. This is planned, announced, and celebrated.", "hint": "Nothing is left to guesswork — the scaffolding comes down and the whole work stands in view."}}, {"s": "Asked about the casting, the director would only ____ that a 'very familiar voice' was involved, leaving fans to assemble the rest.", "ks": ["hint"], "fb": {"divulge": "That hands the secret over whole. The director hands over five words and keeps the name.", "reveal": "For that, something must actually become known. The casting stays exactly as unknown as before — fans get a corner, not a fact.", "let slip": "An accident does not measure its words. 'Would only' shows a man rationing exactly how much gets out."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a real secret deliberately handed to someone outside the circle — show the boundary and the choice to cross it. Try working in words like <i>secret<\/i>, <i>outsider<\/i>, <i>finally<\/i> or <i>promised<\/i>."}};
+  var CFG = {"word": "divulge", "gradeUrl": "/api/grade", "taskId": "divulge", "minWords": 12, "items": {"s1": {"q": "Which sentence uses divulge correctly?", "opts": {"A": "Pressed by the board, the engineer divulged the formula only she and the founder knew.", "B": "The senator divulged his position by repeating exactly what his own press release had said all week.", "C": "She divulged the surprise party by keeping the guest list locked in her desk until the very night.", "D": "The museum divulged its opening hours, which had been painted on the front door for decades."}, "key": "A", "fb": {"correct": "Right. The formula was a secret held by two people, and telling the board hands it to outsiders — divulging, precisely.", "B": "Repeating 'exactly what his own press release' already said reveals nothing new — the position was public all week. Divulging requires a genuine secret finally reaching people who didn't have it.", "C": "Keeping the guest list 'locked in her desk' conceals the surprise — the very opposite of letting it out. This sentence runs divulge backwards; the word means releasing a secret, and here nothing escapes.", "D": "Hours 'painted on the front door for decades' were never hidden from a soul. Only something secret can be divulged — announcing information the public has always had doesn't count."}}, "s3a": {"q": "As it is used in the passage, \"divulge\" most nearly means", "opts": {"A": "to discuss the technical details of costume construction", "B": "to pass a guarded secret to someone outside the circle", "C": "to gossip idly about fellow performers", "D": "to admit to a mistake made on the job"}, "key": "B", "fb": {"correct": "Right — who wears which character is a guarded secret, and the rule forbids handing it to anyone outside the circle, 'not even to other employees outside the costume department.'", "A": "Construction details are never the worry; identities are.", "C": "Gossip is idle by nature. The fired performer's podcast answer was a deliberate handover of the one guarded fact.", "D": "No mistake is involved anywhere — the offense is passing the secret on, not erring."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hint", "B": "reveal", "C": "let slip", "D": "divulge"}, "key": "D", "fb": {"correct": "Right. To divulge is to hand a genuine secret, deliberately, to someone outside the circle — and the word carries an accusation. Venice <em>guarded the making of its mirrors jealously<\/em>, and the masters who traded it away <em>for pensions and workshops of their own<\/em> did precisely that.", "B": "Reveal is the neutral, general word — a curtain can reveal a stage, and no secret has to be involved. What the oath forbade was narrower and darker: Venice <em>guarded the making of its mirrors jealously<\/em>, and breaking that guard for pay was a betrayal, not a mere unveiling. The most precise word is the one that accuses.", "C": "Let slip is the accidental leak — a name dropped mid-story before the speaker can catch it. Nothing about this was accidental: the transfer was negotiated in advance, made <em>for pensions and workshops of their own<\/em>, and delivered deliberately, step by step.", "A": "A hint lets one corner of the secret show and makes the listener do the rest of the work. What Paris got was everything: the emigrants <em>taught the royal factory each step, furnace temperatures included<\/em>."}}}, "pairwise": {"rows": [{"sentence": "At noon the restorers will ____ the cleaned fresco, and the whole town is invited to watch the scaffolding come down.", "options": ["divulge", "reveal"], "key": "reveal", "pair": "reveal", "why_right": "The tell is <em>the whole town is invited<\/em> - a public unveiling with no secret and no circle, the neutral making-visible the card gives this word; nothing crosses a boundary and nobody is accused.", "why_wrong": "That word accuses — a genuine secret handed to someone outside the circle. A public unveiling the whole town is invited to has no circle and no secret."}, {"sentence": "In the closing lecture the geologist will ____ what the core samples show about the valley's age, findings due in an open journal that same month.", "options": ["divulge", "reveal"], "key": "reveal", "pair": "reveal", "why_right": "The tell is <em>an open journal<\/em> - findings bound for open publication were never anybody's guarded secret, so this is neutral making-known; the rival word needs a secret handed across a boundary, and it accuses.", "why_wrong": "That word accuses: a genuine secret crosses a boundary to someone outside the circle. Core-sample findings due in an open journal are nobody's secret and cross no line at all."}, {"sentence": "The recipe stayed inside the family for a century, until a disgruntled cousin chose to ____ the full recipe, measurements and all, to a food blogger.", "options": ["divulge", "let slip"], "key": "divulge", "pair": "let slip", "why_right": "The tell is <em>chose to<\/em> - the cousin decides to hand the family secret to an outsider, the deliberate act the card gives this word; nothing escapes by accident here.", "why_wrong": "An accident would earn that word. 'Chose to' closes that door — this cousin decided."}, {"sentence": "Production staff on the quiz show sign three separate agreements, yet a tired crew member can still ____ next week's category without meaning to.", "options": ["divulge", "let slip"], "key": "let slip", "pair": "let slip", "why_right": "The tell is <em>without meaning to<\/em> - a guarded fact escapes through fatigue, released by accident; the rival word is the deliberate act, where the teller chooses to hand the secret over.", "why_wrong": "Choosing to hand a secret over is that word's whole content. A tired crew member chooses nothing — the evening does it."}, {"sentence": "Before the final, the backup keeper met the rival coach at a diner in order to ____ the penalty routines his team had drilled all season.", "options": ["divulge", "let slip"], "key": "divulge", "pair": "let slip", "why_right": "The tell is <em>in order to<\/em> - the meeting exists for the handover, a secret carried on purpose to the other side; the rival word means a secret escaping before the speaker can catch it.", "why_wrong": "That word means a secret released by accident, a name dropped before the speaker can catch it. A keeper who books a meeting in order to hand over the routines is choosing every word."}, {"sentence": "Only under subpoena, and after two continuances, did the accountant agree to ____ which of the shell companies actually held the yacht.", "options": ["divulge", "hint"], "key": "divulge", "pair": "hint", "why_right": "The tell is <em>which of the shell companies actually held the yacht<\/em> - the actual company gets named, the whole secret handed over under compulsion, not one corner left for the listener to work out.", "why_wrong": "That shows one corner and makes the listener do the rest. A subpoena does not settle for corners; the actual company gets named."}, {"sentence": "Asked about the casting, the director would only ____ that a 'very familiar voice' was involved, leaving fans to assemble the rest.", "options": ["divulge", "hint"], "key": "hint", "pair": "hint", "why_right": "The tell is <em>leaving fans to assemble the rest<\/em> - one corner of the casting shows and the listener does the rest of the work, the card's mildest rung; the secret itself is never handed over.", "why_wrong": "That hands the secret over whole. The director hands over five words and keeps the name."}, {"sentence": "Over a beer the foreman decided to ____ exactly which day the plant would close, and to the very workers not supposed to know yet.", "options": ["divulge", "hint"], "key": "divulge", "pair": "hint", "why_right": "The tell is <em>exactly which day<\/em> - the whole secret, dated, handed to workers outside the circle; the milder word would show one corner and leave them to work out the rest.", "why_wrong": "That word means letting one corner of the secret show and making the listener do the rest. Naming exactly which day, to people not supposed to know, hands the whole secret over."}], "display_order": [2, 6, 1, 3, 5, 0, 7, 4], "dimension_order": ["reveal", "let slip", "hint"], "dimension_feedback": {"reveal": "To reveal is simply to make something visible or known, and no secret is required — a curtain can reveal a stage. To divulge is narrower: a genuine secret crosses a boundary, handed deliberately to someone outside the circle. Reveal is neutral; divulge accuses.", "let slip": "To let slip is to release a secret by accident — a name dropped mid-story before the speaker can catch it. Divulging is the deliberate act: the teller chooses to hand the secret over. Both cross the line, but only divulge does it on purpose.", "hint": "Hint is milder than divulge — a hint lets one corner of the secret show and makes the listener do the rest of the work."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a real secret deliberately handed to someone outside the circle — show the boundary and the choice to cross it. Try working in words like <i>secret<\/i>, <i>outsider<\/i>, <i>finally<\/i> or <i>promised<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

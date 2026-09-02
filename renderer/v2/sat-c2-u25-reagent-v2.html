@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="692eb0ebc0b4">
+<meta name="build" content="e5edf1b33dbf">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>reagent &#8212; SAT Vocabulary, Course 2 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "reagent", "gradeUrl": "/api/grade", "taskId": "reagent", "minWords": 12, "items": {"s1": {"q": "Which sentence uses reagent correctly?", "opts": {"A": "The students rinsed each glass reagent and clamped it above the burner before heating the solution.", "B": "The geologist labeled every reagent she chipped from the outcrop and packed the crate for the lab.", "C": "With one critical reagent on back order, the lab's synthesis of the compound stalled for a month.", "D": "The menu boasted that the bakery's sourdough contained no preservatives and no artificial reagents."}, "key": "C", "fb": {"correct": "Correct! A reagent is a substance added to take part in a chemical reaction, so it's the correct answer because a synthesis genuinely cannot run without the chemicals it consumes — one missing reagent stalls everything.", "A": "Not quite! A reagent is a substance added to take part in a chemical reaction, so it's not the correct choice here because the thing being rinsed and clamped is glassware — equipment holds the chemistry, but it is not a chemical itself.", "B": "Not quite! A reagent is a substance added to take part in a chemical reaction, so it's not the correct choice here because rocks chipped from an outcrop are specimens — the material under study, not a chemical brought in to run a test on it.", "D": "Not quite! A reagent is a substance added to take part in a chemical reaction, so it's not the correct choice here because a recipe's components are ingredients or additives — reagent belongs to the lab bench, not the menu."}}, "s3a": {"q": "As used in this passage, 'reagent' most nearly means:", "opts": {"A": "a tool that stirs samples without being changed", "B": "a substance that joins the reaction and gets used up", "C": "a container that holds water samples for testing", "D": "a harmless dye added to color the water so changes are easier to see"}, "key": "B", "fb": {"correct": "Right — the liquid 'combines with it... changed and used up': it takes part in the chemistry and is spent by it.", "A": "That describes the stirring rod, the teacher's contrast case — it 'comes out exactly as it went in.'", "C": "The tubes and vials are glassware; the word names the pale-yellow liquid inside the vial.", "D": "The liquid doesn't tint the water for visibility — it combines with the dissolved iron and is consumed in the process."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "catalyst", "B": "ingredient", "C": "indicator", "D": "reagent"}, "key": "D", "fb": {"correct": "Right. A reagent goes in to do chemical work and is consumed by the reaction it drives — here the molecules <em>are spent as the image forms<\/em>, and the lab <em>pours the exhausted bath away<\/em>.", "A": "A catalyst speeds a reaction along yet survives it untouched, ready for another round. This liquid does not survive: its molecules <em>are spent as the image forms<\/em>, and a busy lab <em>pours the exhausted bath away<\/em>.", "C": "An indicator has one narrow job — to announce what is present, usually by a color change. The passage rules that role out: <em>nothing signals by color here<\/em>, and the liquid is doing the building, not the announcing.", "B": "Ingredient is true only in the loosest sense, and the question asks for the most precise word. An ingredient only has to be present, like the additives that <em>merely sit in solution<\/em> — but this liquid <em>earns that name by working<\/em>."}}}, "grid": {"words": ["reagent", "catalyst", "indicator", "ingredient"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Each titration burns through the bottled ____: the added liquid joins the reaction and is consumed, and the result is read from the scale afterward, not from any color.", "ks": ["reagent"], "fb": {"catalyst": "That word's substance does its work and comes out unchanged, ready to be reused. This liquid <em>is consumed<\/em> — the bottle empties.", "indicator": "That specialist announces what's present, usually by a color change. Here the result comes <em>from the scale<\/em>, and no color announces anything.", "ingredient": "That word asks only for presence in a mix. This liquid is added precisely so the chemistry will run — and the run devours it."}}, {"s": "The synthesis calls for zinc powder as its ____: the metal is stirred in so the reaction can run, and none of it survives unchanged to the final product.", "ks": ["reagent"], "fb": {"catalyst": "That word's material emerges intact and reusable. None of this zinc comes out the other side unchanged — and coming out unchanged is that word's defining trick.", "indicator": "That word names a signaling specialist. No color turns and nothing is announced; the zinc is there to react.", "ingredient": "Presence in the mix is all that word requires. This powder is <em>stirred in so the reaction can run<\/em> — it is the reaction's fuel, not a bystander."}}, {"s": "The platinum bead is the process's ____: it speeds each batch's conversion, then comes out unchanged, fished from the vat and ready for the next.", "ks": ["catalyst"], "fb": {"reagent": "That word names a participant that is consumed, combined, or transformed by the reaction. This bead <em>comes out unchanged<\/em>, batch after batch.", "indicator": "That specialist's whole job is to signal — usually a color change. This bead signals nothing; it hurries the chemistry along.", "ingredient": "That word only asks a substance to be present in the mix. This bead is doing active work — speeding the conversion — and never joins the product."}}, {"s": "Brewers prize the enzyme as the batch's ____ — one speck sends fermentation racing yet is never spent, and analysis afterward finds every bit of it intact and reusable.", "ks": ["catalyst"], "fb": {"reagent": "That word's substance is used up or changed by the run it takes part in. This enzyme is <em>never spent<\/em> — every bit survives.", "indicator": "That word names the announcer — a signal, usually color. Nothing is announced here; the speck supplies speed.", "ingredient": "Mere presence is all that word requires. This speck is the engine of the process, and it never ends up in the product."}}, {"s": "One drop turns the flask crimson the moment any acid remains — the tester's ____ does no other job than to announce what is present.", "ks": ["indicator"], "fb": {"reagent": "That is the broad working word for anything added to take part in a reaction. The sentence insists this drop <em>does no other job than to announce<\/em> — the narrow specialist is wanted.", "catalyst": "That word supplies speed and emerges unchanged in the background. This drop's entire purpose is the crimson announcement.", "ingredient": "That word belongs to mixtures and recipes. One drop added to reveal acid is a tester's tool, not part of the blend."}}, {"s": "Flour goes into the batter as one ____ among six, asked to do nothing except be present when the others arrive.", "ks": ["ingredient"], "fb": {"reagent": "That word means a substance added so a reaction will happen. The flour is <em>asked to do nothing except be present<\/em>.", "catalyst": "That word hurries a reaction and comes out untouched. Nothing here is being hurried.", "indicator": "That word announces what a sample contains, usually by color. Flour reveals nothing; it just joins the mix."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a substance added on purpose so a reaction will happen — and changed or used up by it. Anchor the chemistry with words like <i>drops<\/i>, <i>combines<\/i>, <i>used up<\/i> or <i>test<\/i>."}};
+  var CFG = {"word": "reagent", "gradeUrl": "/api/grade", "taskId": "reagent", "minWords": 12, "items": {"s1": {"q": "Which sentence uses reagent correctly?", "opts": {"A": "The students rinsed each glass reagent and clamped it above the burner before heating the solution.", "B": "The geologist labeled every reagent she chipped from the outcrop and packed the crate for the lab.", "C": "With one critical reagent on back order, the lab's synthesis of the compound stalled for a month.", "D": "The menu boasted that the bakery's sourdough contained no preservatives and no artificial reagents."}, "key": "C", "fb": {"correct": "Correct! A reagent is a substance added to take part in a chemical reaction, so it's the correct answer because a synthesis genuinely cannot run without the chemicals it consumes — one missing reagent stalls everything.", "A": "Not quite! A reagent is a substance added to take part in a chemical reaction, so it's not the correct choice here because the thing being rinsed and clamped is glassware — equipment holds the chemistry, but it is not a chemical itself.", "B": "Not quite! A reagent is a substance added to take part in a chemical reaction, so it's not the correct choice here because rocks chipped from an outcrop are specimens — the material under study, not a chemical brought in to run a test on it.", "D": "Not quite! A reagent is a substance added to take part in a chemical reaction, so it's not the correct choice here because a recipe's components are ingredients or additives — reagent belongs to the lab bench, not the menu."}}, "s3a": {"q": "As used in this passage, 'reagent' most nearly means:", "opts": {"A": "a tool that stirs samples without being changed", "B": "a substance that joins the reaction and gets used up", "C": "a container that holds water samples for testing", "D": "a harmless dye added to color the water so changes are easier to see"}, "key": "B", "fb": {"correct": "Right — the liquid 'combines with it... changed and used up': it takes part in the chemistry and is spent by it.", "A": "That describes the stirring rod, the teacher's contrast case — it 'comes out exactly as it went in.'", "C": "The tubes and vials are glassware; the word names the pale-yellow liquid inside the vial.", "D": "The liquid doesn't tint the water for visibility — it combines with the dissolved iron and is consumed in the process."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "catalyst", "B": "ingredient", "C": "indicator", "D": "reagent"}, "key": "D", "fb": {"correct": "Right. A reagent goes in to do chemical work and is consumed by the reaction it drives — here the molecules <em>are spent as the image forms<\/em>, and the lab <em>pours the exhausted bath away<\/em>.", "A": "A catalyst speeds a reaction along yet survives it untouched, ready for another round. This liquid does not survive: its molecules <em>are spent as the image forms<\/em>, and a busy lab <em>pours the exhausted bath away<\/em>.", "C": "An indicator has one narrow job — to announce what is present, usually by a color change. The passage rules that role out: <em>nothing signals by color here<\/em>, and the liquid is doing the building, not the announcing.", "B": "Ingredient is true only in the loosest sense, and the question asks for the most precise word. An ingredient only has to be present, like the additives that <em>merely sit in solution<\/em> — but this liquid <em>earns that name by working<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The synthesis calls for zinc powder as its ____: the metal is stirred in so the reaction can run, and none of it survives unchanged to the final product.", "options": ["reagent", "catalyst"], "key": "reagent", "pair": "catalyst", "why_right": "The tell is <em>none of it survives unchanged<\/em> - a reagent is used up, combined, or transformed by the reaction it drives, while the speed-helper's trick is emerging intact.", "why_wrong": "That word's material emerges intact and reusable. None of this zinc comes out the other side unchanged — and coming out unchanged is that word's defining trick."}, {"sentence": "The platinum bead is the process's ____: it speeds each batch's conversion, then comes out unchanged, fished from the vat and ready for the next.", "options": ["reagent", "catalyst"], "key": "catalyst", "pair": "catalyst", "why_right": "The tell is <em>comes out unchanged<\/em> - the card's catalyst speeds each conversion yet survives to work again, where a true working participant would be consumed or transformed by the run.", "why_wrong": "That word names a participant that is consumed, combined, or transformed by the reaction. This bead <em>comes out unchanged<\/em>, batch after batch."}, {"sentence": "Brewers prize the enzyme as the batch's ____ — one speck sends fermentation racing yet is never spent, and analysis afterward finds every bit of it intact and reusable.", "options": ["reagent", "catalyst"], "key": "catalyst", "pair": "catalyst", "why_right": "The tell is <em>never spent<\/em> - it races the fermentation along and survives intact, ready to reuse; the working word would demand a substance the reaction consumes or transforms.", "why_wrong": "That word's substance is used up or changed by the run it takes part in. This enzyme is <em>never spent<\/em> — every bit survives."}, {"sentence": "Each titration burns through the bottled ____: the added liquid joins the reaction and is consumed, and the result is read from the scale afterward, not from any color.", "options": ["reagent", "indicator"], "key": "reagent", "pair": "indicator", "why_right": "The tell is <em>not from any color<\/em> - nothing here signals; the liquid joins the reaction and is consumed, the card's working participant rather than the narrow announcing specialist.", "why_wrong": "That specialist announces what's present, usually by a color change. Here the result comes <em>from the scale<\/em>, and no color announces anything."}, {"sentence": "The fossil preparator brushes weak acid across the slab as her ____: it eats the chalk away grain by grain, is rinsed off spent each night, and announces nothing.", "options": ["reagent", "indicator"], "key": "reagent", "pair": "indicator", "why_right": "The tell is <em>eats the chalk away grain by grain<\/em> - this substance is added to take part in the reaction and is spent by it; nothing signals, nothing is tested for.", "why_wrong": "That word names the narrow specialist whose whole job is to signal that something is present. This acid detects nothing -- its work is dissolving the chalk, and the work uses it up."}, {"sentence": "Flour goes into the batter as one ____ among six, asked to do nothing except be present when the others arrive.", "options": ["reagent", "ingredient"], "key": "ingredient", "pair": "ingredient", "why_right": "The tell is <em>asked to do nothing except be present<\/em> - presence in the mix is the card's whole bar for an ingredient; no chemical reaction is wanted from the flour.", "why_wrong": "That word means a substance added so a reaction will happen. The flour is <em>asked to do nothing except be present<\/em>."}, {"sentence": "Each tank at the treatment works gets its dose of alum: the ____ reacts with the murky water, binds the silt into flakes, and none of it is left.", "options": ["reagent", "ingredient"], "key": "reagent", "pair": "ingredient", "why_right": "The tell is <em>none of it is left<\/em> - a reagent is added so a reaction will happen and is used up as it runs; this dose reacts, binds, and vanishes.", "why_wrong": "That word never asks for chemistry -- presence in the mix is enough. This alum is dosed in to drive a reaction and is destroyed by the job it came to do."}, {"sentence": "The pot roast's bay leaf is its quietest ____: it drifts beside the meat for hours, does nothing a cook would call chemistry, and comes out whole at serving.", "options": ["reagent", "ingredient"], "key": "ingredient", "pair": "ingredient", "why_right": "The tell is <em>comes out whole<\/em> - the card asks an ingredient only to be present in the mix, and presence is all this leaf supplies; nothing reacts, nothing is consumed.", "why_wrong": "That word means a substance sent in so a chemical reaction will run -- combined, changed, or used up. This leaf reacts with nothing and leaves the pot exactly as it entered."}], "display_order": [5, 2, 7, 4, 0, 3, 6, 1], "dimension_order": ["catalyst", "indicator", "ingredient"], "dimension_feedback": {"catalyst": "A catalyst speeds a reaction up but comes out unchanged on the other side, ready to work again. A reagent is a working participant: it gets used up, combined, or transformed by the reaction it drives.", "indicator": "An indicator is the narrow specialist — a substance whose whole job is to signal, usually by a color change, that something is present. Reagent is the broader working word for any substance added to take part in a reaction, whether it signals, dissolves, or builds.", "ingredient": "Ingredient is weaker than reagent — an ingredient only has to be present in the mix, while a reagent is added precisely so that a chemical reaction will happen."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a substance added on purpose so a reaction will happen — and changed or used up by it. Anchor the chemistry with words like <i>drops<\/i>, <i>combines<\/i>, <i>used up<\/i> or <i>test<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

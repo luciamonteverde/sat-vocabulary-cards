@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9a0ad7f2fc9e">
+<meta name="build" content="7dbad20bf21f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>maelstrom &#8212; SAT Vocabulary, Course 1 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "maelstrom", "gradeUrl": "/api/grade", "taskId": "maelstrom", "minWords": 12, "items": {"s1": {"q": "Below the dam's spillway, the river doesn't simply flow — it spins in a circle powerful enough to pull whole logs under and hold them down. Every spring, rangers post fresh warning signs on both banks. What are the rangers warning kayakers about?", "opts": {"A": "A stretch of violent rapids that can flip a kayak in seconds", "B": "A riptide sweeping swimmers straight out from the shore", "C": "A cataclysm that will destroy every town downstream of the dam", "D": "A maelstrom that can drag boats and swimmers under"}, "key": "D", "fb": {"correct": "Exactly. Water spinning with enough power to pull whole logs down and hold them there is a maelstrom — a violent whirlpool that pulls in whatever drifts too close.", "A": "Rapids are fast, churning water racing over rocks — dangerous, but they rush a kayak downstream rather than holding it in place. This water 'spins in a circle' and pulls whole logs under and keeps them there. Find the word for a violent whirlpool.", "B": "A riptide is an ocean current that drags swimmers straight out from a beach — it belongs to the surf, not to a river below a dam, and it pulls in a line rather than a circle. The rangers are naming spinning water that sucks things down.", "C": "A cataclysm is a disaster that levels everything at once — far beyond one dangerous spot in a river. The rangers are warning about a single stretch of violently spinning water, not the end of the valley. Choose the word for that whirlpool."}}, "s3a": {"q": "In this passage, a 'maelstrom' is best understood as what?", "opts": {"A": "a spinning current of harbor water", "B": "a violent, churning upheaval that drags in everyone nearby", "C": "a carefully staged negotiation", "D": "a brief pause in city services"}, "key": "B", "fb": {"correct": "Right — the walkout doesn't just cause disorder; it pulls in schools, courts, and shopkeepers who had no part in the dispute.", "A": "The word can name spinning water, but nothing in this passage is wet — the churn here is made of a strike and the city caught in it.", "C": "Nothing about the spread was staged or managed — schools, courts, and shops were dragged in against their will.", "D": "The opposite: services didn't quietly pause, they were pulled one after another into three weeks of churn."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "turmoil", "B": "maelstrom", "C": "vortex", "D": "whirlpool"}, "key": "B", "fb": {"correct": "Right. The panic <em>battered firms far beyond the rails<\/em> and a bystander company <em>was dragged under with the rest<\/em> — violent, churning, and pulling in everything nearby, which is exactly what a maelstrom does that its neighbors do not.", "D": "A whirlpool is spinning water, and the word mostly stays literal. There is no real water in this passage — <em>cartoonists drew the panic as churning water<\/em>, but what actually went down were banks and a hardware wholesaler.", "C": "A vortex is the neutral, almost technical word for something that draws things inward — it pulls without punishing. This panic <em>battered firms far beyond the rails<\/em>: whatever it was, it was violent on arrival, and the technical word carries no violence.", "A": "Turmoil is violent confusion that a country or an industry can be in, but it churns without pulling. Here a company with no stake in the railways <em>was dragged under with the rest<\/em> — bystanders were being pulled in, and turmoil does not do that."}}}, "grid": {"words": ["maelstrom", "whirlpool", "vortex", "turmoil"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "When the dam project collapsed, the little town was sucked into a ____ of lawsuits and blame that battered contractors and bystanders alike.", "ks": ["maelstrom"], "fb": {"whirlpool": "That word mostly stays in real water — spinning river currents and tides. Lawsuits and blame are not water; the sentence needs the word that goes figurative.", "vortex": "A vortex is neutral: it draws things inward without violence. This churn <em>batters<\/em> the people it pulls — the missing word has to carry that storm-force.", "turmoil": "Turmoil churns, but it does not pull. These contractors and bystanders were <em>sucked into<\/em> the mess — dragging outsiders in is the idea the blank needs."}}, {"s": "Sailors give the strait a wide berth: on the ebb tide its currents twist into a roaring ____ that has swallowed whole fishing boats.", "ks": ["maelstrom"], "fb": {"whirlpool": "Close — but this one <em>roars<\/em> and has <em>swallowed whole fishing boats<\/em>. The plain word for spinning water is too mild for something that monstrous.", "vortex": "That's the calm, almost technical word for any whirling mass. A funnel that swallows boats calls for the violent sea-word, not the physics term.", "turmoil": "Turmoil is confusion and agitation — a state, not a body of water. Nothing made of turmoil can sit in a strait and pull boats down."}}, {"s": "Every child in the village knows the bend where the river makes a small ____, strong enough to tug a paddle but never to hold a boat.", "ks": ["whirlpool"], "fb": {"maelstrom": "That name is reserved for the violent, monstrous version — water that swallows boats. This one can only <em>tug a paddle<\/em>.", "vortex": "That's the neutral, technical word — air, particles, physics diagrams. Village children pointing at a river bend use the everyday water word.", "turmoil": "Turmoil is confusion and agitation, a state you are in. It can't sit in a river bend or tug a paddle."}}, {"s": "To Grandpa the spinning patch below the mill wheel is simply a ____ — plain water-country talk, nothing out of a physics text, and harmless enough that children float sticks into it.", "ks": ["whirlpool"], "fb": {"maelstrom": "That word names the violent, monstrous version — the kind that pulls boats down. Children float sticks into this one.", "vortex": "The sentence itself waves that one off: Grandpa's word is <em>plain water-country talk<\/em>, and that term belongs in a physics text.", "turmoil": "Turmoil is agitation and confusion — a condition, not a spinning patch of water below a mill wheel."}}, {"s": "The simulation tracked how dust grains spiral inward once a ____ forms in the storm's upper column, each particle drawn steadily toward the axis.", "ks": ["vortex"], "fb": {"maelstrom": "That's a sea word — roaring water that swallows boats. This whirl is dry: air and dust in a simulation.", "whirlpool": "That word lives in water — rivers, drains, tides. Dust grains spiraling in a storm column need the neutral, technical term.", "turmoil": "Turmoil is a state of confusion; it doesn't <em>form<\/em> in a storm column or draw particles toward an axis."}}, {"s": "After the verdict the ministry spent a month in ____ — resignations, rumors, contradictory statements — though the scandal pulled no outsiders under.", "ks": ["turmoil"], "fb": {"maelstrom": "The sentence closes the door on that word: the scandal <em>pulled no outsiders under<\/em>, and pulling everything nearby in is exactly its signature.", "whirlpool": "That's spinning water in the literal world — rivers and tides. A ministry's bad month isn't wet.", "vortex": "A vortex is a whirling mass that sucks things inward. Nothing here pulls; the confusion just churns in place."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show violent churning <em>and<\/em> a pull — something dragging in people or things that never chose to be part of it. Try working in a word like <i>sucked<\/i>, <i>dragged<\/i>, <i>bystanders<\/i> or <i>churning<\/i>."}};
+  var CFG = {"word": "maelstrom", "gradeUrl": "/api/grade", "taskId": "maelstrom", "minWords": 12, "items": {"s1": {"q": "Below the dam's spillway, the river doesn't simply flow — it spins in a circle powerful enough to pull whole logs under and hold them down. Every spring, rangers post fresh warning signs on both banks. What are the rangers warning kayakers about?", "opts": {"A": "A stretch of violent rapids that can flip a kayak in seconds", "B": "A riptide sweeping swimmers straight out from the shore", "C": "A cataclysm that will destroy every town downstream of the dam", "D": "A maelstrom that can drag boats and swimmers under"}, "key": "D", "fb": {"correct": "Exactly. Water spinning with enough power to pull whole logs down and hold them there is a maelstrom — a violent whirlpool that pulls in whatever drifts too close.", "A": "Rapids are fast, churning water racing over rocks — dangerous, but they rush a kayak downstream rather than holding it in place. This water 'spins in a circle' and pulls whole logs under and keeps them there. Find the word for a violent whirlpool.", "B": "A riptide is an ocean current that drags swimmers straight out from a beach — it belongs to the surf, not to a river below a dam, and it pulls in a line rather than a circle. The rangers are naming spinning water that sucks things down.", "C": "A cataclysm is a disaster that levels everything at once — far beyond one dangerous spot in a river. The rangers are warning about a single stretch of violently spinning water, not the end of the valley. Choose the word for that whirlpool."}}, "s3a": {"q": "In this passage, a 'maelstrom' is best understood as what?", "opts": {"A": "a spinning current of harbor water", "B": "a violent, churning upheaval that drags in everyone nearby", "C": "a carefully staged negotiation", "D": "a brief pause in city services"}, "key": "B", "fb": {"correct": "Right — the walkout doesn't just cause disorder; it pulls in schools, courts, and shopkeepers who had no part in the dispute.", "A": "The word can name spinning water, but nothing in this passage is wet — the churn here is made of a strike and the city caught in it.", "C": "Nothing about the spread was staged or managed — schools, courts, and shops were dragged in against their will.", "D": "The opposite: services didn't quietly pause, they were pulled one after another into three weeks of churn."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "turmoil", "B": "maelstrom", "C": "vortex", "D": "whirlpool"}, "key": "B", "fb": {"correct": "Right. The panic <em>battered firms far beyond the rails<\/em> and a bystander company <em>was dragged under with the rest<\/em> — violent, churning, and pulling in everything nearby, which is exactly what a maelstrom does that its neighbors do not.", "D": "A whirlpool is spinning water, and the word mostly stays literal. There is no real water in this passage — <em>cartoonists drew the panic as churning water<\/em>, but what actually went down were banks and a hardware wholesaler.", "C": "A vortex is the neutral, almost technical word for something that draws things inward — it pulls without punishing. This panic <em>battered firms far beyond the rails<\/em>: whatever it was, it was violent on arrival, and the technical word carries no violence.", "A": "Turmoil is violent confusion that a country or an industry can be in, but it churns without pulling. Here a company with no stake in the railways <em>was dragged under with the rest<\/em> — bystanders were being pulled in, and turmoil does not do that."}}}, "pairwise": {"rows": [{"sentence": "When the dam project collapsed, the little town was sucked into a ____ of lawsuits and blame that battered contractors and bystanders alike.", "options": ["maelstrom", "turmoil"], "key": "maelstrom", "pair": "turmoil", "why_right": "The tell is <em>sucked into<\/em> - this mess drags contractors and bystanders alike into its middle, and the card gives that pulling action to the violent word, not to mere churning agitation.", "why_wrong": "Turmoil churns, but it does not pull. These contractors and bystanders were <em>sucked into<\/em> the mess — dragging outsiders in is the idea the blank needs."}, {"sentence": "After the verdict the ministry spent a month in ____ — resignations, rumors, contradictory statements — though the scandal pulled no outsiders under.", "options": ["maelstrom", "turmoil"], "key": "turmoil", "pair": "turmoil", "why_right": "The tell is <em>pulled no outsiders under<\/em> - violent confusion that churns in place without dragging anyone in is exactly what the state-word names; the stronger word requires that pull.", "why_wrong": "The sentence closes the door on that word: the scandal <em>pulled no outsiders under<\/em>, and pulling everything nearby in is exactly its signature."}, {"sentence": "The doping verdict against one sprinter set off a ____ of inquiries that pulled in coaches, sponsors, and teammates who had never failed a test.", "options": ["maelstrom", "turmoil"], "key": "maelstrom", "pair": "turmoil", "why_right": "The tell is <em>pulled in coaches, sponsors, and teammates<\/em> - dragging bystanders and innocents into the middle is this word's defining action; mere violent agitation churns without pulling anyone in.", "why_wrong": "That word means violent confusion that churns in place - it does not pull. Teammates who had never failed a test got dragged in, and that pull is the missing word's signature."}, {"sentence": "Sailors give the strait a wide berth: on the ebb tide its currents twist into a roaring ____ that has swallowed whole fishing boats.", "options": ["maelstrom", "vortex"], "key": "maelstrom", "pair": "vortex", "why_right": "The tell is <em>roaring<\/em> - the neutral, almost technical word merely draws things in without violence; water this monstrous, swallowing whole boats, carries the storm-force only the violent sea-word names.", "why_wrong": "That's the calm, almost technical word for any whirling mass. A funnel that swallows boats calls for the violent sea-word, not the physics term."}, {"sentence": "The simulation tracked how dust grains spiral inward once a ____ forms in the storm's upper column, each particle drawn steadily toward the axis.", "options": ["maelstrom", "vortex"], "key": "vortex", "pair": "vortex", "why_right": "The tell is <em>dust grains spiral inward<\/em> - a neutral, technical whirling mass of air and particles is exactly the physics word's territory, with no sea water and no storm-violence anywhere.", "why_wrong": "That's a sea word — roaring water that swallows boats. This whirl is dry: air and dust in a simulation."}, {"sentence": "Every child in the village knows the bend where the river makes a small ____, strong enough to tug a paddle but never to hold a boat.", "options": ["maelstrom", "whirlpool"], "key": "whirlpool", "pair": "whirlpool", "why_right": "The tell is <em>strong enough to tug a paddle but never to hold a boat<\/em> - mild, local spinning water is the everyday word's home; only overpowering water earns the stronger name.", "why_wrong": "That name is reserved for the violent, monstrous version — water that swallows boats. This one can only <em>tug a paddle<\/em>."}, {"sentence": "To Grandpa the spinning patch below the mill wheel is simply a ____ — plain water-country talk, nothing out of a physics text, and harmless enough that children float sticks into it.", "options": ["maelstrom", "whirlpool"], "key": "whirlpool", "pair": "whirlpool", "why_right": "The tell is <em>harmless enough that children float sticks into it<\/em> - plain, mild spinning water takes the everyday water word; the monstrous name belongs only to water that overpowers.", "why_wrong": "That word names the violent, monstrous version — the kind that pulls boats down. Children float sticks into this one."}, {"sentence": "The leaked memo left the senator at the center of a ____ of hearings, subpoenas, and hostile headlines, and by summer his aides were testifying too.", "options": ["maelstrom", "whirlpool"], "key": "maelstrom", "pair": "whirlpool", "why_right": "The tell is <em>hearings, subpoenas, and hostile headlines<\/em> - nothing here is water, and the card sends the figurative churn to the violent word while its plainer cousin mostly stays in real water.", "why_wrong": "That word mostly stays in literal water - spinning rivers and tides. Hearings, subpoenas, and headlines are not wet; the figurative storm that swallows a career needs the violent word."}], "display_order": [6, 1, 5, 3, 2, 4, 0, 7], "dimension_order": ["whirlpool", "vortex", "turmoil"], "dimension_feedback": {"whirlpool": "A whirlpool is spinning water that pulls things toward its center, and the word mostly stays in the water. A maelstrom is the violent, monstrous version — and the one that goes figurative: careers and countries get pulled into maelstroms. Every maelstrom is a whirlpool; only the overpowering ones earn the name.", "vortex": "Vortex is the neutral, almost technical word for any whirling mass that sucks things inward — air, water, particles in physics. Maelstrom keeps its storm-violence even in figurative use: a maelstrom of criticism batters as it pulls. A vortex merely draws you in; a maelstrom churns you once you arrive.", "turmoil": "Turmoil is violent confusion and agitation — a state that minds, crowds, and countries can be in. It churns, but it does not pull. A maelstrom adds the whirlpool's defining action: it drags everything nearby into itself, so bystanders and innocents end up sucked into the middle."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show violent churning <em>and<\/em> a pull — something dragging in people or things that never chose to be part of it. Try working in a word like <i>sucked<\/i>, <i>dragged<\/i>, <i>bystanders<\/i> or <i>churning<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

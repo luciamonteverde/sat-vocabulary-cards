@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="b0af491f1875">
+<meta name="build" content="f4e0eef90170">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>salient &#8212; SAT Vocabulary, Course 2 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "salient", "gradeUrl": "/api/grade", "taskId": "salient", "minWords": 12, "items": {"s1": {"q": "Which sentence uses salient correctly?", "opts": {"A": "Auditors praised the filing's salient clause, buried so deep in the appendix that no reader had spotted it in nine years.", "B": "She apologized for the salient typo on page six, assuring subscribers that nothing in the story turned on it.", "C": "The review listed a dozen small gripes, but its salient complaint — a battery dead by noon — led every story about the phone.", "D": "The carpenters sanded the tabletop perfectly salient, leaving not one ridge or bump anywhere on its surface."}, "key": "C", "fb": {"correct": "Correct! Salient means standing out as most noticeable and most important. The battery complaint is one gripe among a dozen, yet it leaps out of the review and drives every story written about the phone — small detail, biggest weight.", "A": "Not quite! A clause buried so deep that nobody spotted it for nine years is the opposite of salient — salient details leap out at a reader. Hidden and overlooked is precisely what a salient clause cannot be.", "B": "Not quite! The writer says nothing in the story turns on this typo — so it fails salient's second test. Salient marks the detail that carries the most weight, not a slip everyone agrees is harmless.", "D": "Not quite! This sentence uses salient as if it meant smooth or level. Salient describes what stands out — from a page, an argument, a landscape — so sanding a surface until nothing sticks up is the reverse of the idea."}}, "s3a": {"q": "In this passage, what does \"salient\" most nearly mean?", "opts": {"A": "most important -- the one everything else turns on", "B": "described in the most vivid and colorful language on the page", "C": "easiest for a hurried reader to find", "D": "most recently added to the report"}, "key": "A", "fb": {"correct": "Right -- 'the fact the whole story would turn on': it stands out because it matters, not because it is colorful.", "B": "Vane's trainees fixated on vivid details, and she taught them to look past those -- vividness is exactly what the word is not.", "C": "Her key fact is mentioned only 'in passing' -- it is easy to miss, not easy to find.", "D": "The passage says nothing about when facts were added -- the word is about weight, not recency."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "striking", "B": "salient", "C": "noticeable", "D": "prominent"}, "key": "B", "fb": {"correct": "Right. The coin is the detail the whole site's story hangs on — <em>forcing archaeologists to redate the entire site<\/em> — and that organizing weight, not visual pull, is exactly what salient marks.", "D": "Prominence is a matter of position and visibility, and this coin had neither: it was <em>a dull gray coin no larger than a button<\/em>, wedged <em>in a sealed foundation layer<\/em>. Nothing about where or how it sat was easy to see.", "A": "Striking is the pull of sheer vividness — and the vivid objects here are the brooches that <em>dazzled visitors<\/em>, yet <em>none of them changed a single date<\/em>. The coin itself is <em>dull gray<\/em>; whatever it did, it did not dazzle.", "C": "Noticeable is what catches the eye if you happen to look, and this coin barely could: <em>a dull gray coin no larger than a button<\/em>, easy to walk past. What sets it apart is consequence — <em>forcing archaeologists to redate the entire site<\/em> — and a word about merely catching the eye understates that."}}}, "grid": {"words": ["salient", "prominent", "striking", "noticeable"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Buried on page forty of the deposition is the one ____ detail the entire case turns on: the elevator inspection was signed a day after the accident.", "ks": ["salient"], "fb": {"prominent": "Prominent is about position and easy visibility -- a tower, a front-page name. This detail is buried on page forty; its weight, not its placement, makes it stand out.", "striking": "Striking seizes attention by sheer vividness. An inspection date on a form dazzles no one -- it stands out because the whole case turns on it.", "noticeable": "Noticeable catches the eye if you happen to look. This is the detail the entire case turns on -- it does not wait to be happened upon."}}, {"s": "Twenty features crowd the spec sheet, but reviewers keep circling the ____ one -- battery life -- around which every buying decision seems to organize itself.", "ks": ["salient"], "fb": {"prominent": "Prominent means placed where it is easily seen. This feature enjoys no special placement -- it is one line among twenty; its importance is what reviewers keep circling.", "striking": "Striking is force and vividness -- the thing that stops you cold. A battery figure stops nobody cold; it simply decides the purchase.", "noticeable": "Noticeable is a detail you might spot if you look. This one organizes every buying decision -- weight, not visibility."}}, {"s": "Tucked down a side alley, the mural is ____ -- acid orange on wet slate, a clash that stops passers-by mid-stride -- though it decides nothing about the painting's meaning.", "ks": ["striking"], "fb": {"salient": "That word marks what stands out because it matters -- the point things turn on. This mural's clash of color 'decides nothing'; it seizes the eye and settles no question.", "prominent": "Prominent is placement -- set high, set central, easily seen. This mural hides down an alley; the force is in the colors themselves.", "noticeable": "Noticeable is mild -- caught if you happen to glance. A clash that stops walkers mid-stride is attention seized by force."}}, {"s": "The debut album's cover is ____ -- a lighthouse lit by forked lightning -- and shoppers stop cold at the racks, yet the image says nothing about how the record sounds.", "ks": ["striking"], "fb": {"salient": "That word belongs to what matters -- the detail a decision turns on. This cover decides nothing about the music; it just stops people in the aisle.", "prominent": "Prominent describes position -- displayed where all eyes land. The sentence claims nothing about rack placement; the image's own force does the stopping.", "noticeable": "Noticeable would merely catch a browsing eye. This image stops shoppers cold -- force, not mild visibility."}}, {"s": "The founder's plain oil portrait hangs in the lobby's most ____ spot -- dead center, lit, at eye height -- though few employees could tell you her name.", "ks": ["prominent"], "fb": {"salient": "That word marks what matters -- what things turn on. Nothing turns on this portrait; nobody even knows the sitter's name. Its claim is pure placement.", "striking": "Striking is force and vividness. The portrait is plain -- what it has is the best position in the room.", "noticeable": "Noticeable suits a detail you might or might not spot. Dead center, lit, at eye height is a spot built so that everyone sees it."}}, {"s": "The scratch on the piano lid is ____ only if you kneel by the window in afternoon light, and invisible the rest of the day.", "ks": ["noticeable"], "fb": {"salient": "That word is for the detail that matters -- the one a question turns on. A faint scratch decides nothing; it can merely be seen, sometimes.", "prominent": "Prominent means positioned to be easily seen. This scratch is invisible most of the day -- the opposite of easy to see.", "striking": "Striking seizes attention with force. This mark hides all day and shows only from one angle, in one light."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a detail that stands out because it matters -- something a decision or an outcome turns on, not just something easy to see. Try working in a word like <i>decided<\/i>, <i>whole<\/i>, <i>single<\/i> or <i>turned<\/i>."}};
+  var CFG = {"word": "salient", "gradeUrl": "/api/grade", "taskId": "salient", "minWords": 12, "items": {"s1": {"q": "Which sentence uses salient correctly?", "opts": {"A": "Auditors praised the filing's salient clause, buried so deep in the appendix that no reader had spotted it in nine years.", "B": "She apologized for the salient typo on page six, assuring subscribers that nothing in the story turned on it.", "C": "The review listed a dozen small gripes, but its salient complaint — a battery dead by noon — led every story about the phone.", "D": "The carpenters sanded the tabletop perfectly salient, leaving not one ridge or bump anywhere on its surface."}, "key": "C", "fb": {"correct": "Correct! Salient means standing out as most noticeable and most important. The battery complaint is one gripe among a dozen, yet it leaps out of the review and drives every story written about the phone — small detail, biggest weight.", "A": "Not quite! A clause buried so deep that nobody spotted it for nine years is the opposite of salient — salient details leap out at a reader. Hidden and overlooked is precisely what a salient clause cannot be.", "B": "Not quite! The writer says nothing in the story turns on this typo — so it fails salient's second test. Salient marks the detail that carries the most weight, not a slip everyone agrees is harmless.", "D": "Not quite! This sentence uses salient as if it meant smooth or level. Salient describes what stands out — from a page, an argument, a landscape — so sanding a surface until nothing sticks up is the reverse of the idea."}}, "s3a": {"q": "In this passage, what does \"salient\" most nearly mean?", "opts": {"A": "most important -- the one everything else turns on", "B": "described in the most vivid and colorful language on the page", "C": "easiest for a hurried reader to find", "D": "most recently added to the report"}, "key": "A", "fb": {"correct": "Right -- 'the fact the whole story would turn on': it stands out because it matters, not because it is colorful.", "B": "Vane's trainees fixated on vivid details, and she taught them to look past those -- vividness is exactly what the word is not.", "C": "Her key fact is mentioned only 'in passing' -- it is easy to miss, not easy to find.", "D": "The passage says nothing about when facts were added -- the word is about weight, not recency."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "striking", "B": "salient", "C": "noticeable", "D": "prominent"}, "key": "B", "fb": {"correct": "Right. The coin is the detail the whole site's story hangs on — <em>forcing archaeologists to redate the entire site<\/em> — and that organizing weight, not visual pull, is exactly what salient marks.", "D": "Prominence is a matter of position and visibility, and this coin had neither: it was <em>a dull gray coin no larger than a button<\/em>, wedged <em>in a sealed foundation layer<\/em>. Nothing about where or how it sat was easy to see.", "A": "Striking is the pull of sheer vividness — and the vivid objects here are the brooches that <em>dazzled visitors<\/em>, yet <em>none of them changed a single date<\/em>. The coin itself is <em>dull gray<\/em>; whatever it did, it did not dazzle.", "C": "Noticeable is what catches the eye if you happen to look, and this coin barely could: <em>a dull gray coin no larger than a button<\/em>, easy to walk past. What sets it apart is consequence — <em>forcing archaeologists to redate the entire site<\/em> — and a word about merely catching the eye understates that."}}}, "pairwise": {"rows": [{"sentence": "Buried on page forty of the deposition is the one ____ detail the entire case turns on: the elevator inspection was signed a day after the accident.", "options": ["salient", "prominent"], "key": "salient", "pair": "prominent", "why_right": "The tell is <em>Buried on page forty of the deposition<\/em> - anything but placed to be seen; the detail stands out for weight, since the entire case turns on it.", "why_wrong": "Prominent is about position and easy visibility -- a tower, a front-page name. This detail is buried on page forty; its weight, not its placement, makes it stand out."}, {"sentence": "The founder's plain oil portrait hangs in the lobby's most ____ spot -- dead center, lit, at eye height -- though few employees could tell you her name.", "options": ["salient", "prominent"], "key": "prominent", "pair": "prominent", "why_right": "The tell is <em>dead center, lit, at eye height<\/em> - pure position and easy visibility doing all the work, while nothing whatever turns on the portrait itself.", "why_wrong": "That word marks what matters -- what things turn on. Nothing turns on this portrait; nobody even knows the sitter's name. Its claim is pure placement."}, {"sentence": "Mechanics ignore the engine's loud rattles and listen for the ____ sound -- a faint tick under the others -- since that one tick is what separates a loose bolt from a cracked head.", "options": ["salient", "prominent"], "key": "salient", "pair": "prominent", "why_right": "The tell is <em>a faint tick under the others<\/em> - nothing about it is easily seen or heard; it stands out because the whole diagnosis turns on it.", "why_wrong": "That word means standing out so it is easily seen - a tower, a front-page name. This tick is faint and buried under louder noises; only its weight makes it stand out."}, {"sentence": "Twenty features crowd the spec sheet, but reviewers keep circling the ____ one -- battery life -- around which every buying decision seems to organize itself.", "options": ["salient", "striking"], "key": "salient", "pair": "striking", "why_right": "The tell is <em>around which every buying decision seems to organize itself<\/em> - a plain battery figure dazzles no one; it stands out because it matters, not through force or vividness.", "why_wrong": "Striking is force and vividness -- the thing that stops you cold. A battery figure stops nobody cold; it simply decides the purchase."}, {"sentence": "Tucked down a side alley, the mural is ____ -- acid orange on wet slate, a clash that stops passers-by mid-stride -- though it decides nothing about the painting's meaning.", "options": ["salient", "striking"], "key": "striking", "pair": "striking", "why_right": "The tell is <em>a clash that stops passers-by mid-stride<\/em> - attention seized by sheer force and vividness, while the closing clause says the jolt decides nothing at all.", "why_wrong": "That word marks what stands out because it matters -- the point things turn on. This mural's clash of color 'decides nothing'; it seizes the eye and settles no question."}, {"sentence": "The debut album's cover is ____ -- a lighthouse lit by forked lightning -- and shoppers stop cold at the racks, yet the image says nothing about how the record sounds.", "options": ["salient", "striking"], "key": "striking", "pair": "striking", "why_right": "The tell is <em>shoppers stop cold at the racks<\/em> - sheer visual force seizing attention, though the image settles nothing about the record, so it dazzles without mattering.", "why_wrong": "That word belongs to what matters -- the detail a decision turns on. This cover decides nothing about the music; it just stops people in the aisle."}, {"sentence": "The scratch on the piano lid is ____ only if you kneel by the window in afternoon light, and invisible the rest of the day.", "options": ["salient", "noticeable"], "key": "noticeable", "pair": "noticeable", "why_right": "The tell is <em>only if you kneel by the window in afternoon light<\/em> - a mark that merely catches the eye if you happen to look, deciding and organizing nothing.", "why_wrong": "That word is for the detail that matters -- the one a question turns on. A faint scratch decides nothing; it can merely be seen, sometimes."}, {"sentence": "The pool lists a dozen rules in the same red paint, but the ____ one is no diving in the shallow end -- the rule every drill, whistle, and lifeguard rotation is built to enforce.", "options": ["salient", "noticeable"], "key": "salient", "pair": "noticeable", "why_right": "The tell is <em>every drill, whistle, and lifeguard rotation is built to enforce<\/em> - the rule organizes everything around it, far past a detail caught only if you happen to look.", "why_wrong": "That word suits a detail that catches the eye if you happen to look. This rule, painted like its neighbors, stands out another way: the pool's whole routine is organized around it."}], "display_order": [2, 5, 6, 3, 1, 7, 0, 4], "dimension_order": ["prominent", "striking", "noticeable"], "dimension_feedback": {"prominent": "standing out so it is easily seen — a prominent tower, a prominent family. Prominence is about position and visibility; salient adds weight: the salient point is the one the whole matter turns on.", "striking": "seizing attention through sheer force or vividness — a striking image can stop you cold and still decide nothing. Salient marks what stands out because it matters, not merely because it dazzles.", "noticeable": "Noticeable is weaker than salient: a noticeable detail catches the eye if you happen to look, while the salient one leaps out and organizes everything else around it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a detail that stands out because it matters -- something a decision or an outcome turns on, not just something easy to see. Try working in a word like <i>decided<\/i>, <i>whole<\/i>, <i>single<\/i> or <i>turned<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

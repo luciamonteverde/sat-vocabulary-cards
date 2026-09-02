@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="13b71779cdc7">
+<meta name="build" content="35ee0ef726ef">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>lithe &#8212; SAT Vocabulary, Course 3 Unit 17</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "lithe", "gradeUrl": "/api/grade", "taskId": "lithe", "minWords": 12, "items": {"s1": {"q": "Which sentence uses lithe correctly?", "opts": {"A": "His lithe arguments flattened every objection the committee could raise.", "B": "The oak's lithe trunk stopped the runaway cart dead at the fence line.", "C": "She kept a lithe grip on the railing all the way down the icy steps.", "D": "The lithe fox cleared the stone wall in one soft, flowing leap."}, "key": "D", "fb": {"correct": "Right. A fox clearing a wall in one soft, flowing leap bends and moves with grace together — lithe fits supple, graceful movement exactly.", "A": "Arguments that 'flattened every objection' are forceful, but they have no body to bend. Lithe describes physical grace and flexible, flowing movement — a quality of limbs, not logic.", "B": "An oak trunk that 'stopped the runaway cart dead' is rigid and immovable — the reverse of supple. Lithe things bend and move gracefully; this tree wins by refusing to give.", "C": "A 'lithe grip on the railing' confuses steadiness with suppleness. A grip on icy steps must be firm; lithe means flexible and graceful in motion, not holding tight."}}, "s3a": {"q": "As it is used in the passage, \"lithe\" describes a style that is:", "opts": {"A": "bending and flowing with graceful ease", "B": "quick and light, full of darting movements", "C": "unusually strong in the hands and arms", "D": "loose enough to stretch without injury"}, "key": "A", "fb": {"correct": "Right — she 'pours herself from hold to hold' in 'one continuous line'; the word names flowing, graceful bending.", "B": "The passage says the opposite: 'you rarely see a sudden move,' and the slowed tape finds no bursts.", "C": "Muscling up the wall is what the other regulars do; Mara's style is set against that.", "D": "Flexibility is the floor, not the point — the passage stresses grace: a climb that is one unhurried curve."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "nimble", "B": "lithe", "C": "limber", "D": "agile"}, "key": "A", "fb": {"correct": "Right. The hands are <em>small, light, and startlingly fast<\/em> — <em>a flicker rather than a sweep<\/em>. Quickness and lightness in quick fingers is exactly what nimble names.", "B": "Lithe is about how a body bends — flexibility carried with flowing, dancerly grace. This passage refuses the flow: the movements are <em>a flicker rather than a sweep<\/em>, and Ana <em>sits nearly motionless below the shoulders<\/em>. Nothing here pours or bends.", "D": "Agile is athletic quickness — fast changes of direction, fully under control, like a point guard. Ana <em>never leaves her chair<\/em>; whatever her hands are doing, no whole-body athleticism or cutting is on display.", "C": "Limber means loose enough to move and stretch. The passage states the opposite of looseness: <em>her wrists ache and her shoulders have knotted stiff<\/em>. The quality being praised survives despite stiffness, so it cannot be looseness."}}}, "grid": {"words": ["lithe", "nimble", "agile", "limber"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The eel's ____ body slid through the coral in one slow, flowing curve, bending with unhurried grace — nothing about the movement was quick.", "ks": ["lithe"], "fb": {"nimble": "The movement is <em>slow<\/em> and <em>nothing about it was quick<\/em> — this word is about speed and lightness, which the sentence rules out.", "agile": "One slow, flowing curve involves no fast changes of direction; athletic quickness isn't in this picture.", "limber": "Loose enough to bend is only the floor; this body bends <em>with unhurried grace<\/em>, which asks for the stronger word."}}, {"s": "Even just walking to the barre, the principal dancer stayed ____, spine and arms flowing as if every joint bent softly on request — no darting, only grace.", "ks": ["lithe"], "fb": {"nimble": "The sentence says <em>no darting<\/em> — quickness isn't the claim; the flowing ease of the body is.", "agile": "She is <em>just walking<\/em> — there are no fast, controlled changes of direction for the athletic word to describe.", "limber": "Merely loose enough to move wouldn't make a walk worth watching; this is grace, joints bending <em>softly on request<\/em>."}}, {"s": "The old typesetter's fingers stayed ____ into his eighties, darting between the tiny letter cases faster than apprentices half his age could follow.", "ks": ["nimble"], "fb": {"lithe": "Nothing here bends or flows — the praise is <em>darting<\/em> speed between letter cases, quickness rather than grace.", "agile": "This is lightness and speed in the <em>fingers<\/em>, not an athlete's fast change of direction in full motion.", "limber": "Loose enough to move wouldn't let him outpace apprentices; the sentence claims real quickness."}}, {"s": "Reporters loved her ____ wit: ask anything and the answer came back light and fast, the question turned over before the room stopped laughing.", "ks": ["nimble"], "fb": {"lithe": "That word describes a body bending and flowing with grace; a comeback has no body — the claim here is <em>light and fast<\/em>.", "agile": "The card's athletic word lives on the court — fast cuts, controlled direction changes — not in banter that comes back <em>light and fast<\/em>.", "limber": "Being loose enough to stretch says nothing about answers arriving before the laughter stops."}}, {"s": "Scouts timed the midfielder's ____ footwork: three sharp cuts in as many seconds, each change of direction fast and fully under control.", "ks": ["agile"], "fb": {"lithe": "Nothing flows softly here — <em>three sharp cuts<\/em>, timed. That's athletic control, not graceful bending.", "nimble": "Light darting alone isn't the claim; the sentence stresses changes of direction <em>fully under control<\/em>, the athlete's version of quick.", "limber": "Merely loose muscles don't make timed cuts; the sentence describes performance, not stretch."}}, {"s": "Ten minutes of stretching before the shift keeps the movers ____ — nothing fancy, just muscles loose enough to bend and lift without a twinge.", "ks": ["limber"], "fb": {"lithe": "The goal is <em>muscles loose enough to bend<\/em>, expressly <em>nothing fancy<\/em> — graceful, flowing movement is more than anyone here is claiming.", "nimble": "Nobody is darting or quick; the claim is only looseness for bending and lifting.", "agile": "No cuts, no bursts, no controlled direction changes — just being loose enough to work."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a body bending and flowing with grace — not merely fast or flexible. Let the reader watch the motion: try working in a word like <i>flow<\/i>, <i>curve<\/i>, <i>bend<\/i> or <i>graceful<\/i>."}};
+  var CFG = {"word": "lithe", "gradeUrl": "/api/grade", "taskId": "lithe", "minWords": 12, "items": {"s1": {"q": "Which sentence uses lithe correctly?", "opts": {"A": "His lithe arguments flattened every objection the committee could raise.", "B": "The oak's lithe trunk stopped the runaway cart dead at the fence line.", "C": "She kept a lithe grip on the railing all the way down the icy steps.", "D": "The lithe fox cleared the stone wall in one soft, flowing leap."}, "key": "D", "fb": {"correct": "Right. A fox clearing a wall in one soft, flowing leap bends and moves with grace together — lithe fits supple, graceful movement exactly.", "A": "Arguments that 'flattened every objection' are forceful, but they have no body to bend. Lithe describes physical grace and flexible, flowing movement — a quality of limbs, not logic.", "B": "An oak trunk that 'stopped the runaway cart dead' is rigid and immovable — the reverse of supple. Lithe things bend and move gracefully; this tree wins by refusing to give.", "C": "A 'lithe grip on the railing' confuses steadiness with suppleness. A grip on icy steps must be firm; lithe means flexible and graceful in motion, not holding tight."}}, "s3a": {"q": "As it is used in the passage, \"lithe\" describes a style that is:", "opts": {"A": "bending and flowing with graceful ease", "B": "quick and light, full of darting movements", "C": "unusually strong in the hands and arms", "D": "loose enough to stretch without injury"}, "key": "A", "fb": {"correct": "Right — she 'pours herself from hold to hold' in 'one continuous line'; the word names flowing, graceful bending.", "B": "The passage says the opposite: 'you rarely see a sudden move,' and the slowed tape finds no bursts.", "C": "Muscling up the wall is what the other regulars do; Mara's style is set against that.", "D": "Flexibility is the floor, not the point — the passage stresses grace: a climb that is one unhurried curve."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "nimble", "B": "lithe", "C": "limber", "D": "agile"}, "key": "A", "fb": {"correct": "Right. The hands are <em>small, light, and startlingly fast<\/em> — <em>a flicker rather than a sweep<\/em>. Quickness and lightness in quick fingers is exactly what nimble names.", "B": "Lithe is about how a body bends — flexibility carried with flowing, dancerly grace. This passage refuses the flow: the movements are <em>a flicker rather than a sweep<\/em>, and Ana <em>sits nearly motionless below the shoulders<\/em>. Nothing here pours or bends.", "D": "Agile is athletic quickness — fast changes of direction, fully under control, like a point guard. Ana <em>never leaves her chair<\/em>; whatever her hands are doing, no whole-body athleticism or cutting is on display.", "C": "Limber means loose enough to move and stretch. The passage states the opposite of looseness: <em>her wrists ache and her shoulders have knotted stiff<\/em>. The quality being praised survives despite stiffness, so it cannot be looseness."}}}, "pairwise": {"rows": [{"sentence": "The eel's ____ body slid through the coral in one slow, flowing curve, bending with unhurried grace — nothing about the movement was quick.", "options": ["lithe", "nimble"], "key": "lithe", "pair": "nimble", "why_right": "The tell is <em>nothing about the movement was quick<\/em> - nimble is speed and lightness, ruled out here; a body bending through one slow, flowing curve with grace is the card's lithe.", "why_wrong": "The movement is <em>slow<\/em> and <em>nothing about it was quick<\/em> — this word is about speed and lightness, which the sentence rules out."}, {"sentence": "The squirrel stayed ____ along the fence rail, three quick hops ahead of the terrier and up the oak in a scrabble of jerks.", "options": ["lithe", "nimble"], "key": "nimble", "pair": "nimble", "why_right": "The tell is <em>a scrabble of jerks<\/em> - quick hops and jerks are darting speed and lightness, the card's nimble; nothing here bends or flows with grace, so lithe has no purchase.", "why_wrong": "That word means a body that bends and flows with grace. Three quick hops and a scrabble of jerks are darting speed and lightness, with nothing flowing in them."}, {"sentence": "The heron rose from the reeds at half speed, ____ through every slow bend of neck and wing, unhurried even as the boat drifted nearer.", "options": ["lithe", "nimble"], "key": "lithe", "pair": "nimble", "why_right": "The tell is <em>at half speed<\/em> - nimble is about speed and lightness, and this bird has neither; a body moving through slow bends of neck and wing flows rather than darts.", "why_wrong": "That word is about speed and lightness — a mover who darts. A heron rising at half speed through slow bends of neck and wing is flowing, unhurried grace, not quickness."}, {"sentence": "Scouts timed the midfielder's ____ footwork: three sharp cuts in as many seconds, each change of direction fast and fully under control.", "options": ["lithe", "agile"], "key": "agile", "pair": "agile", "why_right": "The tell is <em>each change of direction fast and fully under control<\/em> - athletic quickness changing direction in control is the card's agile; three sharp cuts have nothing soft or flowing.", "why_wrong": "Nothing flows softly here — <em>three sharp cuts<\/em>, timed. That's athletic control, not graceful bending."}, {"sentence": "Lap after lap the swimmer looked ____, each pull one long soft bend from shoulder to hip, with no snap in it anywhere.", "options": ["lithe", "agile"], "key": "lithe", "pair": "agile", "why_right": "The tell is <em>no snap in it anywhere<\/em> - agile is athletic quickness, changing direction fast; one long soft bend from shoulder to hip is a body flowing softly through a motion.", "why_wrong": "That word means athletic quickness — changing direction fast, in control. One long soft bend from shoulder to hip, with no snap anywhere, changes direction nowhere; it flows."}, {"sentence": "Ten minutes of stretching before the shift keeps the movers ____ — nothing fancy, just muscles loose enough to bend and lift without a twinge.", "options": ["lithe", "limber"], "key": "limber", "pair": "limber", "why_right": "The tell is <em>nothing fancy<\/em> - loose enough to bend and lift is the card's floor, limber, with grace expressly disclaimed; lithe always compliments, and no one here is claiming beauty.", "why_wrong": "The goal is <em>muscles loose enough to bend<\/em>, expressly <em>nothing fancy<\/em> — graceful, flowing movement is more than anyone here is claiming."}, {"sentence": "Everyone in the yoga class can fold flat over their knees, but only the instructor is ____, rising from each pose as if poured.", "options": ["lithe", "limber"], "key": "lithe", "pair": "limber", "why_right": "The tell is <em>as if poured<\/em> - the whole class is loose enough to stretch, which is all limber says; rising from a pose like poured liquid is bending carried with grace.", "why_wrong": "That word means loose enough to move and stretch — everyone in the class can fold flat, so it singles nobody out. Rising from a pose as if poured is grace."}, {"sentence": "After six weeks in a cast, therapy aimed only to get him ____ again — bending far enough for stairs — before anyone mentioned sport.", "options": ["lithe", "limber"], "key": "limber", "pair": "limber", "why_right": "The tell is <em>bending far enough for stairs<\/em> - loose enough to move again is the card's floor, limber; lithe always compliments graceful flow, and nobody is praising this leg.", "why_wrong": "That word means a body bending and flowing with grace, and it always compliments. Therapy aims only at bending far enough for stairs — loose enough to move, the floor, nothing more."}], "display_order": [7, 0, 6, 4, 1, 5, 2, 3], "dimension_order": ["nimble", "agile", "limber"], "dimension_feedback": {"nimble": "Nimble is about speed and lightness — quick feet, quick fingers, quick wits. Lithe is about how the body bends: flexibility carried with grace, the flowing ease of a dancer or a cat. A nimble mover darts; a lithe mover flows.", "agile": "Agile is athletic quickness — changing direction fast, in control, like a point guard. Lithe cares less about speed than about grace: a body that bends and flows softly through a motion. An agile mover is quick and sure; a lithe one is supple and beautiful to watch.", "limber": "Limber means loose enough to move and stretch — it stops well short of lithe."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a body bending and flowing with grace — not merely fast or flexible. Let the reader watch the motion: try working in a word like <i>flow<\/i>, <i>curve<\/i>, <i>bend<\/i> or <i>graceful<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="0c3d17ad92b7">
+<meta name="build" content="64115b316c4d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>acidification &#8212; SAT Vocabulary, Course 1 Unit 23</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "acidification", "gradeUrl": "/api/grade", "taskId": "acidification", "minWords": 12, "items": {"s1": {"q": "Four lakes are monitored for twenty years. In which lake is acidification clearly occurring?", "opts": {"A": "Lake A's pH falls from 6.6 to 5.1 as runoff from the surrounding slopes reaches it.", "B": "Lake B's pH rises steadily from 6.4 to 7.5 after crushed limestone is added to the watershed.", "C": "Lake C's pH holds at 7.0 while its water level drops by a full metre.", "D": "Lake D warms by two degrees, but repeated tests show its chemistry unchanged."}, "key": "A", "fb": {"correct": "Correct. A pH sliding from 6.6 down to 5.1 is water becoming measurably more acidic, and acidification is that chemical change, not a change in temperature or volume.", "B": "A climbing pH is acidification's exact opposite. 'Rises steadily from 6.4 to 7.5' means the lake is growing less acidic — crushed limestone neutralizes acid. You need the number heading downward instead.", "C": "'Holds at 7.0' is the tell: the chemistry is not changing at all. A sinking water level alters volume, not acidity, and acidification is a downward pH trend — a flat line is no trend.", "D": "Temperature is a different dial entirely. 'Warms by two degrees' with its 'chemistry unchanged' means the lake got hotter, not sourer — acidification is strictly a chemical slide toward acid, whatever the thermometer reads."}}, "s3a": {"q": "As used in this passage, what does \"acidification\" describe?", "opts": {"A": "the sudden poisoning of a river by a single chemical spill", "B": "the slow shift of water chemistry toward acid", "C": "the dissolving of dredged sediment into the river's current", "D": "the generation-by-generation thinning of mussel shells"}, "key": "B", "fb": {"correct": "Right -- the passage describes rain washing acid into the watershed 'for decades' while the river's chemistry 'was slowly shifting': a gradual, long-term turn toward acid.", "A": "The passage rules out a sudden event: 'No single year looked alarming,' and the change ran quietly for decades.", "C": "Dredging was the first suspect and was cleared -- 'The real culprit turned out to be quieter.'", "D": "Thin shells are the damage the change caused, not the change itself -- the shells dissolve 'as water grows more acid.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "souring", "B": "tarnishing", "C": "acidification", "D": "acidulation"}, "key": "C", "fb": {"correct": "Right. Pages whose pH drifts downward year after year, measured leaf by leaf and logged across whole collections, are undergoing exactly the running, trackable chemical process this technical term names.", "A": "Souring is the kitchen word for turning sharp — milk left out, cream gone off. What the passage describes is monitored chemistry: <em>Conservation labs test sample leaves year after year<\/em> and keep logs, and a pantry word cannot carry a lab's running measurements.", "D": "Acidulation names a deliberate act, a cook dosing water with a squeeze of lemon. Here <em>Nobody does this to the books<\/em> — compounds left at the mill <em>drive the change on their own<\/em>, unattended, over decades.", "B": "Tarnishing is a thin film that dulls a surface and stops there. This change <em>runs through every fibre of a page rather than resting on its surface<\/em>, deep enough to make paper snap — far more than a surface bloom."}}}, "grid": {"words": ["acidification", "souring", "acidulation", "tarnishing"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Sixty years of field records let the ministry chart the ____ of the region's farm soils: measured plot by plot, the chemistry has drifted steadily toward acid since the first samples were taken.", "ks": ["acidification"], "fb": {"souring": "Ministry field records, plots, and samples are a laboratory register -- <em>measured plot by plot<\/em> -- a long way from the kitchen word for milk and cream going off.", "acidulation": "That word names one deliberate, small-dose act, like a cook sharpening a dressing with citrus. Here nothing was added on purpose -- the chemistry <em>has drifted steadily<\/em> on its own for sixty years.", "tarnishing": "A thin film that dulls a metal's surface leaves what lies beneath untouched. Here the change runs through <em>the region's farm soils<\/em> themselves, not across a surface."}}, {"s": "Marine chemists now publish an annual index tracking the ____ of the gulf, and each report shows the water's chemistry a little further from neutral than the year before.", "ks": ["acidification"], "fb": {"souring": "An <em>annual index<\/em> and yearly reports belong to measured science; the everyday word for turning belongs to milk left out and cream gone off.", "acidulation": "That is a deliberate, small-dose act by a person. No one is dosing a gulf on purpose -- the reports track a change moving <em>a little further ... than the year before<\/em>, year after year.", "tarnishing": "That names a dull film on a metal surface, harmless underneath. Here it is <em>the water's chemistry<\/em> itself moving, through the whole gulf."}}, {"s": "The recipe's one non-negotiable step is the ____ of the fruit pulp -- a measured half-spoon of tartaric acid, stirred in on purpose so the pectin will set.", "ks": ["acidulation"], "fb": {"acidification": "The technical term you chose names a slow, system-wide drift tracked over years. This is one <em>measured half-spoon<\/em>, added in a single deliberate stroke.", "souring": "Milk and cream turn on their own; nothing here does. The acid arrives <em>stirred in on purpose<\/em>, by a person, following a recipe.", "tarnishing": "That word describes a film dulling metal. A pot of <em>fruit pulp<\/em> has no metal surface to dull."}}, {"s": "Before setting out the blueberry bushes, the gardener's first job is the ____ of each planting hole: a small, deliberate dose of sulfur worked into the soil to nudge it slightly toward acid.", "ks": ["acidulation"], "fb": {"acidification": "The word you picked names a long, unplanned drift measured across whole lakes or regions. Here a person applies one <em>small, deliberate dose<\/em>, on purpose, to one planting hole.", "souring": "The kitchen word describes milk or cream turning by itself. Nothing turns by itself here -- the dose is <em>worked into the soil<\/em> by hand, on purpose.", "tarnishing": "That is a surface film on metal. This change happens inside <em>each planting hole<\/em>, in soil, by design."}}, {"s": "Nobody needed a test strip to detect the ____ of the cream left out overnight: one sniff over the carton and it went straight down the drain.", "ks": ["souring"], "fb": {"acidification": "The technical term needs measurement -- a pH tracked over a place and a period of time. Here <em>nobody needed a test strip<\/em>; a nose settled it.", "acidulation": "That names a deliberate, small addition of acid. The cream was simply <em>left out overnight<\/em> and turned all by itself.", "tarnishing": "A dull film on silver harms nothing beneath it. This is <em>the cream<\/em> itself gone off -- food chemistry, not a metal's surface."}}, {"s": "Months in a damp drawer left the silver spoons visibly duller -- a faint gray bloom over each one -- but their ____ proved strictly surface-deep, and a minute with the polishing cloth restored the shine.", "ks": ["tarnishing"], "fb": {"acidification": "That term describes a deep, measured change running through a lake or a soil. This bloom is <em>strictly surface-deep<\/em> and wipes away with a cloth.", "souring": "The kitchen word belongs to milk and cream turning. These are <em>silver spoons<\/em> -- a metal surface gone dull, nothing edible.", "acidulation": "That names a deliberate splash or dose of acid. Nothing was added here; <em>months in a damp drawer<\/em> did this on their own."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a whole place or system growing more acid gradually -- something measured, not tasted. Try working in a word like <i>decades<\/i>, <i>pH<\/i>, <i>lake<\/i> or <i>steadily<\/i>."}};
+  var CFG = {"word": "acidification", "gradeUrl": "/api/grade", "taskId": "acidification", "minWords": 12, "items": {"s1": {"q": "Four lakes are monitored for twenty years. In which lake is acidification clearly occurring?", "opts": {"A": "Lake A's pH falls from 6.6 to 5.1 as runoff from the surrounding slopes reaches it.", "B": "Lake B's pH rises steadily from 6.4 to 7.5 after crushed limestone is added to the watershed.", "C": "Lake C's pH holds at 7.0 while its water level drops by a full metre.", "D": "Lake D warms by two degrees, but repeated tests show its chemistry unchanged."}, "key": "A", "fb": {"correct": "Correct. A pH sliding from 6.6 down to 5.1 is water becoming measurably more acidic, and acidification is that chemical change, not a change in temperature or volume.", "B": "A climbing pH is acidification's exact opposite. 'Rises steadily from 6.4 to 7.5' means the lake is growing less acidic — crushed limestone neutralizes acid. You need the number heading downward instead.", "C": "'Holds at 7.0' is the tell: the chemistry is not changing at all. A sinking water level alters volume, not acidity, and acidification is a downward pH trend — a flat line is no trend.", "D": "Temperature is a different dial entirely. 'Warms by two degrees' with its 'chemistry unchanged' means the lake got hotter, not sourer — acidification is strictly a chemical slide toward acid, whatever the thermometer reads."}}, "s3a": {"q": "As used in this passage, what does \"acidification\" describe?", "opts": {"A": "the sudden poisoning of a river by a single chemical spill", "B": "the slow shift of water chemistry toward acid", "C": "the dissolving of dredged sediment into the river's current", "D": "the generation-by-generation thinning of mussel shells"}, "key": "B", "fb": {"correct": "Right -- the passage describes rain washing acid into the watershed 'for decades' while the river's chemistry 'was slowly shifting': a gradual, long-term turn toward acid.", "A": "The passage rules out a sudden event: 'No single year looked alarming,' and the change ran quietly for decades.", "C": "Dredging was the first suspect and was cleared -- 'The real culprit turned out to be quieter.'", "D": "Thin shells are the damage the change caused, not the change itself -- the shells dissolve 'as water grows more acid.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "souring", "B": "tarnishing", "C": "acidification", "D": "acidulation"}, "key": "C", "fb": {"correct": "Right. Pages whose pH drifts downward year after year, measured leaf by leaf and logged across whole collections, are undergoing exactly the running, trackable chemical process this technical term names.", "A": "Souring is the kitchen word for turning sharp — milk left out, cream gone off. What the passage describes is monitored chemistry: <em>Conservation labs test sample leaves year after year<\/em> and keep logs, and a pantry word cannot carry a lab's running measurements.", "D": "Acidulation names a deliberate act, a cook dosing water with a squeeze of lemon. Here <em>Nobody does this to the books<\/em> — compounds left at the mill <em>drive the change on their own<\/em>, unattended, over decades.", "B": "Tarnishing is a thin film that dulls a surface and stops there. This change <em>runs through every fibre of a page rather than resting on its surface<\/em>, deep enough to make paper snap — far more than a surface bloom."}}}, "pairwise": {"rows": [{"sentence": "Sixty years of field records let the ministry chart the ____ of the region's farm soils: measured plot by plot, the chemistry has drifted steadily toward acid since the first samples were taken.", "options": ["acidification", "souring"], "key": "acidification", "pair": "souring", "why_right": "The tell is <em>measured plot by plot<\/em> - a change tracked over a place and a period of time and reported, which the card says takes the technical term, not the kitchen word.", "why_wrong": "Ministry field records, plots, and samples are a laboratory register -- <em>measured plot by plot<\/em> -- a long way from the kitchen word for milk and cream going off."}, {"sentence": "Marine chemists now publish an annual index tracking the ____ of the gulf, and each report shows the water's chemistry a little further from neutral than the year before.", "options": ["acidification", "acidulation"], "key": "acidification", "pair": "acidulation", "why_right": "The tell is <em>a little further from neutral than the year before<\/em> - a running, year-over-year drift across a whole gulf, with nobody deliberately adding a measured dose of anything.", "why_wrong": "That is a deliberate, small-dose act by a person. No one is dosing a gulf on purpose -- the reports track a change moving <em>a little further ... than the year before<\/em>, year after year."}, {"sentence": "The recipe's one non-negotiable step is the ____ of the fruit pulp -- a measured half-spoon of tartaric acid, stirred in on purpose so the pectin will set.", "options": ["acidification", "acidulation"], "key": "acidulation", "pair": "acidulation", "why_right": "The tell is <em>stirred in on purpose<\/em> - one measured, deliberate dose added by a cook, the card's ground for this word, not a whole system drifting more acid over time.", "why_wrong": "The technical term you chose names a slow, system-wide drift tracked over years. This is one <em>measured half-spoon<\/em>, added in a single deliberate stroke."}, {"sentence": "Before setting out the blueberry bushes, the gardener's first job is the ____ of each planting hole: a small, deliberate dose of sulfur worked into the soil to nudge it slightly toward acid.", "options": ["acidification", "acidulation"], "key": "acidulation", "pair": "acidulation", "why_right": "The tell is <em>a small, deliberate dose<\/em> - a person making something slightly acid on purpose, not a running process by which a whole system grows steadily more acidic over time.", "why_wrong": "The word you picked names a long, unplanned drift measured across whole lakes or regions. Here a person applies one <em>small, deliberate dose<\/em>, on purpose, to one planting hole."}, {"sentence": "Nobody needed a test strip to detect the ____ of the cream left out overnight: one sniff over the carton and it went straight down the drain.", "options": ["acidification", "souring"], "key": "souring", "pair": "souring", "why_right": "The tell is <em>nobody needed a test strip<\/em> - nothing here is measured, tracked, or reported, so the kitchen word for cream turning acid on its own carries the sentence.", "why_wrong": "The technical term needs measurement -- a pH tracked over a place and a period of time. Here <em>nobody needed a test strip<\/em>; a nose settled it."}, {"sentence": "Months in a damp drawer left the silver spoons visibly duller -- a faint gray bloom over each one -- but their ____ proved strictly surface-deep, and a minute with the polishing cloth restored the shine.", "options": ["acidification", "tarnishing"], "key": "tarnishing", "pair": "tarnishing", "why_right": "The tell is <em>strictly surface-deep<\/em> - a thin film dulling metal without harming what lies beneath, the mildest of these changes, not a whole system's chemistry drifting.", "why_wrong": "That term describes a deep, measured change running through a lake or a soil. This bloom is <em>strictly surface-deep<\/em> and wipes away with a cloth."}, {"sentence": "The survey blames the ____ of the upland bogs for the vanished snails: core samples show the change in the peat's chemistry now reaches two metres down.", "options": ["acidification", "tarnishing"], "key": "acidification", "pair": "tarnishing", "why_right": "The tell is <em>two metres down<\/em> - the chemistry of the whole bog is altered, and the snails are harmed, where a mere film sits on a metal surface and harms nothing beneath.", "why_wrong": "That word names the mildest of these changes - a thin film dulling metal, harmless underneath. Peat is not metal, and a change two metres down is no surface film."}, {"sentence": "The water board's well logs going back to 1975 record the aquifer's slow ____, and this spring's tests put the pH below the treatment plant's limit for the first time.", "options": ["acidification", "souring"], "key": "acidification", "pair": "souring", "why_right": "The tell is <em>well logs going back to 1975<\/em> - a change measured on the pH scale, tracked over a place and a period of time, and reported, the technical term's home ground.", "why_wrong": "That word is the kitchen register of milk and vinegar turning. An aquifer tracked through decades of logs and pH tests is measured science, which takes the technical term."}], "display_order": [4, 3, 0, 6, 2, 5, 1, 7], "dimension_order": ["souring", "acidulation", "tarnishing"], "dimension_feedback": {"souring": "Souring is the everyday word for turning acid, the kitchen register of milk and vinegar. Acidification is the technical term for that change when it can be measured on the pH scale, tracked over a place and a period of time, and reported.", "acidulation": "Acidulation is a deliberate act of making something slightly acid, the way a cook acidulates water with a squeeze of lemon. Acidification is the running process by which a whole system, such as a lake or a field's soil, grows steadily more acidic over time.", "tarnishing": "Tarnishing is the mildest of these chemical changes, a thin surface film that dulls metal without harming what lies beneath, while acidification alters the chemistry of a whole lake or soil."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a whole place or system growing more acid gradually -- something measured, not tasted. Try working in a word like <i>decades<\/i>, <i>pH<\/i>, <i>lake<\/i> or <i>steadily<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

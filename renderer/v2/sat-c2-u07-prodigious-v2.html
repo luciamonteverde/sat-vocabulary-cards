@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9fc607b23d50">
+<meta name="build" content="39f3923b350e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>prodigious &#8212; SAT Vocabulary, Course 2 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "prodigious", "gradeUrl": "/api/grade", "taskId": "prodigious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses prodigious correctly?", "opts": {"A": "Prodigious with his savings, he burned through the entire inheritance in a single spring.", "B": "They rented a prodigious dumpster -- neighbors mistook it for a shipping container.", "C": "She kept a prodigious sum in the cookie jar on the counter: almost eleven dollars in coins.", "D": "Critics waved off the mural as prodigious, far too small to spot from the sidewalk below."}, "key": "B", "fb": {"correct": "Correct. A dumpster mistaken for a shipping container is remarkably, astonishingly large — prodigious in exactly the definition's sense.", "A": "Burning 'through the entire inheritance in a single spring' is prodigal — the look-alike word for wasteful spending. Prodigious means remarkably large or impressive, and says nothing about squandering money.", "C": "Almost 'eleven dollars in coins' is pocket change. Prodigious promises an amount that astonishes by its size; attaching it to a cookie jar's small stash turns the word inside out.", "D": "'Far too small to spot from the sidewalk' rules the word out on its face. Prodigious size is the kind you cannot miss; the critics needed a word for insignificance instead."}}, "s3a": {"q": "In this passage, what does \"prodigious\" most nearly mean?", "opts": {"A": "requiring years of full-time preparation before anyone can attempt it", "B": "unusual enough to attract scientific attention", "C": "astonishingly large in scale", "D": "difficult for most people to pass"}, "key": "C", "fb": {"correct": "Right -- twenty-five thousand streets held in one head is scale, and everyone who meets it, examiners included, is astonished by it.", "A": "The years of preparation are a consequence of the demand's size, not what the word means.", "B": "The scans came later, drawn by the feat -- the word describes the demand itself: astonishing in sheer scale.", "D": "Plenty of hard exams astonish nobody. This one amazes even its own examiners -- the word points at remarkable scale, not difficulty alone."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sizable", "B": "immense", "C": "staggering", "D": "prodigious"}, "key": "D", "fb": {"correct": "Right. The scale astonishes on its own terms: <em>a grown man's weight added every single morning<\/em>, and <em>The wonder belongs to the animal itself<\/em> — the marvel does the stunning, whether or not anyone is there to see it.", "B": "Immense states plain hugeness and stops there, with no gasp included — and this passage will not stop at bulk. <em>The wonder belongs to the animal itself<\/em>: the growth is framed as astonishing, not merely enormous. The sentence needs the astonishment as well as the scale.", "C": "Staggering reports the onlooker's stunned reaction — the camera stays on the witness. This passage takes the witness away: the quality <em>would be there with nobody around to gasp at it<\/em>, so the label belongs to the animal, not to anyone's reaction.", "A": "Sizable covers an amount worth a note and no more. This growth is <em>a grown man's weight added every single morning<\/em>, and by August one newborn was <em>nearly half again as long<\/em> — scale far past merely noteworthy."}}}, "grid": {"words": ["prodigious", "immense", "staggering", "sizable"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The pumpkin at the county weigh-in was ____ -- half a ton of squash on a single vine -- and the midway emptied as fairgoers drifted over just to stand and look.", "ks": ["prodigious"], "fb": {"immense": "Immense states plain hugeness and stops there, no gasp included. This pumpkin empties the midway -- the scale itself astonishes.", "staggering": "Staggering keeps the camera on a stunned witness -- someone floored by what they meet. These fairgoers are not floored; they gather to admire, and the sentence praises the squash's own astonishing scale.", "sizable": "Sizable earns a note in the minutes and no more. Half a ton on a single vine, with a crowd around it, is scale of a different order."}}, {"s": "Working with a single quill, the copyist left an output that can only be called ____ -- forty thousand pages in one lifetime, a total archivists lean in and recount just to believe.", "ks": ["prodigious"], "fb": {"immense": "Immense is hugeness with no gasp -- a warehouse, a debt. This total draws the gasp: people recount it just to believe it.", "staggering": "Staggering reports a witness stunned -- knocked back by a number. Nobody here reels; the sentence's praise sits on the marvel itself, the pages.", "sizable": "Sizable is a solid, note-worthy amount. Forty thousand hand-copied pages is the kind of total a whole field marvels at."}}, {"s": "The new fulfillment warehouse is ____ -- eleven football fields under one roof -- yet drivers pass it on the interstate without a second glance.", "ks": ["immense"], "fb": {"prodigious": "That word needs the size to astonish -- onlookers stopping where they stand. These drivers do not even glance twice.", "staggering": "Staggering stuns whoever meets it. This building stuns nobody -- it is simply enormous and ignored.", "sizable": "Sizable is a big-enough-to-mention amount. Eleven football fields under one roof is sheer hugeness -- just hugeness nobody gasps at."}}, {"s": "The debt clock's thirteen-digit total is ____, but posted on the same corner for decades it reads as routine -- sheer hugeness nobody gasps at anymore.", "ks": ["immense"], "fb": {"prodigious": "That word is size that astonishes -- scale that stops people where they stand. Passers-by here walk straight past; the hugeness is real, the wonder long gone.", "staggering": "Staggering means the number knocks its reader back. This one 'reads as routine' -- nobody reels at it.", "sizable": "Sizable is worth a note and no more. A thirteen-digit figure is enormous -- what it lacks is not size but gasp."}}, {"s": "When the repair estimate arrived, the figure proved ____: the treasurer read it twice, set the letter down, and had to take a walk around the block.", "ks": ["staggering"], "fb": {"prodigious": "That word praises a marvel for astonishing scale -- the camera on the wonder itself. Here the camera never leaves the treasurer, reading twice and walking it off; nothing is being admired.", "immense": "Immense would state the bill's hugeness and stop, gasp not included. This sentence is nothing but the gasp -- the number's whole effect is what it does to its reader.", "sizable": "Sizable earns a line in the ledger and a nod. This figure sent a grown treasurer around the block."}}, {"s": "The bake sale's profit was ____ -- worth a line in the minutes and a nod from the club president, though nobody's jaw dropped.", "ks": ["sizable"], "fb": {"prodigious": "That word is for scale that astonishes -- crowds stopping to stare. This profit got a nod.", "immense": "Immense is sheer hugeness -- warehouses, national debts. A good bake-sale haul is respectable, not huge.", "staggering": "Staggering floors whoever reads the number. The club president nodded and moved to the next agenda item."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs scale remarkable enough to amaze -- give the reader both the huge measurement and someone marveling at it. Try working in a word like <i>stared<\/i>, <i>whole<\/i>, <i>record<\/i> or <i>thousand<\/i>."}};
+  var CFG = {"word": "prodigious", "gradeUrl": "/api/grade", "taskId": "prodigious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses prodigious correctly?", "opts": {"A": "Prodigious with his savings, he burned through the entire inheritance in a single spring.", "B": "They rented a prodigious dumpster -- neighbors mistook it for a shipping container.", "C": "She kept a prodigious sum in the cookie jar on the counter: almost eleven dollars in coins.", "D": "Critics waved off the mural as prodigious, far too small to spot from the sidewalk below."}, "key": "B", "fb": {"correct": "Correct. A dumpster mistaken for a shipping container is remarkably, astonishingly large — prodigious in exactly the definition's sense.", "A": "Burning 'through the entire inheritance in a single spring' is prodigal — the look-alike word for wasteful spending. Prodigious means remarkably large or impressive, and says nothing about squandering money.", "C": "Almost 'eleven dollars in coins' is pocket change. Prodigious promises an amount that astonishes by its size; attaching it to a cookie jar's small stash turns the word inside out.", "D": "'Far too small to spot from the sidewalk' rules the word out on its face. Prodigious size is the kind you cannot miss; the critics needed a word for insignificance instead."}}, "s3a": {"q": "In this passage, what does \"prodigious\" most nearly mean?", "opts": {"A": "requiring years of full-time preparation before anyone can attempt it", "B": "unusual enough to attract scientific attention", "C": "astonishingly large in scale", "D": "difficult for most people to pass"}, "key": "C", "fb": {"correct": "Right -- twenty-five thousand streets held in one head is scale, and everyone who meets it, examiners included, is astonished by it.", "A": "The years of preparation are a consequence of the demand's size, not what the word means.", "B": "The scans came later, drawn by the feat -- the word describes the demand itself: astonishing in sheer scale.", "D": "Plenty of hard exams astonish nobody. This one amazes even its own examiners -- the word points at remarkable scale, not difficulty alone."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sizable", "B": "immense", "C": "staggering", "D": "prodigious"}, "key": "D", "fb": {"correct": "Right. The scale astonishes on its own terms: <em>a grown man's weight added every single morning<\/em>, and <em>The wonder belongs to the animal itself<\/em> — the marvel does the stunning, whether or not anyone is there to see it.", "B": "Immense states plain hugeness and stops there, with no gasp included — and this passage will not stop at bulk. <em>The wonder belongs to the animal itself<\/em>: the growth is framed as astonishing, not merely enormous. The sentence needs the astonishment as well as the scale.", "C": "Staggering reports the onlooker's stunned reaction — the camera stays on the witness. This passage takes the witness away: the quality <em>would be there with nobody around to gasp at it<\/em>, so the label belongs to the animal, not to anyone's reaction.", "A": "Sizable covers an amount worth a note and no more. This growth is <em>a grown man's weight added every single morning<\/em>, and by August one newborn was <em>nearly half again as long<\/em> — scale far past merely noteworthy."}}}, "pairwise": {"rows": [{"sentence": "The pumpkin at the county weigh-in was ____ -- half a ton of squash on a single vine -- and the midway emptied as fairgoers drifted over just to stand and look.", "options": ["prodigious", "immense"], "key": "prodigious", "pair": "immense", "why_right": "The tell is <em>the midway emptied as fairgoers drifted over just to stand and look<\/em> - this size draws the gasp, and the card gives immense only plain hugeness with no gasp included.", "why_wrong": "Immense states plain hugeness and stops there, no gasp included. This pumpkin empties the midway -- the scale itself astonishes."}, {"sentence": "The new fulfillment warehouse is ____ -- eleven football fields under one roof -- yet drivers pass it on the interstate without a second glance.", "options": ["prodigious", "immense"], "key": "immense", "pair": "immense", "why_right": "The tell is <em>without a second glance<\/em> - eleven football fields of sheer hugeness that astonishes nobody, exactly the plain, gasp-free size the card assigns to immense.", "why_wrong": "That word needs the size to astonish -- onlookers stopping where they stand. These drivers do not even glance twice."}, {"sentence": "The debt clock's thirteen-digit total is ____, but posted on the same corner for decades it reads as routine -- sheer hugeness nobody gasps at anymore.", "options": ["prodigious", "immense"], "key": "immense", "pair": "immense", "why_right": "The tell is <em>sheer hugeness nobody gasps at anymore<\/em> - the total stays enormous while the wonder is gone, and hugeness without the gasp is the card's ground for immense.", "why_wrong": "That word is size that astonishes -- scale that stops people where they stand. Passers-by here walk straight past; the hugeness is real, the wonder long gone."}, {"sentence": "Working with a single quill, the copyist left an output that can only be called ____ -- forty thousand pages in one lifetime, a total archivists lean in and recount just to believe.", "options": ["prodigious", "sizable"], "key": "prodigious", "pair": "sizable", "why_right": "The tell is <em>a total archivists lean in and recount just to believe<\/em> - scale astonishing enough to make a whole field marvel, far past sizable's worth-a-note ceiling.", "why_wrong": "Sizable is a solid, note-worthy amount. Forty thousand hand-copied pages is the kind of total a whole field marvels at."}, {"sentence": "The bake sale's profit was ____ -- worth a line in the minutes and a nod from the club president, though nobody's jaw dropped.", "options": ["prodigious", "sizable"], "key": "sizable", "pair": "sizable", "why_right": "The tell is <em>worth a line in the minutes and a nod<\/em> - a respectable, note-worthy amount and no more, while nothing here astonishes or stops anyone where they stand.", "why_wrong": "That word is for scale that astonishes -- crowds stopping to stare. This profit got a nod."}, {"sentence": "The aquarium's new tank is ____ -- a four-story wall of glass -- and on opening day whole school groups stopped mid-tour and simply stood staring, guides waiting minutes to move them on.", "options": ["prodigious", "sizable"], "key": "prodigious", "pair": "sizable", "why_right": "The tell is <em>whole school groups stopped mid-tour<\/em> - scale remarkable enough to stop onlookers where they stand, far past an amount worth a note in the minutes.", "why_wrong": "That word means an amount worth a note in the minutes and no more. A tank that halts every school tour in the building is scale of a different order."}, {"sentence": "When the repair estimate arrived, the figure proved ____: the treasurer read it twice, set the letter down, and had to take a walk around the block.", "options": ["prodigious", "staggering"], "key": "staggering", "pair": "staggering", "why_right": "The tell is <em>read it twice, set the letter down, and had to take a walk around the block<\/em> - the camera stays on a stunned witness, staggering's home ground.", "why_wrong": "That word praises a marvel for astonishing scale -- the camera on the wonder itself. Here the camera never leaves the treasurer, reading twice and walking it off; nothing is being admired."}, {"sentence": "Word spread until half the town had driven out to admire the foundry's ____ anchor chain, each link the size of a doorway, laid gleaming across the yard.", "options": ["prodigious", "staggering"], "key": "prodigious", "pair": "staggering", "why_right": "The tell is <em>driven out to admire<\/em> - the camera stays on the marvel itself, scale praised for astonishing onlookers, while nobody in the sentence reels or is stunned.", "why_wrong": "That word reports the onlooker's reaction - a witness stunned by what they meet. These visitors arrive calmly and on purpose; the sentence's praise sits on the chain's own astonishing scale."}], "display_order": [5, 1, 4, 6, 0, 3, 7, 2], "dimension_order": ["immense", "staggering", "sizable"], "dimension_feedback": {"immense": "Immense states plain hugeness and stops there — an immense warehouse, an immense debt — with no gasp included. Prodigious is size that astonishes: scale remarkable enough to stop onlookers where they stand. Everything prodigious is immense; only the immense thing that makes people stare earns prodigious.", "staggering": "Staggering reports the onlooker's reaction: a number or size so large it stuns whoever meets it. Prodigious praises the thing itself for astonishing scale. The two often trade places in a sentence, but staggering keeps the camera on the stunned witness, while prodigious keeps it on the marvel doing the stunning.", "sizable": "Sizable is worth a note in the minutes; prodigious empties the room onto the sidewalk to look."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs scale remarkable enough to amaze -- give the reader both the huge measurement and someone marveling at it. Try working in a word like <i>stared<\/i>, <i>whole<\/i>, <i>record<\/i> or <i>thousand<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

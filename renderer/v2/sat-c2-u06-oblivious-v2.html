@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="ae7810f4be5c">
+<meta name="build" content="dd36fd39774b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>oblivious &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "oblivious", "gradeUrl": "/api/grade", "taskId": "oblivious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses oblivious correctly?", "opts": {"A": "Ever oblivious, the lifeguard logged each swimmer's stroke count and towel color.", "B": "The cat was oblivious to the can opener, sprinting to the kitchen at the first squeak.", "C": "Nose in her book, the commuter rode oblivious past her own stop and three more.", "D": "She stayed oblivious to the deadline by writing it on every mirror in the house."}, "key": "C", "fb": {"correct": "Correct. Absorbed in her book, the commuter never registers the stops at all - a total failure to notice what is happening nearby is oblivious.", "A": "Logging 'each swimmer's stroke count and towel color' is vigilance — this lifeguard notices everything, the reverse of blankness. Oblivious means details never register at all.", "B": "That cat heard everything: 'sprinting to the kitchen at the first squeak' means the sound plainly registered. Being oblivious to something means having no awareness of it whatsoever.", "D": "Writing a deadline 'on every mirror in the house' guarantees it stays in view. Oblivious means unaware — this sentence describes the most deliberate reminder system imaginable."}}, "s3a": {"q": "In this passage, saying Elias was \"entirely oblivious\" means that he", "opts": {"A": "heard the warnings clearly and then deliberately chose to ignore every one of them", "B": "failed to register events happening plainly and loudly around him", "C": "was never in a position to receive any warning at all", "D": "was briefly interrupted at his table but very quickly refocused on his work"}, "key": "B", "fb": {"correct": "Right. Sirens, a loudspeaker, sandbags -- all plainly there, and his attention registered none of it. Present facts, unregistered: that is the word.", "A": "The passage rules this out directly: he had not chosen to ignore the warnings. Choosing requires perceiving, and he perceived nothing.", "C": "The warnings were right outside his window -- sirens and a loudspeaker truck. They reached the glass; they just never reached his attention.", "D": "Two hours passed, and it took his name three times to break through. That is no brief interruption."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "oblivious", "B": "heedless", "C": "distracted", "D": "unaware"}, "key": "D", "fb": {"correct": "Right. The news simply never came her way — <em>no message could travel to the ice, and none did<\/em> — so her not knowing carries no blame and marks no failure of attention. That is exactly the neutral word this sentence needs.", "A": "Oblivious marks attention that fails to register what is right there — loud, posted, repeated. Nothing here was ever in front of Renner: her camp sat <em>past the reach of any radio or post<\/em>, so there was nothing present for her attention to miss.", "B": "Heedless carries blame: a notice reached you and you pressed on anyway. No notice ever reached the ice, and when one finally did, she <em>read the headline — twice<\/em>. There was nothing for her to brush aside.", "C": "Distracted is a momentary pull — missing a sentence while a phone buzzes, not missing a season. This stretch ran <em>through November as well<\/em> and ended only with <em>a two-month stack of newspapers<\/em>; her attention never lapsed, because the news was never there to attend to."}}}, "grid": {"words": ["oblivious", "unaware", "heedless", "distracted"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The intercom paged him twice by name and the lobby lights flashed for closing, but Dario, deep in his sketchbook, stayed ____ to all of it.", "ks": ["oblivious"], "fb": {"unaware": "That's the no-blame word for information that never came your way. This came his way <em>twice, by name<\/em>, with lights flashing -- it arrived and never registered.", "heedless": "That word blames people who got the warning and pushed on anyway. Nothing here ever landed with Dario -- he didn't dismiss the pages; he never perceived them.", "distracted": "That word covers a moment's lapse with a cause -- a buzz, a crash, a missed sentence. A whole closing routine passing unnoticed is total, not momentary."}}, {"s": "The tour group photographed the mural for ten minutes, ____ to the wet-paint signs taped every few feet -- afterward, all of them swore there had been no signs at all.", "ks": ["oblivious"], "fb": {"unaware": "That word excuses people the information never reached. These signs were <em>taped every few feet<\/em>, directly in front of the cameras -- they arrived and went unregistered.", "heedless": "That word means the warning landed and was defied. These tourists later <em>swore there were no signs<\/em> -- nothing ever landed to defy.", "distracted": "That word suits a moment's pulled attention. Ten minutes of photographing past sign after sign is not a moment -- it is wholesale non-noticing."}}, {"s": "A ranger stopped the pair at the trailhead and read the avalanche bulletin aloud; ____ , they thanked her and kept climbing.", "ks": ["heedless"], "fb": {"oblivious": "That word means the warning never even registered. These two <em>thanked the ranger<\/em> -- they heard every word and climbed anyway.", "unaware": "That word means the information never came your way. This bulletin was read aloud to their faces at the trailhead.", "distracted": "That word wants attention pulled elsewhere by something. Nothing pulled at them -- they listened calmly, then defied what they'd heard."}}, {"s": "The gauges had been redlining for an hour and the foreman radioed twice; the crew chief waved off both calls and, ____ , ordered the pumps run harder.", "ks": ["heedless"], "fb": {"oblivious": "That word means the warnings never landed at all. He <em>waved off both calls<\/em> -- you can't wave off what you never perceived.", "unaware": "That word is for information that never arrives. Two direct radio calls and an hour of redlining gauges arrived just fine.", "distracted": "That word needs attention pulled away by something. His attention was on the calls -- he acknowledged them and chose to defy them."}}, {"s": "The recall notice went only to the day crew's inboxes, so the night shift worked on, entirely ____ , boxing the flagged lot till dawn.", "ks": ["unaware"], "fb": {"oblivious": "That word wants loud, posted, repeated facts sailing past someone's attention. Nothing was ever posted where this shift could see it -- the notice went to other inboxes.", "heedless": "That word blames people who were warned and pressed on. Nobody warned the night shift of anything.", "distracted": "That word means attention pulled away from what's in front of you. Nothing about the recall was ever in front of them."}}, {"s": "When a tray crashed at the far counter, the barista -- ____ for just a beat -- poured the same shot twice and started the order over.", "ks": ["distracted"], "fb": {"oblivious": "That word means whole events passing unnoticed. She missed one beat, caught the error herself, and restarted -- the opposite of not registering.", "unaware": "That word is for information that never reached her. Everything was in front of her all along; her attention just flicked away for a moment.", "heedless": "That word needs a warning received and defied. A crashing tray isn't advice -- nothing here was ignored on purpose."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show loud, plain, repeated facts that someone's attention never registers -- not facts kept from them. Put the evidence in the room with a word like <i>sirens<\/i>, <i>posted<\/i>, <i>twice<\/i> or <i>never noticed<\/i>."}};
+  var CFG = {"word": "oblivious", "gradeUrl": "/api/grade", "taskId": "oblivious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses oblivious correctly?", "opts": {"A": "Ever oblivious, the lifeguard logged each swimmer's stroke count and towel color.", "B": "The cat was oblivious to the can opener, sprinting to the kitchen at the first squeak.", "C": "Nose in her book, the commuter rode oblivious past her own stop and three more.", "D": "She stayed oblivious to the deadline by writing it on every mirror in the house."}, "key": "C", "fb": {"correct": "Correct. Absorbed in her book, the commuter never registers the stops at all - a total failure to notice what is happening nearby is oblivious.", "A": "Logging 'each swimmer's stroke count and towel color' is vigilance — this lifeguard notices everything, the reverse of blankness. Oblivious means details never register at all.", "B": "That cat heard everything: 'sprinting to the kitchen at the first squeak' means the sound plainly registered. Being oblivious to something means having no awareness of it whatsoever.", "D": "Writing a deadline 'on every mirror in the house' guarantees it stays in view. Oblivious means unaware — this sentence describes the most deliberate reminder system imaginable."}}, "s3a": {"q": "In this passage, saying Elias was \"entirely oblivious\" means that he", "opts": {"A": "heard the warnings clearly and then deliberately chose to ignore every one of them", "B": "failed to register events happening plainly and loudly around him", "C": "was never in a position to receive any warning at all", "D": "was briefly interrupted at his table but very quickly refocused on his work"}, "key": "B", "fb": {"correct": "Right. Sirens, a loudspeaker, sandbags -- all plainly there, and his attention registered none of it. Present facts, unregistered: that is the word.", "A": "The passage rules this out directly: he had not chosen to ignore the warnings. Choosing requires perceiving, and he perceived nothing.", "C": "The warnings were right outside his window -- sirens and a loudspeaker truck. They reached the glass; they just never reached his attention.", "D": "Two hours passed, and it took his name three times to break through. That is no brief interruption."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "oblivious", "B": "heedless", "C": "distracted", "D": "unaware"}, "key": "D", "fb": {"correct": "Right. The news simply never came her way — <em>no message could travel to the ice, and none did<\/em> — so her not knowing carries no blame and marks no failure of attention. That is exactly the neutral word this sentence needs.", "A": "Oblivious marks attention that fails to register what is right there — loud, posted, repeated. Nothing here was ever in front of Renner: her camp sat <em>past the reach of any radio or post<\/em>, so there was nothing present for her attention to miss.", "B": "Heedless carries blame: a notice reached you and you pressed on anyway. No notice ever reached the ice, and when one finally did, she <em>read the headline — twice<\/em>. There was nothing for her to brush aside.", "C": "Distracted is a momentary pull — missing a sentence while a phone buzzes, not missing a season. This stretch ran <em>through November as well<\/em> and ended only with <em>a two-month stack of newspapers<\/em>; her attention never lapsed, because the news was never there to attend to."}}}, "pairwise": {"rows": [{"sentence": "A ranger stopped the pair at the trailhead and read the avalanche bulletin aloud; ____ , they thanked her and kept climbing.", "options": ["oblivious", "heedless"], "key": "heedless", "pair": "heedless", "why_right": "The tell is <em>they thanked her<\/em> - the warning plainly landed before they climbed on, and pushing past advice you received is the word that carries blame.", "why_wrong": "That word means the warning never even registered. These two <em>thanked the ranger<\/em> -- they heard every word and climbed anyway."}, {"sentence": "The gauges had been redlining for an hour and the foreman radioed twice; the crew chief waved off both calls and, ____ , ordered the pumps run harder.", "options": ["oblivious", "heedless"], "key": "heedless", "pair": "heedless", "why_right": "The tell is <em>waved off both calls<\/em> - the warnings reached him and he acknowledged them before pressing on, the exact blame this word attaches; nothing failed to register.", "why_wrong": "That word means the warnings never landed at all. He <em>waved off both calls<\/em> -- you can't wave off what you never perceived."}, {"sentence": "Lifeguards whistled three times and waved both flags; face down over the reef, the snorkeler drifted on, ____ , and asked at dinner why the beach had gone empty.", "options": ["oblivious", "heedless"], "key": "oblivious", "pair": "heedless", "why_right": "The tell is <em>asked at dinner why the beach had gone empty<\/em> - the whistles never registered, so no warning ever landed to be defied, and blame has nothing to attach to.", "why_wrong": "That word blames people who got the warning and pushed on anyway. These whistles never landed - a snorkeler who asks why the beach emptied defied nothing."}, {"sentence": "The recall notice went only to the day crew's inboxes, so the night shift worked on, entirely ____ , boxing the flagged lot till dawn.", "options": ["oblivious", "unaware"], "key": "unaware", "pair": "unaware", "why_right": "The tell is <em>went only to the day crew's inboxes<\/em> - the notice never came the night shift's way at all, the neutral no-blame condition; nothing present ever failed to register.", "why_wrong": "That word wants loud, posted, repeated facts sailing past someone's attention. Nothing was ever posted where this shift could see it -- the notice went to other inboxes."}, {"sentence": "The low-fuel chime sounded at every stoplight for twenty miles, yet Marisol, rehearsing her toast aloud, rolled past four gas stations ____ , and coasted to a stop genuinely surprised.", "options": ["oblivious", "unaware"], "key": "oblivious", "pair": "unaware", "why_right": "The tell is <em>sounded at every stoplight<\/em> - the information came her way over and over, loud and repeated, yet her attention never registered it; the no-blame word requires that it never arrive.", "why_wrong": "That word is the neutral one for information that never came your way. This chime came her way at every stoplight for twenty miles - it arrived constantly and simply never registered."}, {"sentence": "The room change was announced in class every morning for a week and printed across the whiteboard, yet on Friday Jonah walked to the old lab, ____ of any switch.", "options": ["oblivious", "unaware"], "key": "oblivious", "pair": "unaware", "why_right": "The tell is <em>announced in class every morning<\/em> - a week of announcements and a whiteboard notice sat right in front of him, and none of it ever registered; nothing failed to arrive.", "why_wrong": "That word excuses someone the information never reached. This change was announced daily and printed across the whiteboard in front of him - it reached him all week and went unregistered."}, {"sentence": "When a tray crashed at the far counter, the barista -- ____ for just a beat -- poured the same shot twice and started the order over.", "options": ["oblivious", "distracted"], "key": "distracted", "pair": "distracted", "why_right": "The tell is <em>for just a beat<\/em> - one crash pulled her attention for a moment and she caught the slip herself, a brief lapse with a cause, not wholesale non-noticing.", "why_wrong": "That word means whole events passing unnoticed. She missed one beat, caught the error herself, and restarted -- the opposite of not registering."}, {"sentence": "Absorbed in the crossword, Uncle Theo sat ____ through the entire surprise party assembling around him - balloons, caterers, forty guests - and jumped when the lights finally dimmed.", "options": ["oblivious", "distracted"], "key": "oblivious", "pair": "distracted", "why_right": "The tell is <em>the entire surprise party assembling around him<\/em> - balloons, caterers, and forty guests all passed unnoticed, wholesale non-noticing far beyond a moment's lapse with a cause.", "why_wrong": "That word covers a moment's lapse with a cause - a buzz, a crash, a missed sentence. An entire party assembling unnoticed, guest by guest, is total failure to notice, not a moment."}], "display_order": [1, 3, 7, 2, 5, 0, 6, 4], "dimension_order": ["heedless", "unaware", "distracted"], "dimension_feedback": {"heedless": "Heedless people were warned and pushed on anyway; the word carries blame, because the warning reached them and they paid it no attention. Oblivious carries no such charge — an oblivious person never perceived the warning in the first place.", "unaware": "Unaware is the neutral, no-blame word for simply not knowing, because the information never came your way. Oblivious goes further: the facts are right in front of you — loud, posted, repeated — and your attention still never registers them at all.", "distracted": "A distracted student misses a sentence when a phone buzzes; oblivious goes further - whole fire drills can pass unnoticed."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show loud, plain, repeated facts that someone's attention never registers -- not facts kept from them. Put the evidence in the room with a word like <i>sirens<\/i>, <i>posted<\/i>, <i>twice<\/i> or <i>never noticed<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

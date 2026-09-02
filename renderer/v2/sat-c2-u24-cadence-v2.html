@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="845499b4669d">
+<meta name="build" content="14caec462944">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cadence &#8212; SAT Vocabulary, Course 2 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "cadence", "gradeUrl": "/api/grade", "taskId": "cadence", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cadence correctly?", "opts": {"A": "She dialed the oven's cadence down to three hundred degrees so the custard would set slowly and evenly.", "B": "The freight train crossed the trestle in a slow cadence, wheels striking each joint in turn.", "C": "The florist arranged a cadence of white tulips down the whole length of the wedding banquet's head table.", "D": "His new mattress had the perfect cadence, firm at the edges and softer through the middle where it counts."}, "key": "B", "fb": {"correct": "Correct. Wheels striking joint after joint in the same order — a steady, repeating pattern of sound is precisely a cadence.", "A": "Setting an oven 'down to three hundred degrees' adjusts its temperature. A cadence is a rhythm you can hear — a repeating beat in sound — not a dial position on a kitchen appliance.", "C": "White 'tulips down the whole length' of a table form a visual arrangement — flowers make no noise. A cadence lives in sound: a rhythmic pattern rising and falling for the ear.", "D": "This mattress is praised for being 'firm at the edges and softer through the middle' — a feel, not a sound. Cadence means rhythm, a pattern your ears follow, never how bedding presses back."}}, "s3a": {"q": "In this passage, Odom's \"cadence\" refers to", "opts": {"A": "the exact speed at which the platoon marches", "B": "the written history recruits study from a plaque", "C": "the rising-and-falling pattern of her call", "D": "the volume of a sergeant's voice on the field"}, "key": "C", "fb": {"correct": "Right — the passage names it directly: a call that climbs, hangs, and drops, the same shape year after year.", "A": "Nothing in the passage is about how fast they march; what the graduate hums is a shape, not a speed.", "B": "The passage separates the two in its first sentence — history from a plaque, sound from Odom.", "D": "Loudness never comes up; what the recruits learn to ride is the climb and fall of the call."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "meter", "B": "cadence", "C": "tempo", "D": "rhythm"}, "key": "B", "fb": {"correct": "Right. A patterned shape of movement — <em>lift, sweep, and settle<\/em> — that holds <em>while the speed changed<\/em> and lives in the body rather than on paper is a cadence: the living rise and fall itself, the shape a follower can ride.", "D": "A rhythm is any repeating beat — the everyday, catch-all word — and the swing certainly has one, so rhythm is not wrong so much as loose. The passage demands the more particular pattern: <em>lift, sweep, and settle, one shape flowing into the next<\/em> is a shape, not just a repetition, and the stem asks for the most precise word.", "C": "Tempo is only the speed — how fast the strokes come. The passage separates the thing being learned from speed outright: the boy works <em>slowly at first, then faster, the shape holding steady while the speed changed<\/em>. A word that names the speed cannot name what stays the same while the speed moves.", "A": "Meter is the counted, formal grid — the pattern you write down and check. What the beginner learns here is <em>something no page could hold and no counting could capture<\/em>, the direct opposite of a counted, written scheme."}}}, "grid": {"words": ["cadence", "rhythm", "tempo", "meter"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Blindfolded, you could tell whose crew was passing by the ____ of the stroke call — rise, dip, and return, the same shape whether they row fast or slow.", "ks": ["cadence"], "fb": {"rhythm": "That is the catch-all word for any repeating beat. The sentence points at something more particular: the rise, dip, and return of the call — the shape itself.", "tempo": "That word names only how fast the beats come. Here the crews may row fast or slow and the shape stays the same, so speed is exactly what is NOT being named.", "meter": "That word is the counted, written grid — beats to a bar, checked on paper. This is a living shape you recognize by ear from across the water."}}, {"s": "Half the pleasure of her bedtime stories was the ____ of her voice — phrases rising and settling in the same pattern however slowly the night wore on.", "ks": ["cadence"], "fb": {"rhythm": "That word covers any repeating beat at all — a heartbeat, a drum loop. What the children loved was the particular rise and settle of the phrases, the shape of the voice itself.", "tempo": "That word is the speed of the beats, something you could state as a number. The sentence says the pattern held however slowly she read — the pace is beside the point.", "meter": "That word is the formal grid you write down and check — stresses to a line, beats to a bar. A voice rising and settling over a bedtime story is heard, not counted."}}, {"s": "Before she let us read the sonnet aloud, we had to mark its ____ on paper for homework: five stresses to the line, counted and checked.", "ks": ["meter"], "fb": {"cadence": "That word is the living pattern you hear, rising and falling as the poem is read aloud. What we marked on paper before reading was the ruled grid underneath it.", "rhythm": "That is the everyday word for any repeating beat. 'Five stresses to the line, counted and checked' is the formal, written framework — a more exact thing.", "tempo": "That word names how fast the beats come. Marking five stresses per line on paper says nothing about speed at all."}}, {"s": "The composer scribbled the ____ at the head of the staff — four beats to a bar — before writing a single note of the melody itself.", "ks": ["meter"], "fb": {"cadence": "That word is the living rise and fall a listener hears. Nothing has been written yet but a grid — there is no shape to hear until the notes exist.", "rhythm": "That word is the loose everyday term for a repeating beat. A signature at the head of the staff — four beats to a bar — is the counted, formal grid.", "tempo": "That word is the speed of the music, something a metronome number states. Four beats to a bar fixes the count, and the piece could still be played fast or slow."}}, {"s": "The click track was set to ninety-six beats a minute, and the drummer's one job was to hold that ____ steady for the whole take.", "ks": ["tempo"], "fb": {"cadence": "That word is a shaped pattern — a rise and fall the ear can ride. Ninety-six beats a minute is a bare rate with no shape in it at all.", "rhythm": "That word names the pattern of the beats. What the drummer must hold is their speed — a number the click track states outright.", "meter": "That word is the counted grid — how beats group into bars on paper. A click at ninety-six a minute is speed, and it would stay the same in any bar grouping."}}, {"s": "He caught himself tapping along to the wipers' idle ____ — just a repeating beat, no rise or fall, nothing you would call a shape.", "ks": ["rhythm"], "fb": {"cadence": "That word needs a shaped rise and fall a listener can ride, and the sentence denies exactly that: no rise or fall, no shape at all.", "tempo": "That word is the rate — how fast the beats come. You cannot tap along to a rate by itself; what he is tapping is the repeating beat.", "meter": "That word is the formal counted grid, written down and checked. A wiper's idle beat in traffic is the loosest, most everyday kind of repeating sound."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a patterned rise and fall in a voice or a movement — not just speed, and not just any beat. Let the reader hear the shape: try working in a word like <i>rising<\/i>, <i>falling<\/i>, <i>steady<\/i> or <i>pattern<\/i>."}};
+  var CFG = {"word": "cadence", "gradeUrl": "/api/grade", "taskId": "cadence", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cadence correctly?", "opts": {"A": "She dialed the oven's cadence down to three hundred degrees so the custard would set slowly and evenly.", "B": "The freight train crossed the trestle in a slow cadence, wheels striking each joint in turn.", "C": "The florist arranged a cadence of white tulips down the whole length of the wedding banquet's head table.", "D": "His new mattress had the perfect cadence, firm at the edges and softer through the middle where it counts."}, "key": "B", "fb": {"correct": "Correct. Wheels striking joint after joint in the same order — a steady, repeating pattern of sound is precisely a cadence.", "A": "Setting an oven 'down to three hundred degrees' adjusts its temperature. A cadence is a rhythm you can hear — a repeating beat in sound — not a dial position on a kitchen appliance.", "C": "White 'tulips down the whole length' of a table form a visual arrangement — flowers make no noise. A cadence lives in sound: a rhythmic pattern rising and falling for the ear.", "D": "This mattress is praised for being 'firm at the edges and softer through the middle' — a feel, not a sound. Cadence means rhythm, a pattern your ears follow, never how bedding presses back."}}, "s3a": {"q": "In this passage, Odom's \"cadence\" refers to", "opts": {"A": "the exact speed at which the platoon marches", "B": "the written history recruits study from a plaque", "C": "the rising-and-falling pattern of her call", "D": "the volume of a sergeant's voice on the field"}, "key": "C", "fb": {"correct": "Right — the passage names it directly: a call that climbs, hangs, and drops, the same shape year after year.", "A": "Nothing in the passage is about how fast they march; what the graduate hums is a shape, not a speed.", "B": "The passage separates the two in its first sentence — history from a plaque, sound from Odom.", "D": "Loudness never comes up; what the recruits learn to ride is the climb and fall of the call."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "meter", "B": "cadence", "C": "tempo", "D": "rhythm"}, "key": "B", "fb": {"correct": "Right. A patterned shape of movement — <em>lift, sweep, and settle<\/em> — that holds <em>while the speed changed<\/em> and lives in the body rather than on paper is a cadence: the living rise and fall itself, the shape a follower can ride.", "D": "A rhythm is any repeating beat — the everyday, catch-all word — and the swing certainly has one, so rhythm is not wrong so much as loose. The passage demands the more particular pattern: <em>lift, sweep, and settle, one shape flowing into the next<\/em> is a shape, not just a repetition, and the stem asks for the most precise word.", "C": "Tempo is only the speed — how fast the strokes come. The passage separates the thing being learned from speed outright: the boy works <em>slowly at first, then faster, the shape holding steady while the speed changed<\/em>. A word that names the speed cannot name what stays the same while the speed moves.", "A": "Meter is the counted, formal grid — the pattern you write down and check. What the beginner learns here is <em>something no page could hold and no counting could capture<\/em>, the direct opposite of a counted, written scheme."}}}, "pairwise": {"rows": [{"sentence": "He caught himself tapping along to the wipers' idle ____ — just a repeating beat, no rise or fall, nothing you would call a shape.", "options": ["cadence", "rhythm"], "key": "rhythm", "pair": "rhythm", "why_right": "The tell is <em>no rise or fall<\/em> - a bare repeating beat with no shape is the everyday catch-all's whole territory, and the more particular word needs exactly the shape this sentence denies.", "why_wrong": "That word needs a shaped rise and fall a listener can ride, and the sentence denies exactly that: no rise or fall, no shape at all."}, {"sentence": "Every stall on the pier keeps some repeating beat, but only the shucker's hands carry a ____ -- the same lift and fall in every pass.", "options": ["cadence", "rhythm"], "key": "cadence", "pair": "rhythm", "why_right": "The tell is <em>only the shucker's hands<\/em> - every stall already keeps a repeating beat, so the blank must claim more than the catch-all: the particular shaped lift and fall of a movement.", "why_wrong": "That word is the catch-all for any repeating beat, which the sentence grants to every stall. What only her hands carry must be the more particular shaped pattern."}, {"sentence": "Blindfolded, you could tell whose crew was passing by the ____ of the stroke call — rise, dip, and return, the same shape whether they row fast or slow.", "options": ["cadence", "tempo"], "key": "cadence", "pair": "tempo", "why_right": "The tell is <em>whether they row fast or slow<\/em> - the shape of the call holds while the speed varies, so the blank names the patterned rise and fall, never a rate.", "why_wrong": "That word names only how fast the beats come. Here the crews may row fast or slow and the shape stays the same, so speed is exactly what is NOT being named."}, {"sentence": "The click track was set to ninety-six beats a minute, and the drummer's one job was to hold that ____ steady for the whole take.", "options": ["cadence", "tempo"], "key": "tempo", "pair": "tempo", "why_right": "The tell is <em>ninety-six beats a minute<\/em> - what the drummer holds is a speed stated as a number, this word's exact ground; no rise or fall is anywhere in it.", "why_wrong": "That word is a shaped pattern — a rise and fall the ear can ride. Ninety-six beats a minute is a bare rate with no shape in it at all."}, {"sentence": "The app's slider fixed our reading speed, but no setting could give the understudy the coach's ____ -- the rise, the hang, the gentle drop on every line.", "options": ["cadence", "tempo"], "key": "cadence", "pair": "tempo", "why_right": "The tell is <em>the rise, the hang, the gentle drop<\/em> - speed is already the slider's job, so the blank names the shape of the pattern itself, which is this word's whole claim.", "why_wrong": "That word names only speed - something you could state as a number - and the slider has already set it. What the coach adds on every line is a shape, not a rate."}, {"sentence": "Half the pleasure of her bedtime stories was the ____ of her voice — phrases rising and settling in the same pattern however slowly the night wore on.", "options": ["cadence", "meter"], "key": "cadence", "pair": "meter", "why_right": "The tell is <em>phrases rising and settling<\/em> - a living pattern heard in a voice, with nothing counted or written down and checked, so the ruled-paper word has no work here.", "why_wrong": "That word is the formal grid you write down and check — stresses to a line, beats to a bar. A voice rising and settling over a bedtime story is heard, not counted."}, {"sentence": "The contest never asked how the poems sounded aloud: entries died at the desk, by count alone, wherever the ____ slipped from strict eight syllables, then six.", "options": ["cadence", "meter"], "key": "meter", "pair": "meter", "why_right": "The tell is <em>by count alone<\/em> - the judges check a counted, formal grid on the page and never listen; the ruled paper is this word's exact ground.", "why_wrong": "That word is the living pattern you hear, rising and falling as a poem is read. These entries die at a desk, unheard - what slips is the counted grid."}, {"sentence": "Grading the written theory exams she never played a note: each exercise's ____ was checked like a ledger -- groupings totted up, right or wrong on the page.", "options": ["cadence", "meter"], "key": "meter", "pair": "meter", "why_right": "The tell is <em>never played a note<\/em> - what gets checked is a written grid of groupings, totted up like a ledger; nothing here rises or falls for any listener.", "why_wrong": "That word is the heard, living pattern - the handwriting, not the ruled paper. An exercise graded on the page with no note played gives a listener nothing at all."}], "display_order": [6, 2, 0, 3, 5, 1, 4, 7], "dimension_order": ["rhythm", "tempo", "meter"], "dimension_feedback": {"rhythm": "Rhythm is the everyday, catch-all word for any repeating beat — a heartbeat, rain on a roof, a drum loop. A cadence is a more particular rhythm: the patterned rise and fall of a voice or a movement, a shape you could march to. Every cadence is a rhythm; most rhythms are not cadences.", "tempo": "Tempo is only the speed of the music — how fast the beats come, something you could state as a number. A cadence is the shape of the pattern itself, the rise and fall a listener can ride. Doubling the tempo makes the waltz faster; it is still the same cadence.", "meter": "Meter is the counted, formal grid of beats — four beats to a bar, five stresses to a line — the kind of pattern you write down and check. A cadence is the living pattern you hear, rising and falling as it moves. Meter is the ruled paper; cadence is the handwriting."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a patterned rise and fall in a voice or a movement — not just speed, and not just any beat. Let the reader hear the shape: try working in a word like <i>rising<\/i>, <i>falling<\/i>, <i>steady<\/i> or <i>pattern<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

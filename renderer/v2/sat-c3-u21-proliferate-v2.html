@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="49a3abe79bed">
+<meta name="build" content="3be61d74af25">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>proliferate &#8212; SAT Vocabulary, Course 3 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "proliferate", "gradeUrl": "/api/grade", "taskId": "proliferate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses proliferate correctly?", "opts": {"A": "The lone crack in the dam proliferated each week, running deeper and wider until engineers ordered the whole reservoir drained.", "B": "Streaming services have proliferated so quickly that the average household now juggles six subscriptions where one once sufficed.", "C": "Attendance proliferated steadily downward across the season, until the stadium was selling barely a tenth of its twenty thousand seats.", "D": "Her violin tone proliferated under the new teacher's care, growing noticeably richer and warmer with every week of lessons."}, "key": "B", "fb": {"correct": "Correct! Proliferate means to multiply rapidly in number, and that's exactly what's happening here: where one subscription used to do, there are now six, with new services appearing all the time.", "A": "Not quite! There is only ever one crack in this sentence. It grows deeper and wider — a single thing intensifying — but proliferate needs new, separate ones appearing, and none do.", "C": "Not quite! Numbers that fall are not proliferating. The stadium's count is collapsing toward a tenth of its seats, and proliferate can only run in the upward direction.", "D": "Not quite! A tone growing richer is improving in quality, not increasing in number. There is still exactly one violin and one tone; nothing has multiplied."}}, "s3a": {"q": "As used in the passage, \"proliferated\" most nearly means:", "opts": {"A": "became more expensive to rent", "B": "improved in design and safety", "C": "expanded into neighboring cities", "D": "increased rapidly in number"}, "key": "D", "fb": {"correct": "Right -- ten scooters in March, eleven thousand by August: the count exploded past anyone's ability to track it.", "A": "Prices never come up in the passage.", "B": "Nothing suggests the scooters got better -- only that there were suddenly far more of them.", "C": "The growth described stays in one city -- the university, its districts, its city hall."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "multiply", "B": "burgeon", "C": "proliferate", "D": "abound"}, "key": "B", "fb": {"correct": "Right. One yard growing vigorously in size and strength — <em>the yard tripled its workforce in six years<\/em> — is exactly the growth burgeon names: a single business can burgeon; only many of something can proliferate.", "C": "To proliferate is strictly about number — new units appearing, a count climbing. This firm spawned no units to count: <em>no second location, no licensed imitators<\/em>. One yard getting bigger is not many yards appearing.", "D": "To abound is to exist in great plenty — the crowded state of many things after the growth has happened. The passage shows a single business still mid-climb, <em>one firm growing larger and stronger rather than scattering into many<\/em>, not a plenty already in place.", "A": "Multiply needs a number to climb, at whatever pace. There is no number here: <em>It remains a single yard even so<\/em>. A business that stays one firm cannot multiply, however fast it grows."}}}, "grid": {"words": ["proliferate", "burgeon", "abound", "multiply"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Ghost kitchens have begun to ____ across the district -- twelve last spring, ninety today -- with new ones opening faster than inspectors can register them.", "ks": ["proliferate"], "fb": {"burgeon": "That word is one thing growing in size or strength; here the point is the <em>count<\/em> -- twelve to ninety, all separate new openings.", "abound": "That names the crowded state after the growth has happened; here <em>new ones<\/em> are still opening -- the process is underway, not finished.", "multiply": "Numbers can rise at a stately pace and earn that word; <em>faster than inspectors can register them<\/em> is the throttle-open case."}}, {"s": "Once the patent lapsed, knockoff versions of the lamp began to ____, a dozen new sellers surfacing every week.", "ks": ["proliferate"], "fb": {"burgeon": "One thing gaining size or strength is that word's home; this sentence counts separate new sellers appearing.", "abound": "That word describes the crowded state once growth is done; here new sellers keep <em>surfacing every week<\/em>.", "multiply": "Increase at any pace earns that word; <em>a dozen new sellers every week<\/em> calls for the faster, harder-to-stop one."}}, {"s": "Under its new director the community chorus has continued to ____, swelling from a nervous dozen voices into a force that fills the balcony.", "ks": ["burgeon"], "fb": {"proliferate": "Only many of something can do that -- new units appearing, a count climbing. Here a single chorus is growing in size and strength.", "abound": "That word names things existing in great plenty; the sentence tracks one group's vigorous growth.", "multiply": "No count is rising -- there is still exactly one chorus, just <em>a force that fills the balcony<\/em> now."}}, {"s": "Analysts expect the port city's tech scene to ____ over the coming decade, gathering talent, capital, and confidence in equal measure.", "ks": ["burgeon"], "fb": {"proliferate": "That word needs many separate units appearing and a count climbing; here one scene is gathering strength.", "abound": "That word describes plenty already in place; this is a forecast of vigorous growth to come.", "multiply": "No numbers rise in this sentence -- what grows is <em>talent, capital, and confidence<\/em>."}}, {"s": "By midsummer, hermit crabs ____ in every tide pool along the point -- the survey counts forty per basin, much as it did a decade ago.", "ks": ["abound"], "fb": {"proliferate": "That word needs the count to be climbing fast; these numbers have held steady for <em>a decade<\/em>.", "burgeon": "Nothing single is gaining size or strength -- the sentence describes plenty spread across every pool.", "multiply": "Increase at any pace is still increase; <em>much as it did a decade ago<\/em> says the count is flat, just high."}}, {"s": "Left alone in the damp shed, the field mice ____ at their own unhurried pace, a litter or two each season.", "ks": ["multiply"], "fb": {"proliferate": "That word means the count climbing with the throttle open; <em>a litter or two each season<\/em> is anything but.", "burgeon": "One thing swelling in size is not the story -- the story is a slowly rising count of mice.", "abound": "Great plenty is not claimed; we only know the number creeps upward each season."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show the COUNT of something climbing fast -- give it a before and after, and make the pace feel out of hand. Try working in words like <i>dozens<\/i>, <i>overnight<\/i>, <i>every corner<\/i> or <i>by the week<\/i>."}};
+  var CFG = {"word": "proliferate", "gradeUrl": "/api/grade", "taskId": "proliferate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses proliferate correctly?", "opts": {"A": "The lone crack in the dam proliferated each week, running deeper and wider until engineers ordered the whole reservoir drained.", "B": "Streaming services have proliferated so quickly that the average household now juggles six subscriptions where one once sufficed.", "C": "Attendance proliferated steadily downward across the season, until the stadium was selling barely a tenth of its twenty thousand seats.", "D": "Her violin tone proliferated under the new teacher's care, growing noticeably richer and warmer with every week of lessons."}, "key": "B", "fb": {"correct": "Correct! Proliferate means to multiply rapidly in number, and that's exactly what's happening here: where one subscription used to do, there are now six, with new services appearing all the time.", "A": "Not quite! There is only ever one crack in this sentence. It grows deeper and wider — a single thing intensifying — but proliferate needs new, separate ones appearing, and none do.", "C": "Not quite! Numbers that fall are not proliferating. The stadium's count is collapsing toward a tenth of its seats, and proliferate can only run in the upward direction.", "D": "Not quite! A tone growing richer is improving in quality, not increasing in number. There is still exactly one violin and one tone; nothing has multiplied."}}, "s3a": {"q": "As used in the passage, \"proliferated\" most nearly means:", "opts": {"A": "became more expensive to rent", "B": "improved in design and safety", "C": "expanded into neighboring cities", "D": "increased rapidly in number"}, "key": "D", "fb": {"correct": "Right -- ten scooters in March, eleven thousand by August: the count exploded past anyone's ability to track it.", "A": "Prices never come up in the passage.", "B": "Nothing suggests the scooters got better -- only that there were suddenly far more of them.", "C": "The growth described stays in one city -- the university, its districts, its city hall."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "multiply", "B": "burgeon", "C": "proliferate", "D": "abound"}, "key": "B", "fb": {"correct": "Right. One yard growing vigorously in size and strength — <em>the yard tripled its workforce in six years<\/em> — is exactly the growth burgeon names: a single business can burgeon; only many of something can proliferate.", "C": "To proliferate is strictly about number — new units appearing, a count climbing. This firm spawned no units to count: <em>no second location, no licensed imitators<\/em>. One yard getting bigger is not many yards appearing.", "D": "To abound is to exist in great plenty — the crowded state of many things after the growth has happened. The passage shows a single business still mid-climb, <em>one firm growing larger and stronger rather than scattering into many<\/em>, not a plenty already in place.", "A": "Multiply needs a number to climb, at whatever pace. There is no number here: <em>It remains a single yard even so<\/em>. A business that stays one firm cannot multiply, however fast it grows."}}}, "pairwise": {"rows": [{"sentence": "Under its new director the community chorus has continued to ____, swelling from a nervous dozen voices into a force that fills the balcony.", "options": ["proliferate", "burgeon"], "key": "burgeon", "pair": "burgeon", "why_right": "The tell is <em>a force that fills the balcony<\/em> - one chorus is growing in size and strength, the card's vigorous growth; only many of something can take the count-climbing word.", "why_wrong": "Only many of something can do that -- new units appearing, a count climbing. Here a single chorus is growing in size and strength."}, {"sentence": "Analysts expect the port city's tech scene to ____ over the coming decade, gathering talent, capital, and confidence in equal measure.", "options": ["proliferate", "burgeon"], "key": "burgeon", "pair": "burgeon", "why_right": "The tell is <em>gathering talent, capital, and confidence<\/em> - a single scene is flourishing in strength, the card's vigorous growth in size or strength; nothing separate is being counted.", "why_wrong": "That word needs many separate units appearing and a count climbing; here one scene is gathering strength."}, {"sentence": "Small satellites have begun to ____ in low orbit, hundreds a decade ago and thousands now, though each is still no bigger than a shoebox.", "options": ["proliferate", "burgeon"], "key": "proliferate", "pair": "burgeon", "why_right": "The tell is <em>no bigger than a shoebox<\/em> - nothing single is growing in size or strength; separate units keep appearing and the count climbs from hundreds to thousands, strictly a number.", "why_wrong": "That word means one thing growing vigorously in size or strength, a bud swelling into bloom. Satellites no bigger than a shoebox are not growing; their count is, from hundreds to thousands."}, {"sentence": "Rooftop beehives ____ across the city, twice as many each summer on garages and clinics, though none has ever held more than one colony.", "options": ["proliferate", "burgeon"], "key": "proliferate", "pair": "burgeon", "why_right": "The tell is <em>none has ever held more than one colony<\/em> - no hive grows in size or strength; separate new hives keep appearing and the count doubles each summer, the card's climbing number.", "why_wrong": "That word means a single thing swelling in size or strength. No hive here gets any bigger; what grows is the number of separate hives, twice as many each summer."}, {"sentence": "Once the patent lapsed, knockoff versions of the lamp began to ____, a dozen new sellers surfacing every week.", "options": ["proliferate", "abound"], "key": "proliferate", "pair": "abound", "why_right": "The tell is <em>surfacing every week<\/em> - the count is still climbing as new sellers appear, so this is the process itself, not the crowded state after the growth has happened.", "why_wrong": "That word describes the crowded state once growth is done; here new sellers keep <em>surfacing every week<\/em>."}, {"sentence": "By midsummer, hermit crabs ____ in every tide pool along the point -- the survey counts forty per basin, much as it did a decade ago.", "options": ["proliferate", "abound"], "key": "abound", "pair": "abound", "why_right": "The tell is <em>much as it did a decade ago<\/em> - the count is high and flat, the card's crowded state after the growth has happened, not a number still climbing.", "why_wrong": "That word needs the count to be climbing fast; these numbers have held steady for <em>a decade<\/em>."}, {"sentence": "Escaped parakeets continue to ____ across the suburbs, six roosts five winters ago and forty now, a tally the council says has not yet leveled off.", "options": ["proliferate", "abound"], "key": "proliferate", "pair": "abound", "why_right": "The tell is <em>has not yet leveled off<\/em> - the growth has not finished, so this is the process with the count still climbing, not the crowded state that comes after it.", "why_wrong": "That word names the crowded state after the growth has happened, plenty already in place. A tally that has not yet leveled off, six roosts to forty, is growth still underway."}, {"sentence": "Left alone in the damp shed, the field mice ____ at their own unhurried pace, a litter or two each season.", "options": ["proliferate", "multiply"], "key": "multiply", "pair": "multiply", "why_right": "The tell is <em>unhurried pace<\/em> - the count rises a litter or two a season, increase at a stately pace, which the card gives this word; nothing has the throttle open.", "why_wrong": "That word means the count climbing with the throttle open; <em>a litter or two each season<\/em> is anything but."}], "display_order": [0, 6, 2, 4, 1, 5, 7, 3], "dimension_order": ["burgeon", "abound", "multiply"], "dimension_feedback": {"burgeon": "To burgeon is to grow and flourish quickly — a bud swelling into bloom. Burgeoning is about vigorous growth in size or strength; proliferate is strictly about number: new units appearing, the count climbing. A single business can burgeon; only many of something can proliferate.", "abound": "To abound is to exist in great plenty — it names the crowded state after the growth has happened. Proliferate names the process itself: things abound once they have proliferated. If the count is still climbing, proliferate is the word.", "multiply": "Multiply is milder than proliferate: numbers multiply at any pace, even a stately one, while to proliferate is to multiply with the throttle open — fast, everywhere, and hard to stop."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show the COUNT of something climbing fast -- give it a before and after, and make the pace feel out of hand. Try working in words like <i>dozens<\/i>, <i>overnight<\/i>, <i>every corner<\/i> or <i>by the week<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

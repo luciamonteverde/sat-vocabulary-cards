@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4eebbc8d7ab4">
+<meta name="build" content="3938d808e36a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>esoteric &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "esoteric", "gradeUrl": "/api/grade", "taskId": "esoteric", "minWords": 12, "items": {"s1": {"q": "Which sentence uses esoteric correctly?", "opts": {"A": "The esoteric radio jingle became the best-selling single in fourteen separate countries by the end of June.", "B": "City bus schedules are deeply esoteric reading, posted at every stop and checked daily by half the riders in town.", "C": "The security team discovered that his supposedly esoteric password turned out to be 'password123.'", "D": "The fanzine's esoteric trivia - prop serial numbers from a canceled space show - delights its eleven subscribers."}, "key": "D", "fb": {"correct": "Correct. Trivia meaningful to exactly eleven devoted insiders is understood by a select few - esoteric in its precise sense, with nothing hidden from anyone.", "A": "Topping charts in 'fourteen separate countries' makes a tune mass-market by definition. Esoteric material speaks to a small circle of insiders — global popularity disqualifies it.", "B": "Schedules 'checked daily by half the riders in town' are public information for everyone. Esoteric knowledge is grasped by a select few; universal access is the whole point of a bus stop posting.", "C": "This sentence bends esoteric toward secret or hard to guess — the joke is that 'his supposedly esoteric password' was common to a fault. Esoteric really concerns understanding shared by only a small inner group."}}, "s3a": {"q": "In this passage, calling the musicologist's language \"esoteric\" means that it was", "opts": {"A": "deliberately kept secret from ordinary concertgoers", "B": "understandable only to a small trained circle, though openly available to all", "C": "written in a foreign language most of the audience could not translate", "D": "too dull to hold the attention of most readers"}, "key": "B", "fb": {"correct": "Right. Nothing was hidden -- the page was printed and posted -- yet only a trained handful could actually follow it. Open to all, legible to few is the word's exact claim.", "A": "The passage says the opposite: nothing was hidden, and the page was printed for two thousand people. The barrier was training, not secrecy.", "C": "The terms are English music theory, not a foreign tongue. What barred most readers was the training the terms assume.", "D": "The balcony handful annotated it like scripture, so it wasn't dull to those who could follow. The rest lacked the training, not the interest."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "arcane", "B": "esoteric", "C": "niche", "D": "recondite"}, "key": "A", "fb": {"correct": "Right. The recipe is <em>never written down and never spoken of outside the family<\/em> — knowledge sealed away and deliberately guarded, which is exactly what this word names.", "B": "Esoteric material shuts people out by its own difficulty even when it sits in the open for anyone to read. Here the chemists say <em>its ingredients are ordinary ones any trained hand could combine<\/em> — the formula itself would defeat no one.", "D": "Recondite learning is buried deep in the books — forgotten treatises, footnotes on footnotes — and reached by digging. This recipe was <em>never written down<\/em>, so there is no library trail to dig through, however far down you go.", "C": "A niche pursuit serves a small crowd that anyone could join. This circle admits no one: the recipe is <em>never spoken of outside the family<\/em>."}}}, "grid": {"words": ["esoteric", "recondite", "arcane", "niche"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The proof was published in an open-access journal for anyone to download, yet it stayed ____ : perhaps thirty specialists on earth could follow it past the second page.", "ks": ["esoteric"], "fb": {"arcane": "That word carries a whiff of secrecy -- sealed rites, guarded formulas. This paper sits in an <em>open-access journal<\/em>; nothing guards it at all.", "recondite": "That's the word for learning buried deep in forgotten books, stressing the dig. This paper is one download away -- the barrier is following it, not finding it.", "niche": "A niche readership is small but open: anyone could join it. Here the material itself bars the door -- only thirty people alive can follow the argument."}}, {"s": "The commentary at the fencing final turned ____ within a minute, every phrase perfectly audible and perfectly opaque to anyone without years in the sport.", "ks": ["esoteric"], "fb": {"arcane": "That word wants secrecy -- cipher books, guarded rites. This commentary is broadcast to anyone who tunes in; nothing is withheld.", "recondite": "That word stresses how deep you must dig through forgotten scholarship. Nothing here is buried -- it is spoken aloud in real time.", "niche": "A niche pastime is small but open to any newcomer who signs up. This barrier is <em>years in the sport<\/em> -- the words themselves shut the untrained out."}}, {"s": "The abbey's bell-ringing changes were ____ , recorded in a locked ledger and taught only to ringers who had sworn the tower oath.", "ks": ["arcane"], "fb": {"esoteric": "That word needs no secrecy -- the material may sit in the open, with only training as the barrier. Here a <em>lock and an oath<\/em> do the barring.", "recondite": "That's the word for learning buried in forgotten treatises, stressing the dig. This ledger isn't lost or buried -- it is kept, current, and deliberately locked.", "niche": "A niche pursuit welcomes anyone who takes it up. Sworn oaths and locked ledgers are the opposite of an open door."}}, {"s": "Court insiders traded in ____ protocol -- which door, which bow, which title -- knowledge kept deliberately from outsiders so that newcomers would stumble.", "ks": ["arcane"], "fb": {"esoteric": "That word says the material itself defeats the untrained. A bow and a title are simple -- anyone told them could comply instantly. The barrier here is the withholding.", "recondite": "That word means buried deep in forgotten scholarship. Nothing here needs digging out of a library -- it is kept alive and kept back, on purpose.", "niche": "A niche circle is small but open to joiners. This one is closed by design -- the knowledge is withheld precisely so outsiders stumble."}}, {"s": "The footnote sent her to a 1740 treatise on tide tables, shelved in one archive on earth -- the kind of ____ learning you reach only by digging through libraries nobody else visits.", "ks": ["recondite"], "fb": {"esoteric": "That word is about who can enter -- a tiny circle following what outsiders cannot. This treatise's only barrier is burial: once dug up, nothing says the untrained couldn't read it.", "arcane": "That word carries deliberate guarding -- rites, ciphers, oaths. Nobody guards this treatise; it is merely forgotten on a shelf nobody visits.", "niche": "That word describes a small crowd anyone could join. There is no crowd here at all -- just one archive and a long dig."}}, {"s": "The shop sells only left-handed woodworking tools -- a proudly ____ trade with a small, devoted clientele that anyone who walks in may join.", "ks": ["niche"], "fb": {"esoteric": "That word means the material itself defeats outsiders -- only a trained inner circle can follow it. A left-handed chisel defeats no one; the only requirement is walking in.", "arcane": "That word wants sealed-away, guarded knowledge. A shop with an open door and a devoted clientele guards nothing.", "recondite": "That's the word for learning buried deep in forgotten treatises. Nothing here needs digging up -- it's on a shelf by the till."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show material only a small trained circle can follow -- even though it sits in the open. Set the insiders against everyone else with a word like <i>only<\/i>, <i>specialists<\/i>, <i>outsiders<\/i> or <i>training<\/i>."}};
+  var CFG = {"word": "esoteric", "gradeUrl": "/api/grade", "taskId": "esoteric", "minWords": 12, "items": {"s1": {"q": "Which sentence uses esoteric correctly?", "opts": {"A": "The esoteric radio jingle became the best-selling single in fourteen separate countries by the end of June.", "B": "City bus schedules are deeply esoteric reading, posted at every stop and checked daily by half the riders in town.", "C": "The security team discovered that his supposedly esoteric password turned out to be 'password123.'", "D": "The fanzine's esoteric trivia - prop serial numbers from a canceled space show - delights its eleven subscribers."}, "key": "D", "fb": {"correct": "Correct. Trivia meaningful to exactly eleven devoted insiders is understood by a select few - esoteric in its precise sense, with nothing hidden from anyone.", "A": "Topping charts in 'fourteen separate countries' makes a tune mass-market by definition. Esoteric material speaks to a small circle of insiders — global popularity disqualifies it.", "B": "Schedules 'checked daily by half the riders in town' are public information for everyone. Esoteric knowledge is grasped by a select few; universal access is the whole point of a bus stop posting.", "C": "This sentence bends esoteric toward secret or hard to guess — the joke is that 'his supposedly esoteric password' was common to a fault. Esoteric really concerns understanding shared by only a small inner group."}}, "s3a": {"q": "In this passage, calling the musicologist's language \"esoteric\" means that it was", "opts": {"A": "deliberately kept secret from ordinary concertgoers", "B": "understandable only to a small trained circle, though openly available to all", "C": "written in a foreign language most of the audience could not translate", "D": "too dull to hold the attention of most readers"}, "key": "B", "fb": {"correct": "Right. Nothing was hidden -- the page was printed and posted -- yet only a trained handful could actually follow it. Open to all, legible to few is the word's exact claim.", "A": "The passage says the opposite: nothing was hidden, and the page was printed for two thousand people. The barrier was training, not secrecy.", "C": "The terms are English music theory, not a foreign tongue. What barred most readers was the training the terms assume.", "D": "The balcony handful annotated it like scripture, so it wasn't dull to those who could follow. The rest lacked the training, not the interest."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "arcane", "B": "esoteric", "C": "niche", "D": "recondite"}, "key": "A", "fb": {"correct": "Right. The recipe is <em>never written down and never spoken of outside the family<\/em> — knowledge sealed away and deliberately guarded, which is exactly what this word names.", "B": "Esoteric material shuts people out by its own difficulty even when it sits in the open for anyone to read. Here the chemists say <em>its ingredients are ordinary ones any trained hand could combine<\/em> — the formula itself would defeat no one.", "D": "Recondite learning is buried deep in the books — forgotten treatises, footnotes on footnotes — and reached by digging. This recipe was <em>never written down<\/em>, so there is no library trail to dig through, however far down you go.", "C": "A niche pursuit serves a small crowd that anyone could join. This circle admits no one: the recipe is <em>never spoken of outside the family<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The proof was published in an open-access journal for anyone to download, yet it stayed ____ : perhaps thirty specialists on earth could follow it past the second page.", "options": ["esoteric", "arcane"], "key": "esoteric", "pair": "arcane", "why_right": "The tell is <em>open-access journal for anyone to download<\/em> - nothing is sealed away or guarded; the barrier is that only a tiny circle can follow it, with no secrecy anywhere.", "why_wrong": "That word carries a whiff of secrecy -- sealed rites, guarded formulas. This paper sits in an <em>open-access journal<\/em>; nothing guards it at all."}, {"sentence": "The abbey's bell-ringing changes were ____ , recorded in a locked ledger and taught only to ringers who had sworn the tower oath.", "options": ["esoteric", "arcane"], "key": "arcane", "pair": "arcane", "why_right": "The tell is <em>a locked ledger<\/em> - knowledge deliberately sealed away and taught only under oath; secrecy does the barring here, the whiff of deliberate guarding that defines this word.", "why_wrong": "That word needs no secrecy -- the material may sit in the open, with only training as the barrier. Here a <em>lock and an oath<\/em> do the barring."}, {"sentence": "Court insiders traded in ____ protocol -- which door, which bow, which title -- knowledge kept deliberately from outsiders so that newcomers would stumble.", "options": ["esoteric", "arcane"], "key": "arcane", "pair": "arcane", "why_right": "The tell is <em>kept deliberately from outsiders<\/em> - the rules are simple and would be easy to follow once told; withholding, not difficulty, bars the door, which is deliberate guarding.", "why_wrong": "That word says the material itself defeats the untrained. A bow and a title are simple -- anyone told them could comply instantly. The barrier here is the withholding."}, {"sentence": "The commentary at the fencing final turned ____ within a minute, every phrase perfectly audible and perfectly opaque to anyone without years in the sport.", "options": ["esoteric", "niche"], "key": "esoteric", "pair": "niche", "why_right": "The tell is <em>perfectly audible and perfectly opaque to anyone without years in the sport<\/em> - the words themselves shut out the untrained; no sign-up or subscription could buy a way in.", "why_wrong": "A niche pastime is small but open to any newcomer who signs up. This barrier is <em>years in the sport<\/em> -- the words themselves shut the untrained out."}, {"sentence": "The shop sells only left-handed woodworking tools -- a proudly ____ trade with a small, devoted clientele that anyone who walks in may join.", "options": ["esoteric", "niche"], "key": "niche", "pair": "niche", "why_right": "The tell is <em>anyone who walks in may join<\/em> - a small, devoted crowd with a fully open door; the goods themselves shut out nobody at all.", "why_wrong": "That word means the material itself defeats outsiders -- only a trained inner circle can follow it. A left-handed chisel defeats no one; the only requirement is walking in."}, {"sentence": "Anyone can join the constructed-language forum with one click, and hundreds do, but its grammar threads remain ____ , navigable only by the dozen members who built the language's verb system.", "options": ["esoteric", "niche"], "key": "esoteric", "pair": "niche", "why_right": "The tell is <em>navigable only by the dozen members<\/em> - joining was one click and hundreds took it, yet the material itself still shuts out everyone untrained.", "why_wrong": "That word means a small crowd anyone could join - and hundreds did, with one click. Joining bought them nothing: the threads themselves shut out all but a dozen builders."}, {"sentence": "The footnote sent her to a 1740 treatise on tide tables, shelved in one archive on earth -- the kind of ____ learning you reach only by digging through libraries nobody else visits.", "options": ["esoteric", "recondite"], "key": "recondite", "pair": "recondite", "why_right": "The tell is <em>digging through libraries nobody else visits<\/em> - the whole barrier is how deep the learning lies buried; once dug up, nothing says only insiders could follow it.", "why_wrong": "That word is about who can enter -- a tiny circle following what outsiders cannot. This treatise's only barrier is burial: once dug up, nothing says the untrained couldn't read it."}, {"sentence": "The scorecard shorthand is handed to every fan at the gate, yet it stays ____ : press-box veterans read '6-4-3' at a glance while whole rows of paying fans see only numbers.", "options": ["esoteric", "recondite"], "key": "esoteric", "pair": "recondite", "why_right": "The tell is <em>handed to every fan at the gate<\/em> - nothing is buried or dug for; the shorthand is everywhere, and only a tiny circle can actually follow it.", "why_wrong": "That word is for learning buried deep in forgotten books, stressing how far down you must dig. Nothing here is buried - the card is in every fan's hand."}], "display_order": [0, 4, 7, 3, 1, 6, 5, 2], "dimension_order": ["arcane", "niche", "recondite"], "dimension_feedback": {"arcane": "Arcane knowledge feels sealed away — old rites, guild formulas, cipher keys — with a whiff of secrecy or deliberate guarding about it. Esoteric requires no secrecy at all: the material may sit in the open, yet only a small circle of insiders can actually follow it.", "niche": "A niche magazine serves a small crowd that anyone could join by subscribing; esoteric goes further - the material itself shuts out the untrained.", "recondite": "Recondite is the scholar's word for learning buried deep in the books — forgotten treatises, footnotes on footnotes — and it stresses how far down you must dig. Esoteric stresses who can enter: a tiny circle of insiders understands it easily, while everyone outside stays shut out."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show material only a small trained circle can follow -- even though it sits in the open. Set the insiders against everyone else with a word like <i>only<\/i>, <i>specialists<\/i>, <i>outsiders<\/i> or <i>training<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

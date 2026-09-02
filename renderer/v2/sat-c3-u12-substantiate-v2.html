@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="486048463d1d">
+<meta name="build" content="f1c5190d3d6c">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>substantiate &#8212; SAT Vocabulary, Course 3 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "substantiate", "gradeUrl": "/api/grade", "taskId": "substantiate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses substantiate correctly?", "opts": {"A": "Soil samples from three counties substantiated the beekeeper's claim that the spraying had drifted.", "B": "The potter substantiated the vase's thin walls with a second layer of slip and clay.", "C": "The chef substantiated olive oil for butter in every recipe on the spring menu.", "D": "An anonymous donor substantiated the library scholarship for another full decade of awards."}, "key": "A", "fb": {"correct": "Correct! The soil samples are solid evidence placed under the beekeeper's claim, giving it something firm to stand on — supporting a claim with evidence is exactly substantiate.", "B": "Adding 'a second layer of slip and clay' thickens the vase's walls — physical reinforcement, not proof. Substantiate means to back a statement with solid evidence that shows it is true.", "C": "Swapping 'olive oil for butter' is substituting one ingredient for another — the sound-alike trap. To substantiate is to supply solid evidence supporting an assertion, not to replace anything.", "D": "Bankrolling a scholarship 'for another full decade' is funding it, not proving anything. Substantiating gives an assertion the solid evidence it needs to stand up to doubt."}}, "s3a": {"q": "In this passage, what would it take to substantiate the town's claim?", "opts": {"A": "a louder and prouder welcome sign", "B": "another pamphlet repeating the town's boast in slightly stronger language", "C": "solid documents that let the date stand on evidence rather than pride", "D": "a vote of confidence from the rival town"}, "key": "C", "fb": {"correct": "Right -- ledgers, invoices, and a diary give the claim footing of its own, which is exactly what the pamphlet never did.", "A": "The sign is the claim, not evidence for it. Making it louder adds nothing that would hold the date up.", "B": "The passage says the pamphlet 'cited nothing but town pride' -- repeating it just stacks assertion on assertion.", "D": "The rival town's opinion would be endorsement, not evidence. The volunteers went looking for documents instead."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "back", "B": "substantiate", "C": "support", "D": "bolster"}, "key": "B", "fb": {"correct": "Right. Substantiate means to give a bare claim evidence solid enough to stand on — and the committee's own standard says so: a claim enters the record only when <em>the proof beneath it can hold it up alone<\/em>.", "A": "To back a report is to add a name to it — endorsement, not evidence. The guides <em>offered to vouch for her<\/em> and were turned away: <em>names, its chair replied, are not evidence<\/em>. The committee wanted documents, not reputations.", "D": "Bolster shores up a claim that already has some footing. This report had none to shore: <em>until that morning there was no proof at all<\/em> — nothing stood yet for new evidence to strengthen.", "C": "Support fits any evidence that so much as leans a claim's way — a single feather would have supported it. The committee's bar was higher: proof that <em>can hold it up alone<\/em>, and that full job asks for a stronger, more exact word."}}}, "grid": {"words": ["substantiate", "back", "bolster", "support"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The editor refused to run the story until the reporter could ____ it: not a colleague's word, but documents solid enough for the claim to stand on its own.", "ks": ["substantiate"], "fb": {"back": "That word adds a name, agreement, or reputation to a claim -- someone standing behind it. The editor explicitly refuses anyone's word and wants documents.", "bolster": "That word shores up a case that already has some footing. This story has none yet -- the editor will not run it until evidence does the whole job.", "support": "Any evidence that leans a claim's way does that much. The editor wants enough for the story to <em>stand on its own<\/em>, which is a higher bar."}}, {"s": "The theory already stood on a decade of field data, if shakily; the new ice cores ____ it exactly where the record had been thin.", "ks": ["bolster"], "fb": {"substantiate": "That word gives a bare claim its first solid footing. This theory has stood for a decade -- the cores only strengthen a weak point.", "back": "That word means standing behind a claim with your name, agreement, or reputation. Ice cores lend evidence, not endorsement.", "support": "True but too mild for this slot: any leaning evidence does that. The sentence describes shoring up a claim <em>exactly where the record had been thin<\/em>."}}, {"s": "Two years of receipts, timestamps, and lab logs let the student finally ____ what had been, until then, only a bare assertion.", "ks": ["substantiate"], "fb": {"back": "Standing behind a claim with your name is endorsement. This student's case rests on receipts and lab logs -- facts, not anyone's word.", "bolster": "That word strengthens a case that already has some footing. Until now this was <em>only a bare assertion<\/em> -- nothing stood yet.", "support": "Milder than what the sentence needs: evidence that merely leans a claim's way would leave a bare assertion still bare. These records make it stand."}}, {"s": "The grant proposal was nearly persuasive already; a final round of pilot results was added to ____ the one section reviewers had called thin.", "ks": ["bolster"], "fb": {"substantiate": "That word does the whole job from nothing, giving a bare claim its footing. This proposal was already <em>nearly persuasive<\/em> -- only one thin section needed shoring.", "back": "That word puts a person's name or agreement behind a claim. Pilot results are evidence, not an endorsement.", "support": "Any favorable data does that much. This slot needs the stronger idea of reinforcing a case at its one weak point."}}, {"s": "The senator agreed to ____ the young mayor's plan, lending her name and considerable reputation though she had read none of the studies.", "ks": ["back"], "fb": {"substantiate": "That word means giving a claim solid evidentiary footing. The senator offers no evidence at all -- she has <em>read none of the studies<\/em> -- only her name.", "bolster": "That word shores up a case with fresh evidence. Nothing evidentiary arrives here; a reputation does.", "support": "On this card, that word is about evidence leaning a claim's way. There is none in this sentence -- a name and a reputation are a different kind of standing behind."}}, {"s": "A single witness placing the van nearby will ____ the timeline a little, though nowhere near enough for the claim to stand by itself.", "ks": ["support"], "fb": {"substantiate": "That word demands evidence solid enough for a claim to stand on its own. This sentence says outright that the bar is not met.", "back": "That word adds a person's name or agreement to a claim. The witness is a piece of evidence, and a slight one.", "bolster": "That word shores up a case, giving real strength to a weak point. One witness helping <em>a little<\/em> is fainter work -- evidence gently leaning the claim's way."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show hard evidence making a claim stand -- not someone merely agreeing with it. Name the proof itself: try working in a word like <i>records<\/i>, <i>receipts<\/i>, <i>data<\/i> or <i>documents<\/i>."}};
+  var CFG = {"word": "substantiate", "gradeUrl": "/api/grade", "taskId": "substantiate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses substantiate correctly?", "opts": {"A": "Soil samples from three counties substantiated the beekeeper's claim that the spraying had drifted.", "B": "The potter substantiated the vase's thin walls with a second layer of slip and clay.", "C": "The chef substantiated olive oil for butter in every recipe on the spring menu.", "D": "An anonymous donor substantiated the library scholarship for another full decade of awards."}, "key": "A", "fb": {"correct": "Correct! The soil samples are solid evidence placed under the beekeeper's claim, giving it something firm to stand on — supporting a claim with evidence is exactly substantiate.", "B": "Adding 'a second layer of slip and clay' thickens the vase's walls — physical reinforcement, not proof. Substantiate means to back a statement with solid evidence that shows it is true.", "C": "Swapping 'olive oil for butter' is substituting one ingredient for another — the sound-alike trap. To substantiate is to supply solid evidence supporting an assertion, not to replace anything.", "D": "Bankrolling a scholarship 'for another full decade' is funding it, not proving anything. Substantiating gives an assertion the solid evidence it needs to stand up to doubt."}}, "s3a": {"q": "In this passage, what would it take to substantiate the town's claim?", "opts": {"A": "a louder and prouder welcome sign", "B": "another pamphlet repeating the town's boast in slightly stronger language", "C": "solid documents that let the date stand on evidence rather than pride", "D": "a vote of confidence from the rival town"}, "key": "C", "fb": {"correct": "Right -- ledgers, invoices, and a diary give the claim footing of its own, which is exactly what the pamphlet never did.", "A": "The sign is the claim, not evidence for it. Making it louder adds nothing that would hold the date up.", "B": "The passage says the pamphlet 'cited nothing but town pride' -- repeating it just stacks assertion on assertion.", "D": "The rival town's opinion would be endorsement, not evidence. The volunteers went looking for documents instead."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "back", "B": "substantiate", "C": "support", "D": "bolster"}, "key": "B", "fb": {"correct": "Right. Substantiate means to give a bare claim evidence solid enough to stand on — and the committee's own standard says so: a claim enters the record only when <em>the proof beneath it can hold it up alone<\/em>.", "A": "To back a report is to add a name to it — endorsement, not evidence. The guides <em>offered to vouch for her<\/em> and were turned away: <em>names, its chair replied, are not evidence<\/em>. The committee wanted documents, not reputations.", "D": "Bolster shores up a claim that already has some footing. This report had none to shore: <em>until that morning there was no proof at all<\/em> — nothing stood yet for new evidence to strengthen.", "C": "Support fits any evidence that so much as leans a claim's way — a single feather would have supported it. The committee's bar was higher: proof that <em>can hold it up alone<\/em>, and that full job asks for a stronger, more exact word."}}}, "pairwise": {"rows": [{"sentence": "A single witness placing the van nearby will ____ the timeline a little, though nowhere near enough for the claim to stand by itself.", "options": ["substantiate", "support"], "key": "support", "pair": "support", "why_right": "The tell is <em>a little<\/em> - support is any evidence that merely leans a claim's way, and one witness helping a little never lets the claim stand on its own.", "why_wrong": "That word demands evidence solid enough for a claim to stand on its own. This sentence says outright that the bar is not met."}, {"sentence": "The editor refused to run the story until the reporter could ____ it: not a colleague's word, but documents solid enough for the claim to stand on its own.", "options": ["substantiate", "support"], "key": "substantiate", "pair": "support", "why_right": "The tell is <em>stand on its own<\/em> - the editor wants evidence solid enough to hold the claim up by itself, which is substantiate, not evidence merely leaning its way.", "why_wrong": "Any evidence that leans a claim's way does that much. The editor wants enough for the story to <em>stand on its own<\/em>, which is a higher bar."}, {"sentence": "The zoning board waved off the racket as one family's gripe until residents ____ it with decibel logs solid enough to stand on their own.", "options": ["substantiate", "support"], "key": "substantiate", "pair": "support", "why_right": "The tell is <em>decibel logs<\/em> - solid evidence giving a dismissed gripe the footing to stand on its own, which is substantiate, not evidence merely leaning its way.", "why_wrong": "That word means any evidence that merely leans a claim's way. Decibel logs solid enough to stand on their own do far more -- giving a dismissed gripe real footing."}, {"sentence": "The theory already stood on a decade of field data, if shakily; the new ice cores ____ it exactly where the record had been thin.", "options": ["substantiate", "bolster"], "key": "bolster", "pair": "bolster", "why_right": "The tell is <em>exactly where the record had been thin<\/em> - fresh evidence shoring up a case that already stands, at its weak point, which is bolster; the theory needed no first footing.", "why_wrong": "That word gives a bare claim its first solid footing. This theory has stood for a decade -- the cores only strengthen a weak point."}, {"sentence": "The grant proposal was nearly persuasive already; a final round of pilot results was added to ____ the one section reviewers had called thin.", "options": ["substantiate", "bolster"], "key": "bolster", "pair": "bolster", "why_right": "The tell is <em>the one section reviewers had called thin<\/em> - a case that already mostly stands, reinforced at its one weak spot, which is bolster, not a bare claim needing first footing.", "why_wrong": "That word does the whole job from nothing, giving a bare claim its footing. This proposal was already <em>nearly persuasive<\/em> -- only one thin section needed shoring."}, {"sentence": "Two years of receipts, timestamps, and lab logs let the student finally ____ what had been, until then, only a bare assertion.", "options": ["substantiate", "bolster"], "key": "substantiate", "pair": "bolster", "why_right": "The tell is <em>only a bare assertion<\/em> - documents doing the whole job from nothing, giving a claim that never stood its first footing, which is substantiate, not shoring a standing case.", "why_wrong": "That word strengthens a case that already has some footing. Until now this was <em>only a bare assertion<\/em> -- nothing stood yet."}, {"sentence": "The senator agreed to ____ the young mayor's plan, lending her name and considerable reputation though she had read none of the studies.", "options": ["substantiate", "back"], "key": "back", "pair": "back", "why_right": "The tell is <em>lending her name and considerable reputation<\/em> - standing behind a plan with name and reputation, no evidence involved, which is back; substantiate would require solid evidence, and she read none.", "why_wrong": "That word means giving a claim solid evidentiary footing. The senator offers no evidence at all -- she has <em>read none of the studies<\/em> -- only her name."}, {"sentence": "The plant director's endorsement swayed no one, but three years of vibration logs ____ the warning, hard data the panel could weigh without anyone's word.", "options": ["substantiate", "back"], "key": "substantiate", "pair": "back", "why_right": "The tell is <em>three years of vibration logs<\/em> - hard evidence the panel can weigh without anyone's word, which is substantiate; back would be lending a name, as the director's endorsement did.", "why_wrong": "That word means standing behind a claim with your name or reputation, as the director's endorsement did -- and it swayed no one. The vibration logs are evidence, weighed without anyone's word."}], "display_order": [0, 4, 2, 6, 3, 7, 1, 5], "dimension_order": ["support", "bolster", "back"], "dimension_feedback": {"support": "Support is the milder word — any evidence that leans a claim's way supports it, while substantiate demands enough solid evidence to hold the claim up on its own.", "bolster": "Bolster strengthens a claim that already has some footing — fresh evidence shoring up a case half-built. Substantiate does the whole job from nothing: it gives a bare claim the solid support it needs to stand at all. You bolster what stands shakily; you substantiate what has not yet stood.", "back": "To back a claim is to stand behind it — adding your name, your agreement, or your reputation to it, often informally. Substantiate deals in evidence instead of endorsement: a substantiated claim rests on documents and facts, while a backed one may still rest on somebody's word."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show hard evidence making a claim stand -- not someone merely agreeing with it. Name the proof itself: try working in a word like <i>records<\/i>, <i>receipts<\/i>, <i>data<\/i> or <i>documents<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

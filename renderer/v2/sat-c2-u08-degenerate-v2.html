@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="edfa29877d47">
+<meta name="build" content="0f7486af8ee3">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>degenerate &#8212; SAT Vocabulary, Course 2 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "degenerate", "gradeUrl": "/api/grade", "taskId": "degenerate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses degenerate correctly?", "opts": {"A": "After the renovation the library degenerated into the city's favorite gathering place, its reading rooms crowded every single evening.", "B": "Left without a conductor, the rehearsal degenerated into a tuning war, each section playing louder to drown out the others.", "C": "The vase degenerated the very instant it slipped from the shelf, scattering across the kitchen tiles in a hundred glittering pieces.", "D": "Ticket receipts degenerated by forty percent in the first week after the ferry line doubled its fares."}, "key": "B", "fb": {"correct": "Correct! Degenerate means to sink into a worse or lower state, and that is exactly what happens here: with the conductor gone, a rehearsal falls into something baser — a shoving match of volume that has stopped being music-making at all.", "A": "Not quite! Degenerate means to sink into a worse or lower state, so it can't describe a renovation that leaves the library better loved than before — this sentence needs a verb of improvement, and degenerate only ever travels downhill.", "C": "Not quite! Degenerate describes a slide — quality draining away over time — so it is the wrong verb for a vase that is whole one instant and in pieces the next. That is breaking, not declining.", "D": "Not quite! Degenerate tracks a fall in quality or character, not in quantity, so receipts that shrink by forty percent haven't degenerated — numbers drop, decline, or fall; it is the thing itself that degenerates."}}, "s3a": {"q": "In the passage, degenerate most precisely means that the tradition…", "opts": {"A": "sank into a lower thing that lost what defined it", "B": "returned to the rougher form it had in its early years", "C": "grew a little less funny while staying harmless", "D": "was physically destructive to school property from the start"}, "key": "A", "fb": {"correct": "Right. The rules that defined it — <em>clever, bloodless, reversible<\/em> — drained away until what remained was <em>vandalism with a schedule<\/em>: a lower thing wearing the old name.", "B": "The early years are the passage's high point — <em>minor legends<\/em>, wit and restraint. There was no rougher past to return to.", "C": "Harmless is exactly what it stopped being: fires and pried locks are not a weaker joke, they are a different, lower thing.", "D": "From the start it was <em>bloodless, reversible by lunchtime<\/em>. The destruction is what the change produced, not what the tradition was."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "decay", "B": "worsen", "C": "degenerate", "D": "regress"}, "key": "C", "fb": {"correct": "Right — the franchise degenerated: it slid into a lower version of itself, losing the character that made it natural history. Nothing rotted, nothing reverted to an earlier form, and the change went past a mere drop in quality.", "A": "Decay is physical rot — timber going soft, a tooth hollowing out. Nothing material breaks down in this passage: the change is <em>staged quarrels among the presenters<\/em> crowding out the fieldwork, a loss in the show's character rather than in any object.", "D": "Regress means slipping back to an earlier stage, and the passage closes that door: <em>This was no return to the program's rough early years<\/em>. The show did not revert to an older version of itself; it ended up somewhere it had never been.", "B": "Worsen is true as far as it goes — but it says only that the show got worse while staying what it was. The passage claims more: <em>reviewers now file the show under celebrity drama<\/em>, so the program has stopped being the thing it was, and the most precise word has to carry that loss."}}}, "grid": {"words": ["degenerate", "decay", "regress", "worsen"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Regulars watched the club's blitz night ____ into pure trash talk, clocks slapped for show and nobody recording a single move.", "ks": ["degenerate"], "fb": {"decay": "That is physical rot — teeth, timber, fallen fruit. Nothing molders here; what collapsed is the evening's character.", "regress": "That word means slipping back to an earlier stage — the club night as it was in some rougher past. This slide goes somewhere new and lower: <em>pure trash talk<\/em>.", "worsen": "A merely rougher blitz night would still be chess. With <em>nobody recording a single move<\/em>, the thing has stopped being what it was — a deeper fall than getting a bit uglier."}}, {"s": "Critics say the prize continues to ____ from an honor into a marketing exercise, its medal unchanged but its meaning gone.", "ks": ["degenerate"], "fb": {"decay": "Rot needs matter — enamel, wood, fruit. The medal itself is <em>unchanged<\/em>; what is going is the prize's character.", "regress": "Backward motion returns a thing to what it once was. This prize is not returning anywhere — it is turning into <em>a marketing exercise<\/em>, something new and lower.", "worsen": "A prize could get a little tarnished and still be an honor. Here <em>its meaning<\/em> is <em>gone<\/em> — the fall is in kind, not merely in degree."}}, {"s": "Left unpainted, the porch timbers began to ____, going soft and crumbling at the joints within five winters.", "ks": ["decay"], "fb": {"degenerate": "That word aims at character — a debate, a league, a friendship sliding into a lower version of itself. Porch timber has no character; it just breaks down.", "regress": "Nothing here slips back to an earlier stage of itself; the wood was never soft and crumbling before. It is simply breaking down.", "worsen": "That would report a general decline. The sentence is specific about the mechanism: <em>going soft and crumbling at the joints<\/em> — matter breaking down."}}, {"s": "Dentists warned that the molar would ____ beneath the cracked filling, sugar and bacteria hollowing it out month by month.", "ks": ["decay"], "fb": {"degenerate": "Debates and leagues do that — slide into lower versions of themselves. A tooth under a cracked filling is plain matter, and its fate is plain rot.", "regress": "Slipping back to an earlier stage would mean the molar becoming what it once was. Being <em>hollowed out month by month<\/em> is destruction, not return.", "worsen": "That says only that things decline. The sentence names the exact process — <em>sugar and bacteria hollowing it out<\/em> — the mouth's version of rot."}}, {"s": "Under match pressure her serve tends to ____ to the looping motion she used at twelve, every corrected habit resurfacing.", "ks": ["regress"], "fb": {"degenerate": "That word adds a fall into something lower and new. Her serve falls into something old — <em>the looping motion she used at twelve<\/em> — which is backward motion, precisely.", "decay": "Nothing molders in a tennis serve. An old habit is coming back; no tissue or timber is breaking down.", "worsen": "That would only say the serve got poorer. The sentence says something more exact: an earlier, outgrown stage is <em>resurfacing<\/em>."}}, {"s": "The forecast calls for driving conditions to ____ through the evening, with rain turning to sleet after dark.", "ks": ["worsen"], "fb": {"degenerate": "That word wants a thing sliding into a lower version of itself — a debate collapsing into a shouting match. Tonight's drive stays a drive; it just gets harder.", "decay": "Rot is for matter — teeth, timber, fruit. Sleet on a highway is unpleasant, not decomposing.", "regress": "Nothing returns to an earlier stage here; the evening is not becoming this afternoon again. Conditions simply decline as rain turns to sleet."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a thing sliding into a lower version of itself — losing what made it what it was, not just getting worse. Show the before and after: try working in a word like <i>once<\/i>, <i>into<\/i>, <i>no longer<\/i> or <i>merely<\/i>."}};
+  var CFG = {"word": "degenerate", "gradeUrl": "/api/grade", "taskId": "degenerate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses degenerate correctly?", "opts": {"A": "After the renovation the library degenerated into the city's favorite gathering place, its reading rooms crowded every single evening.", "B": "Left without a conductor, the rehearsal degenerated into a tuning war, each section playing louder to drown out the others.", "C": "The vase degenerated the very instant it slipped from the shelf, scattering across the kitchen tiles in a hundred glittering pieces.", "D": "Ticket receipts degenerated by forty percent in the first week after the ferry line doubled its fares."}, "key": "B", "fb": {"correct": "Correct! Degenerate means to sink into a worse or lower state, and that is exactly what happens here: with the conductor gone, a rehearsal falls into something baser — a shoving match of volume that has stopped being music-making at all.", "A": "Not quite! Degenerate means to sink into a worse or lower state, so it can't describe a renovation that leaves the library better loved than before — this sentence needs a verb of improvement, and degenerate only ever travels downhill.", "C": "Not quite! Degenerate describes a slide — quality draining away over time — so it is the wrong verb for a vase that is whole one instant and in pieces the next. That is breaking, not declining.", "D": "Not quite! Degenerate tracks a fall in quality or character, not in quantity, so receipts that shrink by forty percent haven't degenerated — numbers drop, decline, or fall; it is the thing itself that degenerates."}}, "s3a": {"q": "In the passage, degenerate most precisely means that the tradition…", "opts": {"A": "sank into a lower thing that lost what defined it", "B": "returned to the rougher form it had in its early years", "C": "grew a little less funny while staying harmless", "D": "was physically destructive to school property from the start"}, "key": "A", "fb": {"correct": "Right. The rules that defined it — <em>clever, bloodless, reversible<\/em> — drained away until what remained was <em>vandalism with a schedule<\/em>: a lower thing wearing the old name.", "B": "The early years are the passage's high point — <em>minor legends<\/em>, wit and restraint. There was no rougher past to return to.", "C": "Harmless is exactly what it stopped being: fires and pried locks are not a weaker joke, they are a different, lower thing.", "D": "From the start it was <em>bloodless, reversible by lunchtime<\/em>. The destruction is what the change produced, not what the tradition was."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "decay", "B": "worsen", "C": "degenerate", "D": "regress"}, "key": "C", "fb": {"correct": "Right — the franchise degenerated: it slid into a lower version of itself, losing the character that made it natural history. Nothing rotted, nothing reverted to an earlier form, and the change went past a mere drop in quality.", "A": "Decay is physical rot — timber going soft, a tooth hollowing out. Nothing material breaks down in this passage: the change is <em>staged quarrels among the presenters<\/em> crowding out the fieldwork, a loss in the show's character rather than in any object.", "D": "Regress means slipping back to an earlier stage, and the passage closes that door: <em>This was no return to the program's rough early years<\/em>. The show did not revert to an older version of itself; it ended up somewhere it had never been.", "B": "Worsen is true as far as it goes — but it says only that the show got worse while staying what it was. The passage claims more: <em>reviewers now file the show under celebrity drama<\/em>, so the program has stopped being the thing it was, and the most precise word has to carry that loss."}}}, "pairwise": {"rows": [{"sentence": "Regulars watched the club's blitz night ____ into pure trash talk, clocks slapped for show and nobody recording a single move.", "options": ["degenerate", "decay"], "key": "degenerate", "pair": "decay", "why_right": "The tell is <em>into pure trash talk<\/em> - the fall here is in conduct and character, not in matter; decay is physical rot, and nothing molders on a chess night.", "why_wrong": "That is physical rot — teeth, timber, fallen fruit. Nothing molders here; what collapsed is the evening's character."}, {"sentence": "Critics say the prize continues to ____ from an honor into a marketing exercise, its medal unchanged but its meaning gone.", "options": ["degenerate", "regress"], "key": "degenerate", "pair": "regress", "why_right": "The tell is <em>from an honor into a marketing exercise<\/em> - the prize is sliding into something lower it never was, not slipping back to an earlier stage of itself.", "why_wrong": "Backward motion returns a thing to what it once was. This prize is not returning anywhere — it is turning into <em>a marketing exercise<\/em>, something new and lower."}, {"sentence": "Left unpainted, the porch timbers began to ____, going soft and crumbling at the joints within five winters.", "options": ["degenerate", "decay"], "key": "decay", "pair": "decay", "why_right": "The tell is <em>going soft and crumbling at the joints<\/em> - matter breaking down into ruin, which is decay's home; porch timber has no character to lose, so degenerate misses.", "why_wrong": "That word aims at character — a debate, a league, a friendship sliding into a lower version of itself. Porch timber has no character; it just breaks down."}, {"sentence": "Dentists warned that the molar would ____ beneath the cracked filling, sugar and bacteria hollowing it out month by month.", "options": ["degenerate", "decay"], "key": "decay", "pair": "decay", "why_right": "The tell is <em>sugar and bacteria hollowing it out<\/em> - physical rot in tooth tissue, the mouth's version of ruin; a molar is plain matter with no character to lose, which degenerate requires.", "why_wrong": "Debates and leagues do that — slide into lower versions of themselves. A tooth under a cracked filling is plain matter, and its fate is plain rot."}, {"sentence": "Under match pressure her serve tends to ____ to the looping motion she used at twelve, every corrected habit resurfacing.", "options": ["degenerate", "regress"], "key": "regress", "pair": "regress", "why_right": "The tell is <em>the looping motion she used at twelve<\/em> - the serve slips back to an earlier stage of itself, backward motion; degenerate would need a fall into something lower and new.", "why_wrong": "That word adds a fall into something lower and new. Her serve falls into something old — <em>the looping motion she used at twelve<\/em> — which is backward motion, precisely."}, {"sentence": "The forecast calls for driving conditions to ____ through the evening, with rain turning to sleet after dark.", "options": ["degenerate", "worsen"], "key": "worsen", "pair": "worsen", "why_right": "The tell is <em>rain turning to sleet after dark<\/em> - a plain decline in quality while the drive stays a drive; nothing slides into a lower kind of thing, so degenerate overshoots.", "why_wrong": "That word wants a thing sliding into a lower version of itself — a debate collapsing into a shouting match. Tonight's drive stays a drive; it just gets harder."}, {"sentence": "Fans admit the show's dialogue has ____ past saving: exchanges that once traded wit now trade catchphrases, and its courtroom scenes play as slapstick.", "options": ["degenerate", "worsen"], "key": "degenerate", "pair": "worsen", "why_right": "The tell is <em>its courtroom scenes play as slapstick<\/em> - the show has slid into a lower kind of thing, not merely a testier version of itself; worsen reports only degree.", "why_wrong": "That word says only that the writing got poorer by some degree. The sentence claims a fall in kind - wit traded for catchphrases, drama playing as slapstick - the show becoming something lower."}, {"sentence": "Mediators watched the estate dispute ____ into anonymous letters and slashed tires, a viciousness the family had never shown in forty years.", "options": ["degenerate", "regress"], "key": "degenerate", "pair": "regress", "why_right": "The tell is <em>a viciousness the family had never shown<\/em> - the dispute falls into something lower and entirely new, so there is no earlier stage to slip back to.", "why_wrong": "That word means slipping back to an earlier stage - a patient regresses, a skill regresses under stress. This family is not returning anywhere: forty years held nothing like this."}], "display_order": [3, 1, 5, 0, 7, 2, 4, 6], "dimension_order": ["decay", "regress", "worsen"], "dimension_feedback": {"decay": "Decay is physical rot — teeth, timber, fallen fruit breaking down into ruin. Degenerate is broader and aims at character: a debate, a league, or a friendship degenerates when it slides into a lower version of itself, no rot required.", "regress": "Regress means to slip back to an earlier stage: a patient regresses, a skill regresses under stress. It measures backward motion and says nothing about quality. Degenerate adds the fall: what comes out the far end is not just earlier but worse.", "worsen": "Worsen is weaker than degenerate: a worsening debate grows testier but is still a debate, while a degenerating one is sliding into something lower — a shouting match that has stopped being debate at all."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a thing sliding into a lower version of itself — losing what made it what it was, not just getting worse. Show the before and after: try working in a word like <i>once<\/i>, <i>into<\/i>, <i>no longer<\/i> or <i>merely<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="87d9346ee355">
+<meta name="build" content="8158fb572ddf">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ornament &#8212; SAT Vocabulary, Course 1 Unit 5</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "ornament", "gradeUrl": "/api/grade", "taskId": "ornament", "minWords": 12, "items": {"s1": {"q": "Which sentence uses ornament correctly?", "opts": {"A": "He accepted the judge's kind ornament about his rose garden with a modest smile.", "B": "The mechanic insists that the engine's most important ornament is the fuel pump.", "C": "Neighbors complained for months about the rusty ornament of a junked car on his lawn.", "D": "The plain white cake needed one small ornament — a ring of sugared violets — to look festive."}, "key": "D", "fb": {"correct": "Correct — the ring of sugared violets does nothing but make the cake look festive. Something added purely for looks is an ornament.", "A": "Kind words from a judge about a garden are a compliment — praise, a remark. An ornament is a physical object added purely for beauty, not something spoken.", "B": "A fuel pump keeps the engine running, which makes it a component — a working part. Ornaments do no work at all; they exist purely to make something more attractive to the eye.", "C": "A rusty junked car that draws complaints is an eyesore — the opposite of decoration. An ornament is added because it beautifies; something ugly enough to protest cannot be one."}}, "s3a": {"q": "As it is used in this passage, \"ornament\" most nearly means:", "opts": {"A": "an object added purely to please the eye", "B": "a cheap, showy object with no lasting value or place", "C": "a structural support cleverly disguised as a sculpture", "D": "the bridge's entire scheme of paint, lighting, and signage"}, "key": "A", "fb": {"correct": "Right. The pelicans do no work at all — their one job is to please whoever crosses, and the city treasures them enough to recast one from the original mold.", "B": "The passage undercuts that twice: they cost eleven thousand dollars, and the city recast a cracked one within a month — these are treasured, not junk.", "C": "The passage says the opposite in four words: 'The pelicans held nothing up.'", "D": "The word names the four distinct objects themselves — one per corner post — not any overall scheme."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "decoration", "B": "trinket", "C": "adornment", "D": "ornament"}, "key": "B", "fb": {"correct": "Right. Small, showy, all but worthless — <em>sold for a penny<\/em>, prized for a day, then lost in the mud on the walk home. Cheapness is the defining mark here, and it is the one thing this word guarantees.", "D": "An ornament can be finely made and genuinely treasured, and what defines it is being added to something purely to please the eye. These were <em>crude tin charms<\/em>, <em>sold for a penny<\/em>, <em>dropped in the mud on the walk home<\/em> — and <em>none was made to beautify anything larger than itself<\/em>.", "A": "Decoration is what gets added to make some larger thing prettier — a hall, a cake, a room — and it can name the whole prettifying scheme. These charms hung on nothing and improved nothing: <em>none was made to beautify anything larger than itself<\/em>.", "C": "An adornment leans toward what is worn or draped — jewels, garlands, embroidery on a person or a gown. These charms could not even be worn: <em>none has a pin or loop for wearing<\/em>."}}}, "grid": {"words": ["ornament", "decoration", "adornment", "trinket"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The hall needed no banners or bunting blanketing its walls; the one finely carved ____ above the mantel did all the pleasing of the eye the evening required.", "ks": ["ornament"], "fb": {"decoration": "That word can cover a whole room-prettifying scheme — banners, bunting and all — which this sentence pointedly turns down. The blank names one carved object.", "adornment": "That word leans toward what is worn or draped — jewels on a person, garlands on a gown. This object is fixed above a mantel.", "trinket": "That names a small, showy thing of little value. This piece is finely carved and carries the whole room — the opposite of cheap."}}, {"s": "Each stone ____ on the cathedral face — beast, knot, and star — was cut purely for beauty, and the restorers now insure every single one of them like paintings.", "ks": ["ornament"], "fb": {"decoration": "That is the broad umbrella word, at home naming a whole scheme. The sentence counts distinct carved objects one by one — 'each... beast, knot, and star.'", "adornment": "That word wants something worn or draped — a jewel, a garland. These are carvings fixed in a building's stone face.", "trinket": "That means cheap and showy by definition. Objects insured like paintings are treasured, not disposable."}}, {"s": "The boardwalk stall sold the same glittery ____ by the basketful all summer long — ten for a dollar, prized for a weekend, forgotten completely by August.", "ks": ["trinket"], "fb": {"ornament": "That word names an object added to something — a building, a display — purely for beauty. These are pocket goods in a basket, beautifying nothing.", "decoration": "That word needs something being prettified — a room, a hall, a tree. Here there is only a stall selling cheap stock.", "adornment": "That is a decorative touch worn or draped on someone. Nobody is wearing these — they are ten-for-a-dollar goods."}}, {"s": "From every airport he passed through, Uncle Renzo pocketed some little ____ or other — a snow globe, a keychain — showy for a week and junk again by the time he unpacked.", "ks": ["trinket"], "fb": {"ornament": "That word is for an object added to something to make it lovelier, sometimes finely made and treasured. A pocketed snow globe that turns to junk in a week beautifies nothing.", "decoration": "That needs a thing being prettified. These souvenirs decorate nothing — they ride home in a suitcase.", "adornment": "That is a touch worn or draped to beautify — jewels, garlands, embroidery. A keychain in a coat pocket adorns nobody."}}, {"s": "For the school centennial the committee planned the gym's entire ____ as one scheme: paper lanterns on the beams, painted banners over the doors, ribbons down the walls.", "ks": ["decoration"], "fb": {"ornament": "That names one distinct object made to please the eye — a single carving, a single figure. The blank covers lanterns, banners, and ribbons together, as one scheme.", "adornment": "That word names one beautifying touch, usually worn or draped. The blank has to cover everything at once — beams, doors, and walls.", "trinket": "That is a small showy object of little value. The blank is not an object at all — it is the whole plan for the room."}}, {"s": "The bride wore no jewels at all; her only ____ was her grandmother's silver comb, pinned above one ear, catching the light each time she turned to greet a guest.", "ks": ["adornment"], "fb": {"ornament": "That word suits a free-standing decorative object — something carved above a door or set on display. This comb is worn, pinned in her hair.", "decoration": "That is the broad word for prettifying things and places. For a touch worn on a person, English has a more precise word — and this sentence wants it.", "trinket": "That means cheap and showy by definition. A grandmother's silver comb is an heirloom — treasured, not disposable."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should name one distinct object that exists only to make something lovelier — not worn, not useful, maybe even treasured. Try working in words like <i>carved<\/i>, <i>gilded<\/i>, <i>purely<\/i> or <i>to please the eye<\/i>."}};
+  var CFG = {"word": "ornament", "gradeUrl": "/api/grade", "taskId": "ornament", "minWords": 12, "items": {"s1": {"q": "Which sentence uses ornament correctly?", "opts": {"A": "He accepted the judge's kind ornament about his rose garden with a modest smile.", "B": "The mechanic insists that the engine's most important ornament is the fuel pump.", "C": "Neighbors complained for months about the rusty ornament of a junked car on his lawn.", "D": "The plain white cake needed one small ornament — a ring of sugared violets — to look festive."}, "key": "D", "fb": {"correct": "Correct — the ring of sugared violets does nothing but make the cake look festive. Something added purely for looks is an ornament.", "A": "Kind words from a judge about a garden are a compliment — praise, a remark. An ornament is a physical object added purely for beauty, not something spoken.", "B": "A fuel pump keeps the engine running, which makes it a component — a working part. Ornaments do no work at all; they exist purely to make something more attractive to the eye.", "C": "A rusty junked car that draws complaints is an eyesore — the opposite of decoration. An ornament is added because it beautifies; something ugly enough to protest cannot be one."}}, "s3a": {"q": "As it is used in this passage, \"ornament\" most nearly means:", "opts": {"A": "an object added purely to please the eye", "B": "a cheap, showy object with no lasting value or place", "C": "a structural support cleverly disguised as a sculpture", "D": "the bridge's entire scheme of paint, lighting, and signage"}, "key": "A", "fb": {"correct": "Right. The pelicans do no work at all — their one job is to please whoever crosses, and the city treasures them enough to recast one from the original mold.", "B": "The passage undercuts that twice: they cost eleven thousand dollars, and the city recast a cracked one within a month — these are treasured, not junk.", "C": "The passage says the opposite in four words: 'The pelicans held nothing up.'", "D": "The word names the four distinct objects themselves — one per corner post — not any overall scheme."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "decoration", "B": "trinket", "C": "adornment", "D": "ornament"}, "key": "B", "fb": {"correct": "Right. Small, showy, all but worthless — <em>sold for a penny<\/em>, prized for a day, then lost in the mud on the walk home. Cheapness is the defining mark here, and it is the one thing this word guarantees.", "D": "An ornament can be finely made and genuinely treasured, and what defines it is being added to something purely to please the eye. These were <em>crude tin charms<\/em>, <em>sold for a penny<\/em>, <em>dropped in the mud on the walk home<\/em> — and <em>none was made to beautify anything larger than itself<\/em>.", "A": "Decoration is what gets added to make some larger thing prettier — a hall, a cake, a room — and it can name the whole prettifying scheme. These charms hung on nothing and improved nothing: <em>none was made to beautify anything larger than itself<\/em>.", "C": "An adornment leans toward what is worn or draped — jewels, garlands, embroidery on a person or a gown. These charms could not even be worn: <em>none has a pin or loop for wearing<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The hall needed no banners or bunting blanketing its walls; the one finely carved ____ above the mantel did all the pleasing of the eye the evening required.", "options": ["ornament", "decoration"], "key": "ornament", "pair": "decoration", "why_right": "The tell is <em>no banners or bunting blanketing its walls<\/em> - the room-covering scheme is refused outright, leaving one distinct carved object to please the eye, which is this word's home ground.", "why_wrong": "That word can cover a whole room-prettifying scheme — banners, bunting and all — which this sentence pointedly turns down. The blank names one carved object."}, {"sentence": "Each stone ____ on the cathedral face — beast, knot, and star — was cut purely for beauty, and the restorers now insure every single one of them like paintings.", "options": ["ornament", "trinket"], "key": "ornament", "pair": "trinket", "why_right": "The tell is <em>insure every single one of them like paintings<\/em> - each carved figure is genuinely treasured and finely made, while a trinket is a cheap, showy object by definition.", "why_wrong": "That means cheap and showy by definition. Objects insured like paintings are treasured, not disposable."}, {"sentence": "The boardwalk stall sold the same glittery ____ by the basketful all summer long — ten for a dollar, prized for a weekend, forgotten completely by August.", "options": ["ornament", "trinket"], "key": "trinket", "pair": "trinket", "why_right": "The tell is <em>prized for a weekend, forgotten completely by August<\/em> - a small, showy object of little lasting value that beautifies nothing, exactly what this word names.", "why_wrong": "That word names an object added to something — a building, a display — purely for beauty. These are pocket goods in a basket, beautifying nothing."}, {"sentence": "From every airport he passed through, Uncle Renzo pocketed some little ____ or other — a snow globe, a keychain — showy for a week and junk again by the time he unpacked.", "options": ["ornament", "trinket"], "key": "trinket", "pair": "trinket", "why_right": "The tell is <em>junk again by the time he unpacked<\/em> - a showy little souvenir of no lasting value that is never added to anything for beauty; that is this word exactly.", "why_wrong": "That word is for an object added to something to make it lovelier, sometimes finely made and treasured. A pocketed snow globe that turns to junk in a week beautifies nothing."}, {"sentence": "For the school centennial the committee planned the gym's entire ____ as one scheme: paper lanterns on the beams, painted banners over the doors, ribbons down the walls.", "options": ["ornament", "decoration"], "key": "decoration", "pair": "decoration", "why_right": "The tell is <em>as one scheme<\/em> - the blank covers lanterns, banners, and ribbons together as a room-wide plan, the broad word's home ground, not one distinct decorative object.", "why_wrong": "That names one distinct object made to please the eye — a single carving, a single figure. The blank covers lanterns, banners, and ribbons together, as one scheme."}, {"sentence": "The bride wore no jewels at all; her only ____ was her grandmother's silver comb, pinned above one ear, catching the light each time she turned to greet a guest.", "options": ["ornament", "adornment"], "key": "adornment", "pair": "adornment", "why_right": "The tell is <em>pinned above one ear<\/em> - a decorative touch worn on a person to beautify her, the worn-or-draped home ground of this word, not a free-standing object on display.", "why_wrong": "That word suits a free-standing decorative object — something carved above a door or set on display. This comb is worn, pinned in her hair."}, {"sentence": "The jeweler locked every necklace and bracelet in the safe at night, but the shop's one ____ stayed in the window: a carved oak star bolted above the display shelf.", "options": ["ornament", "adornment"], "key": "ornament", "pair": "adornment", "why_right": "The tell is <em>bolted above the display shelf<\/em> - a free-standing decorative object fixed to a display, this word's home ground, while everything wearable sits locked away in the safe.", "why_wrong": "That word leans toward what is worn or draped - jewels, garlands, embroidery. This carved star is bolted to the shop display, and every wearable piece is locked in the safe."}, {"sentence": "No sailor aboard wore so much as an earring, yet the schooner itself carried one ____: a carved gull fixed to the prow, repainted lovingly every spring.", "options": ["ornament", "adornment"], "key": "ornament", "pair": "adornment", "why_right": "The tell is <em>fixed to the prow<\/em> - a free-standing carved object that is part of the vessel itself, this word's territory, while nothing here is worn or draped on anyone.", "why_wrong": "That word wants a beautifying touch worn or draped - a jewel, a garland, embroidery. The sentence rules that out flatly: no sailor wears so much as an earring."}], "display_order": [5, 1, 6, 0, 3, 4, 2, 7], "dimension_order": ["decoration", "adornment", "trinket"], "dimension_feedback": {"decoration": "Decoration is the broadest word for anything added to make a thing prettier — from birthday streamers to gold leaf — and it can name the whole prettifying scheme. An ornament is one distinct decorative object, added purely to please the eye. Decorations may blanket a room; each carved rosette is an ornament.", "adornment": "An adornment is a decorative touch that beautifies something, and the word leans toward what is worn or draped — jewels, garlands, embroidery. An ornament is a free-standing decorative object in its own right, often part of a building or display. A necklace is an adornment; the carved rosette above a door is an ornament.", "trinket": "A trinket is a small, showy object of little practical value — the kind of thing collected on a shelf or won at a fair. An ornament can be finely made and genuinely treasured; what defines it is being added purely for beauty. A trinket is cheap by definition; an ornament need not be."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should name one distinct object that exists only to make something lovelier — not worn, not useful, maybe even treasured. Try working in words like <i>carved<\/i>, <i>gilded<\/i>, <i>purely<\/i> or <i>to please the eye<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

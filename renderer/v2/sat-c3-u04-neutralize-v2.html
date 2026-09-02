@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="ab65c7bdcc90">
+<meta name="build" content="a71dbed5ba73">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>neutralize &#8212; SAT Vocabulary, Course 3 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "neutralize", "gradeUrl": "/api/grade", "taskId": "neutralize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses neutralize correctly?", "opts": {"A": "The librarian neutralized the returned books onto the cart in tidy alphabetical stacks.", "B": "A ribbon of mint neutralized the brownies with a cool aftertaste that lingered pleasantly.", "C": "The beekeeper's smoke neutralized the hive's alarm signals long enough for her to inspect every frame.", "D": "After three rounds of voting, the panel finally neutralized a winner from the twelve finalists."}, "key": "C", "fb": {"correct": "Right — the smoke switches off the hive's alarm signals so they can't do what they were going to do. Making something harmless at the source is what neutralize means.", "A": "Shelving returned books 'in tidy alphabetical stacks' is sorting, and the books posed no danger to cancel. Neutralize means making something harmless or cancelling its effect — look for something dangerous being defused.", "B": "Mint that adds 'a cool aftertaste' is layering a new flavor on, not cancelling anything out. Neutralizing means wiping a force or quality away, making it harmless — these brownies threatened nobody.", "D": "Picking 'a winner from the twelve finalists' is selection after voting, not defusing anything. Neutralize means cancelling an effect or rendering something harmless — a contest result is neither of those things."}}, "s3a": {"q": "In this passage, what does it mean that the patch would neutralize the worm?", "opts": {"A": "delete every copy of the worm from the county's machines", "B": "make the worm harmless while leaving it in place", "C": "hide the worm so that scans could no longer detect it", "D": "slow the worm down so that it did less damage"}, "key": "B", "fb": {"correct": "Right. The copies remain -- intact and visible to every scan -- but the one channel they used to act is closed, so the threat exists and can do nothing.", "A": "The first sentence says the worm was never actually removed from most machines, and the scans still find thousands of copies.", "C": "The opposite: the code still shows up in every scan. Nothing was hidden -- it was made powerless in plain sight.", "D": "Less damage is still damage. The passage says the worm now cannot touch a single file -- zero effect, not reduced effect."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "defuse", "B": "neutralize", "C": "weaken", "D": "disarm"}, "key": "A", "fb": {"correct": "Right. To defuse is to bleed the pressure out of a conflict before it explodes — and what endangered this season was pure feeling: <em>one disputed find, and a week of accusations<\/em>. Three days in a shared trench took the heat out until <em>the accusations had evaporated<\/em>.", "B": "Neutralize targets capability — the snake's venom, the hidden weapon, a rival's argument: still there, but powerless to act. There was no capability to switch off in this camp, only mood: <em>two trench supervisors, one disputed find, and a week of accusations traded over the sorting tables<\/em>.", "D": "To disarm is to take something from the person holding it — the guard who removes a weapon, the warm reply that melts a critic's hostility. The passage rules that out flatly: <em>Nothing was taken from either one<\/em> — no confession, no concession, no surrendered claim.", "C": "Weakening leaves a smaller version of the trouble, still able to bite. Nothing smaller remained here: <em>the accusations had evaporated<\/em>, and the crew worked together <em>through the final week<\/em>."}}}, "grid": {"words": ["neutralize", "defuse", "disarm", "weaken"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "One vial of antivenom can ____ the toxin already in the bloodstream, leaving it present but unable to do any harm.", "ks": ["neutralize"], "fb": {"weaken": "That milder word leaves a smaller danger that can still bite. This sentence says the toxin ends up unable to do any harm at all.", "defuse": "That word drains emotional tension -- tempers, panics, crises of nerve. A molecule in the bloodstream has no feelings to cool.", "disarm": "That word takes weapons or hostility away from someone holding them. Nothing here is taken from anyone; the substance stays put and simply loses its power to hurt."}}, {"s": "The new goalkeeper's positioning could ____ the league's quickest winger: he kept all his pace, yet never again turned it into a goal.", "ks": ["neutralize"], "fb": {"weaken": "That word would leave the winger a little slower or a little less dangerous. He is neither -- he keeps all his pace and simply cannot make it count.", "disarm": "That word means taking something away from the one who holds it. The winger loses nothing here; his speed stays, stripped only of its effect.", "defuse": "That word takes the heat out of feelings before they blow up. There is no anger or panic on this pitch -- just a skill made harmless."}}, {"s": "A joke at his own expense let the referee ____ the shouting match before it could turn into something worse.", "ks": ["defuse"], "fb": {"neutralize": "That word aims at capability -- venoms, weapons, arguments left unable to act. What fades here is temper, the pure heat of the moment.", "disarm": "That word strips something from a person -- a knife from a hand, hostility from a critic. The joke works on the situation itself, cooling the whole exchange.", "weaken": "That word would leave the quarrel smaller but still smoldering. The joke ends the danger before anything worse can start."}}, {"s": "By naming each groan the old ferry made, the captain managed to ____ the passengers' rising panic; by mid-crossing the deck was quiet again.", "ks": ["defuse"], "fb": {"neutralize": "That word leaves a threat -- a venom, a weapon, an argument -- unable to act. A wave of panic is not a capability; it is a feeling that needed cooling.", "disarm": "That word takes something from the one who holds it -- a blade, a grudge. Nothing is confiscated on this deck; a fear is explained away.", "weaken": "If the panic were merely reduced, the deck would still be uneasy. It goes quiet -- the tension leaves the situation entirely."}}, {"s": "Security officers moved fast to ____ the intruder in the lobby, twisting the knife from his grip before anyone was hurt.", "ks": ["disarm"], "fb": {"neutralize": "That word makes a threat harmless at its source, whether or not anything is taken away. These officers do take something away -- the knife, from the man holding it -- which is the other word's exact job.", "defuse": "That word cools feelings before they explode -- tempers, panics. Nothing here is soothed; a weapon is wrestled out of a hand.", "weaken": "That word leaves a smaller danger still in play. Once the knife leaves his grip, the officers haven't shrunk the threat -- they've taken its source from his hands."}}, {"s": "Trimming the storm's winds by a few knots will only ____ it; whatever reaches the coast can still tear roofs from their rafters.", "ks": ["weaken"], "fb": {"neutralize": "That word means the threat can no longer do anything at all. This storm still can -- it arrives with enough force to tear roofs loose.", "defuse": "That word settles feelings -- panic, temper -- before they burst. A storm has no feelings, and its danger is still coming.", "disarm": "That word takes the weapon from the one who holds it. A storm holds nothing you can confiscate; its force is simply shaved down a little."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a threat made completely harmless while it still exists -- not shrunk, not deleted. Readers see that best with a contrast: try working in a phrase like <i>still there<\/i>, <i>harmless<\/i>, or <i>no longer<\/i>."}};
+  var CFG = {"word": "neutralize", "gradeUrl": "/api/grade", "taskId": "neutralize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses neutralize correctly?", "opts": {"A": "The librarian neutralized the returned books onto the cart in tidy alphabetical stacks.", "B": "A ribbon of mint neutralized the brownies with a cool aftertaste that lingered pleasantly.", "C": "The beekeeper's smoke neutralized the hive's alarm signals long enough for her to inspect every frame.", "D": "After three rounds of voting, the panel finally neutralized a winner from the twelve finalists."}, "key": "C", "fb": {"correct": "Right — the smoke switches off the hive's alarm signals so they can't do what they were going to do. Making something harmless at the source is what neutralize means.", "A": "Shelving returned books 'in tidy alphabetical stacks' is sorting, and the books posed no danger to cancel. Neutralize means making something harmless or cancelling its effect — look for something dangerous being defused.", "B": "Mint that adds 'a cool aftertaste' is layering a new flavor on, not cancelling anything out. Neutralizing means wiping a force or quality away, making it harmless — these brownies threatened nobody.", "D": "Picking 'a winner from the twelve finalists' is selection after voting, not defusing anything. Neutralize means cancelling an effect or rendering something harmless — a contest result is neither of those things."}}, "s3a": {"q": "In this passage, what does it mean that the patch would neutralize the worm?", "opts": {"A": "delete every copy of the worm from the county's machines", "B": "make the worm harmless while leaving it in place", "C": "hide the worm so that scans could no longer detect it", "D": "slow the worm down so that it did less damage"}, "key": "B", "fb": {"correct": "Right. The copies remain -- intact and visible to every scan -- but the one channel they used to act is closed, so the threat exists and can do nothing.", "A": "The first sentence says the worm was never actually removed from most machines, and the scans still find thousands of copies.", "C": "The opposite: the code still shows up in every scan. Nothing was hidden -- it was made powerless in plain sight.", "D": "Less damage is still damage. The passage says the worm now cannot touch a single file -- zero effect, not reduced effect."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "defuse", "B": "neutralize", "C": "weaken", "D": "disarm"}, "key": "A", "fb": {"correct": "Right. To defuse is to bleed the pressure out of a conflict before it explodes — and what endangered this season was pure feeling: <em>one disputed find, and a week of accusations<\/em>. Three days in a shared trench took the heat out until <em>the accusations had evaporated<\/em>.", "B": "Neutralize targets capability — the snake's venom, the hidden weapon, a rival's argument: still there, but powerless to act. There was no capability to switch off in this camp, only mood: <em>two trench supervisors, one disputed find, and a week of accusations traded over the sorting tables<\/em>.", "D": "To disarm is to take something from the person holding it — the guard who removes a weapon, the warm reply that melts a critic's hostility. The passage rules that out flatly: <em>Nothing was taken from either one<\/em> — no confession, no concession, no surrendered claim.", "C": "Weakening leaves a smaller version of the trouble, still able to bite. Nothing smaller remained here: <em>the accusations had evaporated<\/em>, and the crew worked together <em>through the final week<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The new goalkeeper's positioning could ____ the league's quickest winger: he kept all his pace, yet never again turned it into a goal.", "options": ["neutralize", "weaken"], "key": "neutralize", "pair": "weaken", "why_right": "The tell is <em>kept all his pace<\/em> - nothing about the threat is reduced; its effect is cancelled outright, where the milder word leaves a smaller danger that can still bite.", "why_wrong": "That word would leave the winger a little slower or a little less dangerous. He is neither -- he keeps all his pace and simply cannot make it count."}, {"sentence": "Trimming the storm's winds by a few knots will only ____ it; whatever reaches the coast can still tear roofs from their rafters.", "options": ["neutralize", "weaken"], "key": "weaken", "pair": "weaken", "why_right": "The tell is <em>can still tear roofs from their rafters<\/em> - the danger is made smaller but stays live and biting, nowhere near being left harmless.", "why_wrong": "That word means the threat can no longer do anything at all. This storm still can -- it arrives with enough force to tear roofs loose."}, {"sentence": "The broadcast authority's new tower could ____ the pirate station: the transmitter hums on at full power, yet not one radio picks it up.", "options": ["neutralize", "weaken"], "key": "neutralize", "pair": "weaken", "why_right": "The tell is <em>at full power, yet not one radio picks it up<\/em> - nothing is made smaller; the effect is cancelled outright, where the milder word leaves a danger that still bites.", "why_wrong": "That word leaves the danger smaller but still able to bite. Nothing here is reduced at all -- the signal runs at full power and simply achieves nothing anywhere."}, {"sentence": "A joke at his own expense let the referee ____ the shouting match before it could turn into something worse.", "options": ["neutralize", "defuse"], "key": "defuse", "pair": "defuse", "why_right": "The tell is <em>before it could turn into something worse<\/em> - heat taken out of a live exchange before it blows up: the danger drained is emotional, not a capability.", "why_wrong": "That word aims at capability -- venoms, weapons, arguments left unable to act. What fades here is temper, the pure heat of the moment."}, {"sentence": "By having the two captains exchange pennants at midfield, the club hoped to ____ a rivalry that had simmered since March's abandoned cup tie.", "options": ["neutralize", "defuse"], "key": "defuse", "pair": "defuse", "why_right": "The tell is <em>a rivalry that had simmered<\/em> - the danger drained is emotional, heat taken out of a situation before it blows up, not a capability switched off.", "why_wrong": "That word aims at capability -- a threat left unable to act. A rivalry is bad blood, not a venom or a weapon; what this gesture cools is feeling."}, {"sentence": "A quiet patch can ____ the stolen master key: the file still sits on the thieves' drives but no longer opens a single lock.", "options": ["neutralize", "defuse"], "key": "neutralize", "pair": "defuse", "why_right": "The tell is <em>no longer opens a single lock<\/em> - a capability cancelled at its source while the file still exists; nothing emotional is being cooled here.", "why_wrong": "That word takes the tension out of a situation -- tempers, panics, crises of nerve. A copied key file has no feelings; only its power to open locks is gone."}, {"sentence": "At the city gates, tournament marshals would ____ every arriving knight, hanging swords and daggers in the gatehouse until the fair ended.", "options": ["neutralize", "disarm"], "key": "disarm", "pair": "disarm", "why_right": "The tell is <em>hanging swords and daggers in the gatehouse<\/em> - weapons taken away from the men who hold them, the card's take-it-from-the-holder test.", "why_wrong": "That word leaves the threat itself harmless, whether or not anything is taken away. The marshals' whole act is taking -- swords and daggers off the men who carry them."}, {"sentence": "The redesigned bills could ____ the forgers' plates overnight: the presses still run, but nothing they print will pass a bank scanner again.", "options": ["neutralize", "disarm"], "key": "neutralize", "pair": "disarm", "why_right": "The tell is <em>the presses still run<\/em> - nothing is taken from anyone; the threat is left harmless at its source, which needs no confiscation at all.", "why_wrong": "That word means taking the weapons, or the hostility, away from someone who holds them. These forgers keep their plates and presses; what they print just no longer passes."}], "display_order": [2, 5, 0, 3, 7, 1, 6, 4], "dimension_order": ["weaken", "defuse", "disarm"], "dimension_feedback": {"weaken": "Weakening a threat is milder than neutralizing it — the danger is smaller, but it can still bite.", "defuse": "To defuse is to take the tension out of a situation before it blows up — the danger drained is emotional: tempers, panics, crises of nerve. Neutralize aims at capability rather than mood: a neutralized threat — a venom, a weapon, an argument — still exists but can no longer do anything. You defuse feelings; you neutralize threats.", "disarm": "To disarm is to take the weapons, or the hostility, away from someone who holds them; a guard disarms an intruder, a warm answer disarms a critic. Neutralize is broader: it leaves any threat harmless at its source, whether or not anything is taken away. You disarm a holder; you neutralize the threat itself."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a threat made completely harmless while it still exists -- not shrunk, not deleted. Readers see that best with a contrast: try working in a phrase like <i>still there<\/i>, <i>harmless<\/i>, or <i>no longer<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

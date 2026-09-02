@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="24b0285df9e9">
+<meta name="build" content="e302728f6bc9">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mastermind &#8212; SAT Vocabulary, Course 2 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "mastermind", "gradeUrl": "/api/grade", "taskId": "mastermind", "minWords": 12, "items": {"s1": {"q": "Which sentence uses \"mastermind\" correctly?", "opts": {"A": "Gran is the family's mastermind: she remembers every birthday, every recipe, and every promise anyone has made since 1970.", "B": "Friends dubbed Omar a mastermind because he could name every world capital, recite the bus timetables, and multiply four-digit numbers in his head, day or night.", "C": "Prosecutors called the soft-spoken bookkeeper the mastermind, tracing every shell company back to structures she had designed and quietly directed for a decade.", "D": "The crew's true mastermind was Bruno, who hauled the heaviest crates up all four flights without once consulting the plan taped by the door."}, "key": "C", "fb": {"correct": "Correct! A mastermind is the intelligence that designs and directs a complex operation — often unseen. The bookkeeper built the structures and ran them quietly for a decade: design plus direction, the word's two requirements.", "A": "Not quite! Gran's memory is a family treasure, but remembering isn't scheming — no operation exists here for anyone to design or direct. A mastermind runs a plan, not an archive.", "B": "Not quite! Omar has raw mental horsepower, and that alone isn't the word. A mastermind's intelligence is aimed: it designs an operation and steers it. Capitals, timetables, and arithmetic steer nothing.", "D": "Not quite! Bruno is the muscle — and the sentence says he never consulted the plan, let alone wrote it. The mastermind is whoever taped that plan by the door, not the one hauling crates under it."}}, "s3a": {"q": "In this passage, calling Ines the \"mastermind\" of the club's rise means she was", "opts": {"A": "the coach who fronted the club and denied that any system existed", "B": "the hidden planner who designed the scouting model and ran the signings", "C": "a traveling scout who went from stadium to stadium, judging players in person", "D": "a wealthy owner who quietly outspent every rival in the league"}, "key": "B", "fb": {"correct": "Right — she built the whole scouting model and ran every signing while staying unseen: design plus direction, from behind the scenes.", "A": "Credit went to the coach, but the leaked memo names Ines — he fronted the club; she built the plan.", "C": "She had never attended a match — the scouts did the traveling, and each saw only one piece of the model.", "D": "Money never enters it: the club is 'tiny,' its rivals 'richer,' and its edge was a model, not spending."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "organizer", "B": "ringleader", "C": "architect", "D": "mastermind"}, "key": "D", "fb": {"correct": "Right. Ferrand <em>conceived the decoy crates and the false manifests<\/em>, then <em>ran the whole operation herself<\/em> — and did it unseen, <em>from a cellar two floors below the empty galleries<\/em>. A mastermind is exactly that: the intelligence that designs a complex operation and then directs it from behind the scenes.", "C": "The architect of a plan designs its structure, and the word's gaze can end at the drawing board. Ferrand's work did not end there: she <em>ran the whole operation herself, rerouting convoys nightly and steering every driver by coded telegram<\/em> — direction, night after night, long after the design was finished.", "B": "A ringleader fronts a group — the loudest voice in the ring, urging the others on in plain view. Ferrand was the opposite of visible: she worked <em>from a cellar two floors below the empty galleries<\/em>, and <em>Most drivers learned her name only years after the war<\/em>.", "A": "An organizer keeps an operation's machinery moving — schedules kept, supplies booked. That names too small a part of this: Ferrand <em>conceived the decoy crates and the false manifests<\/em>, the entire design, before there was any schedule to keep. The stem asks for the most precise word, and organizer undersells her."}}}, "grid": {"words": ["mastermind", "architect", "ringleader", "organizer"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Detectives traced the forged bonds for years before naming the scheme's ____: a quiet clerk who had designed every step and run it all from a back room no one visited.", "ks": ["mastermind"], "fb": {"architect": "The drawing board is where that word's job ends — and this clerk also ran every step of the scheme for years.", "ringleader": "That word fronts the mischief, loudest voice in the ring. A quiet clerk in an unvisited back room is the opposite of fronting anything.", "organizer": "Booking rooms and keeping schedules is that word's scale. Designing a years-long fraud and running it is another order of work."}}, {"s": "Every heist memoir credits the same ____ behind the tunnel job — he drew the route, timed the guards, and directed each crew by radio without once leaving his apartment.", "ks": ["mastermind"], "fb": {"architect": "That word looks at the drawing board only. Directing each crew by radio is running the operation — past where that job ends.", "ringleader": "The loudest voice in the ring earns that name. This planner never once left his apartment.", "organizer": "Route, timing, direction — the entire design. That word covers schedule-keeping in service of someone else's design."}}, {"s": "Reporters called the retired senator the ____ of the tax overhaul: she had drawn its whole structure years ago, then left office before a single vote was cast.", "ks": ["architect"], "fb": {"mastermind": "That word designs and then runs the operation. She left before a single vote — the running was never hers.", "ringleader": "No ring, no mischief, no fronting — a bill's structure drawn on paper years before the fight.", "organizer": "That word keeps schedules and books rooms. Drawing the whole structure of an overhaul is design work."}}, {"s": "Insiders credit Voss as the ____ of the merger: she laid out its whole shape on paper — who buys whom, which divisions fold — then handed the plan to others and took no part in what followed.", "ks": ["architect"], "fb": {"mastermind": "'Took no part in what followed' — the fuller word insists on running the operation, not just shaping it.", "ringleader": "Nothing here stirs a group into mischief; the work is shape on paper.", "organizer": "Logistics serve a design; this sentence is about supplying the design itself."}}, {"s": "When the cafeteria food fight ended, every finger pointed at Marco, the ____ — loudest in the middle of it, whooping his crew on tray by tray.", "ks": ["ringleader"], "fb": {"mastermind": "The brains behind an operation may never be seen. Marco is the opposite — loudest, front and center, in the middle of the mess.", "architect": "No structure, no drawing board — a tray-by-tray mess with a frontman whooping it on.", "organizer": "Nobody booked rooms for a food fight. He stirred it up and fronted it."}}, {"s": "Give the retreat's ____ her due: every shuttle left on time, every room key waited at the desk, every name tag was spelled right.", "ks": ["organizer"], "fb": {"mastermind": "Shuttles and name tags are schedule work. That word wants the unseen brains supplying a whole operation's design.", "architect": "Nothing was designed here; the praise is for keeping every logistical promise the schedule made.", "ringleader": "No mischief and no ring — this is praise for schedules kept and keys ready."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show one hidden brain behind a whole operation — both the design and the running of it, while others carry it out in view. Try working in a word like <i>planned<\/i>, <i>behind<\/i>, <i>unseen<\/i> or <i>every step<\/i>."}};
+  var CFG = {"word": "mastermind", "gradeUrl": "/api/grade", "taskId": "mastermind", "minWords": 12, "items": {"s1": {"q": "Which sentence uses \"mastermind\" correctly?", "opts": {"A": "Gran is the family's mastermind: she remembers every birthday, every recipe, and every promise anyone has made since 1970.", "B": "Friends dubbed Omar a mastermind because he could name every world capital, recite the bus timetables, and multiply four-digit numbers in his head, day or night.", "C": "Prosecutors called the soft-spoken bookkeeper the mastermind, tracing every shell company back to structures she had designed and quietly directed for a decade.", "D": "The crew's true mastermind was Bruno, who hauled the heaviest crates up all four flights without once consulting the plan taped by the door."}, "key": "C", "fb": {"correct": "Correct! A mastermind is the intelligence that designs and directs a complex operation — often unseen. The bookkeeper built the structures and ran them quietly for a decade: design plus direction, the word's two requirements.", "A": "Not quite! Gran's memory is a family treasure, but remembering isn't scheming — no operation exists here for anyone to design or direct. A mastermind runs a plan, not an archive.", "B": "Not quite! Omar has raw mental horsepower, and that alone isn't the word. A mastermind's intelligence is aimed: it designs an operation and steers it. Capitals, timetables, and arithmetic steer nothing.", "D": "Not quite! Bruno is the muscle — and the sentence says he never consulted the plan, let alone wrote it. The mastermind is whoever taped that plan by the door, not the one hauling crates under it."}}, "s3a": {"q": "In this passage, calling Ines the \"mastermind\" of the club's rise means she was", "opts": {"A": "the coach who fronted the club and denied that any system existed", "B": "the hidden planner who designed the scouting model and ran the signings", "C": "a traveling scout who went from stadium to stadium, judging players in person", "D": "a wealthy owner who quietly outspent every rival in the league"}, "key": "B", "fb": {"correct": "Right — she built the whole scouting model and ran every signing while staying unseen: design plus direction, from behind the scenes.", "A": "Credit went to the coach, but the leaked memo names Ines — he fronted the club; she built the plan.", "C": "She had never attended a match — the scouts did the traveling, and each saw only one piece of the model.", "D": "Money never enters it: the club is 'tiny,' its rivals 'richer,' and its edge was a model, not spending."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "organizer", "B": "ringleader", "C": "architect", "D": "mastermind"}, "key": "D", "fb": {"correct": "Right. Ferrand <em>conceived the decoy crates and the false manifests<\/em>, then <em>ran the whole operation herself<\/em> — and did it unseen, <em>from a cellar two floors below the empty galleries<\/em>. A mastermind is exactly that: the intelligence that designs a complex operation and then directs it from behind the scenes.", "C": "The architect of a plan designs its structure, and the word's gaze can end at the drawing board. Ferrand's work did not end there: she <em>ran the whole operation herself, rerouting convoys nightly and steering every driver by coded telegram<\/em> — direction, night after night, long after the design was finished.", "B": "A ringleader fronts a group — the loudest voice in the ring, urging the others on in plain view. Ferrand was the opposite of visible: she worked <em>from a cellar two floors below the empty galleries<\/em>, and <em>Most drivers learned her name only years after the war<\/em>.", "A": "An organizer keeps an operation's machinery moving — schedules kept, supplies booked. That names too small a part of this: Ferrand <em>conceived the decoy crates and the false manifests<\/em>, the entire design, before there was any schedule to keep. The stem asks for the most precise word, and organizer undersells her."}}}, "pairwise": {"rows": [{"sentence": "Reporters called the retired senator the ____ of the tax overhaul: she had drawn its whole structure years ago, then left office before a single vote was cast.", "options": ["mastermind", "architect"], "key": "architect", "pair": "architect", "why_right": "The tell is <em>left office before a single vote was cast<\/em> - the job ended at the drawing board; she supplied the whole structure and never ran the operation that followed.", "why_wrong": "That word designs and then runs the operation. She left before a single vote — the running was never hers."}, {"sentence": "Insiders credit Voss as the ____ of the merger: she laid out its whole shape on paper — who buys whom, which divisions fold — then handed the plan to others and took no part in what followed.", "options": ["mastermind", "architect"], "key": "architect", "pair": "architect", "why_right": "The tell is <em>took no part in what followed<\/em> - the whole shape was supplied on paper and handed over; this word's job stops exactly where the running of the operation would begin.", "why_wrong": "'Took no part in what followed' — the fuller word insists on running the operation, not just shaping it."}, {"sentence": "Every heist memoir credits the same ____ behind the tunnel job — he drew the route, timed the guards, and directed each crew by radio without once leaving his apartment.", "options": ["mastermind", "architect"], "key": "mastermind", "pair": "architect", "why_right": "The tell is <em>directed each crew by radio<\/em> - drawing the route was only the start; he then ran the whole operation unseen, the full design-and-direct role the card names.", "why_wrong": "That word looks at the drawing board only. Directing each crew by radio is running the operation — past where that job ends."}, {"sentence": "When the cafeteria food fight ended, every finger pointed at Marco, the ____ — loudest in the middle of it, whooping his crew on tray by tray.", "options": ["mastermind", "ringleader"], "key": "ringleader", "pair": "ringleader", "why_right": "The tell is <em>loudest in the middle of it<\/em> - stirring the crew on and fronting the mischief in person, the loudest voice in the ring; nothing here was ever designed at all.", "why_wrong": "The brains behind an operation may never be seen. Marco is the opposite — loudest, front and center, in the middle of the mess."}, {"sentence": "Detectives traced the forged bonds for years before naming the scheme's ____: a quiet clerk who had designed every step and run it all from a back room no one visited.", "options": ["mastermind", "ringleader"], "key": "mastermind", "pair": "ringleader", "why_right": "The tell is <em>a back room no one visited<\/em> - the unseen brains who designed every step and ran the whole scheme; nothing is fronted and nothing is loud anywhere in it.", "why_wrong": "That word fronts the mischief, loudest voice in the ring. A quiet clerk in an unvisited back room is the opposite of fronting anything."}, {"sentence": "The supporters' club never learned who its ____ was: every choreographed banner drop that season arrived as a typed sheet of timings, slipped under the clubhouse door overnight.", "options": ["mastermind", "ringleader"], "key": "mastermind", "pair": "ringleader", "why_right": "The tell is <em>a typed sheet of timings<\/em> - the design arrives without the designer; the brains behind the operation supply the plan rather than the noise, and nobody ever fronts a thing.", "why_wrong": "That word is the loudest voice in the ring, stirring the group up and fronting it in person. This planner was never seen or heard at all - only the design ever arrived."}, {"sentence": "Give the retreat's ____ her due: every shuttle left on time, every room key waited at the desk, every name tag was spelled right.", "options": ["mastermind", "organizer"], "key": "organizer", "pair": "organizer", "why_right": "The tell is <em>every shuttle left on time<\/em> - rooms booked and schedules kept, the card's exact scale for this word; no operation's whole design was supplied by anyone here.", "why_wrong": "Shuttles and name tags are schedule work. That word wants the unseen brains supplying a whole operation's design."}, {"sentence": "Colleagues assumed a committee ran the launch, but its ____ was one junior hire, who mapped out every phase from teaser to reveal and left the bookings and calendar to the events team.", "options": ["mastermind", "organizer"], "key": "mastermind", "pair": "organizer", "why_right": "The tell is <em>left the bookings and calendar to the events team<\/em> - the schedule-keeping went to others; what she supplied was the entire design the schedule served, one mind behind every phase.", "why_wrong": "That word books the rooms and keeps the schedule - and that exact work went to the events team. What this hire supplied was the entire design the whole schedule served."}], "display_order": [1, 4, 2, 7, 3, 0, 5, 6], "dimension_order": ["architect", "ringleader", "organizer"], "dimension_feedback": {"architect": "The architect of a plan designs its structure — the word looks at the drawing board. A mastermind designs and then runs the operation, often unseen; the architect's job can end where the mastermind's is just beginning.", "ringleader": "A ringleader stirs a group into mischief and fronts it — the loudest voice in the ring. A mastermind may never be seen at all: the brains behind the operation, supplying the design rather than the noise.", "organizer": "An organizer is milder than a mastermind: an organizer books the rooms and keeps the schedule, while a mastermind supplies the entire design the schedule serves."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show one hidden brain behind a whole operation — both the design and the running of it, while others carry it out in view. Try working in a word like <i>planned<\/i>, <i>behind<\/i>, <i>unseen<\/i> or <i>every step<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

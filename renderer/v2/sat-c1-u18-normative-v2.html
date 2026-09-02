@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f5ac8421de1f">
+<meta name="build" content="76ea4899cd7f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>normative &#8212; SAT Vocabulary, Course 1 Unit 18</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -188,20 +237,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -270,7 +322,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "normative", "gradeUrl": "/api/grade", "taskId": "normative", "minWords": 12, "items": {"s1": {"q": "A linguistics professor holds up a dictionary and says, 'This one passes no judgment on how you ought to speak. Its editors record real conversations, and when speakers widely adopt a new use of a word, the entry is updated to reflect it -- with no comment on whether the change is correct.' Which word best labels that dictionary's stance?", "opts": {"A": "descriptive", "B": "statistical", "C": "regional", "D": "normative"}, "key": "A", "fb": {"correct": "Correct. This dictionary records -- its editors listen to real conversations and update entries to match how speakers actually talk, expressly refusing to say how they should. Recording what exists without judging it is the descriptive stance.", "B": "Statistical would make the dictionary a book of numbers -- frequency counts and percentages. Its editors do notice when a new use spreads, but what they publish are entries recording words and their meanings, not numerical tables. Noticing usage is not the same as reporting arithmetic.", "C": "Regional would mean the dictionary maps one geographic area's dialect. The professor describes editors recording real conversations in general, with no mention of any particular place -- the stance in question concerns how a dictionary treats all its speakers, not where they live.", "D": "Normative means relating to a standard that things are EXPECTED to conform to -- a normative dictionary would lay down how you ought to speak. This one does the reverse: it 'passes no judgment on how you ought to speak' and rewrites its own entries to follow real usage, with no comment on correctness. A book that follows its speakers rather than directing them takes the descriptive stance, not the normative one."}}, "s3a": {"q": "As used in the passage, a \"normative\" argument is one that", "opts": {"A": "claims what the district ought to be, not what it is", "B": "reports measured facts gathered by a professional survey team", "C": "counts how many people cross the bridge", "D": "avoids taking any position at all"}, "key": "A", "fb": {"correct": "Right — the commissioner's summary nails it: the survey says what the district is; this argument says what it \"should be.\"", "B": "That describes the first document — the survey of bridge counts and empty lots — not the second.", "C": "The bridge counts belong to the survey. The second document argues an ideal, not a tally.", "D": "It takes the strongest position in the passage — that housing ought to come before parking."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "prescriptive", "B": "customary", "C": "standard-setting", "D": "normative"}, "key": "B", "fb": {"correct": "Right. The handoff is only what people there usually do: no rule requires it, no one claims a shift ought to do it, it sets no benchmark, and skipping it costs nothing worse than <em>a joke or two over breakfast<\/em>. A practice that is nothing more than practice is customary.", "D": "Normative talk is talk about how things ought to be — and the passage closes that door: <em>no one argues that a departing shift ought to do it<\/em>. A habit nobody defends as something owed is not being held up as how things should be.", "A": "Prescriptive means a rule is actually issued — a manual, a directive, a code laying down what to do. Here <em>no handbook mentions it<\/em>; nothing at the station tells anyone to brew the pot, so there is no rule to point to.", "C": "A standard-setting practice creates the benchmark others are measured against. But <em>nothing is benchmarked against it<\/em> — a crew that skips the pot <em>hears a joke or two over breakfast<\/em> and has fallen short of no mark, because the habit sets none."}}}, "grid": {"words": ["normative", "prescriptive", "standard-setting", "customary"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The philosopher's essay is openly ____: it argues that citizens ought to vote, though it lays down no rule and tells no one in particular what to do.", "ks": ["normative"], "fb": {"prescriptive": "That word always issues the rule — a do-this, avoid-that. This essay <em>lays down no rule<\/em>; it only argues an ought.", "standard-setting": "Nothing here creates the benchmark; the essay only appeals to one. That word belongs to whatever establishes the model — a body, a landmark performance.", "customary": "That word reports what people usually do. The essay claims what they <em>ought to<\/em> do — an ideal, not a habit."}}, {"s": "Economists flag the assumption as ____: it smuggles in a view of how markets ought to behave, though it issues no directive and sets no benchmark anyone must follow.", "ks": ["normative"], "fb": {"prescriptive": "No directive is issued — nothing tells anyone how to act. The assumption merely carries a hidden <em>ought<\/em>, which is one notch more abstract.", "standard-setting": "The assumption <em>sets no benchmark<\/em>; it quietly leans on an ideal instead. That word is for whatever creates the model others must follow.", "customary": "Usual practice is not the claim — the assumption is about how markets <em>ought to behave<\/em>, whatever they usually do."}}, {"s": "The manual never muses on how athletes ought to live; it is simply ____, issuing rule after rule — when to sleep, what to eat, which drills to run.", "ks": ["prescriptive"], "fb": {"normative": "The sentence closes that door: the manual <em>never muses on how athletes ought to live<\/em>. What is left is pure rule-issuing, and there is a word whose whole job that is.", "standard-setting": "The manual creates no model others are measured against; it directs one reader's conduct — <em>when to sleep, what to eat<\/em>.", "customary": "Nothing here is habit. These are <em>rules<\/em>, issued and expected to be obeyed."}}, {"s": "The metal cylinder kept outside Paris was quietly ____: it told no one what to do, yet every scale on earth ultimately had to answer to that single lump of metal.", "ks": ["standard-setting"], "fb": {"normative": "That word fits claims and theories that appeal to a benchmark. The cylinder does not appeal to anything — it <em>is<\/em> the thing <em>every scale on earth<\/em> answers to.", "prescriptive": "It <em>told no one what to do<\/em> — no rules, no directives. It simply sat there as the measure everything else had to match.", "customary": "This is no mere habit: every scale <em>had to answer to<\/em> it. A benchmark with teeth, not a custom."}}, {"s": "Tipping the trail guide at the hike's end is merely ____ here: most walkers do it, no code demands it, and skipping it costs you nothing but a cool goodbye.", "ks": ["customary"], "fb": {"normative": "No ought is anywhere in the sentence — just what <em>most walkers do<\/em>. The rule-of-behavior words all claim more than habit.", "prescriptive": "Nothing lays this practice down — <em>no code demands it<\/em>. It is simply what people tend to do.", "standard-setting": "No benchmark is established; you can skip the practice and lose <em>nothing but a cool goodbye<\/em>."}}, {"s": "Handshakes before the match are purely ____ in this league — players have always done it, though nothing in the rulebook so much as mentions it.", "ks": ["customary"], "fb": {"normative": "The sentence claims only repetition — <em>players have always done it<\/em> — never that they ought to. Habit, not ideal.", "prescriptive": "You cannot point to a rule that <em>nothing in the rulebook so much as mentions<\/em>. This lives entirely in habit.", "standard-setting": "No model is being set for others to match; the gesture just repeats, season after season."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must involve a standard of how things ought to be — a claim that judges rather than just describes. Try working in words like <i>ought<\/i>, <i>should<\/i>, <i>ideal<\/i> or <i>standard<\/i>."}};
+  var CFG = {"word": "normative", "gradeUrl": "/api/grade", "taskId": "normative", "minWords": 12, "items": {"s1": {"q": "A linguistics professor holds up a dictionary and says, 'This one passes no judgment on how you ought to speak. Its editors record real conversations, and when speakers widely adopt a new use of a word, the entry is updated to reflect it -- with no comment on whether the change is correct.' Which word best labels that dictionary's stance?", "opts": {"A": "descriptive", "B": "statistical", "C": "regional", "D": "normative"}, "key": "A", "fb": {"correct": "Correct. This dictionary records -- its editors listen to real conversations and update entries to match how speakers actually talk, expressly refusing to say how they should. Recording what exists without judging it is the descriptive stance.", "B": "Statistical would make the dictionary a book of numbers -- frequency counts and percentages. Its editors do notice when a new use spreads, but what they publish are entries recording words and their meanings, not numerical tables. Noticing usage is not the same as reporting arithmetic.", "C": "Regional would mean the dictionary maps one geographic area's dialect. The professor describes editors recording real conversations in general, with no mention of any particular place -- the stance in question concerns how a dictionary treats all its speakers, not where they live.", "D": "Normative means relating to a standard that things are EXPECTED to conform to -- a normative dictionary would lay down how you ought to speak. This one does the reverse: it 'passes no judgment on how you ought to speak' and rewrites its own entries to follow real usage, with no comment on correctness. A book that follows its speakers rather than directing them takes the descriptive stance, not the normative one."}}, "s3a": {"q": "As used in the passage, a \"normative\" argument is one that", "opts": {"A": "claims what the district ought to be, not what it is", "B": "reports measured facts gathered by a professional survey team", "C": "counts how many people cross the bridge", "D": "avoids taking any position at all"}, "key": "A", "fb": {"correct": "Right — the commissioner's summary nails it: the survey says what the district is; this argument says what it \"should be.\"", "B": "That describes the first document — the survey of bridge counts and empty lots — not the second.", "C": "The bridge counts belong to the survey. The second document argues an ideal, not a tally.", "D": "It takes the strongest position in the passage — that housing ought to come before parking."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "prescriptive", "B": "customary", "C": "standard-setting", "D": "normative"}, "key": "B", "fb": {"correct": "Right. The handoff is only what people there usually do: no rule requires it, no one claims a shift ought to do it, it sets no benchmark, and skipping it costs nothing worse than <em>a joke or two over breakfast<\/em>. A practice that is nothing more than practice is customary.", "D": "Normative talk is talk about how things ought to be — and the passage closes that door: <em>no one argues that a departing shift ought to do it<\/em>. A habit nobody defends as something owed is not being held up as how things should be.", "A": "Prescriptive means a rule is actually issued — a manual, a directive, a code laying down what to do. Here <em>no handbook mentions it<\/em>; nothing at the station tells anyone to brew the pot, so there is no rule to point to.", "C": "A standard-setting practice creates the benchmark others are measured against. But <em>nothing is benchmarked against it<\/em> — a crew that skips the pot <em>hears a joke or two over breakfast<\/em> and has fallen short of no mark, because the habit sets none."}}}, "pairwise": {"rows": [{"sentence": "The philosopher's essay is openly ____: it argues that citizens ought to vote, though it lays down no rule and tells no one in particular what to do.", "options": ["normative", "prescriptive"], "key": "normative", "pair": "prescriptive", "why_right": "The tell is <em>lays down no rule<\/em> - an ought-claim that issues nothing is normative territory: concern with how things should be, with no rule prescribed.", "why_wrong": "That word always issues the rule — a do-this, avoid-that. This essay <em>lays down no rule<\/em>; it only argues an ought."}, {"sentence": "Economists flag the assumption as ____: it smuggles in a view of how markets ought to behave, though it issues no directive and sets no benchmark anyone must follow.", "options": ["normative", "standard-setting"], "key": "normative", "pair": "standard-setting", "why_right": "The tell is <em>sets no benchmark anyone must follow<\/em> - the assumption leans on a view of how markets ought to behave, appealing to a standard rather than creating one.", "why_wrong": "The assumption <em>sets no benchmark<\/em>; it quietly leans on an ideal instead. That word is for whatever creates the model others must follow."}, {"sentence": "The manual never muses on how athletes ought to live; it is simply ____, issuing rule after rule — when to sleep, what to eat, which drills to run.", "options": ["normative", "prescriptive"], "key": "prescriptive", "pair": "prescriptive", "why_right": "The tell is <em>issuing rule after rule<\/em> - the manual's whole job is laying down rules for how things should be done, and the abstract ought-musing is expressly denied.", "why_wrong": "The sentence closes that door: the manual <em>never muses on how athletes ought to live<\/em>. What is left is pure rule-issuing, and there is a word whose whole job that is."}, {"sentence": "The metal cylinder kept outside Paris was quietly ____: it told no one what to do, yet every scale on earth ultimately had to answer to that single lump of metal.", "options": ["normative", "standard-setting"], "key": "standard-setting", "pair": "standard-setting", "why_right": "The tell is <em>every scale on earth ultimately had to answer to<\/em> - the cylinder itself establishes the benchmark others must match; it appeals to nothing.", "why_wrong": "That word fits claims and theories that appeal to a benchmark. The cylinder does not appeal to anything — it <em>is<\/em> the thing <em>every scale on earth<\/em> answers to."}, {"sentence": "Tipping the trail guide at the hike's end is merely ____ here: most walkers do it, no code demands it, and skipping it costs you nothing but a cool goodbye.", "options": ["normative", "customary"], "key": "customary", "pair": "customary", "why_right": "The tell is <em>most walkers do it<\/em> - the sentence reports only usual practice, with no claim that anyone ought to tip; that is habit, not an ideal standard.", "why_wrong": "No ought is anywhere in the sentence — just what <em>most walkers do<\/em>. The rule-of-behavior words all claim more than habit."}, {"sentence": "Handshakes before the match are purely ____ in this league — players have always done it, though nothing in the rulebook so much as mentions it.", "options": ["normative", "customary"], "key": "customary", "pair": "customary", "why_right": "The tell is <em>players have always done it<\/em> - a repeated habit, with nothing anywhere claiming the handshake ought to happen and no rule behind it.", "why_wrong": "The sentence claims only repetition — <em>players have always done it<\/em> — never that they ought to. Habit, not ideal."}, {"sentence": "The keynote turned ____ near the end: the speaker argued that cities ought to plan for shade, then left the stage without telling a single delegate what to do.", "options": ["normative", "prescriptive"], "key": "normative", "pair": "prescriptive", "why_right": "The tell is <em>without telling a single delegate what to do<\/em> - the speech argues an ought about shade yet issues no rule, and a claim can be normative without prescribing anything.", "why_wrong": "That word always issues the rule - a do-this aimed at someone in particular. This speaker argued that cities ought to plan for shade and then <em>left the stage<\/em> issuing nothing."}, {"sentence": "The audit closes with a ____ recommendation no earlier review had made: inspectors ought to visit unannounced, though the report concedes almost no district ever does.", "options": ["normative", "customary"], "key": "normative", "pair": "customary", "why_right": "The tell is <em>almost no district ever does<\/em> - the recommendation claims what inspectors ought to do despite usual practice running the other way: a standard, not a habit.", "why_wrong": "That word reports what people usually do. This recommendation is new - <em>no earlier review had made<\/em> it - and the practice it urges is one almost no district follows."}], "display_order": [7, 2, 3, 0, 5, 6, 4, 1], "dimension_order": ["prescriptive", "standard-setting", "customary"], "dimension_feedback": {"prescriptive": "Prescriptive means laying down rules for how things should be done — a prescriptive grammar tells you which usages to avoid. Normative is one notch more abstract: relating to standards of how things ought to be, even when no rule is issued. A claim can be normative without prescribing anything; prescriptive language always issues the rule.", "standard-setting": "Standard-setting describes whatever establishes the model others are expected to follow — a standard-setting body, a standard-setting performance. Normative describes anything concerned with such standards: claims, theories, and assumptions about how things ought to be. A standard-setting act creates the benchmark; a normative claim appeals to one.", "customary": "Customary is weaker than normative: a customary practice is just what people usually do, while a normative rule says what they ought to do."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must involve a standard of how things ought to be — a claim that judges rather than just describes. Try working in words like <i>ought<\/i>, <i>should<\/i>, <i>ideal<\/i> or <i>standard<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -428,105 +480,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="946b90f78fac">
+<meta name="build" content="0b3a5b42ae28">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>holistic &#8212; SAT Vocabulary, Course 1 Unit 19</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "holistic", "gradeUrl": "/api/grade", "taskId": "holistic", "minWords": 12, "items": {"s1": {"q": "Redesigning a school garden across several summers, a landscaper takes the beds strictly one at a time: shade trees this year, flower beds the next, the compost corner the year after. Each summer's plan is drawn up carefully on its own, and she never goes back to adjust an earlier bed when a later one changes what it needs. Which term best describes her approach?", "opts": {"A": "A piecemeal approach", "B": "A purely cosmetic approach", "C": "A holistic approach", "D": "A scattershot approach"}, "key": "A", "fb": {"correct": "Exactly. She handles the garden one isolated piece at a time, with no plan for how the parts fit together and no going back when they clash — dealing with the parts separately, with no plan for the whole, is a piecemeal approach.", "B": "Purely cosmetic would mean the work only touches the surface — a coat of paint over a deeper problem. Shade trees, flower beds, and a compost corner are substantial changes; the flaw is how the projects ignore one another, not how shallow they are.", "C": "Holistic means treating something as one interconnected system, planning every part in light of all the others. This landscaper does the reverse: each bed is designed alone, and when a later bed changes what an earlier one needs, she never goes back to adjust it. Touching every part of a garden over the years is not holistic if the parts are never connected.", "D": "Scattershot would mean firing in all directions at random. Her sequence is deliberate, and each summer's plan is drawn up with care — the work is not random; it is simply done in isolated pieces."}}, "s3a": {"q": "As it is used in the passage, a 'holistic' review is one that", "opts": {"A": "considers each part of an application in light of all the others", "B": "sets test scores aside completely", "C": "admits as many applicants as possible", "D": "relies on a single combined software file"}, "key": "A", "fb": {"correct": "Right -- 'No item is judged alone,' and the stated goal is 'to see how the pieces of one life explain each other.'", "B": "The passage says readers 'still see the score' -- nothing is set aside; it is read alongside everything else.", "C": "Numbers of applicants never come up; what changed is how each application is read.", "D": "No software or file merging appears anywhere in the passage -- the change is in judgment, not technology."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "holistic", "B": "big-picture", "C": "broad", "D": "integrated"}, "key": "D", "fb": {"correct": "Right. Nothing here is a way of looking at the system — the island built one: the network <em>ties the solar array, the battery bank, and the old diesel plant to a single controller<\/em>. Parts combined so they work as one connected whole is exactly what integrated means.", "A": "Holistic describes a way of looking — a review or an assessment that treats parts as inseparable. This passage describes a thing that was built and wired: it <em>ties the solar array, the battery bank, and the old diesel plant to a single controller<\/em>. No one in the paragraph is assessing or reviewing anything; they replaced hardware.", "B": "Big-picture describes a focus that skips the fine print to see the whole. This network runs on fine print: it <em>shifts load among them second by second<\/em>. A word for ignoring detail cannot describe a controller whose entire job is managing detail.", "C": "Broad would say only that the network covers a lot of ground. Coverage is not the point — the paragraph stresses that three sources, each once run by <em>its own operator<\/em>, now answer <em>a single controller<\/em>. The sentence needs a word that says more than wide."}}}, "grid": {"words": ["holistic", "integrated", "big-picture", "broad"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Rather than grading essays on grammar alone, the new rubric takes the ____ view, weighing how word choice, structure, and evidence work on one another.", "ks": ["holistic"], "fb": {"integrated": "A rubric judges; it does not assemble. Your word belongs to things engineered to run as one -- transit lines, software -- not to a way of reading essays.", "big-picture": "This rubric refuses to skip the fine print -- it weighs <em>word choice, structure, and evidence<\/em> against one another. Your word is the one that waves details away.", "broad": "Counting many criteria is not the point; the rubric asks how they <em>work on one another<\/em>. Your word never makes that connection."}}, {"s": "The ecologist's ____ study of the marsh traced how water levels, insect cycles, and bird migration fed into one living system.", "ks": ["holistic"], "fb": {"integrated": "Nothing is being wired together -- a marsh already works; the scientist is only examining it. Your word is for parts deliberately combined, the way engineers join systems.", "big-picture": "She keeps every small moving part in play -- <em>water levels, insect cycles<\/em> -- where your word would skim past them for the overview.", "broad": "Many topics appear, but the sentence's real claim is that they <em>fed into one living system<\/em>. Your word stops at wide coverage and never connects anything."}}, {"s": "After the merger, the two hospitals ran a fully ____ records system, with a single login pulling files from either campus.", "ks": ["integrated"], "fb": {"holistic": "That word names a way of <em>looking<\/em> at something as one connected system. This sentence is about machinery built to work as one -- records, logins, campuses -- not a style of review.", "big-picture": "No one is choosing the whole over the details; the sentence describes a piece of plumbing, <em>a single login pulling files<\/em> from two campuses.", "broad": "Wide coverage is not the claim -- the claim is oneness. Two record systems now behave as a single one, which is more than touching many areas."}}, {"s": "The studio's ____ editing suite ties sound and picture to one timeline, so trimming a scene automatically re-cues the score.", "ks": ["integrated"], "fb": {"holistic": "That word describes how someone <em>looks<\/em> at a system. Here nothing is being reviewed -- sound and picture have been <em>built<\/em> to move together.", "big-picture": "Skipping details is exactly what this suite cannot do: trim one scene and it <em>automatically re-cues the score<\/em>. Your word ignores fine print; this machine lives on it.", "broad": "The sentence is not about covering many areas -- it is about two things behaving as one. Your word never makes parts work together."}}, {"s": "Ask her about comma placement and she waves you off; as an editor she stays resolutely ____, caring only where the argument starts and where it lands.", "ks": ["big-picture"], "fb": {"holistic": "She <em>waves you off<\/em> about commas -- the details are exactly what she drops. The word you picked insists every detail stay in and be connected; hers is the style that lets them go.", "integrated": "Nothing is being combined into a working system here -- the sentence describes an editor's habit of attention, not an assembled machine.", "broad": "Her interest is not wide -- she cares <em>only<\/em> where the argument starts and lands. The gap needs the whole-over-details word, not the many-areas word."}}, {"s": "The commission's ____ survey touched on housing, transit, schools, and parks, giving each a separate chapter and never asking how one affected another.", "ks": ["broad"], "fb": {"holistic": "Look at the giveaway: <em>never asking how one affected another<\/em>. The connected-system word is exactly what this survey is not.", "integrated": "Four areas in four separate chapters is the opposite of parts working as one -- nothing here has been joined.", "big-picture": "A separate, detailed chapter for each area is hardly skipping the fine print. The sentence needs the word for wide coverage, not for detail-skipping."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show the parts being treated as one connected system, not just many things listed. Give your sentence at least two parts and a link between them -- try a word like <i>together<\/i>, <i>connected<\/i>, or <i>as one<\/i>."}};
+  var CFG = {"word": "holistic", "gradeUrl": "/api/grade", "taskId": "holistic", "minWords": 12, "items": {"s1": {"q": "Redesigning a school garden across several summers, a landscaper takes the beds strictly one at a time: shade trees this year, flower beds the next, the compost corner the year after. Each summer's plan is drawn up carefully on its own, and she never goes back to adjust an earlier bed when a later one changes what it needs. Which term best describes her approach?", "opts": {"A": "A piecemeal approach", "B": "A purely cosmetic approach", "C": "A holistic approach", "D": "A scattershot approach"}, "key": "A", "fb": {"correct": "Exactly. She handles the garden one isolated piece at a time, with no plan for how the parts fit together and no going back when they clash — dealing with the parts separately, with no plan for the whole, is a piecemeal approach.", "B": "Purely cosmetic would mean the work only touches the surface — a coat of paint over a deeper problem. Shade trees, flower beds, and a compost corner are substantial changes; the flaw is how the projects ignore one another, not how shallow they are.", "C": "Holistic means treating something as one interconnected system, planning every part in light of all the others. This landscaper does the reverse: each bed is designed alone, and when a later bed changes what an earlier one needs, she never goes back to adjust it. Touching every part of a garden over the years is not holistic if the parts are never connected.", "D": "Scattershot would mean firing in all directions at random. Her sequence is deliberate, and each summer's plan is drawn up with care — the work is not random; it is simply done in isolated pieces."}}, "s3a": {"q": "As it is used in the passage, a 'holistic' review is one that", "opts": {"A": "considers each part of an application in light of all the others", "B": "sets test scores aside completely", "C": "admits as many applicants as possible", "D": "relies on a single combined software file"}, "key": "A", "fb": {"correct": "Right -- 'No item is judged alone,' and the stated goal is 'to see how the pieces of one life explain each other.'", "B": "The passage says readers 'still see the score' -- nothing is set aside; it is read alongside everything else.", "C": "Numbers of applicants never come up; what changed is how each application is read.", "D": "No software or file merging appears anywhere in the passage -- the change is in judgment, not technology."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "holistic", "B": "big-picture", "C": "broad", "D": "integrated"}, "key": "D", "fb": {"correct": "Right. Nothing here is a way of looking at the system — the island built one: the network <em>ties the solar array, the battery bank, and the old diesel plant to a single controller<\/em>. Parts combined so they work as one connected whole is exactly what integrated means.", "A": "Holistic describes a way of looking — a review or an assessment that treats parts as inseparable. This passage describes a thing that was built and wired: it <em>ties the solar array, the battery bank, and the old diesel plant to a single controller<\/em>. No one in the paragraph is assessing or reviewing anything; they replaced hardware.", "B": "Big-picture describes a focus that skips the fine print to see the whole. This network runs on fine print: it <em>shifts load among them second by second<\/em>. A word for ignoring detail cannot describe a controller whose entire job is managing detail.", "C": "Broad would say only that the network covers a lot of ground. Coverage is not the point — the paragraph stresses that three sources, each once run by <em>its own operator<\/em>, now answer <em>a single controller<\/em>. The sentence needs a word that says more than wide."}}}, "pairwise": {"rows": [{"sentence": "Rather than grading essays on grammar alone, the new rubric takes the ____ view, weighing how word choice, structure, and evidence work on one another.", "options": ["holistic", "big-picture"], "key": "holistic", "pair": "big-picture", "why_right": "The tell is <em>work on one another<\/em> - the rubric keeps every detail in, down to word choice, and studies the parts together as one connected system.", "why_wrong": "This rubric refuses to skip the fine print -- it weighs <em>word choice, structure, and evidence<\/em> against one another. Your word is the one that waves details away."}, {"sentence": "Ask her about comma placement and she waves you off; as an editor she stays resolutely ____, caring only where the argument starts and where it lands.", "options": ["holistic", "big-picture"], "key": "big-picture", "pair": "big-picture", "why_right": "The tell is <em>waves you off<\/em> - she deliberately drops the fine print and keeps only the argument's overall shape, the whole-over-details focus big-picture names.", "why_wrong": "She <em>waves you off<\/em> about commas -- the details are exactly what she drops. The word you picked insists every detail stay in and be connected; hers is the style that lets them go."}, {"sentence": "After the merger, the two hospitals ran a fully ____ records system, with a single login pulling files from either campus.", "options": ["holistic", "integrated"], "key": "integrated", "pair": "integrated", "why_right": "The tell is <em>a single login pulling files<\/em> - the records system was built so its parts work as one connected whole, the engineering sense integrated owns.", "why_wrong": "That word names a way of <em>looking<\/em> at something as one connected system. This sentence is about machinery built to work as one -- records, logins, campuses -- not a style of review."}, {"sentence": "The studio's ____ editing suite ties sound and picture to one timeline, so trimming a scene automatically re-cues the score.", "options": ["holistic", "integrated"], "key": "integrated", "pair": "integrated", "why_right": "The tell is <em>ties sound and picture to one timeline<\/em> - the suite is machinery combined to work as one, parts engineered together rather than a way of looking at them.", "why_wrong": "That word describes how someone <em>looks<\/em> at a system. Here nothing is being reviewed -- sound and picture have been <em>built<\/em> to move together."}, {"sentence": "The agronomist's ____ review of the vineyard weighed soil, drainage, and pruning as one system, since a change to any one would move the others.", "options": ["holistic", "integrated"], "key": "holistic", "pair": "integrated", "why_right": "The tell is <em>a change to any one would move the others<\/em> - the review treats the vineyard's parts as inseparable, a way of looking, not a machine being combined.", "why_wrong": "That word belongs to parts combined so they run as one - transit lines, software. Nothing in the vineyard is being assembled; the agronomist is only weighing how its parts already move together."}, {"sentence": "The ecologist's ____ study of the marsh traced how water levels, insect cycles, and bird migration fed into one living system.", "options": ["holistic", "broad"], "key": "holistic", "pair": "broad", "why_right": "The tell is <em>fed into one living system<\/em> - the study connects water, insects, and birds as parts of a single system, a stronger claim than touching many areas.", "why_wrong": "Many topics appear, but the sentence's real claim is that they <em>fed into one living system<\/em>. Your word stops at wide coverage and never connects anything."}, {"sentence": "The commission's ____ survey touched on housing, transit, schools, and parks, giving each a separate chapter and never asking how one affected another.", "options": ["holistic", "broad"], "key": "broad", "pair": "broad", "why_right": "The tell is <em>never asking how one affected another<\/em> - many separate areas are covered with no connection made, exactly the wide-coverage claim broad makes and nothing more.", "why_wrong": "Look at the giveaway: <em>never asking how one affected another<\/em>. The connected-system word is exactly what this survey is not."}, {"sentence": "The principal's ____ report treated bus delays, cafeteria debt, and nurse visits as one knot, each pulling on the others, instead of filing them in separate sections.", "options": ["holistic", "broad"], "key": "holistic", "pair": "broad", "why_right": "The tell is <em>each pulling on the others<\/em> - the report treats its areas as parts of a single connected system, where the wide word would leave them separate.", "why_wrong": "That word only says many separate areas got touched. This report refuses that treatment: nothing sits in its own section, and each area pulls on all the others."}], "display_order": [4, 5, 1, 7, 3, 0, 2, 6], "dimension_order": ["big-picture", "integrated", "broad"], "dimension_feedback": {"big-picture": "Big-picture means focused on the whole situation rather than the details — a big-picture thinker skips the fine print. Holistic keeps the details in: it insists the parts be studied together as one connected system, not skipped. A big-picture summary may ignore the parts; a holistic assessment connects every one of them.", "integrated": "Integrated means combined so the parts work as one connected whole — an integrated transit system where trains and buses share one schedule. Holistic describes a way of looking rather than a way of building: it considers a thing as one interconnected system instead of analyzing the parts separately. Engineers integrate parts; a holistic review treats them as inseparable.", "broad": "A broad review touches many separate areas, while a holistic one treats those areas as parts of a single connected system."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show the parts being treated as one connected system, not just many things listed. Give your sentence at least two parts and a link between them -- try a word like <i>together<\/i>, <i>connected<\/i>, or <i>as one<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

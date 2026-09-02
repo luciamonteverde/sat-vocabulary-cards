@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="38109869ce45">
+<meta name="build" content="7667be8e7316">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>enigmatic &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "enigmatic", "gradeUrl": "/api/grade", "taskId": "enigmatic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses enigmatic correctly?", "opts": {"A": "The new scoreboard was hopelessly enigmatic, showing the score in bright numbers a full foot tall at both ends of the gym.", "B": "Enigmatic to a fault, Tom gladly explained each of his moods in detail before anyone at the table had thought to ask.", "C": "Forty essays later, the sculptor's bronze spirals remain enigmatic - admired by all, explained by none.", "D": "The enigmatic young sprinter set three personal bests at a single afternoon meet last spring."}, "key": "C", "fb": {"correct": "Correct. Forty essays and no agreed meaning: the spirals invite interpretation and defeat it, which is exactly what enigmatic describes.", "A": "Scores shown in 'bright numbers a full foot tall' can be read from anywhere in the gym — total clarity. Enigmatic belongs to things that resist interpretation, not signage this loud.", "B": "Tom, who 'gladly explained each of his moods in detail' before anyone asked, leaves nothing to decode. Enigmatic describes the person who keeps everyone guessing, whose meaning stays out of reach.", "D": "Fast times are impressive, not mysterious: a sprinter who 'set three personal bests' presents nothing to puzzle over. Enigmatic requires something genuinely hard to interpret — a riddle this sentence never supplies."}}, "s3a": {"q": "In this passage, calling the disc \"enigmatic\" means that it", "opts": {"A": "is too worn and damaged for its signs to be made out", "B": "offers clear, inviting signs whose meaning keeps defeating every reader", "C": "was designed as a deliberate hoax to mislead future scholars", "D": "interests only a handful of specialists in old scripts"}, "key": "B", "fb": {"correct": "Right. The signs are crisp and clearly meant to be read -- the disc invites interpretation and then defeats it, which is exactly the word's claim.", "A": "The passage says the opposite: the signs are crisp and deliberate. The problem is meaning, not condition.", "C": "Nothing in the passage suggests trickery -- decipherments simply keep collapsing. Defeating readers is not the same as being built to fool them.", "D": "The passage says the disc draws more readers than most readable texts. Its pull is wide, not narrow."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mystifying", "B": "inscrutable", "C": "enigmatic", "D": "puzzling"}, "key": "C", "fb": {"correct": "Right. The essays are full of signals — <em>strewn with hints of a life<\/em> — that keep inviting interpretation and keep defeating it, <em>decade after decade<\/em>.", "A": "Mystifying would mean readers are thrown into bewilderment that demands an answer on the spot. But <em>The prose itself confuses no one<\/em> — the attraction here is slow and magnetic, not baffling.", "B": "An inscrutable writer would give you nothing to read at all. These essays are <em>strewn with hints of a life<\/em> — the signs are abundant; what fails is settling them.", "D": "A puzzling detail trips you up briefly and then gets explained. This has resisted reading <em>for over sixty years<\/em>, with candidates proposed and <em>none of whom has ever quite fit<\/em>."}}}, "grid": {"words": ["enigmatic", "mystifying", "inscrutable", "puzzling"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The composer's last quartet remains ____ : it dangles hints of a program -- birdcalls, a funeral rhythm -- and eighty years of theorizing has settled nothing.", "ks": ["enigmatic"], "fb": {"mystifying": "That word suits a problem that assaults you and demands an answer on the spot. This quartet does the opposite -- it beckons, and listeners have theorized happily for eighty years.", "inscrutable": "That word means offering no signs at all to read. The quartet dangles birdcalls and a funeral rhythm -- plenty of signals; they just never add up.", "puzzling": "A puzzling detail trips you up for an afternoon. Eighty years of unsettled theorizing is resistance on a different scale."}}, {"s": "The tycoon's pocket diary stays ____ after forty years in the archive: its initials and tiny sketches keep luring new decoders, and every proposed key has collapsed.", "ks": ["enigmatic"], "fb": {"mystifying": "That word is for what bewilders on contact and demands solving right now. The diary doesn't assault its readers -- it lures them, decade after decade.", "inscrutable": "That word means closed to reading, with nothing offered at all. Initials and sketches are invitations -- signs given and then defeated.", "puzzling": "Too mild: that word covers a brief trip-up. Forty years of collapsed keys is a different order of resistance."}}, {"s": "Across the table the auditor's face stayed ____ : no flicker, no lean, not one readable sign for the nervous accountant to build a hope on.", "ks": ["inscrutable"], "fb": {"enigmatic": "That word describes a face or work that gives off teasing hints, inviting theory after theory. This face offers <em>no flicker and no lean<\/em> -- nothing at all to theorize from.", "mystifying": "That word means actively bewildering -- throwing a puzzle at you and demanding an answer. A blank face throws nothing; it simply withholds.", "puzzling": "Nothing here trips anyone up. There is no odd detail to misread -- only the absence of any sign to read."}}, {"s": "Card champions drill themselves into a perfectly ____ manner at the table: whatever the hand, opponents get no signal at all to work with.", "ks": ["inscrutable"], "fb": {"enigmatic": "An enigmatic manner leaks teasing hints that invite guesses. The whole point of this one is <em>no signal at all<\/em> -- nothing offered, nothing to guess from.", "mystifying": "Opponents aren't bewildered by a baffling display; they're starved. Giving no signal is not the same as throwing a puzzle.", "puzzling": "A puzzling manner would offer odd details to misread. This one offers no details at all."}}, {"s": "The elevator's stops at empty floors proved ____ : the logs recorded each one, yet every technician ended the day flatly bewildered, demanding an answer then and there.", "ks": ["mystifying"], "fb": {"enigmatic": "That word suits what beckons and rewards slow theorizing. This fault flattens professionals on the spot and demands an answer -- assault, not allure.", "inscrutable": "That word means nothing offered to read. Here <em>the logs recorded each stop<\/em> -- the signs are plentiful and still bewilder everyone.", "puzzling": "Too gentle: a puzzling glitch slows you briefly. This one leaves trained technicians flatly bewildered, visit after visit."}}, {"s": "One ____ detail held up the quiz team for most of an afternoon -- the answer sheet numbered two questions out of order -- and by coffee time all was explained.", "ks": ["puzzling"], "fb": {"enigmatic": "That word needs a magnetism that defeats reading year after year, theory after theory. This snag was explained by coffee time.", "mystifying": "Nobody was flatly bewildered or demanding answers -- a numbering slip briefly held up one afternoon, then yielded.", "inscrutable": "The sheet offered plenty to read -- two questions out of order, plain once spotted. Nothing withheld its signs."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something giving off hints that invite reading and then defeat it -- not a blank, and not a quick riddle. Let the guessing stretch on with a word like <i>hints<\/i>, <i>theories<\/i>, <i>still<\/i> or <i>decades<\/i>."}};
+  var CFG = {"word": "enigmatic", "gradeUrl": "/api/grade", "taskId": "enigmatic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses enigmatic correctly?", "opts": {"A": "The new scoreboard was hopelessly enigmatic, showing the score in bright numbers a full foot tall at both ends of the gym.", "B": "Enigmatic to a fault, Tom gladly explained each of his moods in detail before anyone at the table had thought to ask.", "C": "Forty essays later, the sculptor's bronze spirals remain enigmatic - admired by all, explained by none.", "D": "The enigmatic young sprinter set three personal bests at a single afternoon meet last spring."}, "key": "C", "fb": {"correct": "Correct. Forty essays and no agreed meaning: the spirals invite interpretation and defeat it, which is exactly what enigmatic describes.", "A": "Scores shown in 'bright numbers a full foot tall' can be read from anywhere in the gym — total clarity. Enigmatic belongs to things that resist interpretation, not signage this loud.", "B": "Tom, who 'gladly explained each of his moods in detail' before anyone asked, leaves nothing to decode. Enigmatic describes the person who keeps everyone guessing, whose meaning stays out of reach.", "D": "Fast times are impressive, not mysterious: a sprinter who 'set three personal bests' presents nothing to puzzle over. Enigmatic requires something genuinely hard to interpret — a riddle this sentence never supplies."}}, "s3a": {"q": "In this passage, calling the disc \"enigmatic\" means that it", "opts": {"A": "is too worn and damaged for its signs to be made out", "B": "offers clear, inviting signs whose meaning keeps defeating every reader", "C": "was designed as a deliberate hoax to mislead future scholars", "D": "interests only a handful of specialists in old scripts"}, "key": "B", "fb": {"correct": "Right. The signs are crisp and clearly meant to be read -- the disc invites interpretation and then defeats it, which is exactly the word's claim.", "A": "The passage says the opposite: the signs are crisp and deliberate. The problem is meaning, not condition.", "C": "Nothing in the passage suggests trickery -- decipherments simply keep collapsing. Defeating readers is not the same as being built to fool them.", "D": "The passage says the disc draws more readers than most readable texts. Its pull is wide, not narrow."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mystifying", "B": "inscrutable", "C": "enigmatic", "D": "puzzling"}, "key": "C", "fb": {"correct": "Right. The essays are full of signals — <em>strewn with hints of a life<\/em> — that keep inviting interpretation and keep defeating it, <em>decade after decade<\/em>.", "A": "Mystifying would mean readers are thrown into bewilderment that demands an answer on the spot. But <em>The prose itself confuses no one<\/em> — the attraction here is slow and magnetic, not baffling.", "B": "An inscrutable writer would give you nothing to read at all. These essays are <em>strewn with hints of a life<\/em> — the signs are abundant; what fails is settling them.", "D": "A puzzling detail trips you up briefly and then gets explained. This has resisted reading <em>for over sixty years<\/em>, with candidates proposed and <em>none of whom has ever quite fit<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The composer's last quartet remains ____ : it dangles hints of a program -- birdcalls, a funeral rhythm -- and eighty years of theorizing has settled nothing.", "options": ["enigmatic", "puzzling"], "key": "enigmatic", "pair": "puzzling", "why_right": "The tell is <em>eighty years of theorizing<\/em> - resistance to reading on a generational scale, inviting theory after theory; a mere trip-up would have yielded within the afternoon.", "why_wrong": "A puzzling detail trips you up for an afternoon. Eighty years of unsettled theorizing is resistance on a different scale."}, {"sentence": "One ____ detail held up the quiz team for most of an afternoon -- the answer sheet numbered two questions out of order -- and by coffee time all was explained.", "options": ["enigmatic", "puzzling"], "key": "puzzling", "pair": "puzzling", "why_right": "The tell is <em>by coffee time all was explained<\/em> - a brief afternoon trip-up that yielded completely; nothing here resists interpretation year after year or keeps theories alive.", "why_wrong": "That word needs a magnetism that defeats reading year after year, theory after theory. This snag was explained by coffee time."}, {"sentence": "The elevator's stops at empty floors proved ____ : the logs recorded each one, yet every technician ended the day flatly bewildered, demanding an answer then and there.", "options": ["enigmatic", "mystifying"], "key": "mystifying", "pair": "mystifying", "why_right": "The tell is <em>flatly bewildered, demanding an answer then and there<\/em> - the fault assaults its technicians and insists on solving now; nothing beckons anyone into slow, willing theory.", "why_wrong": "That word suits what beckons and rewards slow theorizing. This fault flattens professionals on the spot and demands an answer -- assault, not allure."}, {"sentence": "The tycoon's pocket diary stays ____ after forty years in the archive: its initials and tiny sketches keep luring new decoders, and every proposed key has collapsed.", "options": ["enigmatic", "mystifying"], "key": "enigmatic", "pair": "mystifying", "why_right": "The tell is <em>keep luring new decoders<\/em> - the diary beckons rather than assaults, drawing willing readers for forty years instead of demanding an answer on the spot.", "why_wrong": "That word is for what bewilders on contact and demands solving right now. The diary doesn't assault its readers -- it lures them, decade after decade."}, {"sentence": "Three years on, the diner's Tuesday regular remains ____ : she orders in flawless Icelandic, tips in antique coins, and the staff trade fond theories between shifts, in no hurry to be right.", "options": ["enigmatic", "mystifying"], "key": "enigmatic", "pair": "mystifying", "why_right": "The tell is <em>in no hurry to be right<\/em> - the regular draws quiet, willing theorizing across years; nothing throws a puzzle at anyone or demands an answer on the spot.", "why_wrong": "That word actively bewilders - it throws a puzzle and demands an answer on the spot. Nobody here is assaulted; the staff theorize fondly, year after year, unhurried."}, {"sentence": "Across the table the auditor's face stayed ____ : no flicker, no lean, not one readable sign for the nervous accountant to build a hope on.", "options": ["enigmatic", "inscrutable"], "key": "inscrutable", "pair": "inscrutable", "why_right": "The tell is <em>not one readable sign<\/em> - the face is closed to reading, offering nothing at all to start from, where the other word leaks teasing hints.", "why_wrong": "That word describes a face or work that gives off teasing hints, inviting theory after theory. This face offers <em>no flicker and no lean<\/em> -- nothing at all to theorize from."}, {"sentence": "Card champions drill themselves into a perfectly ____ manner at the table: whatever the hand, opponents get no signal at all to work with.", "options": ["enigmatic", "inscrutable"], "key": "inscrutable", "pair": "inscrutable", "why_right": "The tell is <em>no signal at all to work with<\/em> - a manner drilled into offering nothing to interpret; a word for teasing hints would need something leaked to read.", "why_wrong": "An enigmatic manner leaks teasing hints that invite guesses. The whole point of this one is <em>no signal at all<\/em> -- nothing offered, nothing to guess from."}, {"sentence": "Half a century on, the prizewinning photograph stays ____ : the raised hand, the packed suitcase, the ticket on the floor have fed a new reading every decade, and no reading has stuck.", "options": ["enigmatic", "inscrutable"], "key": "enigmatic", "pair": "inscrutable", "why_right": "The tell is <em>the raised hand, the packed suitcase, the ticket on the floor<\/em> - the picture hands viewers signs in plenty, inviting reading and then defeating it; nothing withholds every signal.", "why_wrong": "That word means closed to reading, offering no signs at all to start from. This picture names three clues outright - they invite readings for fifty years and settle none."}], "display_order": [3, 6, 2, 0, 5, 4, 7, 1], "dimension_order": ["mystifying", "inscrutable", "puzzling"], "dimension_feedback": {"mystifying": "Something mystifying actively bewilders whoever confronts it — it throws a puzzle at you and demands an answer on the spot. Enigmatic is quieter and more magnetic: an enigmatic person or painting gives off hints and presence, inviting theory after theory without ever settling one.", "inscrutable": "An inscrutable face or manner is closed to reading: it offers no signs at all to interpret. Enigmatic works the other way — an enigmatic person gives off signals and hints that invite reading and then defeat it. The inscrutable give you nothing to start from.", "puzzling": "A puzzling detail trips you up for an afternoon; enigmatic goes further - it resists interpretation year after year and invites theory after theory."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something giving off hints that invite reading and then defeat it -- not a blank, and not a quick riddle. Let the guessing stretch on with a word like <i>hints<\/i>, <i>theories<\/i>, <i>still<\/i> or <i>decades<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

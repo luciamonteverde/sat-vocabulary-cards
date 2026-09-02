@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="1f90d629c507">
+<meta name="build" content="e9256103c09d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>hesitant &#8212; SAT Vocabulary, Course 1 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "hesitant", "gradeUrl": "/api/grade", "taskId": "hesitant", "minWords": 12, "items": {"s1": {"q": "The diving coach opens tryouts to the whole school. Which swimmer is hesitant?", "opts": {"A": "Aiko signs up the moment the sheet goes on the wall, printing her name at the top before first period even starts.", "B": "Bela decides right away that diving isn't for her and joins the debate club that meets the same afternoon instead.", "C": "Cam picks up the pen twice a day, second-guessing himself, and walks away each time without writing his name.", "D": "Dee signs up her whole friend group without asking any of them, then announces it proudly in the team group chat."}, "key": "C", "fb": {"correct": "Right — Cam wants to try out but keeps stalling, doubting himself and walking away without ever writing his name. Being slow to act because of self-doubt is exactly what hesitant means.", "A": "Signing up 'the moment the sheet goes on the wall' shows zero uncertainty — Aiko never wavers. A hesitant person is slow to act because doubt keeps stalling them; nothing about this instant signature is slow.", "B": "Deciding 'right away' that diving isn't for her is quick and confident — Bela simply chooses a different activity. Turning something down decisively is not hesitation; hesitation means wanting to act but stalling in doubt.", "D": "Dee charges ahead — signing up an entire friend group 'without asking any of them' — the opposite of reluctance. Nothing here is slow or uncertain; look for the swimmer whose doubt keeps stopping the action."}}, "s3a": {"q": "As it is used in the passage, \"hesitant\" most nearly means:", "opts": {"A": "unwilling to take part in the audition at all", "B": "slowed down by his own doubt before acting", "C": "performing in a soft and careful way", "D": "unprepared for the material he had chosen"}, "key": "B", "fb": {"correct": "Right — Devon wants to perform and is ready, but doubt about his voice stalls him in the wings. The word names that doubt-driven delay.", "A": "He wanted the lead badly and had rehearsed for weeks — unwillingness is the reading the passage rules out first.", "C": "Once he starts, he sings without a single crack — nothing about his actual performance is soft or careful. The delay came before the performance.", "D": "Weeks of rehearsal say otherwise. What stalls him is worry about his voice, not missing preparation."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "reluctant", "B": "unsure", "C": "tentative", "D": "hesitant"}, "key": "D", "fb": {"correct": "Right. Rosa wants the contract and the finished bid proves she can win it — what doubt attacks is the acting itself, stalling a completed bid on her desk for weeks. Uncertainty that visibly slows someone who wants to act is exactly what hesitant means.", "A": "Reluctant means unwilling — dragging your feet because you do not want the thing at all. Rosa's problem is not desire: <em>She wanted it badly, touring the pressroom twice and pricing the paper stock<\/em>.", "C": "Tentative describes a soft, unconfident manner in the act itself — and there was nothing soft about this bid: <em>every page was exact<\/em>, and the county called it <em>the most confident proposal it received<\/em>. What the passage dwells on happened before the bid ever left her desk.", "B": "Unsure fits her, but it is the milder state — a person can be unsure and still deliver on time. The passage stresses something more visible: <em>the finished bid sat sealed on her desk day after day<\/em>."}}}, "grid": {"words": ["hesitant", "reluctant", "tentative", "unsure"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Miguel plainly wanted to object — he half-raised his hand three times during the design review — but stayed ____ until the discussion moved on, unable to settle whether his numbers were right.", "ks": ["hesitant"], "fb": {"reluctant": "He <em>plainly wanted to object<\/em> — unwillingness is the one thing the sentence rules out. What stopped him was doubt, not distaste.", "tentative": "That word describes how an action is carried out — softly, cautiously. Miguel's objection never happened at all; the delay is the whole story.", "unsure": "Mild doubt lets a person act anyway. He <em>half-raised his hand three times<\/em> and still said nothing — the uncertainty visibly stalled the act."}}, {"s": "Keen to accept the transfer — she had said so twice — Amina nonetheless stood ____ at the phone each morning, dialing half the number and stopping, still weighing whether the timing was fair to her team.", "ks": ["hesitant"], "fb": {"reluctant": "She was <em>keen to accept<\/em> and <em>said so twice<\/em> — there is no unwillingness here to name. Doubt about timing, not distaste, holds her back.", "tentative": "That word would describe a soft, cautious call actually made. Here the call never happens — she keeps <em>dialing half the number and stopping<\/em>.", "unsure": "A person can carry mild doubt and still dial. Hers stops the call <em>each morning<\/em> — the uncertainty is visibly blocking the act."}}, {"s": "Dragged toward the dunk-tank seat by his whole team, Theo was openly ____ — he wanted no part of it, said so twice, and climbed up only because the office raffle had picked his name.", "ks": ["reluctant"], "fb": {"hesitant": "Doubt is not what stops him — he <em>wanted no part of it<\/em>. That is unwillingness, a different thing from stalling over a choice you want to make.", "tentative": "Nothing here describes how he did it — softly, cautiously, or otherwise. The sentence turns on his flat refusal: he <em>said so twice<\/em>.", "unsure": "He knows exactly where he stands — he <em>said so twice<\/em>. Certainty is not his problem; willingness is."}}, {"s": "Ana was ____ to chair the fundraiser, saying flatly that she wished the job on anyone else; once outvoted, though, she ran the first meeting briskly and without a single wobble.", "ks": ["reluctant"], "fb": {"hesitant": "There is no stalling here — once outvoted she <em>ran the first meeting briskly<\/em>. What she felt beforehand was distaste for the job, not doubt.", "tentative": "Her chairing was <em>without a single wobble<\/em> — the cautious, unconfident manner that word names is exactly what the sentence denies.", "unsure": "She spoke <em>flatly<\/em> and meant it. Her mind was made up; she simply did not want the job."}}, {"s": "Her first knock on the director's door was so ____ that no one inside heard it — a knuckle barely grazing the wood — though she had walked straight there, certain of the news she carried.", "ks": ["tentative"], "fb": {"hesitant": "She <em>walked straight there<\/em> — nothing delayed the act. What the sentence describes is the softness of the knock itself, not a stall before it.", "reluctant": "Unwillingness would show in avoiding the errand; instead she <em>walked straight there<\/em>. Only the manner of the knock was faint.", "unsure": "She was <em>certain of the news she carried<\/em> — the doubt that word names is missing. It was the knock, not her mind, that was faint."}}, {"s": "Asked which supplier had shipped the mislabeled crates, the floor manager admitted he was ____, calling it fifty-fifty in his own mind — then named the Dayton firm at once and filed the claim without a beat of delay.", "ks": ["unsure"], "fb": {"hesitant": "Whatever his doubts, he <em>named the Dayton firm at once<\/em> — nothing slowed him down, and visible slowing is exactly what that word requires.", "reluctant": "He shows no distaste for the task — he <em>filed the claim without a beat of delay<\/em>. Doubt about the answer is not unwillingness to act.", "tentative": "His action was brisk and committed, done <em>at once<\/em> — there is nothing cautious or half-done in the manner of it."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show doubt visibly slowing someone down before they act — a pause, a false start, a delay finally broken. Try working in a word like <i>paused<\/i>, <i>before<\/i>, <i>finally<\/i> or <i>twice<\/i>."}};
+  var CFG = {"word": "hesitant", "gradeUrl": "/api/grade", "taskId": "hesitant", "minWords": 12, "items": {"s1": {"q": "The diving coach opens tryouts to the whole school. Which swimmer is hesitant?", "opts": {"A": "Aiko signs up the moment the sheet goes on the wall, printing her name at the top before first period even starts.", "B": "Bela decides right away that diving isn't for her and joins the debate club that meets the same afternoon instead.", "C": "Cam picks up the pen twice a day, second-guessing himself, and walks away each time without writing his name.", "D": "Dee signs up her whole friend group without asking any of them, then announces it proudly in the team group chat."}, "key": "C", "fb": {"correct": "Right — Cam wants to try out but keeps stalling, doubting himself and walking away without ever writing his name. Being slow to act because of self-doubt is exactly what hesitant means.", "A": "Signing up 'the moment the sheet goes on the wall' shows zero uncertainty — Aiko never wavers. A hesitant person is slow to act because doubt keeps stalling them; nothing about this instant signature is slow.", "B": "Deciding 'right away' that diving isn't for her is quick and confident — Bela simply chooses a different activity. Turning something down decisively is not hesitation; hesitation means wanting to act but stalling in doubt.", "D": "Dee charges ahead — signing up an entire friend group 'without asking any of them' — the opposite of reluctance. Nothing here is slow or uncertain; look for the swimmer whose doubt keeps stopping the action."}}, "s3a": {"q": "As it is used in the passage, \"hesitant\" most nearly means:", "opts": {"A": "unwilling to take part in the audition at all", "B": "slowed down by his own doubt before acting", "C": "performing in a soft and careful way", "D": "unprepared for the material he had chosen"}, "key": "B", "fb": {"correct": "Right — Devon wants to perform and is ready, but doubt about his voice stalls him in the wings. The word names that doubt-driven delay.", "A": "He wanted the lead badly and had rehearsed for weeks — unwillingness is the reading the passage rules out first.", "C": "Once he starts, he sings without a single crack — nothing about his actual performance is soft or careful. The delay came before the performance.", "D": "Weeks of rehearsal say otherwise. What stalls him is worry about his voice, not missing preparation."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "reluctant", "B": "unsure", "C": "tentative", "D": "hesitant"}, "key": "D", "fb": {"correct": "Right. Rosa wants the contract and the finished bid proves she can win it — what doubt attacks is the acting itself, stalling a completed bid on her desk for weeks. Uncertainty that visibly slows someone who wants to act is exactly what hesitant means.", "A": "Reluctant means unwilling — dragging your feet because you do not want the thing at all. Rosa's problem is not desire: <em>She wanted it badly, touring the pressroom twice and pricing the paper stock<\/em>.", "C": "Tentative describes a soft, unconfident manner in the act itself — and there was nothing soft about this bid: <em>every page was exact<\/em>, and the county called it <em>the most confident proposal it received<\/em>. What the passage dwells on happened before the bid ever left her desk.", "B": "Unsure fits her, but it is the milder state — a person can be unsure and still deliver on time. The passage stresses something more visible: <em>the finished bid sat sealed on her desk day after day<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Miguel plainly wanted to object — he half-raised his hand three times during the design review — but stayed ____ until the discussion moved on, unable to settle whether his numbers were right.", "options": ["hesitant", "reluctant"], "key": "hesitant", "pair": "reluctant", "why_right": "The tell is <em>unable to settle whether his numbers were right<\/em> - doubt stalls an objection he plainly wants to make, and hesitant is about doubt, not desire.", "why_wrong": "He <em>plainly wanted to object<\/em> — unwillingness is the one thing the sentence rules out. What stopped him was doubt, not distaste."}, {"sentence": "Keen to accept the transfer — she had said so twice — Amina nonetheless stood ____ at the phone each morning, dialing half the number and stopping, still weighing whether the timing was fair to her team.", "options": ["hesitant", "tentative"], "key": "hesitant", "pair": "tentative", "why_right": "The tell is <em>dialing half the number and stopping<\/em> - the call is late in coming, not softly made; hesitant names the doubt-driven delay before an act happens at all.", "why_wrong": "That word would describe a soft, cautious call actually made. Here the call never happens — she keeps <em>dialing half the number and stopping<\/em>."}, {"sentence": "Dragged toward the dunk-tank seat by his whole team, Theo was openly ____ — he wanted no part of it, said so twice, and climbed up only because the office raffle had picked his name.", "options": ["hesitant", "reluctant"], "key": "reluctant", "pair": "reluctant", "why_right": "The tell is <em>wanted no part of it<\/em> - pure unwillingness, stated twice, with no doubt anywhere; reluctant means dragging your feet because you do not want the thing at all.", "why_wrong": "Doubt is not what stops him — he <em>wanted no part of it<\/em>. That is unwillingness, a different thing from stalling over a choice you want to make."}, {"sentence": "Ana was ____ to chair the fundraiser, saying flatly that she wished the job on anyone else; once outvoted, though, she ran the first meeting briskly and without a single wobble.", "options": ["hesitant", "reluctant"], "key": "reluctant", "pair": "reluctant", "why_right": "The tell is <em>wished the job on anyone else<\/em> - flat distaste for the role, with brisk action once outvoted; unwillingness, not doubt, is the only thing holding her back.", "why_wrong": "There is no stalling here — once outvoted she <em>ran the first meeting briskly<\/em>. What she felt beforehand was distaste for the job, not doubt."}, {"sentence": "Her first knock on the director's door was so ____ that no one inside heard it — a knuckle barely grazing the wood — though she had walked straight there, certain of the news she carried.", "options": ["hesitant", "tentative"], "key": "tentative", "pair": "tentative", "why_right": "The tell is <em>a knuckle barely grazing the wood<\/em> - the cautious, unconfident manner of an act performed at once; with no delay and no doubt, only tentative fits.", "why_wrong": "She <em>walked straight there<\/em> — nothing delayed the act. What the sentence describes is the softness of the knock itself, not a stall before it."}, {"sentence": "Asked which supplier had shipped the mislabeled crates, the floor manager admitted he was ____, calling it fifty-fifty in his own mind — then named the Dayton firm at once and filed the claim without a beat of delay.", "options": ["hesitant", "unsure"], "key": "unsure", "pair": "unsure", "why_right": "The tell is <em>without a beat of delay<\/em> - real doubt, fifty-fifty in his own mind, that never slows the act; unsure is the milder state that can still move quickly.", "why_wrong": "Whatever his doubts, he <em>named the Dayton firm at once<\/em> — nothing slowed him down, and visible slowing is exactly what that word requires."}, {"sentence": "Everyone knew Tomas wanted the retired professor's rowboat; he asked after it every spring and kept the money ready, yet he stayed ____ all summer, unable to decide whether the hull would last another winter.", "options": ["hesitant", "reluctant"], "key": "hesitant", "pair": "reluctant", "why_right": "The tell is <em>unable to decide whether the hull would last<\/em> - doubt, not distaste, stalls a purchase he plainly wants, and hesitant is about doubt slowing an act you want to take.", "why_wrong": "That word means unwilling - dragging your feet because you do not want the thing at all. He wants the boat and keeps the money ready; only doubt about the hull stalls him."}, {"sentence": "The manager stayed ____ about the new pressing scheme for a season, shelving the switch after every film review while he questioned whether his squad had the legs; once decided, he installed it in one bold week.", "options": ["hesitant", "tentative"], "key": "hesitant", "pair": "tentative", "why_right": "The tell is <em>shelving the switch after every film review<\/em> - a season of doubt-driven delay before acting at all, and when the act finally comes it is bold, not cautious.", "why_wrong": "That word describes the cautious, unconfident manner of an act carried out, or a plan made provisionally. Nothing was done softly - the switch was simply late, then installed in one bold week."}], "display_order": [6, 7, 2, 4, 3, 1, 5, 0], "dimension_order": ["reluctant", "tentative", "unsure"], "dimension_feedback": {"reluctant": "Reluctant means unwilling — you drag your feet because you do not want to do the thing at all. Hesitant is about doubt, not desire: a hesitant person usually wants to act and is slowed by uncertainty. A reluctant witness resents being called at all; a hesitant one wants to speak but keeps stalling.", "tentative": "Tentative describes the cautious, unconfident manner of an action, or a plan made only provisionally — a tentative knock, a tentative agreement. Hesitant is about the delay itself: uncertainty slowing you down before you act at all. A tentative step is soft and careful; a hesitant one is late in coming.", "unsure": "Unsure is the milder state — you can be unsure and still act quickly; hesitant means the uncertainty is visibly slowing you down."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show doubt visibly slowing someone down before they act — a pause, a false start, a delay finally broken. Try working in a word like <i>paused<\/i>, <i>before<\/i>, <i>finally<\/i> or <i>twice<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

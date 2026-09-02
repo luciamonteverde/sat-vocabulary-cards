@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6a7bb18b492d">
+<meta name="build" content="6d3e9ddda037">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>candor &#8212; SAT Vocabulary, Course 3 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "candor", "gradeUrl": "/api/grade", "taskId": "candor", "minWords": 12, "items": {"s1": {"q": "Which sentence uses candor correctly?", "opts": {"A": "Out of candor, the doctor softened the diagnosis, sharing only what the family seemed ready to hear.", "B": "The spokesman's candor was real as far as it went: he answered every question truthfully and volunteered nothing more.", "C": "She was famous for her candor, chatting freely with the office about weekend plans and recipes.", "D": "With startling candor, the surgeon told the family what had gone wrong and which decision had been hers."}, "key": "D", "fb": {"correct": "Right. Telling the family plainly what went wrong — and owning the decision — is openness and honesty in speech at its costliest. That is candor.", "A": "Softening the news and holding some of it back is tact. Candor tells the whole truth plainly.", "B": "Answering truthfully while volunteering nothing is honest but guarded. Candor is open as well as truthful.", "C": "Chatting freely about recipes is sociability. Candor means frankness about matters somebody would rather not raise."}}, "s3a": {"q": "As it is used in the passage, \"candor\" most nearly means", "opts": {"A": "a guide's professional duty to assess climbers", "B": "willingness to say unwelcome truths plainly and unasked", "C": "a blunt manner that costs a business its clients", "D": "enthusiasm for sharing stories about past expeditions"}, "key": "B", "fb": {"correct": "Right. She tells a paying customer, on day one and unprompted, that he is the likeliest to be sent down — the unwelcome truth, delivered plainly.", "A": "Assessment is her job; the word points at how she delivers it — uncomfortably plainly, before anyone asks.", "C": "The passage ends on the opposite: a two-year waiting list. The plainness attracts clients rather than costing them.", "D": "The storm story is a warning, not a fireside tale. What startles clients is the unwelcome truth about themselves."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "frankness", "B": "candor", "C": "tact", "D": "openness"}, "key": "B", "fb": {"correct": "Right. She volunteers the damaging detail — the sequence <em>had been partly staged<\/em>, and <em>hiding that had been her own decision<\/em> — with <em>no one having questioned the scene<\/em>. Truth offered unasked, at the speaker's own cost, is candor.", "A": "Frankness is plain, unguarded speech once a person has decided to answer — but nothing here was an answer. Vega spoke with <em>no one having questioned the scene<\/em>, and the word in the blank has to carry that volunteering.", "D": "Openness is a general willingness to share, and Vega shows little of it — she <em>gave clipped, guarded replies<\/em> to the routine questions. One costly admission is not a broadly sharing manner.", "C": "Tact trims and times the truth to spare the moment. Announcing a staged scene <em>with the jury still deliberating<\/em> spares nothing and waits for nothing."}}}, "grid": {"words": ["candor", "frankness", "openness", "tact"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Nobody had asked about the failed prototype, but the founder's ____ startled the investors: she spent ten minutes on it, including the flaw that was her own doing.", "ks": ["candor"], "fb": {"frankness": "That is plain, unguarded speech once someone has chosen to speak. The startling thing here happens earlier: she raises the damaging subject herself, before any question exists.", "openness": "A general willingness to share covers calendars and plans. Spending ten unprompted minutes on your own flaw is the narrower, costlier thing this card teaches.", "tact": "That trims and times the truth to spare feelings. Ten minutes on her own flaw, unasked, spares nobody — least of all herself."}}, {"s": "His ____ cost him the sale: without being asked, he told the buyers that the cellar floods most springs.", "ks": ["candor"], "fb": {"frankness": "That word covers plain speech from someone who has decided to speak. What costs him the sale is the step before: bringing up the flooding when no one had asked.", "openness": "A generally forthcoming manner would not require this. He volunteers the one fact guaranteed to hurt him — the costly disclosure, not mere willingness to chat.", "tact": "That is the art of softening and timing hard truths. Announcing the spring floods to buyers, unprompted, is its exact opposite."}}, {"s": "Colleagues liked the new director's ____: her calendar was public, her plans were shared early, and questions never seemed unwelcome.", "ks": ["openness"], "fb": {"candor": "That is the costlier thing — the damaging detail volunteered unasked. A public calendar and early plans cost her nothing; this is the broader, easier virtue.", "frankness": "That describes blunt, unguarded statements. Nothing here is blunt; the sentence is about access — calendars, plans, welcome questions.", "tact": "That would mean trimming truths to spare feelings, and no hard truth is anywhere in sight. The sentence describes sharing, not softening."}}, {"s": "The lab won the grant partly on its ____ with data: methods, raw numbers, even half-finished notebooks were there for anyone to read.", "ks": ["openness"], "fb": {"candor": "That word means volunteering the uncomfortable truth, at cost. Leaving notebooks open for anyone is generous sharing, not a costly confession.", "frankness": "That belongs to plain, unguarded speech. A data policy says nothing blunt; it simply leaves the drawers unlocked.", "tact": "That is about softening hard truths for listeners. Nothing here is softened or withheld — the point is how much is laid out."}}, {"s": "When she finally chose to speak, her ____ stunned the room: 'The plan is failing, and the numbers say so.'", "ks": ["frankness"], "fb": {"candor": "That word offers the damaging truth unprompted, before the moment demands it. She held back until she 'finally chose to speak' — what stuns the room is the plainness once she does.", "openness": "A willingness to share plans and information is a standing habit. This is a single unguarded declaration, sharp as a slammed door.", "tact": "Trimming the truth to what the moment can bear is the opposite move. 'The plan is failing' arrives untrimmed."}}, {"s": "The nurse's ____ showed in what she saved for tomorrow: the recovery odds were real, but tonight the family heard only that he was resting comfortably.", "ks": ["tact"], "fb": {"candor": "That would volunteer the recovery odds on the spot, whole and unasked. She does the opposite: the truth is real, but it waits for morning.", "frankness": "Plain, unguarded speech is exactly what she avoids tonight. Her words are picked to carry the family through the night.", "openness": "A freely-sharing manner would not save the odds for tomorrow. She meters what the moment can bear — a different skill entirely."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a hard truth offered before anyone asked for it — the volunteering is the whole point, so give your speaker something uncomfortable to admit and no one demanding it. Try working in a word like <i>unprompted<\/i>, <i>admitted<\/i>, <i>volunteered<\/i> or <i>before<\/i>."}};
+  var CFG = {"word": "candor", "gradeUrl": "/api/grade", "taskId": "candor", "minWords": 12, "items": {"s1": {"q": "Which sentence uses candor correctly?", "opts": {"A": "Out of candor, the doctor softened the diagnosis, sharing only what the family seemed ready to hear.", "B": "The spokesman's candor was real as far as it went: he answered every question truthfully and volunteered nothing more.", "C": "She was famous for her candor, chatting freely with the office about weekend plans and recipes.", "D": "With startling candor, the surgeon told the family what had gone wrong and which decision had been hers."}, "key": "D", "fb": {"correct": "Right. Telling the family plainly what went wrong — and owning the decision — is openness and honesty in speech at its costliest. That is candor.", "A": "Softening the news and holding some of it back is tact. Candor tells the whole truth plainly.", "B": "Answering truthfully while volunteering nothing is honest but guarded. Candor is open as well as truthful.", "C": "Chatting freely about recipes is sociability. Candor means frankness about matters somebody would rather not raise."}}, "s3a": {"q": "As it is used in the passage, \"candor\" most nearly means", "opts": {"A": "a guide's professional duty to assess climbers", "B": "willingness to say unwelcome truths plainly and unasked", "C": "a blunt manner that costs a business its clients", "D": "enthusiasm for sharing stories about past expeditions"}, "key": "B", "fb": {"correct": "Right. She tells a paying customer, on day one and unprompted, that he is the likeliest to be sent down — the unwelcome truth, delivered plainly.", "A": "Assessment is her job; the word points at how she delivers it — uncomfortably plainly, before anyone asks.", "C": "The passage ends on the opposite: a two-year waiting list. The plainness attracts clients rather than costing them.", "D": "The storm story is a warning, not a fireside tale. What startles clients is the unwelcome truth about themselves."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "frankness", "B": "candor", "C": "tact", "D": "openness"}, "key": "B", "fb": {"correct": "Right. She volunteers the damaging detail — the sequence <em>had been partly staged<\/em>, and <em>hiding that had been her own decision<\/em> — with <em>no one having questioned the scene<\/em>. Truth offered unasked, at the speaker's own cost, is candor.", "A": "Frankness is plain, unguarded speech once a person has decided to answer — but nothing here was an answer. Vega spoke with <em>no one having questioned the scene<\/em>, and the word in the blank has to carry that volunteering.", "D": "Openness is a general willingness to share, and Vega shows little of it — she <em>gave clipped, guarded replies<\/em> to the routine questions. One costly admission is not a broadly sharing manner.", "C": "Tact trims and times the truth to spare the moment. Announcing a staged scene <em>with the jury still deliberating<\/em> spares nothing and waits for nothing."}}}, "pairwise": {"rows": [{"sentence": "Nobody had asked about the failed prototype, but the founder's ____ startled the investors: she spent ten minutes on it, including the flaw that was her own doing.", "options": ["candor", "frankness"], "key": "candor", "pair": "frankness", "why_right": "The tell is <em>Nobody had asked<\/em> — candor offers the uncomfortable truth before anyone asks for it; what startled the room happened before any question existed, which plain speech once speaking never covers.", "why_wrong": "That is plain, unguarded speech once someone has chosen to speak. The startling thing here happens earlier: she raises the damaging subject herself, before any question exists."}, {"sentence": "The publisher had to ask twice, but the translator's ____ was unsparing: the last chapter, she said, did not survive in English.", "options": ["candor", "frankness"], "key": "frankness", "pair": "frankness", "why_right": "The tell is <em>had to ask twice<\/em> — the truth is drawn out, not volunteered, and once she speaks it comes plain and unguarded: directness after deciding to speak, which is frankness.", "why_wrong": "That word offers the uncomfortable truth before anyone asks for it. Here the publisher had to ask twice; what arrives is plain speech once she has decided to speak, which is frankness."}, {"sentence": "Colleagues liked the new director's ____: her calendar was public, her plans were shared early, and questions never seemed unwelcome.", "options": ["candor", "openness"], "key": "openness", "pair": "openness", "why_right": "The tell is <em>her plans were shared early<\/em> — a general willingness to share information and access, costing her nothing; the card's candor is the narrower, costlier thing, honesty precisely where sharing hurts.", "why_wrong": "That is the costlier thing — the damaging detail volunteered unasked. A public calendar and early plans cost her nothing; this is the broader, easier virtue."}, {"sentence": "The lab won the grant partly on its ____ with data: methods, raw numbers, even half-finished notebooks were there for anyone to read.", "options": ["candor", "openness"], "key": "openness", "pair": "openness", "why_right": "The tell is <em>there for anyone to read<\/em> — materials shared as a standing habit, a general willingness to share; nothing damaging is confessed, so the costlier word does not fit.", "why_wrong": "That word means volunteering the uncomfortable truth, at cost. Leaving notebooks open for anyone is generous sharing, not a costly confession."}, {"sentence": "Every partner shared plans and forecasts freely, but only Okafor's ____ reached the write-down nobody had asked about: the one his own division had caused.", "options": ["candor", "openness"], "key": "candor", "pair": "openness", "why_right": "The tell is <em>his own division had caused<\/em> — every partner already shared freely; what only he offered was the damaging detail, unasked, precisely where sharing hurts, which the card gives to candor.", "why_wrong": "That word means a general willingness to share information, feelings, and plans, and every partner in this sentence already had it. What sets Okafor apart is the costly disclosure nobody asked for."}, {"sentence": "His ____ cost him the sale: without being asked, he told the buyers that the cellar floods most springs.", "options": ["candor", "tact"], "key": "candor", "pair": "tact", "why_right": "The tell is <em>without being asked<\/em> — the damaging fact is volunteered whole and at real cost to himself; tact would have trimmed it or saved it for a kinder moment.", "why_wrong": "That is the art of softening and timing hard truths. Announcing the spring floods to buyers, unprompted, is its exact opposite."}, {"sentence": "The nurse's ____ showed in what she saved for tomorrow: the recovery odds were real, but tonight the family heard only that he was resting comfortably.", "options": ["candor", "tact"], "key": "tact", "pair": "tact", "why_right": "The tell is <em>saved for tomorrow<\/em> — she trims and times the truth to spare the family, telling only as much as the night can bear; volunteering the odds is what she refuses.", "why_wrong": "That would volunteer the recovery odds on the spot, whole and unasked. She does the opposite: the truth is real, but it waits for morning."}, {"sentence": "The piano teacher's ____ stung the parents: nobody had asked, yet with the boy listening she called his pieces sloppy and the encore a mistake.", "options": ["candor", "tact"], "key": "candor", "pair": "tact", "why_right": "The tell is <em>with the boy listening<\/em> — the uncomfortable truth is volunteered whole, unasked, in front of the person it wounds; tact would trim it or time it more kindly.", "why_wrong": "That word trims and times the truth to spare feelings, telling only as much as the moment can bear. Unasked, in front of the boy, she spares nobody and saves nothing."}], "display_order": [5, 3, 0, 7, 4, 1, 6, 2], "dimension_order": ["openness", "tact", "frankness"], "dimension_feedback": {"openness": "Openness is a general willingness to share — information, feelings, plans — in speech or in manner. Candor is narrower and costlier: candor volunteers the damaging detail in plain words, unasked. An open person shares readily on most things; candor means honesty precisely where sharing hurts.", "tact": "Tact is the gentlest rung, far milder than candor — tact trims and times the truth to spare feelings, telling only as much as the moment can bear.", "frankness": "Frankness is plain, unguarded speech — saying what you actually think, with a hint of bluntness about it. Candor shares that plainness but adds the volunteering: candor offers the uncomfortable truth before anyone asks for it, while frankness only promises directness once a person has decided to speak."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a hard truth offered before anyone asked for it — the volunteering is the whole point, so give your speaker something uncomfortable to admit and no one demanding it. Try working in a word like <i>unprompted<\/i>, <i>admitted<\/i>, <i>volunteered<\/i> or <i>before<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

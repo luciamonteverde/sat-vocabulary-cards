@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="c04be14852ed">
+<meta name="build" content="00a0a3d6962a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>extrapolate &#8212; SAT Vocabulary, Course 3 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "extrapolate", "gradeUrl": "/api/grade", "taskId": "extrapolate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses extrapolate correctly?", "opts": {"A": "Dentists extrapolate wisdom teeth under local anesthetic in under an hour.", "B": "Students extrapolated the diagram from the whiteboard into their lab notebooks.", "C": "Uncle Ray extrapolates every fishing story until the trout weighs ten pounds.", "D": "Growth charts let doctors extrapolate adult height from early measurements."}, "key": "D", "fb": {"correct": "Correct! The doctors take a measured trend — early growth — and extend it past the data to estimate an unknown, the adult height. That is extrapolation exactly.", "A": "Pulling 'wisdom teeth under local anesthetic' is extracting them — the sound-alike trap. To extrapolate is to take known information and extend it past what has been observed, estimating something unseen.", "B": "Copying the diagram 'into their lab notebooks' reproduces what is already on the whiteboard; nothing unknown gets estimated. Extrapolating extends known information to estimate what no one has yet observed.", "C": "Uncle Ray inflating a fishing story 'until the trout weighs ten pounds' is exaggerating. Extrapolation extends real information carefully to estimate an unknown — not stretching a tale for laughs."}}, "s3a": {"q": "As used in this passage, what does it mean 'to extrapolate from the trend'?", "opts": {"A": "To promise the public that a record will fall on a fixed schedule.", "B": "To run the measured line past its last point and read the result.", "C": "To keep collecting race times until the answer becomes certain on its own.", "D": "To reject the physiologists' limit as unscientific."}, "key": "B", "fb": {"correct": "Right -- 'he simply let the line keep going': the trend is stretched past its edge, and the claim is only what the curve implies.", "A": "The passage says the opposite -- 'not to promise anything.'", "C": "No new data is gathered. The whole move works with the measurements already in hand.", "D": "He never argues with their physiology -- he just follows the line and lets the next few years settle it."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forecast", "B": "infer", "C": "extrapolate", "D": "project"}, "key": "A", "fb": {"correct": "Right. The job is a prediction of what is coming — <em>peak demand for the coming July<\/em> — and forecast names that prediction, whatever mix of methods produced it.", "C": "Extrapolate names one specific method: stretching a measured trend past its last data point. The passage rules that method out — <em>no single measured line gets stretched past its end<\/em>.", "D": "To project is to run current numbers forward, a treasurer's move. Here that move is a dead end: <em>meter readings, run forward, would tell them little<\/em>.", "B": "An inference rests directly on evidence already in front of you. This number is a claim about months not yet arrived — <em>knowing the summer itself will grade their work<\/em> — reaching well past what is in hand."}}}, "grid": {"words": ["extrapolate", "project", "forecast", "infer"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Ecologists count beetles on twelve marked plots and ____ a total for the whole forest from those samples alone.", "ks": ["extrapolate"], "fb": {"forecast": "Nothing in this sentence is about the future. The beetles are out there now; the move is stretching a sample, not calling what's coming.", "project": "There are no books and no next quarter here. The business-page word wants numbers run forward in time, not a count stretched across a forest.", "infer": "A conclusion resting directly on the evidence would stop at the twelve plots. The forest total lies past the data's edge -- that stretch is the whole point."}}, {"s": "Nothing was logged before 1900, so historians ____ earlier flood heights from the century of marks they do have, reading the trend backward past its first entry.", "ks": ["extrapolate"], "fb": {"forecast": "You can't call the weather for 1850. This move runs backward into the past, where the prediction word has no business.", "project": "Nothing financial is run forward from current books -- the series is stretched the other way, into years before the record starts.", "infer": "The evidence in hand stops at 1900. What's wanted lies beyond its edge, so the historians stretch the trend rather than read what's in front of them."}}, {"s": "From the unwashed mugs and the coats still on their hooks, the fire marshal could ____ that the crew had left in a hurry -- the room said that much and no more.", "ks": ["infer"], "fb": {"extrapolate": "There's no trend line and no data series to stretch. The conclusion rests squarely on the mugs and coats in front of him.", "project": "No ledger, no next quarter. The marshal is reading a room, not running figures forward.", "forecast": "He isn't predicting what's coming -- he's concluding what already happened, from evidence at hand."}}, {"s": "Readers must ____ the narrator's guilt from what she avoids saying; the novel rests its case entirely on evidence already on the page.", "ks": ["infer"], "fb": {"extrapolate": "Nothing here extends a measured trend beyond its last point. Every clue the conclusion needs is 'already on the page.'", "project": "There are no numbers to run forward. This is reading evidence, not budgeting.", "forecast": "The question isn't what will happen next -- it's what the evidence in hand already shows."}}, {"s": "The club's bookkeeper must ____ next season's dues income from this fall's membership rolls before the board can set a budget.", "ks": ["project"], "fb": {"extrapolate": "The technical word for stretching any data series would suit a lab. This is its business-page cousin's home turf: membership books run forward into a budget.", "forecast": "That word announces a prediction -- storms, turnout, demand. What the sentence stages is the ledger operation: current numbers carried forward so a budget can be set.", "infer": "Nothing on this fall's rolls states next season's income. The number has to be run forward, not read off."}}, {"s": "Meteorologists at the regional office ____ a wet spring for the valley, and growers set their planting dates accordingly.", "ks": ["forecast"], "fb": {"extrapolate": "No trend, no data points, no stretching is described -- the sentence names only the call about what's coming.", "project": "There are no books to run forward. A wet spring isn't a budget line.", "infer": "Growers aren't reading conclusions off evidence in hand -- they're being handed a call about the future."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs measured data AND a reach past its last point -- show both halves. Anchor the data with words like <i>trend<\/i>, <i>so far<\/i> or <i>recorded<\/i>, then push past it with <i>beyond<\/i> or <i>next<\/i>."}};
+  var CFG = {"word": "extrapolate", "gradeUrl": "/api/grade", "taskId": "extrapolate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses extrapolate correctly?", "opts": {"A": "Dentists extrapolate wisdom teeth under local anesthetic in under an hour.", "B": "Students extrapolated the diagram from the whiteboard into their lab notebooks.", "C": "Uncle Ray extrapolates every fishing story until the trout weighs ten pounds.", "D": "Growth charts let doctors extrapolate adult height from early measurements."}, "key": "D", "fb": {"correct": "Correct! The doctors take a measured trend — early growth — and extend it past the data to estimate an unknown, the adult height. That is extrapolation exactly.", "A": "Pulling 'wisdom teeth under local anesthetic' is extracting them — the sound-alike trap. To extrapolate is to take known information and extend it past what has been observed, estimating something unseen.", "B": "Copying the diagram 'into their lab notebooks' reproduces what is already on the whiteboard; nothing unknown gets estimated. Extrapolating extends known information to estimate what no one has yet observed.", "C": "Uncle Ray inflating a fishing story 'until the trout weighs ten pounds' is exaggerating. Extrapolation extends real information carefully to estimate an unknown — not stretching a tale for laughs."}}, "s3a": {"q": "As used in this passage, what does it mean 'to extrapolate from the trend'?", "opts": {"A": "To promise the public that a record will fall on a fixed schedule.", "B": "To run the measured line past its last point and read the result.", "C": "To keep collecting race times until the answer becomes certain on its own.", "D": "To reject the physiologists' limit as unscientific."}, "key": "B", "fb": {"correct": "Right -- 'he simply let the line keep going': the trend is stretched past its edge, and the claim is only what the curve implies.", "A": "The passage says the opposite -- 'not to promise anything.'", "C": "No new data is gathered. The whole move works with the measurements already in hand.", "D": "He never argues with their physiology -- he just follows the line and lets the next few years settle it."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forecast", "B": "infer", "C": "extrapolate", "D": "project"}, "key": "A", "fb": {"correct": "Right. The job is a prediction of what is coming — <em>peak demand for the coming July<\/em> — and forecast names that prediction, whatever mix of methods produced it.", "C": "Extrapolate names one specific method: stretching a measured trend past its last data point. The passage rules that method out — <em>no single measured line gets stretched past its end<\/em>.", "D": "To project is to run current numbers forward, a treasurer's move. Here that move is a dead end: <em>meter readings, run forward, would tell them little<\/em>.", "B": "An inference rests directly on evidence already in front of you. This number is a claim about months not yet arrived — <em>knowing the summer itself will grade their work<\/em> — reaching well past what is in hand."}}}, "pairwise": {"rows": [{"sentence": "Ecologists count beetles on twelve marked plots and ____ a total for the whole forest from those samples alone.", "options": ["extrapolate", "project"], "key": "extrapolate", "pair": "project", "why_right": "The tell is <em>a total for the whole forest from those samples alone<\/em> - a measured sample stretched past its edge across space, where project runs current numbers forward in time, not a count across a forest.", "why_wrong": "There are no books and no next quarter here. The business-page word wants numbers run forward in time, not a count stretched across a forest."}, {"sentence": "Geologists measure the ore grade in three sample shafts and ____ its richness across the whole deposit, most of which no drill has ever touched.", "options": ["extrapolate", "project"], "key": "extrapolate", "pair": "project", "why_right": "The tell is <em>across the whole deposit<\/em> - a measured trend stretched over space past the sample shafts, where project runs current numbers forward in time, not a grade across untouched ground.", "why_wrong": "That word runs current numbers forward in time -- revenue read forward from the books. Nothing here goes forward or touches money; a measured grade is stretched across space the drills never reached."}, {"sentence": "Meteorologists at the regional office ____ a wet spring for the valley, and growers set their planting dates accordingly.", "options": ["extrapolate", "forecast"], "key": "forecast", "pair": "forecast", "why_right": "The tell is <em>a wet spring for the valley<\/em> - only the call about what is coming is named, with no trend or data series to stretch, which is forecast's register, not extrapolate's method.", "why_wrong": "No trend, no data points, no stretching is described -- the sentence names only the call about what's coming."}, {"sentence": "Nothing was logged before 1900, so historians ____ earlier flood heights from the century of marks they do have, reading the trend backward past its first entry.", "options": ["extrapolate", "forecast"], "key": "extrapolate", "pair": "forecast", "why_right": "The tell is <em>reading the trend backward past its first entry<\/em> - a measured series stretched past its endpoint, and into the past at that, where forecast only calls what is coming.", "why_wrong": "You can't call the weather for 1850. This move runs backward into the past, where the prediction word has no business."}, {"sentence": "The almanac ____ a brutal winter for the coast, and fishermen laid in extra fuel, though the page named no measurements and showed no trend.", "options": ["extrapolate", "forecast"], "key": "forecast", "pair": "forecast", "why_right": "The tell is <em>named no measurements and showed no trend<\/em> - only the prediction of what is coming is given, with no measured series for extrapolate's method to stretch.", "why_wrong": "That word names a method -- stretch a measured trend past its last point. The almanac shows no trend to stretch; it simply calls the coming winter, which is forecast's job."}, {"sentence": "From the unwashed mugs and the coats still on their hooks, the fire marshal could ____ that the crew had left in a hurry -- the room said that much and no more.", "options": ["extrapolate", "infer"], "key": "infer", "pair": "infer", "why_right": "The tell is <em>the room said that much and no more<\/em> - the conclusion rests directly on the evidence in front of him, with nothing stretched past its edge, which is infer's ground, not extrapolate's.", "why_wrong": "There's no trend line and no data series to stretch. The conclusion rests squarely on the mugs and coats in front of him."}, {"sentence": "Readers must ____ the narrator's guilt from what she avoids saying; the novel rests its case entirely on evidence already on the page.", "options": ["extrapolate", "infer"], "key": "infer", "pair": "infer", "why_right": "The tell is <em>entirely on evidence already on the page<\/em> - the conclusion rests directly on evidence in hand, nothing stretched past an edge, so the milder word infer fits, not extrapolate.", "why_wrong": "Nothing here extends a measured trend beyond its last point. Every clue the conclusion needs is 'already on the page.'"}, {"sentence": "From forty years of measured glacier retreat, the survey team ____ where the ice would sit fifty years on, far beyond any season they had actually recorded.", "options": ["extrapolate", "infer"], "key": "extrapolate", "pair": "infer", "why_right": "The tell is <em>far beyond any season they had actually recorded<\/em> - the answer lies past the edge of the measured record, reached by stretching the trend, where infer would rest inside the evidence in hand.", "why_wrong": "That word rests directly on the evidence in front of you and stops there. A glacier's place fifty years on lies far past the recorded years, reached only by stretching the trend."}], "display_order": [4, 5, 1, 7, 3, 6, 0, 2], "dimension_order": ["project", "forecast", "infer"], "dimension_feedback": {"project": "Project runs current numbers forward — the business-page cousin of extrapolate. A treasurer projects next quarter's revenue from this quarter's books. Extrapolate is the broader, more technical move: extending any measured trend past its last data point, whether the data is money, votes, or rainfall.", "forecast": "Forecast predicts what is coming, in weather-report register — a forecast of storms, of turnout, of demand. It names the prediction, not the method. Extrapolate names the method itself: stretch the trend you measured past its final point and read off where it lands.", "infer": "To infer is milder than to extrapolate: an inference rests directly on the evidence in front of you, while extrapolation stretches that evidence out past its edge."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs measured data AND a reach past its last point -- show both halves. Anchor the data with words like <i>trend<\/i>, <i>so far<\/i> or <i>recorded<\/i>, then push past it with <i>beyond<\/i> or <i>next<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

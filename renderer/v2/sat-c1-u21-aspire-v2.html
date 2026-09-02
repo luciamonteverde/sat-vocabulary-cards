@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="02e865ef4946">
+<meta name="build" content="23473f836742">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>aspire &#8212; SAT Vocabulary, Course 1 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "aspire", "gradeUrl": "/api/grade", "taskId": "aspire", "minWords": 12, "items": {"s1": {"q": "Which sentence describes someone who aspires to be a pilot?", "opts": {"A": "Gus watches planes land sometimes and thinks they look neat, though he has never looked into lessons.", "B": "Hana logs flight-simulator hours nightly and maps out the licenses she'll need by twenty-five.", "C": "Ian's uncle is a pilot, and Ian enjoys hearing his stories at family dinners without wanting the job himself.", "D": "Jade took one airport shuttle last spring and has not thought about planes since the ride ended."}, "key": "B", "fb": {"correct": "Right — Hana directs steady hope and effort toward becoming a pilot, logging simulator hours and planning the licenses she'll need. Aiming your hopes at a goal like that is aspiring.", "A": "Gus thinks planes 'look neat' but 'has never looked into lessons' — casual liking with zero steps taken. Aspiring means aiming your hopes at a goal and actually moving toward it.", "C": "Ian enjoys his uncle's stories 'without wanting the job himself.' Appreciating someone else's career secondhand is not directing your hopes toward earning that career for yourself.", "D": "Jade rode an airport shuttle once and 'has not thought about planes since.' A single errand followed by total disinterest shows no aim at the cockpit whatsoever."}}, "s3a": {"q": "In this passage, \"aspired\" means Rosa", "opts": {"A": "directed her hopes and efforts toward a goal far above her current position", "B": "daydreamed pleasantly about a life she never expected to have", "C": "envied the surgeons and quietly resented her own job", "D": "had a detailed schedule guaranteeing she would become a surgeon"}, "key": "A", "fb": {"correct": "Right — her ambition pointed at something far above her badge, and it organized her hopes for years.", "B": "Nothing here is idle — night classes and a guarded tuition envelope are the opposite of a passing daydream.", "C": "There is no resentment in the passage; she admired the surgeons and meant to join them.", "D": "No schedule could guarantee it — 'years remained before she could even apply.' The word names directed hope, not a locked plan."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "aim", "B": "yearn", "C": "aspire", "D": "wish"}, "key": "C", "fb": {"correct": "Right. The goal is definite and seriously held — the guest book calls it <em>no idle entry<\/em>, repeated <em>month after month, for two years<\/em> — yet it lies beyond any step they can take now. Hope organized toward a distant achievement is exactly this word's territory.", "A": "Aim points effort at a chosen goal and acts on it — when you aim, you build the schedule that gets you there. Here the work <em>lies beyond years of training none of them can start before university<\/em>, so there is nothing yet to schedule or act on.", "B": "Yearn means to long for something with a deep, almost aching feeling — pure emotion, with no direction built into it, for what you miss or crave. These three are not aching after something absent; they name a definite achievement, <em>to map the sky professionally<\/em>, that they mean to reach.", "D": "A wish costs nothing and points nowhere in particular — it is gone by the next thought. This entry has one fixed target and real staying power: <em>it has appeared in the same handwriting, month after month, for two years<\/em>."}}}, "grid": {"words": ["aspire", "aim", "yearn", "wish"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The academy exists for cadets who ____ to command a ship someday, a rank none of them can reach for a decade at least.", "ks": ["aspire"], "fb": {"aim": "That word organizes effort — a chosen goal with a schedule behind it. 'Someday,' a decade out of reach, is organized hope, not a schedule.", "yearn": "That word is an ache for what you miss or crave, with no direction in it. These cadets are pointed at a definite rank they mean to hold.", "wish": "That word costs nothing and drifts nowhere in particular. Enrolling in an academy for a rank a decade away is hope with a direction and a price."}}, {"s": "Every violinist in the youth orchestra will tell you they ____ to solo at the national hall one day, though none of them says it lightly.", "ks": ["aspire"], "fb": {"aim": "That word comes with a schedule — finish by May, book the hall, do the work. 'One day' names a summit, not a plan.", "yearn": "That word is longing as pure feeling — for a person, a place, a past. This is ambition with a target: a stage, a solo, a self they mean to become.", "wish": "That word is said lightly by definition — it costs nothing. The sentence tells you these players do not say it lightly."}}, {"s": "The bakery's owners ____ to open a second location by spring, and the loan application and lease tour are already under way.", "ks": ["aim"], "fb": {"aspire": "That word directs hope at something higher and still out of reach. A dated plan with the paperwork moving is effort, not longing upward.", "yearn": "That word aches; it does not file loan applications. The sentence is all logistics and calendar.", "wish": "That word would leave the second location as a pleasant thought. These owners have already put money and mornings behind it."}}, {"s": "We ____ to cut the shelter's wait list in half by August, and the volunteer rota has been rebuilt around exactly that number.", "ks": ["aim"], "fb": {"aspire": "That word suits summits you cannot touch yet. Halving a wait list by August is a target you march at — the schedule already exists.", "yearn": "That word is deep, directionless longing. A rebuilt rota and a number to hit are direction through and through.", "wish": "That word makes no plans. This sentence is nothing but plan: a number, a month, a rota built to match."}}, {"s": "Twenty floors above the city, Amir would ____ for the smell of his grandmother's courtyard, an ache with no plan attached to it.", "ks": ["yearn"], "fb": {"aspire": "That word points hope upward at something you mean to become or achieve. A remembered smell is behind him, not above him.", "aim": "That word points effort at a goal and gets moving. The sentence says the opposite: an ache with no plan attached.", "wish": "That word is a passing, costless thought. An ache that visits him twenty floors up is felt in the body, not tossed off."}}, {"s": "Watching the lottery drawing, half the office will ____ for a windfall and forget the thought before the elevator reaches the lobby.", "ks": ["wish"], "fb": {"yearn": "That word aches and lingers. A hope that dissolves between the drawing and the lobby never got near an ache.", "aspire": "That word directs your ambitions at what you mean to become. Nobody becomes a lottery result; there is nothing here to work toward.", "aim": "That word points effort at a goal and follows through. No one here lifts a finger — the thought is gone by the ground floor."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Point your sentence at a goal above where the person stands now — something they mean to become, not something they merely miss. Try working in a phrase like <i>one day<\/i>, <i>someday become<\/i>, <i>working toward<\/i> or <i>rise<\/i>."}};
+  var CFG = {"word": "aspire", "gradeUrl": "/api/grade", "taskId": "aspire", "minWords": 12, "items": {"s1": {"q": "Which sentence describes someone who aspires to be a pilot?", "opts": {"A": "Gus watches planes land sometimes and thinks they look neat, though he has never looked into lessons.", "B": "Hana logs flight-simulator hours nightly and maps out the licenses she'll need by twenty-five.", "C": "Ian's uncle is a pilot, and Ian enjoys hearing his stories at family dinners without wanting the job himself.", "D": "Jade took one airport shuttle last spring and has not thought about planes since the ride ended."}, "key": "B", "fb": {"correct": "Right — Hana directs steady hope and effort toward becoming a pilot, logging simulator hours and planning the licenses she'll need. Aiming your hopes at a goal like that is aspiring.", "A": "Gus thinks planes 'look neat' but 'has never looked into lessons' — casual liking with zero steps taken. Aspiring means aiming your hopes at a goal and actually moving toward it.", "C": "Ian enjoys his uncle's stories 'without wanting the job himself.' Appreciating someone else's career secondhand is not directing your hopes toward earning that career for yourself.", "D": "Jade rode an airport shuttle once and 'has not thought about planes since.' A single errand followed by total disinterest shows no aim at the cockpit whatsoever."}}, "s3a": {"q": "In this passage, \"aspired\" means Rosa", "opts": {"A": "directed her hopes and efforts toward a goal far above her current position", "B": "daydreamed pleasantly about a life she never expected to have", "C": "envied the surgeons and quietly resented her own job", "D": "had a detailed schedule guaranteeing she would become a surgeon"}, "key": "A", "fb": {"correct": "Right — her ambition pointed at something far above her badge, and it organized her hopes for years.", "B": "Nothing here is idle — night classes and a guarded tuition envelope are the opposite of a passing daydream.", "C": "There is no resentment in the passage; she admired the surgeons and meant to join them.", "D": "No schedule could guarantee it — 'years remained before she could even apply.' The word names directed hope, not a locked plan."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "aim", "B": "yearn", "C": "aspire", "D": "wish"}, "key": "C", "fb": {"correct": "Right. The goal is definite and seriously held — the guest book calls it <em>no idle entry<\/em>, repeated <em>month after month, for two years<\/em> — yet it lies beyond any step they can take now. Hope organized toward a distant achievement is exactly this word's territory.", "A": "Aim points effort at a chosen goal and acts on it — when you aim, you build the schedule that gets you there. Here the work <em>lies beyond years of training none of them can start before university<\/em>, so there is nothing yet to schedule or act on.", "B": "Yearn means to long for something with a deep, almost aching feeling — pure emotion, with no direction built into it, for what you miss or crave. These three are not aching after something absent; they name a definite achievement, <em>to map the sky professionally<\/em>, that they mean to reach.", "D": "A wish costs nothing and points nowhere in particular — it is gone by the next thought. This entry has one fixed target and real staying power: <em>it has appeared in the same handwriting, month after month, for two years<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The academy exists for cadets who ____ to command a ship someday, a rank none of them can reach for a decade at least.", "options": ["aspire", "aim"], "key": "aspire", "pair": "aim", "why_right": "The tell is <em>a rank none of them can reach for a decade at least<\/em> - aspiring directs hope at something higher you cannot reach yet, upstream of any schedule.", "why_wrong": "That word organizes effort — a chosen goal with a schedule behind it. 'Someday,' a decade out of reach, is organized hope, not a schedule."}, {"sentence": "The bakery's owners ____ to open a second location by spring, and the loan application and lease tour are already under way.", "options": ["aspire", "aim"], "key": "aim", "pair": "aim", "why_right": "The tell is <em>the loan application and lease tour are already under way<\/em> - aim points effort at a chosen goal and acts on it, building the schedule.", "why_wrong": "That word directs hope at something higher and still out of reach. A dated plan with the paperwork moving is effort, not longing upward."}, {"sentence": "We ____ to cut the shelter's wait list in half by August, and the volunteer rota has been rebuilt around exactly that number.", "options": ["aspire", "aim"], "key": "aim", "pair": "aim", "why_right": "The tell is <em>rebuilt around exactly that number<\/em> - aiming organizes effort toward a chosen, dated goal, with the schedule that gets you there already built.", "why_wrong": "That word suits summits you cannot touch yet. Halving a wait list by August is a target you march at — the schedule already exists."}, {"sentence": "Every violinist in the youth orchestra will tell you they ____ to solo at the national hall one day, though none of them says it lightly.", "options": ["aspire", "wish"], "key": "aspire", "pair": "wish", "why_right": "The tell is <em>none of them says it lightly<\/em> - to aspire is to organize your hopes toward one real goal, carrying a weight no costless wish has.", "why_wrong": "That word is said lightly by definition — it costs nothing. The sentence tells you these players do not say it lightly."}, {"sentence": "Every August the brochure arrives, and the Ruiz brothers ____ to sail the islands someday - a warm thought they enjoy for an evening and shelve until next year's mail.", "options": ["aspire", "wish"], "key": "wish", "pair": "wish", "why_right": "The tell is <em>enjoy for an evening and shelve until next year's mail<\/em> - a wish costs nothing and points nowhere in particular, a passing pleasure with no goal organized behind it.", "why_wrong": "That word organizes your hopes toward one real goal you mean to reach. Nothing here is organized - the thought costs an evening a year and is filed away with the brochure."}, {"sentence": "Twenty floors above the city, Amir would ____ for the smell of his grandmother's courtyard, an ache with no plan attached to it.", "options": ["aspire", "yearn"], "key": "yearn", "pair": "yearn", "why_right": "The tell is <em>an ache with no plan attached to it<\/em> - yearning is longing for what you miss, pure feeling pointed backward, not ambition toward an achievement.", "why_wrong": "That word points hope upward at something you mean to become or achieve. A remembered smell is behind him, not above him."}, {"sentence": "Neither cousin has set foot in a courtroom, yet both ____ to argue cases before a jury someday, naming that job when teachers ask what they want to be.", "options": ["aspire", "yearn"], "key": "aspire", "pair": "yearn", "why_right": "The tell is <em>when teachers ask what they want to be<\/em> - aspire directs ambition at a definite goal, what you mean to become, not an aching feeling.", "why_wrong": "That word is a deep, almost aching longing with no direction built into it - for what you miss or crave. These two have pointed their hopes at a definite future job."}, {"sentence": "Both line cooks ____ to run a kitchen of their own someday, grinning through double shifts because every ruined sauce feels like a step toward that door.", "options": ["aspire", "yearn"], "key": "aspire", "pair": "yearn", "why_right": "The tell is <em>every ruined sauce feels like a step toward that door<\/em> - aspiring points ambition at a definite goal, hope with direction rather than aching feeling.", "why_wrong": "That word is longing with a deep, almost aching feeling and no direction built into it. Cooks grinning at each step toward their own kitchen are pointed, not aching."}], "display_order": [1, 5, 0, 3, 7, 2, 4, 6], "dimension_order": ["aim", "yearn", "wish"], "dimension_feedback": {"aim": "Aim means to point your effort at a chosen goal and act on it - when you aim to finish by May, you build the schedule that gets you there. Aspire lives further upstream, in hope: you direct your ambitions toward something higher that you cannot reach yet. Aiming organizes effort; aspiring organizes hope.", "yearn": "Yearn means to long for something with a deep, almost aching feeling - pure emotion, with no direction or plan built into it. Aspire points that hope at an achievement: your ambitions are aimed at reaching a definite goal. You yearn for what you miss or crave; you aspire to what you mean to become.", "wish": "Wish is weaker — a wish costs nothing and points nowhere in particular; to aspire is to organize your hopes toward one real goal."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Point your sentence at a goal above where the person stands now — something they mean to become, not something they merely miss. Try working in a phrase like <i>one day<\/i>, <i>someday become<\/i>, <i>working toward<\/i> or <i>rise<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

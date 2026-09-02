@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="7324e683938f">
+<meta name="build" content="ba05a2fff09f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>entangled &#8212; SAT Vocabulary, Course 3 Unit 20</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "entangled", "gradeUrl": "/api/grade", "taskId": "entangled", "minWords": 12, "items": {"s1": {"q": "Which sentence uses entangled correctly?", "opts": {"A": "Entangled by the flight delay, the orchestra reached the concert hall too late for its own sound check and had to go on unrehearsed.", "B": "After years of joint ventures, the two studios were at last fully entangled: every shared contract unwound, every co-production dissolved, nothing connecting them at all.", "C": "By their third season, the two beekeepers' operations were so entangled — swapped frames, shared queens, borrowed gear — that neither could say which hives were whose.", "D": "Her bracelet was entangled on the jacket zipper for a moment, but it slipped free the instant she glanced down."}, "key": "C", "fb": {"correct": "Correct! Entangled means twisted together with something so thoroughly that pulling free is hard — and the swapped frames, shared queens, and borrowed gear have knotted the two beekeeping operations together until neither owner can tell where his own begins.", "A": "Not quite! Entangled means twisted together with something so that pulling free is hard, so it's not the correct choice here because a delay merely holds the orchestra up — nothing has wrapped around or knotted with anything; the players are stuck in time, not in a snarl.", "B": "Not quite! Entangled means twisted together, so it's not the correct choice here because this sentence describes the opposite state — every contract unwound and every tie dissolved until nothing connects the studios at all.", "D": "Not quite! Entangled means caught so thoroughly that working free takes real effort, so it's not the correct choice here because a catch that slips loose the instant she glances down is only a snag — the card's ladder starts there, well below entangled."}}, "s3a": {"q": "As used in this passage, 'entangled' most nearly means", "opts": {"A": "twisted together too tightly to pull free easily", "B": "caught in a trap that someone had deliberately set for it", "C": "lightly caught, needing only a single tug to come loose", "D": "dragged into an angry public conflict"}, "key": "A", "fb": {"correct": "Right — every roll added another loop, and freeing the whale took four hours of careful cuts: deeply twisted together, hard to undo.", "B": "The passage removes the trapper: 'No one had set the net there on purpose' — it tore loose in a storm.", "C": "A single tug frees nothing here — the divers needed 'four hours of careful, coordinated cuts.'", "D": "There is no quarrel anywhere in the passage — only a whale, a net, and a rescue."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "ensnared", "B": "entangled", "C": "snagged", "D": "embroiled"}, "key": "B", "fb": {"correct": "Right. Nothing set a trap and nothing was quarreling: two shrubs simply twisted into each other for sixty years, and <em>every cut freed one stem only to tighten three more<\/em> — the slow, knotted difficulty that entangled names.", "A": "Ensnared means caught in a trap that someone or something set on purpose — a snare has an owner. But <em>No gardener had trained them together<\/em>; nothing in this passage was hunting or trapping anything.", "D": "Embroiled means dragged into a conflict — a feud, a scandal, an argument. These plants <em>had simply woven through each other<\/em>; there is no quarrel anywhere here, only a physical knot.", "C": "Snagged is a light, momentary catch — a sleeve freed with one careful tug. Here <em>every cut freed one stem only to tighten three more<\/em>: sixty years of interlocked growth, not a catch that slips loose."}}}, "grid": {"words": ["entangled", "ensnared", "embroiled", "snagged"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "After the storm, the two boats' anchor lines had become so ____ that the marina crew spent a full morning working the knots apart.", "ks": ["entangled"], "fb": {"ensnared": "That word needs a trap with an owner and a purpose; the storm did the twisting here — no one set anything for either boat.", "embroiled": "That word means dragged into a conflict — an argument, a scandal, a feud. These are ropes and knots, with no quarrel anywhere.", "snagged": "That milder word comes free with one careful tug; these lines took <em>a full morning<\/em> of work to separate."}}, {"s": "The two family firms had swapped loans, shares, and warehouse leases for decades, growing so ____ that neither could be sold without unwinding the other.", "ks": ["entangled"], "fb": {"ensnared": "A snare has an owner and a purpose; these firms knotted themselves together through <em>decades<\/em> of ordinary deals — nobody was hunting anybody.", "embroiled": "That word wants a conflict — an argument, scandal, or feud; this knot is made of <em>loans, shares, and warehouse leases<\/em>, with no quarrel in sight.", "snagged": "That word describes a catch freed with one tug; a bond that blocks either sale entirely is wound far tighter than that."}}, {"s": "One careless reply-all email left the entire records department ____ in a feud that outlasted three supervisors and two office moves.", "ks": ["embroiled"], "fb": {"entangled": "That wider, quieter word suits knots of money, promises, or rope with no quarrel in them; this sentence is all quarrel — <em>a feud that outlasted three supervisors<\/em>.", "ensnared": "A snare has an owner and a purpose; a stray reply-all email set no trap for anyone.", "snagged": "That word is a light catch freed with one tug; <em>a feud that outlasted three supervisors<\/em> holds far harder."}}, {"s": "By Friday the small accounting firm found itself ____ in the bribery scandal, subpoenaed alongside clients it had never met.", "ks": ["embroiled"], "fb": {"entangled": "That word's knots can be quiet — money, promises, rope — with no quarrel at all; a <em>bribery scandal<\/em> with subpoenas is open conflict, the other word's specific home.", "ensnared": "A snare needs a hunter and a purpose; the firm was swept in by association, <em>alongside clients it had never met<\/em> — no one set a trap for it.", "snagged": "One careful tug frees no one from a subpoena; that milder word is for catches that let go easily."}}, {"s": "Investigators later showed how the fake charity's glossy brochures had left dozens of retirees ____ in a scheme built precisely to catch them.", "ks": ["ensnared"], "fb": {"entangled": "That word points at twisting with nobody hunting anybody; this scheme was <em>built precisely to catch them<\/em> — a trap with an owner.", "embroiled": "That word means dragged into a conflict — an argument, scandal, or feud; the retirees quarreled with no one, they were simply caught.", "snagged": "A catch that lets go with one careful tug is nothing like a scheme <em>built precisely to catch<\/em> its victims."}}, {"s": "Her scarf was briefly ____ on the door latch, coming free with one careful pull as she hurried out.", "ks": ["snagged"], "fb": {"entangled": "That word means wrapped and knotted until pulling free is real work; this came loose with <em>one careful pull<\/em>.", "ensnared": "A snare has an owner and a purpose; a door latch hunts nobody.", "embroiled": "That word means dragged into a quarrel; a scarf on a latch involves no conflict at all."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show two things so twisted together that pulling free is slow, hard work — and no one has to have set a trap. Try working in a word like <i>loops<\/i>, <i>wrapped<\/i>, <i>unwind<\/i> or <i>hours<\/i>."}};
+  var CFG = {"word": "entangled", "gradeUrl": "/api/grade", "taskId": "entangled", "minWords": 12, "items": {"s1": {"q": "Which sentence uses entangled correctly?", "opts": {"A": "Entangled by the flight delay, the orchestra reached the concert hall too late for its own sound check and had to go on unrehearsed.", "B": "After years of joint ventures, the two studios were at last fully entangled: every shared contract unwound, every co-production dissolved, nothing connecting them at all.", "C": "By their third season, the two beekeepers' operations were so entangled — swapped frames, shared queens, borrowed gear — that neither could say which hives were whose.", "D": "Her bracelet was entangled on the jacket zipper for a moment, but it slipped free the instant she glanced down."}, "key": "C", "fb": {"correct": "Correct! Entangled means twisted together with something so thoroughly that pulling free is hard — and the swapped frames, shared queens, and borrowed gear have knotted the two beekeeping operations together until neither owner can tell where his own begins.", "A": "Not quite! Entangled means twisted together with something so that pulling free is hard, so it's not the correct choice here because a delay merely holds the orchestra up — nothing has wrapped around or knotted with anything; the players are stuck in time, not in a snarl.", "B": "Not quite! Entangled means twisted together, so it's not the correct choice here because this sentence describes the opposite state — every contract unwound and every tie dissolved until nothing connects the studios at all.", "D": "Not quite! Entangled means caught so thoroughly that working free takes real effort, so it's not the correct choice here because a catch that slips loose the instant she glances down is only a snag — the card's ladder starts there, well below entangled."}}, "s3a": {"q": "As used in this passage, 'entangled' most nearly means", "opts": {"A": "twisted together too tightly to pull free easily", "B": "caught in a trap that someone had deliberately set for it", "C": "lightly caught, needing only a single tug to come loose", "D": "dragged into an angry public conflict"}, "key": "A", "fb": {"correct": "Right — every roll added another loop, and freeing the whale took four hours of careful cuts: deeply twisted together, hard to undo.", "B": "The passage removes the trapper: 'No one had set the net there on purpose' — it tore loose in a storm.", "C": "A single tug frees nothing here — the divers needed 'four hours of careful, coordinated cuts.'", "D": "There is no quarrel anywhere in the passage — only a whale, a net, and a rescue."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "ensnared", "B": "entangled", "C": "snagged", "D": "embroiled"}, "key": "B", "fb": {"correct": "Right. Nothing set a trap and nothing was quarreling: two shrubs simply twisted into each other for sixty years, and <em>every cut freed one stem only to tighten three more<\/em> — the slow, knotted difficulty that entangled names.", "A": "Ensnared means caught in a trap that someone or something set on purpose — a snare has an owner. But <em>No gardener had trained them together<\/em>; nothing in this passage was hunting or trapping anything.", "D": "Embroiled means dragged into a conflict — a feud, a scandal, an argument. These plants <em>had simply woven through each other<\/em>; there is no quarrel anywhere here, only a physical knot.", "C": "Snagged is a light, momentary catch — a sleeve freed with one careful tug. Here <em>every cut freed one stem only to tighten three more<\/em>: sixty years of interlocked growth, not a catch that slips loose."}}}, "pairwise": {"rows": [{"sentence": "The yew's roots and the cemetery railings had grown so ____ over a century that the contractor gave up and moved the whole fence.", "options": ["entangled", "ensnared"], "key": "entangled", "pair": "ensnared", "why_right": "The tell is <em>had grown so<\/em> - roots and railings twisted together on their own over a century, with nobody hunting anything; the other word needs a trap that someone set on purpose.", "why_wrong": "That word means caught in a trap with an owner and a purpose. Nobody set anything here — a tree grew through a fence for a century until the two were knotted past separating."}, {"sentence": "Two neighboring digs had shared trenches, notebooks, and graduate students for a decade, and the teams found themselves ____ past any tidy separation when the universities asked them to split.", "options": ["entangled", "ensnared"], "key": "entangled", "pair": "ensnared", "why_right": "The tell is <em>shared trenches, notebooks, and graduate students<\/em> - the teams knotted themselves together through ordinary cooperation; no one set a snare, so the trap word has no owner or purpose here.", "why_wrong": "That word needs a snare with an owner and a purpose — someone hunting someone. These teams tied themselves together by sharing everything for a decade, and nobody was caught by anyone."}, {"sentence": "The badger the warden had been after was finally ____ before dawn, a baited cage door dropping shut behind it with one clean click.", "options": ["entangled", "ensnared"], "key": "ensnared", "pair": "ensnared", "why_right": "The tell is <em>a baited cage door dropping shut<\/em> - the warden set this trap on purpose, and nothing is twisted or knotted; the other word needs a tangle that pulling only tightens.", "why_wrong": "That word means caught in a tangle, twisted together until pulling only tightens it. A cage door dropping shut with one click twists nothing; this is a trap with an owner and a purpose."}, {"sentence": "The parish calendar and the choir's dates had become so ____ that moving one rehearsal meant re-dating a dozen events, a shuffle everyone agreed to over tea.", "options": ["entangled", "embroiled"], "key": "entangled", "pair": "embroiled", "why_right": "The tell is <em>everyone agreed to over tea<\/em> - no conflict anywhere in this knot of dates, only the difficulty of pulling one event free; the other word needs an argument, scandal, or feud.", "why_wrong": "That word means dragged into a conflict — an argument, a scandal, a feud. Two calendars knotted so that one change forces a dozen more, all agreed over tea, hold no quarrel."}, {"sentence": "The bookshop found itself ____ in the two poets' shouting match over a stolen line, until one flat word from the owner put the fight back out on the pavement.", "options": ["entangled", "embroiled"], "key": "embroiled", "pair": "embroiled", "why_right": "The tell is <em>one flat word from the owner<\/em> - the shop was dragged into a conflict and stepped out in a sentence; the other word insists pulling free is hard work.", "why_wrong": "That word stresses how hard the pulling-free will be, a knot that tightens when you tug. The shop left this shouting match with one flat word: dragged into a conflict, and no more."}, {"sentence": "The kite's tail had gotten ____ in the plane tree so thoroughly that the boys quit after a whole hour of pulling and left it flapping until the leaves fell.", "options": ["entangled", "snagged"], "key": "entangled", "pair": "snagged", "why_right": "The tell is <em>a whole hour of pulling<\/em> - the tail has wrapped and knotted so that pulling only tightens it; the milder word lets go after one careful tug.", "why_wrong": "That milder word describes a catch that comes free with one careful tug. This tail survived an hour of pulling and stayed up until the leaves fell — wrapped and knotted, not lightly caught."}, {"sentence": "Her scarf was briefly ____ on the door latch, coming free with one careful pull as she hurried out.", "options": ["entangled", "snagged"], "key": "snagged", "pair": "snagged", "why_right": "The tell is <em>coming free with one careful pull<\/em> - a light catch let go at the first gentle pull; the other word means wrapped and knotted until pulling only tightens the mess.", "why_wrong": "That word means wrapped and knotted until pulling free is real work; this came loose with <em>one careful pull<\/em>."}, {"sentence": "The drone's landing skid was ____ in the hedge for a moment; one nudge on the controls lifted it clear without so much as a bent twig.", "options": ["entangled", "snagged"], "key": "snagged", "pair": "snagged", "why_right": "The tell is <em>one nudge on the controls<\/em> - the skid came free at the first gentle pull with nothing wrapped or knotted; the other word means a tangle that pulling only tightens.", "why_wrong": "That word means wrapped and knotted so that every pull tightens the mess. This skid lifted clear with one nudge and not a bent twig — the mildest catch there is."}], "display_order": [0, 7, 4, 5, 2, 6, 3, 1], "dimension_order": ["ensnared", "embroiled", "snagged"], "dimension_feedback": {"ensnared": "Ensnared means caught in a trap that someone or something set — a snare has an owner and a purpose. Entangled needs no trapper: two garden hoses, two families, or two companies can knot themselves together with nobody hunting anybody, and the word points at the twisting, not the intent.", "embroiled": "Embroiled means dragged into a conflict — an argument, a scandal, a feud. Entangled is wider and quieter: the knot can be made of money, promises, or plain rope, with no quarrel anywhere in it, and it stresses how hard the pulling-free will be.", "snagged": "Snagged is milder than entangled: a snagged sleeve comes free with one careful tug, while an entangled line has wrapped and knotted until pulling only tightens it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show two things so twisted together that pulling free is slow, hard work — and no one has to have set a trap. Try working in a word like <i>loops<\/i>, <i>wrapped<\/i>, <i>unwind<\/i> or <i>hours<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

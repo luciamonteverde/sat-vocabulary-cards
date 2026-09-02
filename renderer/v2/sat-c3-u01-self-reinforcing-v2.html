@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="921bdc819560">
+<meta name="build" content="7f100b31be14">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>self-reinforcing &#8212; SAT Vocabulary, Course 3 Unit 1</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "self-reinforcing", "gradeUrl": "/api/grade", "taskId": "self-reinforcing", "minWords": 12, "items": {"s1": {"q": "Which sentence uses self-reinforcing correctly?", "opts": {"A": "The old bridge's self-reinforcing cables were doubled by county engineers within a week after the storm.", "B": "Their beloved self-reinforcing tradition needs a reminder email every single year or it quietly lapses.", "C": "The song's rise is self-reinforcing: every play lifts it up the chart, and a higher slot draws more plays.", "D": "The radio signal grows steadily more self-reinforcing as it fades with distance from the tower."}, "key": "C", "fb": {"correct": "Correct. Every play lifts the song higher, and the higher slot brings more plays — each round strengthens the next. That growing loop is what self-reinforcing names.", "A": "Cables 'doubled by county engineers' were strengthened once, by an outside crew. Self-reinforcing describes a loop that feeds itself — each round of the process making the next round stronger, without anyone stepping in from outside.", "B": "A tradition that 'needs a reminder email every single year' is propped up from outside; left alone, it quietly lapses. In a self-reinforcing cycle, each repetition itself makes the following one likelier — no prompting required.", "D": "A signal that weakens 'as it fades with distance' loses strength with every mile — the opposite of a loop that builds on itself. Self-reinforcing motion compounds upward; steady decline is the word's reverse."}}, "s3a": {"q": "In the passage, calling the degradation \"self-reinforcing\" means that:", "opts": {"A": "each round of loss makes the following round more likely", "B": "the hillside erodes at one constant rate no matter what grows there", "C": "outside forces, like grazing, do all of the damage", "D": "the loss repeats every year without changing in size"}, "key": "A", "fb": {"correct": "Yes -- lost grass means lost soil and water, which means less grass: every round of loss eases the next.", "B": "The passage describes acceleration through a loop, not a constant rate -- the loop 'runs the other way' and gathers force.", "C": "No outside force is named; the damage feeds on itself -- rain strips soil only because the roots are already gone.", "D": "'Every round of loss makes the next round of loss easier' -- the losses build; they don't just repeat."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "self-reinforcing", "B": "snowballing", "C": "compounding", "D": "recurring"}, "key": "A", "fb": {"correct": "Right. <em>their absence — more than any real danger — is what turns the next walker back at the gate<\/em>: each round of emptiness creates the conditions for the next, and self-reinforcing is the precise, analytical word for that loop.", "B": "Snowballing is the informal, headline picture — a mass rolling visibly bigger by the hour. This loop is neither fast nor conspicuous: <em>far too slow and quiet for headlines<\/em>, tightening across a decade. Right mechanism, wrong register and pace.", "C": "Compounding belongs to quantities and rates — gains stacked on gains, interest earning interest. <em>Nothing is being counted or banked here<\/em>; what deepens is a condition of the place, not a sum.", "D": "Recurring claims only that a thing comes back, no stronger than before. This emptiness gathers force: <em>Each quiet season leaves the place quieter than the last one left it<\/em> — momentum that a merely recurring pattern lacks."}}}, "grid": {"words": ["self-reinforcing", "snowballing", "compounding", "recurring"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Sociologists describe the club's prestige as ____: admission is prized because it is scarce, and the prizing is exactly what lets the club stay scarce.", "ks": ["self-reinforcing"], "fb": {"snowballing": "That is the informal, headline picture -- a mass rolling bigger with every turn. This sentence is an analyst's account of a mechanism, with nothing pictured as growing out of control.", "compounding": "That is the accountant's word -- gains added on top of previous gains, among numbers and rates. No one is counting prestige.", "recurring": "That word says only that something comes back. Here every round comes back stronger, and the sentence explains why."}}, {"s": "The report calls the labs' trust ____ -- every shared dataset makes the next one easier to share, feeding the very loop that produced it.", "ks": ["self-reinforcing"], "fb": {"snowballing": "That word belongs in headlines and conversation, picturing a mass that grows with every turn. A report naming a feedback mechanism reaches for the precise term.", "compounding": "That word lives among quantities and rates -- interest, gains, sums. Nothing here is counted; the loop runs on trust.", "recurring": "That word would say only that sharing keeps happening. The sentence claims more: each round makes the next more likely."}}, {"s": "The paper's error was ____: a rounding slip in step two entered every later step's arithmetic, growing a little larger with each pass.", "ks": ["compounding"], "fb": {"self-reinforcing": "That word claims each round strengthens the conditions for the next. This slip causes no new slips -- it just rides the arithmetic, adding on itself as it goes.", "snowballing": "That is the conversational picture of runaway growth. A rounding slip creeping through the steps of one calculation is the accountant's kind of growth -- counted, small, additive.", "recurring": "That word means coming back again and again. The slip never leaves -- it accumulates through every later step."}}, {"s": "The auditor's memo warned that the debt was ____: the unpaid charges had begun drawing charges of their own, line after line of the statement.", "ks": ["compounding"], "fb": {"self-reinforcing": "That is the analyst's broader, causal word -- rounds strengthening conditions, counted or not. An auditor describing charges drawn on charges is doing arithmetic, and the arithmetic word fits.", "snowballing": "That word belongs to headlines and conversation. In an auditor's memo, the bookkeeping term is the one at home.", "recurring": "That would mean the charges simply keep appearing. These charges are computed on the previous ones -- they grow because of them."}}, {"s": "'It's ____ now,' the booking producer laughed -- every morning show that called seemed to make three more call, the whole thing rolling bigger by the hour.", "ks": ["snowballing"], "fb": {"self-reinforcing": "That is the analyst's term, precise about output feeding back in as input -- at home in a report, not in a laughing quote from the phone room.", "compounding": "That is the accountant's picture -- gains on gains among numbers and rates. Nobody here is keeping a ledger of calls.", "recurring": "That word claims only that the calls keep coming. The producer's point is that every wave is bigger than the last."}}, {"s": "The leak in the vestry roof is ____ -- patched each autumn, back each spring, no worse and no better in forty years.", "ks": ["recurring"], "fb": {"self-reinforcing": "That word requires each round to strengthen the next. This leak has held steady for forty years -- 'no worse and no better.'", "snowballing": "That word pictures growth with every turn. The leak never grows; it just comes back.", "compounding": "That word means additions stacking on earlier additions. Nothing stacks here -- same leak, same size, every spring."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a loop that gains strength: the result of one round must make the next round bigger or easier, not just happen again. Try working in phrases like <i>each time<\/i>, <i>made it easier<\/i>, <i>fed<\/i> or <i>grew<\/i>."}};
+  var CFG = {"word": "self-reinforcing", "gradeUrl": "/api/grade", "taskId": "self-reinforcing", "minWords": 12, "items": {"s1": {"q": "Which sentence uses self-reinforcing correctly?", "opts": {"A": "The old bridge's self-reinforcing cables were doubled by county engineers within a week after the storm.", "B": "Their beloved self-reinforcing tradition needs a reminder email every single year or it quietly lapses.", "C": "The song's rise is self-reinforcing: every play lifts it up the chart, and a higher slot draws more plays.", "D": "The radio signal grows steadily more self-reinforcing as it fades with distance from the tower."}, "key": "C", "fb": {"correct": "Correct. Every play lifts the song higher, and the higher slot brings more plays — each round strengthens the next. That growing loop is what self-reinforcing names.", "A": "Cables 'doubled by county engineers' were strengthened once, by an outside crew. Self-reinforcing describes a loop that feeds itself — each round of the process making the next round stronger, without anyone stepping in from outside.", "B": "A tradition that 'needs a reminder email every single year' is propped up from outside; left alone, it quietly lapses. In a self-reinforcing cycle, each repetition itself makes the following one likelier — no prompting required.", "D": "A signal that weakens 'as it fades with distance' loses strength with every mile — the opposite of a loop that builds on itself. Self-reinforcing motion compounds upward; steady decline is the word's reverse."}}, "s3a": {"q": "In the passage, calling the degradation \"self-reinforcing\" means that:", "opts": {"A": "each round of loss makes the following round more likely", "B": "the hillside erodes at one constant rate no matter what grows there", "C": "outside forces, like grazing, do all of the damage", "D": "the loss repeats every year without changing in size"}, "key": "A", "fb": {"correct": "Yes -- lost grass means lost soil and water, which means less grass: every round of loss eases the next.", "B": "The passage describes acceleration through a loop, not a constant rate -- the loop 'runs the other way' and gathers force.", "C": "No outside force is named; the damage feeds on itself -- rain strips soil only because the roots are already gone.", "D": "'Every round of loss makes the next round of loss easier' -- the losses build; they don't just repeat."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "self-reinforcing", "B": "snowballing", "C": "compounding", "D": "recurring"}, "key": "A", "fb": {"correct": "Right. <em>their absence — more than any real danger — is what turns the next walker back at the gate<\/em>: each round of emptiness creates the conditions for the next, and self-reinforcing is the precise, analytical word for that loop.", "B": "Snowballing is the informal, headline picture — a mass rolling visibly bigger by the hour. This loop is neither fast nor conspicuous: <em>far too slow and quiet for headlines<\/em>, tightening across a decade. Right mechanism, wrong register and pace.", "C": "Compounding belongs to quantities and rates — gains stacked on gains, interest earning interest. <em>Nothing is being counted or banked here<\/em>; what deepens is a condition of the place, not a sum.", "D": "Recurring claims only that a thing comes back, no stronger than before. This emptiness gathers force: <em>Each quiet season leaves the place quieter than the last one left it<\/em> — momentum that a merely recurring pattern lacks."}}}, "pairwise": {"rows": [{"sentence": "'It's ____ now,' the booking producer laughed -- every morning show that called seemed to make three more call, the whole thing rolling bigger by the hour.", "options": ["self-reinforcing", "snowballing"], "key": "snowballing", "pair": "snowballing", "why_right": "The tell is <em>rolling bigger by the hour<\/em> - a laughing quote picturing a mass growing with every turn, the word's home register, not an analyst naming a feedback mechanism.", "why_wrong": "That is the analyst's term, precise about output feeding back in as input -- at home in a report, not in a laughing quote from the phone room."}, {"sentence": "Sociologists describe the club's prestige as ____: admission is prized because it is scarce, and the prizing is exactly what lets the club stay scarce.", "options": ["self-reinforcing", "snowballing"], "key": "self-reinforcing", "pair": "snowballing", "why_right": "The tell is <em>the prizing is exactly what lets the club stay scarce<\/em> - an analyst's account of output feeding back in as input, where nothing is growing or rolling anywhere.", "why_wrong": "That is the informal, headline picture -- a mass rolling bigger with every turn. This sentence is an analyst's account of a mechanism, with nothing pictured as growing out of control."}, {"sentence": "The ecologist's chapter argues the reef's recovery was quietly ____ by year five, each new coral head calming the water enough for the next to anchor.", "options": ["self-reinforcing", "snowballing"], "key": "self-reinforcing", "pair": "snowballing", "why_right": "The tell is <em>calming the water enough for the next to anchor<\/em> - each round strengthens the conditions for the next, creeping quietly through an analyst's chapter, no rolling mass in sight.", "why_wrong": "That word is the headline picture -- a rolling mass growing bigger with every turn, the avalanche already in view. A recovery creeping quietly through an ecologist's chapter belongs to the analyst's term."}, {"sentence": "The paper's error was ____: a rounding slip in step two entered every later step's arithmetic, growing a little larger with each pass.", "options": ["self-reinforcing", "compounding"], "key": "compounding", "pair": "compounding", "why_right": "The tell is <em>growing a little larger with each pass<\/em> - counted amounts stacking on what the last pass left, while the slip makes no future slip any more likely.", "why_wrong": "That word claims each round strengthens the conditions for the next. This slip causes no new slips -- it just rides the arithmetic, adding on itself as it goes."}, {"sentence": "Procurement traced the part's final price to ____ markups: each broker's percentage was figured on a total that already carried every percentage before it.", "options": ["self-reinforcing", "compounding"], "key": "compounding", "pair": "compounding", "why_right": "The tell is <em>figured on a total that already carried every percentage<\/em> - gains added on top of previous gains in a ledger, while nothing loops back to strengthen any next round.", "why_wrong": "That word claims each round strengthens the conditions for the next. This price passes down the chain exactly once -- no round ever returns; the margins simply stack, arithmetic on arithmetic."}, {"sentence": "The report calls the labs' trust ____ -- every shared dataset makes the next one easier to share, feeding the very loop that produced it.", "options": ["self-reinforcing", "compounding"], "key": "self-reinforcing", "pair": "compounding", "why_right": "The tell is <em>feeding the very loop that produced it<\/em> - output returning as input, the analyst's causal claim, in a scene where nothing is counted and no ledger exists.", "why_wrong": "That word lives among quantities and rates -- interest, gains, sums. Nothing here is counted; the loop runs on trust."}, {"sentence": "The leak in the vestry roof is ____ -- patched each autumn, back each spring, no worse and no better in forty years.", "options": ["self-reinforcing", "recurring"], "key": "recurring", "pair": "recurring", "why_right": "The tell is <em>no worse and no better<\/em> - the leak merely comes back, gathering nothing from round to round, which is the whole of the weaker word's claim.", "why_wrong": "That word requires each round to strengthen the next. This leak has held steady for forty years -- 'no worse and no better.'"}, {"sentence": "The ward expected the infections each winter; the memo called the outbreaks ____, each drug course leaving behind the strains that made the next wave deadlier.", "options": ["self-reinforcing", "recurring"], "key": "self-reinforcing", "pair": "recurring", "why_right": "The tell is <em>leaving behind the strains that made the next wave deadlier<\/em> - each round strengthens the next, coming back bigger because of the last one, not merely coming back.", "why_wrong": "That word records only the weaker fact -- the infections merely come back, which the ward expected. The sentence claims more: each drug course breeds the strains that make the next wave worse."}], "display_order": [3, 2, 7, 4, 1, 6, 0, 5], "dimension_order": ["snowballing", "compounding", "recurring"], "dimension_feedback": {"snowballing": "Snowballing is the informal picture of a self-reinforcing process: a rolling mass growing bigger with every turn, the avalanche already in view. It belongs in headlines and conversation; self-reinforcing is the analyst's term, precise about the mechanism — output feeding back in as input.", "compounding": "Compounding is the accountant's version of self-reinforcing growth: adding gains on top of previous gains, the way interest earns interest. It lives among quantities and rates. Self-reinforcing is broader and causal — each round strengthens the conditions for the next, whether anything is being counted or not.", "recurring": "Recurring is the weaker fact — a recurring bill merely comes back; a self-reinforcing one comes back bigger because of the last round."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a loop that gains strength: the result of one round must make the next round bigger or easier, not just happen again. Try working in phrases like <i>each time<\/i>, <i>made it easier<\/i>, <i>fed<\/i> or <i>grew<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

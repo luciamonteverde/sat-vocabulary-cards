@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="b1239c070a01">
+<meta name="build" content="ef8bc17a392f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cacophony &#8212; SAT Vocabulary, Course 1 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "cacophony", "gradeUrl": "/api/grade", "taskId": "cacophony", "minWords": 12, "items": {"s1": {"q": "Marisol's new apartment sits directly above the interstate. Day and night a single, unbroken roar of engines pours through the windows -- one continuous sound at one steady pitch, from one source, never pausing and never varying. Which word best describes that sound?", "opts": {"A": "a cacophony", "B": "a racket", "C": "a clamor", "D": "a commotion"}, "key": "B", "fb": {"correct": "Yes. A racket is loud, disturbing noise measured in sheer volume and annoyance -- and an engine roar pouring through the windows day and night is exactly that.", "A": "A cacophony is a harsh mixture of many discordant sounds fighting one another -- clashing is its defining feature. This roar is certainly loud, but it is one uniform sound at one steady pitch, with nothing inside it to clash. Relentless volume from a single source is a racket, not a cacophony.", "C": "Clamor is the loud outcry of many people -- a crowd of voices shouting at once, often demanding something. The sound here comes from engines, not from voices, so clamor cannot name it.", "D": "A commotion is a noisy disturbance -- a burst of confused activity that breaks out and then passes. Nothing is breaking out here: the roar is the permanent background of the apartment, day and night, not an event."}}, "s3a": {"q": "As it is used in the passage, \"cacophony\" most nearly means", "opts": {"A": "music performed at a painfully loud, overwhelming volume", "B": "a harsh mixture of sounds clashing with one another", "C": "the roar of a large and excited crowd", "D": "a long stretch of dull, unwanted noise droning in the background"}, "key": "B", "fb": {"correct": "Right -- the passage insists the problem was clash, not loudness: the sounds fought one another wherever they met.", "A": "The passage says twice that volume was not the issue -- \"none of them played very loudly.\"", "C": "The sound comes from three bands, not from a crowd, and the trouble is how the music collides.", "D": "The trouble is not that noise lingered in the background -- it is that the sounds actively fought each other."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cacophony", "B": "din", "C": "racket", "D": "clamor"}, "key": "A", "fb": {"correct": "Right. Nothing in the hall is loud and nobody is shouting; the trouble is clash — a bird in one key, a box in another, <em>a waltz that fits nothing around it<\/em>.", "B": "A din is defined by sheer relentless volume — an unbroken roar that wears you down, like highway traffic. This hall has no such volume: <em>None of it is loud<\/em>.", "C": "A racket is measured in volume and annoyance — noise loud enough to disturb, like neighbors banging around at midnight. Here <em>no exhibit rises above a murmur<\/em>.", "D": "A clamor is the loud outcry of many people — voices raised together, often demanding something. But <em>there is not a human voice in the room<\/em>; every sound comes from a machine."}}}, "grid": {"words": ["cacophony", "din", "clamor", "racket"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "During warm-ups the orchestra pit filled with a jarring ____ of clashing scales and mismatched tunings, each instrument at odds with the next, though none of them played especially loudly.", "ks": ["cacophony"], "fb": {"din": "The sentence says <em>none of them played especially loudly<\/em> -- and this word is about sheer relentless volume above all.", "racket": "Nothing here is loud: <em>none of them played especially loudly<\/em>. What grates is the clash between the sounds, not their force.", "clamor": "These are <em>instruments<\/em> tuning up, not a crowd of human voices crying out for something."}}, {"s": "Three stations bleeding into one another turned the old radio's soft output into a strange ____ of overlapping jingles and colliding melodies.", "ks": ["cacophony"], "fb": {"din": "The radio's output is <em>soft<\/em> -- this word needs loud, unrelenting volume, and there is none.", "racket": "A quiet radio cannot make one of these: the sentence says the output stayed <em>soft<\/em>, and this word is measured in loudness.", "clamor": "The sounds are <em>overlapping jingles and colliding melodies<\/em> -- broadcast fragments, not a crowd of voices raising a demand."}}, {"s": "The ____ of the expressway pours through the apartment windows day and night, a single unbroken roar the tenants stopped noticing years ago.", "ks": ["din"], "fb": {"cacophony": "The noise is <em>a single unbroken roar<\/em> -- one steady sound. Nothing clashes with anything else, and clash is what that word requires.", "clamor": "An expressway has no voices: no crowd is crying out for anything, so the word for a mass outcry cannot fit.", "racket": "The tenants <em>stopped noticing years ago<\/em> -- a noise that disturbs no one fails the disturbance test this word carries."}}, {"s": "By the third hour of the shift, the stamping plant's ____ -- the same hammering rhythm over and over -- left workers shouting to be heard an arm's length apart.", "ks": ["din", "racket"], "fb": {"cacophony": "The plant produces <em>the same hammering rhythm over and over<\/em> -- repetition, not a clash of many discordant sounds fighting each other.", "clamor": "The noise comes from stamping machines. No crowd of voices is calling out for anything, which is what this word names."}}, {"s": "When the ferry finally docked six hours late, a ____ rose from the terminal as stranded passengers shouted together for refunds.", "ks": ["clamor"], "fb": {"cacophony": "The passengers <em>shouted together<\/em> -- one unified outcry, not a harsh tangle of sounds clashing against one another.", "din": "This noise <em>rose<\/em> at a specific moment, when the ferry docked -- a burst with a cause, not an endless, unrelenting roar.", "racket": "The sentence turns on what the voices want -- <em>refunds<\/em>. A word for mere disturbing noise loses the demand entirely."}}, {"s": "For a few noisy minutes the raccoons made such a ____ among the trash cans that porch lights snapped on all down the alley.", "ks": ["racket"], "fb": {"cacophony": "Cans crashing is plain loud noise -- the sentence gives no mix of <em>clashing, discordant<\/em> sounds fighting one another.", "din": "It lasted <em>a few noisy minutes<\/em> -- this word wants a noise that grinds on and on without relief.", "clamor": "The culprits are <em>raccoons<\/em>. No crowd of human voices is crying out or demanding anything here."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show sounds fighting each other, not just one loud noise -- a reader should see several sources grating at once. Try working in a word like <i>clashing<\/i>, <i>at once<\/i>, <i>jarring<\/i> or <i>mixture<\/i>."}};
+  var CFG = {"word": "cacophony", "gradeUrl": "/api/grade", "taskId": "cacophony", "minWords": 12, "items": {"s1": {"q": "Marisol's new apartment sits directly above the interstate. Day and night a single, unbroken roar of engines pours through the windows -- one continuous sound at one steady pitch, from one source, never pausing and never varying. Which word best describes that sound?", "opts": {"A": "a cacophony", "B": "a racket", "C": "a clamor", "D": "a commotion"}, "key": "B", "fb": {"correct": "Yes. A racket is loud, disturbing noise measured in sheer volume and annoyance -- and an engine roar pouring through the windows day and night is exactly that.", "A": "A cacophony is a harsh mixture of many discordant sounds fighting one another -- clashing is its defining feature. This roar is certainly loud, but it is one uniform sound at one steady pitch, with nothing inside it to clash. Relentless volume from a single source is a racket, not a cacophony.", "C": "Clamor is the loud outcry of many people -- a crowd of voices shouting at once, often demanding something. The sound here comes from engines, not from voices, so clamor cannot name it.", "D": "A commotion is a noisy disturbance -- a burst of confused activity that breaks out and then passes. Nothing is breaking out here: the roar is the permanent background of the apartment, day and night, not an event."}}, "s3a": {"q": "As it is used in the passage, \"cacophony\" most nearly means", "opts": {"A": "music performed at a painfully loud, overwhelming volume", "B": "a harsh mixture of sounds clashing with one another", "C": "the roar of a large and excited crowd", "D": "a long stretch of dull, unwanted noise droning in the background"}, "key": "B", "fb": {"correct": "Right -- the passage insists the problem was clash, not loudness: the sounds fought one another wherever they met.", "A": "The passage says twice that volume was not the issue -- \"none of them played very loudly.\"", "C": "The sound comes from three bands, not from a crowd, and the trouble is how the music collides.", "D": "The trouble is not that noise lingered in the background -- it is that the sounds actively fought each other."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cacophony", "B": "din", "C": "racket", "D": "clamor"}, "key": "A", "fb": {"correct": "Right. Nothing in the hall is loud and nobody is shouting; the trouble is clash — a bird in one key, a box in another, <em>a waltz that fits nothing around it<\/em>.", "B": "A din is defined by sheer relentless volume — an unbroken roar that wears you down, like highway traffic. This hall has no such volume: <em>None of it is loud<\/em>.", "C": "A racket is measured in volume and annoyance — noise loud enough to disturb, like neighbors banging around at midnight. Here <em>no exhibit rises above a murmur<\/em>.", "D": "A clamor is the loud outcry of many people — voices raised together, often demanding something. But <em>there is not a human voice in the room<\/em>; every sound comes from a machine."}}}, "pairwise": {"rows": [{"sentence": "During warm-ups the orchestra pit filled with a jarring ____ of clashing scales and mismatched tunings, each instrument at odds with the next, though none of them played especially loudly.", "options": ["cacophony", "din"], "key": "cacophony", "pair": "din", "why_right": "The tell is <em>none of them played especially loudly<\/em> - a cacophony is defined by clash, many sounds fighting one another, and it needs no volume at all.", "why_wrong": "The sentence says <em>none of them played especially loudly<\/em> -- and this word is about sheer relentless volume above all."}, {"sentence": "Three stations bleeding into one another turned the old radio's soft output into a strange ____ of overlapping jingles and colliding melodies.", "options": ["cacophony", "clamor"], "key": "cacophony", "pair": "clamor", "why_right": "The tell is <em>colliding melodies<\/em> - a cacophony is any harsh, grating mix of clashing, discordant sounds, and it needs no voices, no crowd, and no demand.", "why_wrong": "The sounds are <em>overlapping jingles and colliding melodies<\/em> -- broadcast fragments, not a crowd of voices raising a demand."}, {"sentence": "The ____ of the expressway pours through the apartment windows day and night, a single unbroken roar the tenants stopped noticing years ago.", "options": ["cacophony", "din"], "key": "din", "pair": "din", "why_right": "The tell is <em>a single unbroken roar<\/em> - a din is sheer relentless volume that goes on and on, one steady sound with nothing needing to clash.", "why_wrong": "The noise is <em>a single unbroken roar<\/em> -- one steady sound. Nothing clashes with anything else, and clash is what that word requires."}, {"sentence": "By the third hour of the shift, the stamping plant's ____ -- the same hammering rhythm over and over -- left workers shouting to be heard an arm's length apart.", "options": ["cacophony", "din"], "key": "din", "pair": "din", "why_right": "The tell is <em>shouting to be heard<\/em> - a din is sheer relentless volume sustained for hours, and loudness is this scene's whole point.", "why_wrong": "The plant produces <em>the same hammering rhythm over and over<\/em> -- repetition, not a clash of many discordant sounds fighting each other."}, {"sentence": "When the ferry finally docked six hours late, a ____ rose from the terminal as stranded passengers shouted together for refunds.", "options": ["cacophony", "clamor"], "key": "clamor", "pair": "clamor", "why_right": "The tell is <em>shouted together for refunds<\/em> - a clamor is the loud outcry of many people demanding something, and this crowd raises exactly that unified demand.", "why_wrong": "The passengers <em>shouted together<\/em> -- one unified outcry, not a harsh tangle of sounds clashing against one another."}, {"sentence": "For a few noisy minutes the raccoons made such a ____ among the trash cans that porch lights snapped on all down the alley.", "options": ["cacophony", "racket"], "key": "racket", "pair": "racket", "why_right": "The tell is <em>porch lights snapped on<\/em> - a racket is a loud, disturbing noise measured in volume and annoyance, and waking the whole alley is that disturbance.", "why_wrong": "Cans crashing is plain loud noise -- the sentence gives no mix of <em>clashing, discordant<\/em> sounds fighting one another."}, {"sentence": "At the fairground gate the carousel's waltz, the ring-toss buzzers, and a generator's uneven whine tangled into a grating ____, though not a single human voice was raised.", "options": ["cacophony", "clamor"], "key": "cacophony", "pair": "clamor", "why_right": "The tell is <em>not a single human voice was raised<\/em> - a cacophony is any harsh, grating mix of clashing sounds, human or not, so voiceless machines qualify.", "why_wrong": "That word means the loud outcry of many people, a crowd of voices shouting at once - and the sentence says not a single human voice was raised."}, {"sentence": "Half a dozen music boxes wound at different speeds filled the antique shop with a faint ____, each thin melody scraping against its neighbors at barely a whisper.", "options": ["cacophony", "racket"], "key": "cacophony", "pair": "racket", "why_right": "The tell is <em>barely a whisper<\/em> - a cacophony is measured in discord, not volume, so even a quiet tangle of clashing melodies earns the name.", "why_wrong": "That word names a loud, disturbing noise measured in volume and annoyance - but these melodies play at barely a whisper, so loudness is exactly what the scene lacks."}], "display_order": [2, 4, 3, 5, 1, 0, 7, 6], "dimension_order": ["din", "clamor", "racket"], "dimension_feedback": {"din": "A din is a loud, unpleasant noise that goes on and on, like the din of highway traffic. Its defining feature is sheer relentless volume. A cacophony is defined instead by clash: many sounds fighting one another, harsh and discordant even when none of them is very loud.", "clamor": "Clamor is the loud outcry of many people, a crowd of voices shouting at once, often demanding something. A cacophony need not involve voices or demands at all: it is any harsh, grating mix of clashing, discordant sounds, human or not.", "racket": "A racket is a loud, disturbing noise, like the neighbors' racket at midnight. Like a din, a racket is measured in volume and annoyance. A cacophony is measured in discord, in how badly the sounds clash, which is why even a quiet cacophony grates on the ear."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show sounds fighting each other, not just one loud noise -- a reader should see several sources grating at once. Try working in a word like <i>clashing<\/i>, <i>at once<\/i>, <i>jarring<\/i> or <i>mixture<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

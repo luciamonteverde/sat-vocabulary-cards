@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="3aa5e0268250">
+<meta name="build" content="994cc2a7fa82">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pretense &#8212; SAT Vocabulary, Course 1 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pretense", "gradeUrl": "/api/grade", "taskId": "pretense", "minWords": 12, "items": {"s1": {"q": "A man approached travelers outside the train station, claiming to be a lost tourist whose wallet had just been stolen, and asked each person for a few dollars for a ticket home. Police later discovered he lived two blocks away and did this every day. What is his lost-tourist story best described as?", "opts": {"A": "an honest mistake", "B": "a generous offer", "C": "a lucky coincidence", "D": "a pretense"}, "key": "D", "fb": {"correct": "Correct — the lost-tourist story is a false front designed to deceive travelers into handing over money. A deliberate act of pretending like that is a pretense.", "A": "'An honest mistake' would mean he believed his own story, but a man who lives two blocks away and repeats the tale daily knows exactly what he is doing. Deliberate deceit is the opposite of honest error.", "B": "Generosity flows the wrong way here — 'a generous offer' would give travelers something, while this man only collects their dollars. His routine takes; it does not give. Name the false front he uses to do the taking.", "C": "Chance plays no part in something staged on purpose every single day — 'a lucky coincidence' cannot describe a rehearsed story told to strangers for cash. This was planned deception, and there is a word for it."}}, "s3a": {"q": "In the passage, Dana's pretense is best understood as—", "opts": {"A": "a false front kept up so that others will genuinely believe it", "B": "an open joke that the restaurant staff were expected to play along with", "C": "a hollow routine she performed without any real purpose behind it", "D": "a disguise the law required the paper to register"}, "key": "A", "fb": {"correct": "Right. The false front is sustained -- invented names, forgettable clothes -- and aimed at real belief: 'the kitchen must believe she was nobody.'", "B": "The kitchen is never in on it. If the staff saw through her, the passage says, the meal she reviewed would not be the real one.", "C": "The passage states the opposite: 'The performance had one purpose.' Everything in it is engineered toward that purpose.", "D": "No law and no registration appear anywhere -- the anonymity is the newspaper's working rule, and the disguise is her own craft."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pretense", "B": "charade", "C": "guise", "D": "sham"}, "key": "C", "fb": {"correct": "Right. What fools the hawks is the outer form the snake wears — <em>borrowed coloring, a pattern the snake wears from hatching until death<\/em> — and the worn surface itself is exactly what this word names.", "A": "A pretense is the pretending — a false front a person keeps up, performance by performance. Nothing here is performed: the hawks are <em>deceived by nothing more than borrowed coloring<\/em>, a marking the snake could not drop if it tried.", "B": "A charade is an empty display nobody quite believes, so hollow that onlookers can see through it. This deception works completely: <em>Hawks that would strike an ordinary kingsnake on sight veer away<\/em>.", "D": "A sham is the fake article itself — a sham marriage, a sham election, a counterfeit passed off as genuine. This snake is a real animal, <em>which carries no venom at all<\/em>; what deceives is only the <em>borrowed coloring<\/em> it wears."}}}, "grid": {"words": ["pretense", "guise", "charade", "sham"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "For three months she kept up the ____ of a thriving practice, greeting neighbors brightly while the office phone never rang — and no one suspected a thing.", "ks": ["pretense"], "fb": {"guise": "That word points at the outer form a deception wears -- the costume, the surface. What she <em>kept up<\/em> for three months was the performance behind the surface.", "charade": "That word sneers at an empty show people see through. This front worked -- <em>no one suspected a thing<\/em> -- which is the opposite of transparent.", "sham": "That word names a fake article or institution -- a counterfeit thing. The gap here is the act she sustained: a months-long performance, not an object."}}, {"s": "Regulators exposed the charity as a ____: donations bought no meals, funded no shelters, and flowed straight into the founder's accounts.", "ks": ["sham"], "fb": {"pretense": "That word names an act of pretending someone keeps up. Here the word has to name the organization itself -- a fake passed off as the real thing.", "guise": "A deception wears that word the way a body wears a coat -- reforms passed off under some noble surface. The sentence needs the name for the fake thing itself.", "charade": "That word mocks an empty performance people see through. This fake convinced donors for years -- it was passed off as genuine, and the gap names the counterfeit thing."}}, {"s": "The goddess entered the banquet hall in the ____ of a bent old beggar woman, her true face hidden from every guest who poured her wine.", "ks": ["guise"], "fb": {"pretense": "That word names the performance -- the pretending a person keeps up. The gap here names what she <em>wears<\/em>: the borrowed outer form itself.", "charade": "That word is for hollow shows that fool nobody. This disguise fooled everyone -- and the gap names the worn shape, not a performance.", "sham": "That word suits counterfeit things passed off as genuine -- a fake antique, a fraudulent charity. A borrowed shape a goddess wears is a surface, not a counterfeit object."}}, {"s": "The weekly 'brainstorming hour' had become a ____ within a month: everyone typed emails while the manager narrated slides no one would ever read.", "ks": ["charade"], "fb": {"pretense": "That word needs an audience meant to believe. Everyone in this room is typing emails -- the emptiness is common knowledge, not a working deception.", "guise": "That word names the surface a deception wears. The gap here names the hollow ritual itself -- a performance gone through for form's sake.", "sham": "That word wants a counterfeit passed off as genuine on someone. Nobody here is fooled or meant to be -- the show is openly empty, which calls for a different word."}}, {"s": "His concern for the committee's schedule was pure ____ — a show of helpfulness staged to win himself an early look at the budget.", "ks": ["pretense"], "fb": {"guise": "That word is the costume a deception wears. The sentence's gap is the performance itself -- staged helpfulness with a hidden goal.", "charade": "That word is for shows so hollow everyone sees through them. This act is built to work -- the committee is supposed to believe the helpfulness.", "sham": "That word names fake things -- marriages, antiques, charities -- passed off as real. Here the fake is an act a person is putting on, which takes a different word."}}, {"s": "The 'antique' desk turned out to be a ____, its factory-fresh joints artificially scuffed to pass as two hundred years old.", "ks": ["sham"], "fb": {"pretense": "That word is for the act of pretending a person sustains. A scuffed-up desk is a thing -- and the word you need names fake things.", "guise": "That word names a worn surface -- the form a deception appears under. The desk is not wearing anything; it <em>is<\/em> the counterfeit.", "charade": "That word mocks performances nobody believes. This desk was built to be believed -- passed off as two hundred years old to whoever paid for it."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone keeping up a false front that others are meant to believe -- try working in a word like <i>kept up<\/i>, <i>fooled<\/i>, <i>really<\/i> or <i>behind<\/i>."}};
+  var CFG = {"word": "pretense", "gradeUrl": "/api/grade", "taskId": "pretense", "minWords": 12, "items": {"s1": {"q": "A man approached travelers outside the train station, claiming to be a lost tourist whose wallet had just been stolen, and asked each person for a few dollars for a ticket home. Police later discovered he lived two blocks away and did this every day. What is his lost-tourist story best described as?", "opts": {"A": "an honest mistake", "B": "a generous offer", "C": "a lucky coincidence", "D": "a pretense"}, "key": "D", "fb": {"correct": "Correct — the lost-tourist story is a false front designed to deceive travelers into handing over money. A deliberate act of pretending like that is a pretense.", "A": "'An honest mistake' would mean he believed his own story, but a man who lives two blocks away and repeats the tale daily knows exactly what he is doing. Deliberate deceit is the opposite of honest error.", "B": "Generosity flows the wrong way here — 'a generous offer' would give travelers something, while this man only collects their dollars. His routine takes; it does not give. Name the false front he uses to do the taking.", "C": "Chance plays no part in something staged on purpose every single day — 'a lucky coincidence' cannot describe a rehearsed story told to strangers for cash. This was planned deception, and there is a word for it."}}, "s3a": {"q": "In the passage, Dana's pretense is best understood as—", "opts": {"A": "a false front kept up so that others will genuinely believe it", "B": "an open joke that the restaurant staff were expected to play along with", "C": "a hollow routine she performed without any real purpose behind it", "D": "a disguise the law required the paper to register"}, "key": "A", "fb": {"correct": "Right. The false front is sustained -- invented names, forgettable clothes -- and aimed at real belief: 'the kitchen must believe she was nobody.'", "B": "The kitchen is never in on it. If the staff saw through her, the passage says, the meal she reviewed would not be the real one.", "C": "The passage states the opposite: 'The performance had one purpose.' Everything in it is engineered toward that purpose.", "D": "No law and no registration appear anywhere -- the anonymity is the newspaper's working rule, and the disguise is her own craft."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pretense", "B": "charade", "C": "guise", "D": "sham"}, "key": "C", "fb": {"correct": "Right. What fools the hawks is the outer form the snake wears — <em>borrowed coloring, a pattern the snake wears from hatching until death<\/em> — and the worn surface itself is exactly what this word names.", "A": "A pretense is the pretending — a false front a person keeps up, performance by performance. Nothing here is performed: the hawks are <em>deceived by nothing more than borrowed coloring<\/em>, a marking the snake could not drop if it tried.", "B": "A charade is an empty display nobody quite believes, so hollow that onlookers can see through it. This deception works completely: <em>Hawks that would strike an ordinary kingsnake on sight veer away<\/em>.", "D": "A sham is the fake article itself — a sham marriage, a sham election, a counterfeit passed off as genuine. This snake is a real animal, <em>which carries no venom at all<\/em>; what deceives is only the <em>borrowed coloring<\/em> it wears."}}}, "pairwise": {"rows": [{"sentence": "For three months she kept up the ____ of a thriving practice, greeting neighbors brightly while the office phone never rang — and no one suspected a thing.", "options": ["pretense", "charade"], "key": "pretense", "pair": "charade", "why_right": "The tell is <em>no one suspected a thing<\/em> - this front is actually deceiving its audience for months, and a false front built to work is the opposite of a hollow show.", "why_wrong": "That word sneers at an empty show people see through. This front worked -- <em>no one suspected a thing<\/em> -- which is the opposite of transparent."}, {"sentence": "Regulators exposed the charity as a ____: donations bought no meals, funded no shelters, and flowed straight into the founder's accounts.", "options": ["pretense", "sham"], "key": "sham", "pair": "sham", "why_right": "The tell is <em>donations bought no meals, funded no shelters<\/em> - the organization itself is the fake, a counterfeit institution passed off as genuine rather than an act of pretending someone keeps up.", "why_wrong": "That word names an act of pretending someone keeps up. Here the word has to name the organization itself -- a fake passed off as the real thing."}, {"sentence": "The goddess entered the banquet hall in the ____ of a bent old beggar woman, her true face hidden from every guest who poured her wine.", "options": ["pretense", "guise"], "key": "guise", "pair": "guise", "why_right": "The tell is <em>a bent old beggar woman<\/em> - the gap names the borrowed outer form the goddess wears, the costume itself, while the pretending word names the performance behind it.", "why_wrong": "That word names the performance -- the pretending a person keeps up. The gap here names what she <em>wears<\/em>: the borrowed outer form itself."}, {"sentence": "The weekly 'brainstorming hour' had become a ____ within a month: everyone typed emails while the manager narrated slides no one would ever read.", "options": ["pretense", "charade"], "key": "charade", "pair": "charade", "why_right": "The tell is <em>everyone typed emails<\/em> - the whole room sees through the ritual and nobody is meant to believe it, exactly the hollow show this word sneers at.", "why_wrong": "That word needs an audience meant to believe. Everyone in this room is typing emails -- the emptiness is common knowledge, not a working deception."}, {"sentence": "His concern for the committee's schedule was pure ____ — a show of helpfulness staged to win himself an early look at the budget.", "options": ["pretense", "sham"], "key": "pretense", "pair": "sham", "why_right": "The tell is <em>a show of helpfulness staged<\/em> - the fake here is an act a person puts on to deceive, a performance with a hidden goal, not a counterfeit object or institution.", "why_wrong": "That word names fake things -- marriages, antiques, charities -- passed off as real. Here the fake is an act a person is putting on, which takes a different word."}, {"sentence": "The 'antique' desk turned out to be a ____, its factory-fresh joints artificially scuffed to pass as two hundred years old.", "options": ["pretense", "sham"], "key": "sham", "pair": "sham", "why_right": "The tell is <em>factory-fresh joints artificially scuffed<\/em> - the fake is the object itself, a counterfeit doctored to pass as genuine, not an act of pretending anyone sustains.", "why_wrong": "That word is for the act of pretending a person sustains. A scuffed-up desk is a thing -- and the word you need names fake things."}, {"sentence": "Every morning he dressed for work and kept up the ____ of employment, riding the same downtown train until the severance ran out in June.", "options": ["pretense", "guise"], "key": "pretense", "pair": "guise", "why_right": "The tell is <em>dressed for work and kept up<\/em> - what he sustains is the daily performance of pretending, the act itself, not an outer form that something else wears.", "why_wrong": "That word points at the costume a deception wears - a spy in the guise of a florist. The gap here names what he keeps up each morning: the pretending itself, the performance."}, {"sentence": "Her weekly letters home maintained the ____ that college was going wonderfully, and her parents, reading each cheerful page, believed every word.", "options": ["pretense", "charade"], "key": "pretense", "pair": "charade", "why_right": "The tell is <em>believed every word<\/em> - her parents are meant to buy the cheerful front, and a deception built to actually work is not a hollow show people see through.", "why_wrong": "That word sneers at an empty performance nobody quite believes, so hollow onlookers see through it. These letters worked - her parents believed every word - which is a deception doing its job."}], "display_order": [3, 1, 0, 6, 5, 2, 7, 4], "dimension_order": ["guise", "charade", "sham"], "dimension_feedback": {"guise": "A guise is the deceptive outer form something wears — reforms passed under the guise of progress, a spy in the guise of a florist. It points at the costume, the surface itself. A pretense is the pretending: the false front a person keeps up to deceive. The guise is what is worn; the pretense is the performance behind it.", "charade": "A charade is a false display kept up for show — often an empty performance nobody quite believes, so hollow that onlookers can see through it. A pretense is built to actually deceive: the audience is meant to buy it. Call it a charade to sneer at its emptiness; call it a pretense when the deception is meant to work.", "sham": "A sham is a fake thing passed off as genuine — a sham marriage, a sham election, a sham trial. The word points at the counterfeit object or institution itself. A pretense is the act of pretending a person keeps up — the false appearance, not the fake article."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone keeping up a false front that others are meant to believe -- try working in a word like <i>kept up<\/i>, <i>fooled<\/i>, <i>really<\/i> or <i>behind<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

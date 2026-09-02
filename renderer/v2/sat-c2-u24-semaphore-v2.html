@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="61a90a40824f">
+<meta name="build" content="4b039d01340e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>semaphore &#8212; SAT Vocabulary, Course 2 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "semaphore", "gradeUrl": "/api/grade", "taskId": "semaphore", "minWords": 12, "items": {"s1": {"q": "Which sentence uses semaphore correctly?", "opts": {"A": "The poet's closing semaphore compared the sleeping winter harbor to an enormous folded gray cat.", "B": "Turn the stage amplifier's semaphore up a full notch before the final chorus reaches the back rows.", "C": "The film's stranded keeper answers questions in semaphore, and the subtitles keep pace with her flag positions.", "D": "A rich semaphore of cinnamon and brown sugar reached the corner before the bakery's doors even opened."}, "key": "C", "fb": {"correct": "Correct. Answering in flag positions the subtitles can translate letter for letter — a codified system of visual signals is semaphore exactly.", "A": "Comparing a 'winter harbor' to a 'folded gray cat' is a poet's image — figurative language. A semaphore is a worked-out code of signals meant for the eye, not a literary comparison.", "B": "Turning the 'stage amplifier's' knob 'up a full notch' changes loudness — sound, not sight. Semaphore is a visual code: messages spelled to the eye through set signal shapes.", "D": "That drift 'of cinnamon and brown sugar' reaching the corner is an aroma. Smells carry no code — a semaphore sends deliberate visual signals, arranged so a watcher can read them."}}, "s3a": {"q": "As used in this passage, 'semaphore' most nearly means:", "opts": {"A": "a fixed system of visual signals spelling messages by agreed positions", "B": "an improvised set of hand waves two friends invent", "C": "a radio channel reserved for lighthouse keepers", "D": "a written alphabet used for passing folded notes"}, "key": "A", "fb": {"correct": "Right — flags, memorized positions, and 'every pose meant one letter, agreed years before': a fixed visual code.", "B": "The passage says the opposite of improvised: the positions were 'agreed years before either child was born.'", "C": "Nothing is transmitted by radio — the children watch each other's flags across the water.", "D": "The mainland children pass folded notes; the lighthouse children spell through the air with flag positions."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "semaphore", "B": "signaling", "C": "flag code", "D": "gesture"}, "key": "C", "fb": {"correct": "Right. Two pennants, one pose per letter, handed down through sixty years of recesses — that is a flag code: the schoolyard's own name for the alphabet the rulebooks record under its formal term.", "A": "That is the proper term — the one <em>Grandparents who had worked the rail yards<\/em> knew <em>from their rulebooks<\/em>. The passage sets that formal name aside and asks for the one <em>the children only ever knew<\/em> on the playground.", "B": "Signaling names the whole craft of sending messages by agreed signs — lamps, smoke, whistles together. What survived those recesses was one fixed alphabet inside that craft: <em>two dime-store pennants, one pose per letter<\/em>.", "D": "A gesture is a single loose motion whose meaning the onlookers roughly settle for themselves. Nothing here was left to settle: <em>one pose per letter<\/em>, fixed firmly enough to get <em>insults spelled across the schoolyard<\/em>."}}}, "grid": {"words": ["semaphore", "flag code", "signaling", "gesture"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Before colored lights, every junction on the line used ____: a pivoting blade whose fixed positions told each driver exactly what the track ahead allowed.", "ks": ["semaphore"], "fb": {"flag code": "That name belongs to the two-flag alphabet. This is <em>a pivoting blade<\/em> beside a railway track — no flags in sight.", "signaling": "That word names the whole craft — lamps, flags, smoke and whistles together. The sentence describes one specific system of fixed positions.", "gesture": "A single loose motion means whatever the onlooker decides. These positions were <em>fixed<\/em> in advance, each with exactly one meaning."}}, {"s": "The naval manual drills recruits in ____ until both arms can spell out a full sentence, every letter a fixed pair of angles.", "ks": ["semaphore"], "fb": {"flag code": "No flags here — the recruits spell with their arms alone, and the proper term in a naval manual covers arm positions where the schoolyard name stops at two flags.", "signaling": "That word covers the entire craft of agreed signs. What the manual drills is one fixed alphabet — a single system inside the craft.", "gesture": "A motion invented on the spot means roughly what the crowd guesses. <em>Every letter a fixed pair of angles<\/em> is an agreed alphabet."}}, {"s": "At camp the counselor taught us the scouts' ____ — two flags, one letter per pose — and by August we could spell rude words across the whole lake.", "ks": ["flag code", "semaphore"], "fb": {"signaling": "That word names the whole craft of sending by agreed signs, every method included. The campers learned one specific two-flag alphabet.", "gesture": "A wave invented on the spot means whatever the other shore guesses. <em>One letter per pose<\/em> is a fixed, agreed alphabet."}}, {"s": "The maritime museum's new wing traces a century of ____ — oil lamps, smoke pots, whistle blasts and mirror flashes each get a case of their own.", "ks": ["signaling"], "fb": {"semaphore": "That is one codified alphabet inside the craft. A wing covering <em>lamps, smoke pots, whistle blasts and mirror flashes<\/em> needs the word for the whole craft.", "flag code": "The two-flag alphabet would be one exhibit at most — nothing here mentions flags, and whistle blasts aren't visual at all.", "gesture": "Each case shows an agreed system with fixed meanings. A loose one-off motion is the opposite end of that line."}}, {"s": "From the ridge the guide made a single sweeping ____ toward the valley, and the hikers argued for a minute over whether it meant 'go down' or 'go around.'", "ks": ["gesture"], "fb": {"semaphore": "In that fixed alphabet nothing is left to argue about — every position has one agreed meaning. Here the hikers <em>argued for a minute<\/em> over what the motion meant.", "flag code": "Two flags, one letter per pose — that's an alphabet. This is one bare sweep of an arm with no code behind it.", "signaling": "That craft runs on signs agreed in advance. This sweep was improvised, and the guessing on the trail proves it."}}, {"s": "When the referee crossed her arms in a shape no rulebook lists, each bench read the improvised ____ its own way and both sent substitutes running.", "ks": ["gesture"], "fb": {"semaphore": "That system's positions are fixed in advance — a shape <em>no rulebook lists<\/em> is by definition outside it.", "flag code": "No flags, no alphabet, no letters — one crossed-arm shape invented on the spot.", "signaling": "The craft of agreed signs works because both sides share the code. Two benches reading one motion <em>its own way<\/em> means no code was shared."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a fixed visual code — positions agreed in advance, each with one meaning. Anchor it with words like <i>flags<\/i>, <i>positions<\/i>, <i>spell<\/i> or <i>letter<\/i>, and put some distance between the sender and the reader."}};
+  var CFG = {"word": "semaphore", "gradeUrl": "/api/grade", "taskId": "semaphore", "minWords": 12, "items": {"s1": {"q": "Which sentence uses semaphore correctly?", "opts": {"A": "The poet's closing semaphore compared the sleeping winter harbor to an enormous folded gray cat.", "B": "Turn the stage amplifier's semaphore up a full notch before the final chorus reaches the back rows.", "C": "The film's stranded keeper answers questions in semaphore, and the subtitles keep pace with her flag positions.", "D": "A rich semaphore of cinnamon and brown sugar reached the corner before the bakery's doors even opened."}, "key": "C", "fb": {"correct": "Correct. Answering in flag positions the subtitles can translate letter for letter — a codified system of visual signals is semaphore exactly.", "A": "Comparing a 'winter harbor' to a 'folded gray cat' is a poet's image — figurative language. A semaphore is a worked-out code of signals meant for the eye, not a literary comparison.", "B": "Turning the 'stage amplifier's' knob 'up a full notch' changes loudness — sound, not sight. Semaphore is a visual code: messages spelled to the eye through set signal shapes.", "D": "That drift 'of cinnamon and brown sugar' reaching the corner is an aroma. Smells carry no code — a semaphore sends deliberate visual signals, arranged so a watcher can read them."}}, "s3a": {"q": "As used in this passage, 'semaphore' most nearly means:", "opts": {"A": "a fixed system of visual signals spelling messages by agreed positions", "B": "an improvised set of hand waves two friends invent", "C": "a radio channel reserved for lighthouse keepers", "D": "a written alphabet used for passing folded notes"}, "key": "A", "fb": {"correct": "Right — flags, memorized positions, and 'every pose meant one letter, agreed years before': a fixed visual code.", "B": "The passage says the opposite of improvised: the positions were 'agreed years before either child was born.'", "C": "Nothing is transmitted by radio — the children watch each other's flags across the water.", "D": "The mainland children pass folded notes; the lighthouse children spell through the air with flag positions."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "semaphore", "B": "signaling", "C": "flag code", "D": "gesture"}, "key": "C", "fb": {"correct": "Right. Two pennants, one pose per letter, handed down through sixty years of recesses — that is a flag code: the schoolyard's own name for the alphabet the rulebooks record under its formal term.", "A": "That is the proper term — the one <em>Grandparents who had worked the rail yards<\/em> knew <em>from their rulebooks<\/em>. The passage sets that formal name aside and asks for the one <em>the children only ever knew<\/em> on the playground.", "B": "Signaling names the whole craft of sending messages by agreed signs — lamps, smoke, whistles together. What survived those recesses was one fixed alphabet inside that craft: <em>two dime-store pennants, one pose per letter<\/em>.", "D": "A gesture is a single loose motion whose meaning the onlookers roughly settle for themselves. Nothing here was left to settle: <em>one pose per letter<\/em>, fixed firmly enough to get <em>insults spelled across the schoolyard<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Across the ravine the rescue leader passed the injured climber's name in ____, one arm shape after another, and the team on the far side took it down without a question shouted back.", "options": ["semaphore", "gesture"], "key": "semaphore", "pair": "gesture", "why_right": "The tell is <em>one arm shape after another<\/em> - a whole name arrives shape by shape with nothing to guess, an agreed alphabet fixed in advance rather than one loose motion the onlookers interpret.", "why_wrong": "That word means one loose motion whose meaning the onlookers decide for themselves. A name taken down shape by shape, with no question shouted back, is an agreed alphabet at work."}, {"sentence": "Every tower practices ____ with the head lifeguard, so a raised left hand is never a greeting: it is the letter R, and every chair turns to the same swimmer.", "options": ["semaphore", "gesture"], "key": "semaphore", "pair": "gesture", "why_right": "The tell is <em>never a greeting<\/em> - the raised hand has one meaning fixed in advance, the letter R, so every chair reads it alike; nothing is left for the onlookers to decide.", "why_wrong": "That word is one motion meaning roughly whatever the crowd decides. Here the crowd decides nothing: the hand is the letter R every time, and every chair reads it the same way."}, {"sentence": "When the referee crossed her arms in a shape no rulebook lists, each bench read the improvised ____ its own way and both sent substitutes running.", "options": ["semaphore", "gesture"], "key": "gesture", "pair": "gesture", "why_right": "The tell is <em>no rulebook lists<\/em> - the crossed arms are one improvised motion read two different ways, meaning roughly whatever each bench decides; a fixed alphabet leaves nothing to interpret.", "why_wrong": "That system's positions are fixed in advance — a shape <em>no rulebook lists<\/em> is by definition outside it."}, {"sentence": "The other driver lifted a hand from the wheel at the four-way stop, and she sat working out whether the ____ meant go ahead, thank you, or wait.", "options": ["semaphore", "gesture"], "key": "gesture", "pair": "gesture", "why_right": "The tell is <em>working out whether<\/em> - one lifted hand carries roughly whatever the onlooker decides it means, with three readings still open; a fixed alphabet leaves nothing to work out.", "why_wrong": "That word is an agreed alphabet in which every position means exactly one thing. A single lifted hand that could mean go ahead, thank you, or wait belongs to the loose end of the line."}, {"sentence": "The lock-keeper's daughter learned the twenty-six arm angles that make up ____ before she could read, and by nine was passing barge names up the canal.", "options": ["semaphore", "signaling"], "key": "semaphore", "pair": "signaling", "why_right": "The tell is <em>twenty-six arm angles that make up<\/em> - a fixed alphabet of positions, one codified system learned whole; the craft of lamps, smoke and whistles is not made up of angles.", "why_wrong": "That word names the whole craft of sending messages by agreed signs, every method together. Twenty-six arm angles that make up one thing describe a single codified system inside that craft, not the craft itself."}, {"sentence": "The fire-watch course in ____ covered the basics: a horn blast for fire, a mirror flash to call for help, a bonfire to clear the valley — nothing that could spell a name.", "options": ["semaphore", "signaling"], "key": "signaling", "pair": "signaling", "why_right": "The tell is <em>a horn blast for fire, a mirror flash<\/em> - unrelated methods of sending a message by agreed sign, the whole craft rather than one fixed visual alphabet of positions.", "why_wrong": "That word is one codified system, a fixed visual alphabet of positions that can spell anything. A horn, a mirror and a bonfire are three separate methods, none an alphabet and one not even visual."}], "display_order": [1, 4, 0, 5, 2, 3], "dimension_order": ["signaling", "gesture"], "dimension_feedback": {"signaling": "Signaling is the whole craft of sending messages by agreed signs — lamps, flags, smoke, whistles together. Semaphore is one codified system inside that craft: a fixed visual alphabet of positions that can spell anything. All semaphore is signaling; most signaling is not semaphore.", "gesture": "A gesture is the loose end of the line — one motion, meaning roughly whatever the crowd decides — while semaphore fixes every meaning in advance, an agreed alphabet with nothing left to guess."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a fixed visual code — positions agreed in advance, each with one meaning. Anchor it with words like <i>flags<\/i>, <i>positions<\/i>, <i>spell<\/i> or <i>letter<\/i>, and put some distance between the sender and the reader."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="8990f7119b48">
+<meta name="build" content="a0c1d54fb5d5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>vilify &#8212; SAT Vocabulary, Course 3 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "vilify", "gradeUrl": "/api/grade", "taskId": "vilify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses vilify correctly?", "opts": {"A": "The reviewer vilified the novel gently, praising its ambition while noting that the pacing sagged badly in the middle chapters.", "B": "Losing on the facts, the lobbyists set out to vilify the scientist instead, painting her as a fraud in a whisper campaign.", "C": "The auditors vilified the treasurer with nothing but the ledger itself: every missing dollar documented, dated, and true.", "D": "He vilified the referee only in his private diary, in furious entries that no other person would ever read."}, "key": "B", "fb": {"correct": "Right. Painting a scientist as a fraud in a whisper campaign — because the facts could not win — is vilifying her: attacking the person's reputation unjustly.", "A": "Praising the ambition and naming a real weakness is fair criticism. Vilifying is cruel and unjust.", "C": "An accusation the ledger documents is severe and true. Vilifying attacks with words that are unjust.", "D": "Fury nobody will ever read harms no reputation. Vilifying means putting the attack where it damages somebody."}}, "s3a": {"q": "As it is used in the passage, \"vilify\" most nearly means:", "opts": {"A": "to attack someone's whole character with cruel words", "B": "to prove that an official's decision was wrong", "C": "to fine or suspend someone through official channels", "D": "to dispute a single call loudly and publicly"}, "key": "A", "fb": {"correct": "Right -- the campaign went after 'the man: his competence, his honesty, his right to ever work again,' not after the call.", "B": "The review proved the opposite -- the call was correct -- and 'It changed little,' because the attack was never about the decision.", "C": "No league penalty is mentioned anywhere; the attacks came from callers and columnists, not from officials.", "D": "The passage says the opposite: 'not to dispute the call, but to take apart the man.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "malign", "B": "smear", "C": "defame", "D": "vilify"}, "key": "D", "fb": {"correct": "Right. A years-long public campaign aimed <em>not at the bridge but at the woman<\/em> — her whole character, before every audience he could find — is exactly what it means to vilify someone.", "A": "To malign someone is to work small and scattered — a resentful aside here, a passed-along doubt there. This was the opposite of quiet: <em>lectures, signed columns in the trade papers, after-dinner speeches<\/em>, delivered <em>before any audience that would listen<\/em>.", "B": "A smear pins one damaging charge on its target and rides it, true or not. This campaign had no such charge to ride: he <em>never settled on one accusation<\/em>.", "C": "Defame is the courtroom's word — it needs false statements a lawyer can act on. Here <em>her lawyer found nothing to sue over<\/em>: <em>no invented fact, only open contempt<\/em>."}}}, "grid": {"words": ["vilify", "malign", "smear", "defame"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "For a full season, the talk-show host used every broadcast to ____ the judge -- not one specific charge, no lawsuit, just a nightly effort to tear down the man himself.", "ks": ["vilify"], "fb": {"malign": "Those are not whispered asides -- this runs on <em>every broadcast<\/em>, nightly and in public, which is the bigger word's territory.", "smear": "That word rides one damaging accusation; here there is <em>not one specific charge<\/em>, only an attack on the man entire.", "defame": "That is the courtroom's word for legally false statements; with <em>no lawsuit<\/em> and no specific falsehood at issue, the sentence wants the word for the cruelty of the campaign."}}, {"s": "Rival pamphleteers spent the 1880s trying to ____ the inventor in public -- his honesty, his manners, even his handwriting -- a decade-long campaign against the man rather than any single claim.", "ks": ["vilify"], "fb": {"malign": "A <em>decade-long campaign ... in public<\/em> is far past resentful asides; the quieter word cannot carry it.", "smear": "There is no explosive charge here to spread -- the attack lands on <em>his honesty, his manners, even his handwriting<\/em>, the whole man at once.", "defame": "Nothing here is a legal claim of falsehood; that word lives in courtrooms, and this attack lives in pamphlets."}}, {"s": "Behind the counter, the two clerks would quietly ____ the new manager -- a resentful remark here, a passed-along doubt there, never anything said in the open.", "ks": ["malign"], "fb": {"vilify": "That word needs a loud public campaign against the whole man; these clerks work <em>quietly<\/em>, one aside at a time.", "smear": "That word spreads one damaging charge and rides it; the clerks trade <em>a resentful remark here, a passed-along doubt there<\/em> -- scattered, not built on any single claim.", "defame": "Nothing here approaches a legally false statement; the digs are petty and private, far from that word's courtroom register."}}, {"s": "Anonymous letters continued to ____ the librarian for years -- small unfair digs mailed one at a time, each too petty to answer, none of them ever printed or proclaimed.", "ks": ["malign"], "fb": {"vilify": "That word is a public tearing-down of the whole person; these were <em>small unfair digs<\/em>, never <em>printed or proclaimed<\/em>.", "smear": "That word needs one damaging charge spread wide; here the harm arrives as scattered petty digs, <em>one at a time<\/em>.", "defame": "That is the law's word -- suits and damages; a dig <em>too petty to answer<\/em> never gets near a courtroom."}}, {"s": "On the eve of the vote, fliers appeared accusing the councilwoman of taking a single bribe in 2019 -- rivals hoping to ____ her by riding one explosive charge, true or not, to the finish.", "ks": ["smear"], "fb": {"vilify": "That word attacks the whole man or woman; these fliers pin everything on <em>a single bribe in 2019<\/em> -- one charge, ridden hard.", "malign": "Nothing quiet or scattered here: fliers across the city on <em>the eve of the vote<\/em> are as public as it gets.", "defame": "The fliers might even be right -- <em>true or not<\/em> -- and that word requires false statements with legal stakes."}}, {"s": "The jury found that the tabloid's invented quotes did ____ the surgeon, and awarded her damages for the injury to her reputation.", "ks": ["defame"], "fb": {"vilify": "That word measures cruelty and scale; what <em>the jury found<\/em> is a legal wrong -- false words that injured a reputation.", "malign": "Whispered asides do not reach juries; <em>invented quotes<\/em> in print, tried and compensated, belong to the law's own word.", "smear": "Close -- a campaign word could describe the tabloid's behavior, but the verdict names the legal offense: falsehoods that earned <em>damages<\/em>."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a cruel attack on a person's whole character -- not one criticism, and not a fair review. Give it scale and a target: try working in <i>campaign<\/i>, <i>character<\/i>, <i>cruel<\/i> or <i>reputation<\/i>."}};
+  var CFG = {"word": "vilify", "gradeUrl": "/api/grade", "taskId": "vilify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses vilify correctly?", "opts": {"A": "The reviewer vilified the novel gently, praising its ambition while noting that the pacing sagged badly in the middle chapters.", "B": "Losing on the facts, the lobbyists set out to vilify the scientist instead, painting her as a fraud in a whisper campaign.", "C": "The auditors vilified the treasurer with nothing but the ledger itself: every missing dollar documented, dated, and true.", "D": "He vilified the referee only in his private diary, in furious entries that no other person would ever read."}, "key": "B", "fb": {"correct": "Right. Painting a scientist as a fraud in a whisper campaign — because the facts could not win — is vilifying her: attacking the person's reputation unjustly.", "A": "Praising the ambition and naming a real weakness is fair criticism. Vilifying is cruel and unjust.", "C": "An accusation the ledger documents is severe and true. Vilifying attacks with words that are unjust.", "D": "Fury nobody will ever read harms no reputation. Vilifying means putting the attack where it damages somebody."}}, "s3a": {"q": "As it is used in the passage, \"vilify\" most nearly means:", "opts": {"A": "to attack someone's whole character with cruel words", "B": "to prove that an official's decision was wrong", "C": "to fine or suspend someone through official channels", "D": "to dispute a single call loudly and publicly"}, "key": "A", "fb": {"correct": "Right -- the campaign went after 'the man: his competence, his honesty, his right to ever work again,' not after the call.", "B": "The review proved the opposite -- the call was correct -- and 'It changed little,' because the attack was never about the decision.", "C": "No league penalty is mentioned anywhere; the attacks came from callers and columnists, not from officials.", "D": "The passage says the opposite: 'not to dispute the call, but to take apart the man.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "malign", "B": "smear", "C": "defame", "D": "vilify"}, "key": "D", "fb": {"correct": "Right. A years-long public campaign aimed <em>not at the bridge but at the woman<\/em> — her whole character, before every audience he could find — is exactly what it means to vilify someone.", "A": "To malign someone is to work small and scattered — a resentful aside here, a passed-along doubt there. This was the opposite of quiet: <em>lectures, signed columns in the trade papers, after-dinner speeches<\/em>, delivered <em>before any audience that would listen<\/em>.", "B": "A smear pins one damaging charge on its target and rides it, true or not. This campaign had no such charge to ride: he <em>never settled on one accusation<\/em>.", "C": "Defame is the courtroom's word — it needs false statements a lawyer can act on. Here <em>her lawyer found nothing to sue over<\/em>: <em>no invented fact, only open contempt<\/em>."}}}, "pairwise": {"rows": [{"sentence": "For a full season, the talk-show host used every broadcast to ____ the judge -- not one specific charge, no lawsuit, just a nightly effort to tear down the man himself.", "options": ["vilify", "defame"], "key": "vilify", "pair": "defame", "why_right": "The tell is <em>not one specific charge, no lawsuit<\/em> - no false statement, nothing with legal standing; this word measures the cruelty of a nightly campaign against the man himself.", "why_wrong": "That is the courtroom's word for legally false statements; with <em>no lawsuit<\/em> and no specific falsehood at issue, the sentence wants the word for the cruelty of the campaign."}, {"sentence": "The coroner's suit collapsed in a morning -- every printed fact was accurate -- yet the series had used them to ____ him, week after week, until his name was worthless.", "options": ["vilify", "defame"], "key": "vilify", "pair": "defame", "why_right": "The tell is <em>every printed fact was accurate<\/em> - true words are not false statements, and the suit collapsed; this word is the cruelty of a campaign that ruins a name.", "why_wrong": "That word is the law's term for injuring a reputation with false statements; every fact here was accurate and the suit collapsed, so the wrong done is cruelty, not an offense."}, {"sentence": "The jury found that the tabloid's invented quotes did ____ the surgeon, and awarded her damages for the injury to her reputation.", "options": ["vilify", "defame"], "key": "defame", "pair": "defame", "why_right": "The tell is <em>awarded her damages<\/em> - a jury ruling on invented quotes calls for the courtroom's word for false statements that injure a name; the rival measures cruelty, not legal standing.", "why_wrong": "That word measures cruelty and scale; what <em>the jury found<\/em> is a legal wrong -- false words that injured a reputation."}, {"sentence": "Rival pamphleteers spent the 1880s trying to ____ the inventor in public -- his honesty, his manners, even his handwriting -- a decade-long campaign against the man rather than any single claim.", "options": ["vilify", "malign"], "key": "vilify", "pair": "malign", "why_right": "The tell is <em>a decade-long campaign<\/em> - ten years in public against the whole man is past scattered asides and whispers; this word is the loud, sustained campaign that ruins a name.", "why_wrong": "A <em>decade-long campaign ... in public<\/em> is far past resentful asides; the quieter word cannot carry it."}, {"sentence": "Anonymous letters continued to ____ the librarian for years -- small unfair digs mailed one at a time, each too petty to answer, none of them ever printed or proclaimed.", "options": ["vilify", "malign"], "key": "malign", "pair": "malign", "why_right": "The tell is <em>none of them ever printed or proclaimed<\/em> - petty digs, one at a time, never go public; this word stays small and scattered, unlike a loud public campaign.", "why_wrong": "That word is a public tearing-down of the whole person; these were <em>small unfair digs<\/em>, never <em>printed or proclaimed<\/em>."}, {"sentence": "Over coffee two colleagues would ____ the dean, one sour remark at a time -- her emails, her shoes, her laugh -- and never a word of it outside that room.", "options": ["vilify", "malign"], "key": "malign", "pair": "malign", "why_right": "The tell is <em>never a word of it outside that room<\/em> - sour remarks traded in private, one at a time, stay small and scattered; the rival is a loud public campaign.", "why_wrong": "That word means a sustained public campaign to make someone look worthless; two colleagues trading remarks over coffee, with nothing said outside the room, keep it small and scattered."}, {"sentence": "On the eve of the vote, fliers appeared accusing the councilwoman of taking a single bribe in 2019 -- rivals hoping to ____ her by riding one explosive charge, true or not, to the finish.", "options": ["vilify", "smear"], "key": "smear", "pair": "smear", "why_right": "The tell is <em>one explosive charge<\/em> - a single accusation pinned on her and ridden; this word is a campaign built on a charge, where the rival attacks the whole character.", "why_wrong": "That word attacks the whole man or woman; these fliers pin everything on <em>a single bribe in 2019<\/em> -- one charge, ridden hard."}, {"sentence": "Two seasons running, the home crowd set out to ____ the rival goalkeeper -- songs about his weight, his accent, his haircut -- accusing him of nothing and sparing him nothing.", "options": ["vilify", "smear"], "key": "vilify", "pair": "smear", "why_right": "The tell is <em>accusing him of nothing<\/em> - no charge to pin, only seasons of songs about the man himself; this word attacks the whole character, the rival rides a charge.", "why_wrong": "That word spreads one damaging accusation and rides it; a crowd that accuses the goalkeeper of nothing, only mocking his weight and accent for two seasons, is blackening the man himself."}], "display_order": [5, 0, 7, 4, 2, 3, 6, 1], "dimension_order": ["defame", "malign", "smear"], "dimension_feedback": {"defame": "Defame is the legal term for injuring a reputation with false statements — the word of courtrooms, lawsuits, and damages. Vilify describes the cruelty of the attack, not its legal standing: you can vilify someone viciously without ever being sued. Defamation is an offense; vilifying is an act.", "malign": "Malign means to speak harmful, usually unfair words about someone, and it stays small and scattered — a resentful aside here, a whisper passed along there. Vilify is bigger and louder: a sustained public campaign to make its target look worthless. Being maligned stings; being vilified can ruin a name.", "smear": "Smear means to spread a damaging accusation — true or invented — and ride it; it is journalism's word for a campaign built on charges. Vilify aims wider than any one accusation: it attacks the whole character. A smear pins a charge on you; to vilify is to blacken the man himself."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a cruel attack on a person's whole character -- not one criticism, and not a fair review. Give it scale and a target: try working in <i>campaign<\/i>, <i>character<\/i>, <i>cruel<\/i> or <i>reputation<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

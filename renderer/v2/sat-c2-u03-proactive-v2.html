@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="7dc5ff000fc4">
+<meta name="build" content="9b5d16bf4c99">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>proactive &#8212; SAT Vocabulary, Course 2 Unit 3</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "proactive", "gradeUrl": "/api/grade", "taskId": "proactive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses proactive correctly?", "opts": {"A": "The proactive lifeguard waited until swimmers were already struggling before glancing at the water.", "B": "His proactive style meant fixing the leak only after the ceiling had caved in twice.", "C": "Proactive, Ms. Okafor services the furnaces each fall so no tenant faces a dead heater in January.", "D": "They were proactive about the deadline, starting their work the night after it had passed."}, "key": "C", "fb": {"correct": "Right. Ms. Okafor acts in the fall, before any furnace fails, so the January problem never happens - acting in advance to prevent trouble is exactly what proactive means.", "A": "Watching only after 'swimmers were already struggling' is reaction once danger has started. Proactive means the opposite: stepping in ahead of trouble so it never gets that far.", "B": "'Fixing the leak only after the ceiling had caved in twice' is repair as reaction — twice too late. A proactive owner handles the problem before the first collapse, not after the second.", "D": "'Starting their work the night after it had passed' means acting once the deadline is already gone. Proactive effort begins in advance, heading a problem off — not trailing along behind it."}}, "s3a": {"q": "As it is used in the passage, \"proactive\" most nearly means", "opts": {"A": "keeping supplies on hand in case students fell ill", "B": "bracing for an outbreak already spreading toward the school", "C": "maintaining a general habit of planning years ahead", "D": "acting early so a problem never starts"}, "key": "D", "fb": {"correct": "Right. She moved before a single student sneezed, and her own words give the test: the whole point was to make sure the flu never showed up at all.", "A": "Supplies-in-case is passive readiness. Delgado went further - dispensers, clinics, and a campaign meant to keep the outbreak from ever starting.", "B": "Nothing was spreading yet; colleagues teased her precisely because the enemy had not shown up.", "C": "The campaign targeted one specific threat this winter, not a years-long planning habit."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forward-thinking", "B": "anticipatory", "C": "prepared", "D": "proactive"}, "key": "C", "fb": {"correct": "Right. Park prevented nothing and predicted nothing; she simply made sure that if a mishap arrived — any mishap, any night — the company was ready. Ready-if-trouble-comes is exactly the line this card draws for the word.", "D": "Proactive means going out to meet trouble early and heading it off. Park pointedly did not: <em>the rigging, the schedule, and the aging trapdoor stayed exactly as they were<\/em>.", "A": "Forward-thinking praises a standing habit of planning with the distant future in mind. <em>Her horizon was never longer than that evening's curtain<\/em>.", "B": "Anticipatory means acting in expectation of something already on its way, but <em>no forecast ever told her which night would go wrong<\/em> — nothing specific was ever coming."}}}, "grid": {"words": ["proactive", "forward-thinking", "anticipatory", "prepared"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The ____ orchard manager burned the single infested row in March, months before the beetles could wake, and the blight the county braced for never arrived.", "ks": ["proactive"], "fb": {"forward-thinking": "That word praises a standing habit of planning with the future in mind - roadmaps and decade-long horizons. This is one decisive strike in March against one specific threat.", "anticipatory": "That word means bracing for something already on its way. The whole point here is that the blight <em>never arrived<\/em> - she prevented it rather than met it.", "prepared": "That word means ready if trouble comes. She did not wait with supplies on the shelf - she went out early and made sure the trouble never came."}}, {"s": "Security logs showed no break-in yet, but the ____ administrator rewrote the login system that very weekend, closing the flaw before anyone outside ever found it.", "ks": ["proactive"], "fb": {"forward-thinking": "That word describes an outlook - ten-year roadmaps, tomorrow's needs sketched today. This administrator is not sketching; the fix ships this weekend against one named flaw.", "anticipatory": "That word requires something already incoming to expect. The logs showed <em>no break-in yet<\/em> and no attacker had even found the flaw - nothing was on its way.", "prepared": "That word means standing ready in case trouble lands. Rewriting the login system removes the trouble at the source, which is a stronger move than readiness."}}, {"s": "Trustees praised the ____ library board, which had spent a decade quietly planning for the readers of 2050 - budgets, buildings, and staff skills mapped out long before any of it was needed.", "ks": ["forward-thinking"], "fb": {"proactive": "That word is narrower and more urgent - acting now so a specific problem never happens. A decade of quiet mapping toward 2050 names no problem and takes no urgent strike.", "anticipatory": "That word braces for something already coming. Nothing in the sentence is inbound - the year 2050 is a horizon the board plans toward, not an event bearing down.", "prepared": "That word means ready in case trouble arrives. The board is not waiting on trouble at all; it is charting decades of ordinary change."}}, {"s": "Colleagues considered the young superintendent ____ for keeping a ten-year enrollment map on her wall and revising it every spring, whatever the current year's numbers said.", "ks": ["forward-thinking"], "fb": {"proactive": "That word wants a specific problem prevented by early action. A wall map revised every spring is a habit of outlook, and no particular problem is named or headed off.", "anticipatory": "That word fits when something known is already approaching. Her map covers ten years of possibilities, none of them yet on the way.", "prepared": "That word describes readiness for trouble in case it comes. An enrollment map is planning, not a stocked shelf or a drilled response."}}, {"s": "With eclipse traffic already streaming up the valley highway, the rangers' morning was all ____ bustle: water stations and overflow parking laid out for crowds certain to arrive by noon.", "ks": ["anticipatory"], "fb": {"proactive": "That word means acting so a problem never happens. These crowds are <em>certain to arrive by noon<\/em> - nothing can head them off, so the rangers are simply getting ready to receive them.", "forward-thinking": "That word praises a long planning horizon. This horizon is measured in hours, with the event already visible on the highway.", "prepared": "That word covers standing readiness for trouble that may or may not come. Here the thing is <em>already streaming up the valley<\/em> - the bustle answers a certainty, not an 'if'."}}, {"s": "The cabin crew keeps the kit stocked and the drill memorized, staying ____ for an engine failure that may never come in a whole career.", "ks": ["prepared"], "fb": {"proactive": "That word means going out to meet trouble early and heading it off. The crew cannot make engines fail less often - they can only be ready if one does.", "anticipatory": "That word expects something already on its way. A failure that <em>may never come in a whole career<\/em> is exactly the opposite - a pure 'if'.", "forward-thinking": "That word praises long-range planning as a habit. A stocked kit and a drill are not plans for the future; they are readiness for a moment that may never arrive."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone acting ahead of a specific problem on purpose, so that it never happens - not just being ready for it. Try working in a word like <i>before<\/i>, <i>early<\/i>, <i>never<\/i> or <i>prevented<\/i>."}};
+  var CFG = {"word": "proactive", "gradeUrl": "/api/grade", "taskId": "proactive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses proactive correctly?", "opts": {"A": "The proactive lifeguard waited until swimmers were already struggling before glancing at the water.", "B": "His proactive style meant fixing the leak only after the ceiling had caved in twice.", "C": "Proactive, Ms. Okafor services the furnaces each fall so no tenant faces a dead heater in January.", "D": "They were proactive about the deadline, starting their work the night after it had passed."}, "key": "C", "fb": {"correct": "Right. Ms. Okafor acts in the fall, before any furnace fails, so the January problem never happens - acting in advance to prevent trouble is exactly what proactive means.", "A": "Watching only after 'swimmers were already struggling' is reaction once danger has started. Proactive means the opposite: stepping in ahead of trouble so it never gets that far.", "B": "'Fixing the leak only after the ceiling had caved in twice' is repair as reaction — twice too late. A proactive owner handles the problem before the first collapse, not after the second.", "D": "'Starting their work the night after it had passed' means acting once the deadline is already gone. Proactive effort begins in advance, heading a problem off — not trailing along behind it."}}, "s3a": {"q": "As it is used in the passage, \"proactive\" most nearly means", "opts": {"A": "keeping supplies on hand in case students fell ill", "B": "bracing for an outbreak already spreading toward the school", "C": "maintaining a general habit of planning years ahead", "D": "acting early so a problem never starts"}, "key": "D", "fb": {"correct": "Right. She moved before a single student sneezed, and her own words give the test: the whole point was to make sure the flu never showed up at all.", "A": "Supplies-in-case is passive readiness. Delgado went further - dispensers, clinics, and a campaign meant to keep the outbreak from ever starting.", "B": "Nothing was spreading yet; colleagues teased her precisely because the enemy had not shown up.", "C": "The campaign targeted one specific threat this winter, not a years-long planning habit."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forward-thinking", "B": "anticipatory", "C": "prepared", "D": "proactive"}, "key": "C", "fb": {"correct": "Right. Park prevented nothing and predicted nothing; she simply made sure that if a mishap arrived — any mishap, any night — the company was ready. Ready-if-trouble-comes is exactly the line this card draws for the word.", "D": "Proactive means going out to meet trouble early and heading it off. Park pointedly did not: <em>the rigging, the schedule, and the aging trapdoor stayed exactly as they were<\/em>.", "A": "Forward-thinking praises a standing habit of planning with the distant future in mind. <em>Her horizon was never longer than that evening's curtain<\/em>.", "B": "Anticipatory means acting in expectation of something already on its way, but <em>no forecast ever told her which night would go wrong<\/em> — nothing specific was ever coming."}}}, "pairwise": {"rows": [{"sentence": "The ____ orchard manager burned the single infested row in March, months before the beetles could wake, and the blight the county braced for never arrived.", "options": ["proactive", "forward-thinking"], "key": "proactive", "pair": "forward-thinking", "why_right": "The tell is <em>burned the single infested row in March<\/em> - one urgent strike now against one specific threat, so the blight never gets the chance to happen.", "why_wrong": "That word praises a standing habit of planning with the future in mind - roadmaps and decade-long horizons. This is one decisive strike in March against one specific threat."}, {"sentence": "Trustees praised the ____ library board, which had spent a decade quietly planning for the readers of 2050 - budgets, buildings, and staff skills mapped out long before any of it was needed.", "options": ["proactive", "forward-thinking"], "key": "forward-thinking", "pair": "forward-thinking", "why_right": "The tell is <em>quietly planning for the readers of 2050<\/em> - a decade-long habit of sketching where things are headed, with no single problem being urgently headed off.", "why_wrong": "That word is narrower and more urgent - acting now so a specific problem never happens. A decade of quiet mapping toward 2050 names no problem and takes no urgent strike."}, {"sentence": "Colleagues considered the young superintendent ____ for keeping a ten-year enrollment map on her wall and revising it every spring, whatever the current year's numbers said.", "options": ["proactive", "forward-thinking"], "key": "forward-thinking", "pair": "forward-thinking", "why_right": "The tell is <em>keeping a ten-year enrollment map on her wall<\/em> - a standing habit of planning with the future in mind, not one urgent strike at a named problem.", "why_wrong": "That word wants a specific problem prevented by early action. A wall map revised every spring is a habit of outlook, and no particular problem is named or headed off."}, {"sentence": "Security logs showed no break-in yet, but the ____ administrator rewrote the login system that very weekend, closing the flaw before anyone outside ever found it.", "options": ["proactive", "anticipatory"], "key": "proactive", "pair": "anticipatory", "why_right": "The tell is <em>closing the flaw before anyone outside ever found it<\/em> - nothing was on its way to brace for; the fix works so trouble never comes at all.", "why_wrong": "That word requires something already incoming to expect. The logs showed <em>no break-in yet<\/em> and no attacker had even found the flaw - nothing was on its way."}, {"sentence": "With eclipse traffic already streaming up the valley highway, the rangers' morning was all ____ bustle: water stations and overflow parking laid out for crowds certain to arrive by noon.", "options": ["proactive", "anticipatory"], "key": "anticipatory", "pair": "anticipatory", "why_right": "The tell is <em>already streaming up the valley highway<\/em> - the crowds are certain and en route, so the rangers act in expectation of something already on its way, not to prevent it.", "why_wrong": "That word means acting so a problem never happens. These crowds are <em>certain to arrive by noon<\/em> - nothing can head them off, so the rangers are simply getting ready to receive them."}, {"sentence": "With no outbreak anywhere in the region, the ____ health office ran a school vaccination drive that autumn; when measles reached neighboring counties the next spring, it never took hold there.", "options": ["proactive", "anticipatory"], "key": "proactive", "pair": "anticipatory", "why_right": "The tell is <em>no outbreak anywhere in the region<\/em> - nothing was already on its way to brace for; the drive moved early on purpose so the disease never took hold at all.", "why_wrong": "That word means acting in expectation of something already on its way. Nothing was incoming that autumn - no outbreak existed anywhere - so the office was preventing, not bracing."}, {"sentence": "The ____ principal had the crumbling stair rebuilt over the summer break, while other schools stocked first-aid kits and hoped; when classes resumed, there was simply nothing left to trip on.", "options": ["proactive", "prepared"], "key": "proactive", "pair": "prepared", "why_right": "The tell is <em>nothing left to trip on<\/em> - the hazard itself is gone, trouble met early and headed off, where a stocked kit would only stand ready in case it came.", "why_wrong": "That word means ready if trouble comes - the other schools' stocked kits are exactly that. Rebuilding the stair removes the trouble at its source, so nothing is being waited for."}, {"sentence": "No drill can hold back the sea, so twice a year the harbor town walks its uphill routes and restocks the go-bags, keeping every family ____ though the wave may never come.", "options": ["proactive", "prepared"], "key": "prepared", "pair": "prepared", "why_right": "The tell is <em>No drill can hold back the sea<\/em> - the wave cannot be prevented, only met, so routes and go-bags are readiness in case trouble comes.", "why_wrong": "That word means going out to meet trouble early and heading it off. Nobody can head off the sea; routes and go-bags only make the town ready if the wave ever comes."}], "display_order": [2, 5, 6, 3, 0, 4, 1, 7], "dimension_order": ["forward-thinking", "anticipatory", "prepared"], "dimension_feedback": {"forward-thinking": "Forward-thinking praises the standing habit of planning with the future in mind — pension funds, ten-year roadmaps, tomorrow's skills taught today. Proactive is narrower and more urgent: acting now, in advance, so that specific problems never get the chance to happen. A forward-thinking board sketches where things are headed; a proactive one has already patched next month's weak spot.", "anticipatory": "Anticipatory means acting in expectation of something already on its way — the umbrella packed before the forecast rain. Proactive goes a step further: it means moving early on purpose to prevent problems, not merely to be ready when they land. Anticipatory braces for what is coming; proactive works so it never comes.", "prepared": "Prepared means ready if trouble comes; proactive goes further - going out to meet trouble early and heading it off."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone acting ahead of a specific problem on purpose, so that it never happens - not just being ready for it. Try working in a word like <i>before<\/i>, <i>early<\/i>, <i>never<\/i> or <i>prevented<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

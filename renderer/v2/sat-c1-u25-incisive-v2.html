@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="7bda1c7bad90">
+<meta name="build" content="6faed7ec2130">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>incisive &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "incisive", "gradeUrl": "/api/grade", "taskId": "incisive", "minWords": 12, "items": {"s1": {"q": "Four reviewers respond to a research poster. Which comment is incisive?", "opts": {"A": "'Your data ends in 2019, but your claim is about 2024; that gap is the flaw.'", "B": "'Strong work — here are eleven suggestions covering your methods, figures, sources, and poster layout.'", "C": "A generous response praising the project's ambition and urging the team to keep asking big questions.", "D": "'One small note: the caption on Figure 3 uses a different font from the others — an easy fix.'"}, "key": "A", "fb": {"correct": "Right — naming the exact gap between where the data ends and what the conclusion claims cuts straight to the decisive flaw: incisive.", "B": "Eleven suggestions across methods, figures, sources, and layout is thorough — but thoroughness spreads attention everywhere at once. Incisive analysis does the opposite: it cuts straight to the single point that matters most.", "C": "Praising the project's ambition and urging big questions is generous, but it locates nothing specific in this poster. Incisive comment pins an exact weakness; warmth without a target is not a cut at all.", "D": "The font note is precise, and precision is half of incisive — but a caption's typeface decides nothing about whether the research holds up. Incisive criticism is exact about the point that matters, not exact about a trivial one."}}, "s3a": {"q": "As it is used in the passage, \"incisive\" most nearly means", "opts": {"A": "so brief as to border on open rudeness", "B": "aimed exactly at the point where a book goes wrong", "C": "thorough, generous, and rich in supporting detail on every page", "D": "too cryptic for most authors to interpret confidently"}, "key": "B", "fb": {"correct": "Yes — one line, placed 'always at the paragraph where a book quietly went wrong,' is a cut at the deciding point.", "A": "The notes were short, but nothing marks them as rude — writers 'obeyed' them because they were right, not because they stung.", "C": "That describes the other editors, whose letters were 'longer... and fuller.' Hers were 'rarely more than a line.'", "D": "'Your story starts on page 212' left nothing to interpret — the novelist knew exactly what to cut."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "clear", "B": "sharp", "C": "penetrating", "D": "incisive"}, "key": "D", "fb": {"correct": "Right. Her rulings were prized for going straight at what decided the case and saying it in a few exact words: <em>a ruling that puts the deciding point in a few plain words settles the next hundred cases along with its own<\/em>.", "C": "Penetrating praises the depth of the seeing, and depth was not what set her apart: <em>Her colleagues often saw the same weaknesses<\/em>. What they lacked was her way of saying it.", "B": "Sharp is the everyday word for a keen mind or a quick jab in passing. These opinions were not passing wit — one of them <em>settles the next hundred cases along with its own<\/em> — and the question asks for the most precise word, not the most general one.", "A": "Clear promises only that a ruling is easy to follow — her colleagues' padded pages may have been clear too. Hers <em>went straight to the issue controlling the outcome<\/em>, which is a different and rarer virtue."}}}, "grid": {"words": ["incisive", "penetrating", "sharp", "clear"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The consultant's memo ran three sentences, yet it was ____ — not merely easy to follow, but aimed at the one point on which the whole budget fight turned.", "ks": ["incisive"], "fb": {"clear": "Easy to follow is granted and then set aside — 'not merely easy to follow.' The praise is for finding the deciding point, which that word does not claim.", "penetrating": "That word praises how deep the seeing goes, and deep insight can still arrive in fog. This praises the delivery: three sentences, aimed at the deciding point.", "sharp": "Everyday quick-and-clever praise would undersell this: the memo settles 'the one point on which the whole budget fight turned.'"}}, {"s": "Listeners prized the host's ____ post-game analysis, which pared each controversy down to the single question that decided it, with never a wasted phrase.", "ks": ["incisive"], "fb": {"penetrating": "Depth of insight can coexist with murky delivery. What is praised here is economy and aim — 'never a wasted phrase,' one deciding question.", "sharp": "A quick, clever line would be that word's home. This is sustained analysis credited with settling 'the single question that decided' each controversy.", "clear": "Nothing is said about being easy to follow; the praise is that the analysis finds the question everything else hangs on."}}, {"s": "His notebooks reveal a quietly ____ intelligence that saw beneath every surface of the problem, even though his prose was tangled and hard to follow.", "ks": ["penetrating"], "fb": {"incisive": "That word praises delivery that cuts cleanly and briefly. This prose is 'tangled and hard to follow' — whatever the mind saw, the page never cut.", "sharp": "Not a quick flash of wit: the praise is for seeing 'beneath every surface,' sustained depth rather than pointedness in passing.", "clear": "The sentence says his prose was 'tangled and hard to follow' — that alone rules out the easy-to-follow word."}}, {"s": "Her questions in the archive were ____, reaching past the treaty's wording to motives nobody had written down, though her report buried the finding in fog.", "ks": ["penetrating"], "fb": {"incisive": "The insight never became a clean cut on the page — the report 'buried the finding in fog,' the opposite of direct, economical delivery.", "sharp": "A pointed remark is quick and passing. These questions do slow, deep work — going 'past the treaty's wording' to unwritten motives.", "clear": "Fog is the tell: the finding was 'buried,' so ease of understanding cannot be the praise."}}, {"s": "The apprentice had a famously ____ tongue, a quick jab ready for everything, though her comebacks decided nothing and dug no deeper than the moment.", "ks": ["sharp"], "fb": {"incisive": "That is stronger, more specific praise — analysis that lands on the deciding point. These comebacks 'decided nothing.'", "penetrating": "Reaching past surfaces is exactly what these jabs do not do: they 'dug no deeper than the moment.'", "clear": "Nobody is praising how easy she is to follow; the compliment is her speed — 'a quick jab ready for everything.'"}}, {"s": "Students liked the textbook's ____ walkthroughs, every step easy to follow, even though they never said which single idea a chapter actually turned on.", "ks": ["clear"], "fb": {"incisive": "That word would require the walkthroughs to land on the idea 'a chapter actually turned on' — and the sentence says they never did.", "penetrating": "Nothing here reaches beneath a surface; the walkthroughs move step by step along the top.", "sharp": "There is no quick jab or keen edge in a patient walkthrough; the virtue described is ease, not point."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a comment that lands on the one point that settles the matter, in very few words — let the reader see both the brevity and the bull's-eye. Try working in words like <i>one<\/i>, <i>exactly<\/i>, <i>settled<\/i> or <i>a single line<\/i>."}};
+  var CFG = {"word": "incisive", "gradeUrl": "/api/grade", "taskId": "incisive", "minWords": 12, "items": {"s1": {"q": "Four reviewers respond to a research poster. Which comment is incisive?", "opts": {"A": "'Your data ends in 2019, but your claim is about 2024; that gap is the flaw.'", "B": "'Strong work — here are eleven suggestions covering your methods, figures, sources, and poster layout.'", "C": "A generous response praising the project's ambition and urging the team to keep asking big questions.", "D": "'One small note: the caption on Figure 3 uses a different font from the others — an easy fix.'"}, "key": "A", "fb": {"correct": "Right — naming the exact gap between where the data ends and what the conclusion claims cuts straight to the decisive flaw: incisive.", "B": "Eleven suggestions across methods, figures, sources, and layout is thorough — but thoroughness spreads attention everywhere at once. Incisive analysis does the opposite: it cuts straight to the single point that matters most.", "C": "Praising the project's ambition and urging big questions is generous, but it locates nothing specific in this poster. Incisive comment pins an exact weakness; warmth without a target is not a cut at all.", "D": "The font note is precise, and precision is half of incisive — but a caption's typeface decides nothing about whether the research holds up. Incisive criticism is exact about the point that matters, not exact about a trivial one."}}, "s3a": {"q": "As it is used in the passage, \"incisive\" most nearly means", "opts": {"A": "so brief as to border on open rudeness", "B": "aimed exactly at the point where a book goes wrong", "C": "thorough, generous, and rich in supporting detail on every page", "D": "too cryptic for most authors to interpret confidently"}, "key": "B", "fb": {"correct": "Yes — one line, placed 'always at the paragraph where a book quietly went wrong,' is a cut at the deciding point.", "A": "The notes were short, but nothing marks them as rude — writers 'obeyed' them because they were right, not because they stung.", "C": "That describes the other editors, whose letters were 'longer... and fuller.' Hers were 'rarely more than a line.'", "D": "'Your story starts on page 212' left nothing to interpret — the novelist knew exactly what to cut."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "clear", "B": "sharp", "C": "penetrating", "D": "incisive"}, "key": "D", "fb": {"correct": "Right. Her rulings were prized for going straight at what decided the case and saying it in a few exact words: <em>a ruling that puts the deciding point in a few plain words settles the next hundred cases along with its own<\/em>.", "C": "Penetrating praises the depth of the seeing, and depth was not what set her apart: <em>Her colleagues often saw the same weaknesses<\/em>. What they lacked was her way of saying it.", "B": "Sharp is the everyday word for a keen mind or a quick jab in passing. These opinions were not passing wit — one of them <em>settles the next hundred cases along with its own<\/em> — and the question asks for the most precise word, not the most general one.", "A": "Clear promises only that a ruling is easy to follow — her colleagues' padded pages may have been clear too. Hers <em>went straight to the issue controlling the outcome<\/em>, which is a different and rarer virtue."}}}, "pairwise": {"rows": [{"sentence": "Everyone in the room already knew the schedule was the problem; the director's ____ summary simply said so in one sentence, and the debate was over.", "options": ["incisive", "penetrating"], "key": "incisive", "pair": "penetrating", "why_right": "The tell is <em>already knew<\/em> - nothing hidden was left to see past; the praise is pure delivery, one sentence cutting straight to the point that decided the debate.", "why_wrong": "That word praises seeing that reaches past surfaces to something hidden. Here everyone 'already knew' the problem - the only feat left was saying it directly, in one clean sentence."}, {"sentence": "His notebooks reveal a quietly ____ intelligence that saw beneath every surface of the problem, even though his prose was tangled and hard to follow.", "options": ["incisive", "penetrating"], "key": "penetrating", "pair": "penetrating", "why_right": "The tell is <em>tangled and hard to follow<\/em> - the seeing went beneath every surface, but the page never made a clean cut, so the delivery word cannot apply.", "why_wrong": "That word praises delivery that cuts cleanly and briefly. This prose is 'tangled and hard to follow' — whatever the mind saw, the page never cut."}, {"sentence": "Her questions in the archive were ____, reaching past the treaty's wording to motives nobody had written down, though her report buried the finding in fog.", "options": ["incisive", "penetrating"], "key": "penetrating", "pair": "penetrating", "why_right": "The tell is <em>buried the finding in fog<\/em> - the questions reached past the wording to hidden motives, deep seeing, while the delivery never cut cleanly at all.", "why_wrong": "The insight never became a clean cut on the page — the report 'buried the finding in fog,' the opposite of direct, economical delivery."}, {"sentence": "Listeners prized the host's ____ post-game analysis, which pared each controversy down to the single question that decided it, with never a wasted phrase.", "options": ["incisive", "sharp"], "key": "incisive", "pair": "sharp", "why_right": "The tell is <em>pared each controversy down to the single question that decided it<\/em> - sustained analysis aimed at the deciding point, not a quick jab or clever line in passing.", "why_wrong": "A quick, clever line would be that word's home. This is sustained analysis credited with settling 'the single question that decided' each controversy."}, {"sentence": "The apprentice had a famously ____ tongue, a quick jab ready for everything, though her comebacks decided nothing and dug no deeper than the moment.", "options": ["incisive", "sharp"], "key": "sharp", "pair": "sharp", "why_right": "The tell is <em>a quick jab ready for everything<\/em> - everyday quick, pointed wit in passing; her comebacks decided nothing, so the cut-to-the-deciding-point word overclaims.", "why_wrong": "That is stronger, more specific praise — analysis that lands on the deciding point. These comebacks 'decided nothing.'"}, {"sentence": "The consultant's memo ran three sentences, yet it was ____ — not merely easy to follow, but aimed at the one point on which the whole budget fight turned.", "options": ["incisive", "clear"], "key": "incisive", "pair": "clear", "why_right": "The tell is <em>aimed at the one point<\/em> - the memo does more than read easily; it lands on the question the whole budget fight turns on, the specifically incisive feat.", "why_wrong": "Easy to follow is granted and then set aside — 'not merely easy to follow.' The praise is for finding the deciding point, which that word does not claim."}, {"sentence": "Both inspectors explained the scaffold collapse in plain language anyone could follow, but only Vela's report was ____, isolating the one corroded bolt that every repair plan had to start from.", "options": ["incisive", "clear"], "key": "incisive", "pair": "clear", "why_right": "The tell is <em>only Vela's report<\/em> - both reports were already easy to follow, so what sets hers apart is the cut to the one point every repair must start from.", "why_wrong": "That word claims only that a comment is easy to follow - and the sentence grants both reports exactly that. What only hers did was isolate the one bolt that decides every repair."}, {"sentence": "Students liked the textbook's ____ walkthroughs, every step easy to follow, even though they never said which single idea a chapter actually turned on.", "options": ["incisive", "clear"], "key": "clear", "pair": "clear", "why_right": "The tell is <em>every step easy to follow<\/em> - ease is the whole claim; the walkthroughs never found what a chapter turned on, so the stronger cutting word is unearned.", "why_wrong": "That word would require the walkthroughs to land on the idea 'a chapter actually turned on' — and the sentence says they never did."}], "display_order": [6, 1, 5, 3, 2, 4, 0, 7], "dimension_order": ["penetrating", "sharp", "clear"], "dimension_feedback": {"penetrating": "Penetrating describes the seeing: a penetrating mind or question reaches past surfaces into the heart of a matter. Incisive describes the delivery — analysis that cuts straight to the decisive point in a few exact words. Insight can be penetrating yet fog-bound; incisive comment is sharp on the page.", "sharp": "Sharp is the everyday, all-purpose word for a keen mind or pointed remark. Incisive is more specific praise: it says the analysis itself cuts — direct, precise, and aimed at the one point that decides the question, not merely quick or clever in passing.", "clear": "Clear is weaker than incisive: a clear comment is easy to follow, while an incisive one also cuts to the exact point that matters."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a comment that lands on the one point that settles the matter, in very few words — let the reader see both the brevity and the bull's-eye. Try working in words like <i>one<\/i>, <i>exactly<\/i>, <i>settled<\/i> or <i>a single line<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

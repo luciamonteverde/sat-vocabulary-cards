@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="c3335dd4d5e9">
+<meta name="build" content="910975a27497">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fractious &#8212; SAT Vocabulary, Course 2 Unit 11</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "fractious", "gradeUrl": "/api/grade", "taskId": "fractious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses fractious correctly?", "opts": {"A": "Budget week leaves the newsroom fractious: editors snap over headlines, and the interns learn to hide the good stapler.", "B": "The fractious hinge finally parted, and the gate swung free in the night wind until a neighbor wired it shut.", "C": "The fractious retriever dozed through the fireworks without lifting an ear from the rug by the couch.", "D": "Guests toasted their fractious hosts for the most soothing, restful weekend any of them could remember."}, "key": "A", "fb": {"correct": "Correct. A whole room gone snappish and quarrelsome under strain — troublesome, irritable, fractious.", "B": "When the hinge 'finally parted', the hardware fractured — a physical break, which is what this sentence describes. Fractious is about an irritable temperament, and a gate has no temper.", "C": "The retriever that 'dozed through the fireworks' without lifting an ear is the picture of calm. Fractious animals are restless and hard to manage; this dog could not be easier company.", "D": "Hosts thanked for 'the most soothing, restful weekend' in memory are being praised for gentleness. Fractious means troublesome and irritable — the toast credits them with exactly the opposite quality."}}, "s3a": {"q": "In this passage, \"fractious\" most nearly means", "opts": {"A": "irritable and hard to manage", "B": "playfully energetic but harmless in a group", "C": "sad and withdrawn when kept in herds", "D": "dangerous enough to require special permits"}, "key": "A", "fb": {"correct": "Right -- 'there was temper in it,' aimed at handlers and herd-mates, and managing them together defeated three professionals.", "B": "Butting and nipping with 'temper in it' is not play, and it was anything but harmless to the schedule.", "C": "The goats aren't withdrawn -- they're butting, nipping, and refusing in unison.", "D": "No permits or public danger appear -- the problem is management, not menace."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "peevish", "B": "fractious", "C": "cranky", "D": "unruly"}, "key": "B", "fb": {"correct": "Right. A group that is hard to manage precisely because it has turned quarrelsome — <em>grudges over bench space, barbed replies on the radio<\/em>, a manager <em>refereeing disputes at every meal<\/em> — is exactly what fractious names.", "D": "Unruly is a failure of control, and it needs no bad temper — a crowd that won't form lines is unruly. This crew still obeys: <em>Orders are still carried out promptly<\/em>, and <em>the quarrels never touch the safety drills<\/em>. The trouble here is temper, not disorder.", "A": "Peevish is one person at a time, sulking over small discomforts. Here <em>the whole nine-person crew<\/em> is quarreling outward, and the manager spends every meal <em>refereeing disputes<\/em> — a room-sized fight, not private grumbling.", "C": "Cranky is a passing mood that rest repairs. Here <em>long rest days change nothing<\/em> — the crew <em>returns from them mid-argument<\/em> — so this is a settled quarrelsomeness, not a mood to sleep off."}}}, "grid": {"words": ["fractious", "unruly", "peevish", "cranky"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "By the last week of camp, Cabin Six had turned ____, snapping at the counselors over lights-out and at one another over bunk assignments, until every activity started late.", "ks": ["fractious"], "fb": {"unruly": "Unruly means hard to control -- a crowd that won't form lines -- with no bad temper required. Cabin Six is <em>snapping at the counselors and at one another<\/em>: the crossness is the point.", "peevish": "Peevish is one person whining in a corner. This is a whole cabin quarreling outward until <em>every activity started late<\/em>.", "cranky": "Cranky is a mood a nap can fix. A week of snapping that derails the schedule is something the counselors have to manage."}}, {"s": "The five-party coalition grew ____ within a month of taking office: ministers sniped at the chancellor and at each other, and every routine bill became a small war for the whips.", "ks": ["fractious"], "fb": {"unruly": "Unruly is disorder without temper -- hair that won't lie flat. These ministers <em>sniped at the chancellor and at each other<\/em>: quarrelsome to the core.", "peevish": "Peevish sulks alone over small discomforts. This is a governing bloc scraping against its handlers until <em>every routine bill became a small war<\/em>.", "cranky": "Cranky passes with a nap. A quarrelsome coalition is a standing management problem for <em>the whips<\/em>."}}, {"s": "The puppy-kindergarten class is cheerfully ____ -- leads tangled, commands ignored, one escapee under the chairs a minute -- with not a growl or a nip in the whole room.", "ks": ["unruly"], "fb": {"fractious": "That word disobeys crossly -- snapping at handlers and each other. This room has <em>not a growl or a nip<\/em>: pure happy disorder.", "peevish": "Peevish whines over small discomforts. Nobody here is discontent -- they're <em>cheerfully<\/em> everywhere at once.", "cranky": "Cranky is a bad mood. There's no mood problem at all -- only <em>leads tangled<\/em> and <em>commands ignored<\/em>."}}, {"s": "The ivy on the north wall is magnificently ____, ignoring the trellis, swallowing the drainpipe, and sending runners across the neighbor's fence -- vigorous, healthy, and impossible to direct.", "ks": ["unruly"], "fb": {"fractious": "That word disobeys crossly -- it needs a temper. Ivy has none; it is simply <em>impossible to direct<\/em>.", "peevish": "Peevish is whiny and easily annoyed. A <em>vigorous, healthy<\/em> vine is not annoyed at anything.", "cranky": "Cranky is a passing bad mood. A plant has no moods -- just runners headed for <em>the neighbor's fence<\/em>."}}, {"s": "Even fresh from his nap, Grandpa turns ____ on long car rides, sighing theatrically about the vents, the playlist, and the way the seatbelt sits, though he never asks to stop.", "ks": ["peevish"], "fb": {"fractious": "That word is a group problem -- quarrelsome, scraping against its handlers. This is one man <em>sighing theatrically<\/em> in a passenger seat, troubling no one's management.", "unruly": "Unruly is hard to control. He's buckled in and fully compliant -- the resistance is all in the <em>sighing<\/em>.", "cranky": "Cranky is a mood one nap can fix -- and he's <em>fresh from his nap<\/em>. The whining over <em>the vents<\/em> and <em>the seatbelt<\/em> is simply how he rides."}}, {"s": "The toddler turned ____ right on schedule at four o'clock, scowling at his crackers and pushing away his favorite truck; twenty minutes of sleep restored him completely.", "ks": ["cranky"], "fb": {"fractious": "That word is quarrelsome trouble for whoever's in charge -- and it doesn't nap away. This mood was gone after <em>twenty minutes of sleep<\/em>.", "peevish": "Peevish is a standing disposition to whine. This arrives <em>right on schedule at four o'clock<\/em> and vanishes after a nap -- a mood, not a temperament.", "unruly": "Unruly means hard to control. He isn't running anywhere -- he's <em>scowling at his crackers<\/em>, waiting for sleep."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a group that is hard to manage because it is bad-tempered -- snapping at the people in charge and at each other. Try working in a word like <i>snapping<\/i>, <i>quarreling<\/i>, <i>handlers<\/i> or <i>manage<\/i>."}};
+  var CFG = {"word": "fractious", "gradeUrl": "/api/grade", "taskId": "fractious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses fractious correctly?", "opts": {"A": "Budget week leaves the newsroom fractious: editors snap over headlines, and the interns learn to hide the good stapler.", "B": "The fractious hinge finally parted, and the gate swung free in the night wind until a neighbor wired it shut.", "C": "The fractious retriever dozed through the fireworks without lifting an ear from the rug by the couch.", "D": "Guests toasted their fractious hosts for the most soothing, restful weekend any of them could remember."}, "key": "A", "fb": {"correct": "Correct. A whole room gone snappish and quarrelsome under strain — troublesome, irritable, fractious.", "B": "When the hinge 'finally parted', the hardware fractured — a physical break, which is what this sentence describes. Fractious is about an irritable temperament, and a gate has no temper.", "C": "The retriever that 'dozed through the fireworks' without lifting an ear is the picture of calm. Fractious animals are restless and hard to manage; this dog could not be easier company.", "D": "Hosts thanked for 'the most soothing, restful weekend' in memory are being praised for gentleness. Fractious means troublesome and irritable — the toast credits them with exactly the opposite quality."}}, "s3a": {"q": "In this passage, \"fractious\" most nearly means", "opts": {"A": "irritable and hard to manage", "B": "playfully energetic but harmless in a group", "C": "sad and withdrawn when kept in herds", "D": "dangerous enough to require special permits"}, "key": "A", "fb": {"correct": "Right -- 'there was temper in it,' aimed at handlers and herd-mates, and managing them together defeated three professionals.", "B": "Butting and nipping with 'temper in it' is not play, and it was anything but harmless to the schedule.", "C": "The goats aren't withdrawn -- they're butting, nipping, and refusing in unison.", "D": "No permits or public danger appear -- the problem is management, not menace."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "peevish", "B": "fractious", "C": "cranky", "D": "unruly"}, "key": "B", "fb": {"correct": "Right. A group that is hard to manage precisely because it has turned quarrelsome — <em>grudges over bench space, barbed replies on the radio<\/em>, a manager <em>refereeing disputes at every meal<\/em> — is exactly what fractious names.", "D": "Unruly is a failure of control, and it needs no bad temper — a crowd that won't form lines is unruly. This crew still obeys: <em>Orders are still carried out promptly<\/em>, and <em>the quarrels never touch the safety drills<\/em>. The trouble here is temper, not disorder.", "A": "Peevish is one person at a time, sulking over small discomforts. Here <em>the whole nine-person crew<\/em> is quarreling outward, and the manager spends every meal <em>refereeing disputes<\/em> — a room-sized fight, not private grumbling.", "C": "Cranky is a passing mood that rest repairs. Here <em>long rest days change nothing<\/em> — the crew <em>returns from them mid-argument<\/em> — so this is a settled quarrelsomeness, not a mood to sleep off."}}}, "pairwise": {"rows": [{"sentence": "The puppy-kindergarten class is cheerfully ____ -- leads tangled, commands ignored, one escapee under the chairs a minute -- with not a growl or a nip in the whole room.", "options": ["fractious", "unruly"], "key": "unruly", "pair": "unruly", "why_right": "The tell is <em>not a growl or a nip<\/em> - the room is hard to control with no bad temper at all, unruly's exact territory; the crossness fractious requires never enters it.", "why_wrong": "That word disobeys crossly -- snapping at handlers and each other. This room has <em>not a growl or a nip<\/em>: pure happy disorder."}, {"sentence": "The ivy on the north wall is magnificently ____, ignoring the trellis, swallowing the drainpipe, and sending runners across the neighbor's fence -- vigorous, healthy, and impossible to direct.", "options": ["fractious", "unruly"], "key": "unruly", "pair": "unruly", "why_right": "The tell is <em>impossible to direct<\/em> - the vine is hard to control with no bad temper at all; a plant has no crossness to add, only vigorous disorder.", "why_wrong": "That word disobeys crossly -- it needs a temper. Ivy has none; it is simply <em>impossible to direct<\/em>."}, {"sentence": "The model-railway club follows its own rulebook to the letter, yet it has grown so ____ that every layout decision touches off a squabble the president must referee.", "options": ["fractious", "unruly"], "key": "fractious", "pair": "unruly", "why_right": "The tell is <em>touches off a squabble<\/em> - the club is snappish and quarrelsome, scraping against its handler and itself, even while it disobeys nothing; the crossness is the whole problem.", "why_wrong": "That word means hard to control - crowds that won't form lines, hair that won't lie flat. This club follows its rulebook to the letter; the quarrels are the only trouble it gives."}, {"sentence": "By the last week of camp, Cabin Six had turned ____, snapping at the counselors over lights-out and at one another over bunk assignments, until every activity started late.", "options": ["fractious", "peevish"], "key": "fractious", "pair": "peevish", "why_right": "The tell is <em>snapping at the counselors<\/em> - a whole cabin quarrelsome and snappish at group scale, scraping against its handlers and itself, far past one person grumbling in a corner.", "why_wrong": "Peevish is one person whining in a corner. This is a whole cabin quarreling outward until <em>every activity started late<\/em>."}, {"sentence": "Even fresh from his nap, Grandpa turns ____ on long car rides, sighing theatrically about the vents, the playlist, and the way the seatbelt sits, though he never asks to stop.", "options": ["fractious", "peevish"], "key": "peevish", "pair": "peevish", "why_right": "The tell is <em>sighing theatrically<\/em> - one person, whiny and easily annoyed, sulking over small discomforts like vents and seatbelts, and never once turning the grumble into an outward quarrel.", "why_wrong": "That word is a group problem -- quarrelsome, scraping against its handlers. This is one man <em>sighing theatrically<\/em> in a passenger seat, troubling no one's management."}, {"sentence": "The five-party coalition grew ____ within a month of taking office: ministers sniped at the chancellor and at each other, and every routine bill became a small war for the whips.", "options": ["fractious", "cranky"], "key": "fractious", "pair": "cranky", "why_right": "The tell is <em>every routine bill became a small war<\/em> - a standing quarrelsome state making real trouble for whoever must manage it, months deep and nothing any nap could fix.", "why_wrong": "Cranky passes with a nap. A quarrelsome coalition is a standing management problem for <em>the whips<\/em>."}, {"sentence": "The toddler turned ____ right on schedule at four o'clock, scowling at his crackers and pushing away his favorite truck; twenty minutes of sleep restored him completely.", "options": ["fractious", "cranky"], "key": "cranky", "pair": "cranky", "why_right": "The tell is <em>twenty minutes of sleep<\/em> - this is a mood one nap can fix, arriving on schedule and vanishing after it; nothing digs in or makes standing trouble for anyone in charge.", "why_wrong": "That word is quarrelsome trouble for whoever's in charge -- and it doesn't nap away. This mood was gone after <em>twenty minutes of sleep<\/em>."}, {"sentence": "A full week off changed nothing: the survey crew came back to the dig as ____ as ever, bickering over tent assignments and trench duty until the site manager began scheduling them apart.", "options": ["fractious", "cranky"], "key": "fractious", "pair": "cranky", "why_right": "The tell is <em>A full week off changed nothing<\/em> - cranky is a mood one nap can fix, and rest has already failed; this crew's bickering is a standing problem for whoever manages it.", "why_wrong": "That word is a mood one nap can fix. A whole week of rest fixed nothing here - the bickering picked right back up and lands on the site manager, day after day."}], "display_order": [1, 6, 0, 7, 4, 2, 5, 3], "dimension_order": ["unruly", "peevish", "cranky"], "dimension_feedback": {"unruly": "Unruly means hard to control — a crowd that won't form lines, hair that won't lie flat — and it needs no bad temper at all. Fractious adds the irritability: a fractious group is hard to manage because it is snappish and quarrelsome, scraping against its handlers and itself. Unruly disobeys; fractious disobeys crossly.", "peevish": "Peevish is whiny and easily annoyed, usually one person at a time, sulking over small discomforts. Fractious scales up and turns outward: a fractious jury or touring quartet quarrels, digs in, and makes real trouble for whoever has to manage it. Peevish grumbles in its corner; fractious fights the whole room.", "cranky": "Cranky is a mood one nap can fix; fractious has turned outward — snapping, digging in, making trouble for whoever's in charge."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a group that is hard to manage because it is bad-tempered -- snapping at the people in charge and at each other. Try working in a word like <i>snapping<\/i>, <i>quarreling<\/i>, <i>handlers<\/i> or <i>manage<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

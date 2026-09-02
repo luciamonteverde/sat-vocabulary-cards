@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="aa4bb793d0ae">
+<meta name="build" content="7cff6f351cf5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>circulate &#8212; SAT Vocabulary, Course 3 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "circulate", "gradeUrl": "/api/grade", "taskId": "circulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses circulate correctly?", "opts": {"A": "The flyer circulated on the front door all semester, taped in the same spot until the sun had bleached the ink away.", "B": "Before the vote, board members quietly circulated a memo among themselves comparing the two bids line by line.", "C": "She circulated the spare key to her one neighbor before the trip and asked him to keep it in a drawer until she returned.", "D": "The fence circulated the reservoir, keeping hikers well back from the steep concrete rim on every side of the water."}, "key": "B", "fb": {"correct": "Correct! Circulate means to move through a group from person to person, and that is precisely the memo's journey — passed quietly among the board members, hand to hand, ahead of the vote.", "A": "Not quite! This flyer never moves at all — taped in one spot until it bleaches. Circulate means to travel through a group, and a thing fixed to a door for a semester is the opposite of traveling.", "C": "Not quite! One key, one neighbor, one drawer: a single handoff into storage isn't circulating. Circulate means moving on through a group, passed along from person to person.", "D": "Not quite! The fence surrounds the reservoir — that's encircle, the ring root's other job. Circulate means to move around through a group, and this fence isn't going anywhere."}}, "s3a": {"q": "In this passage, what does it mean for a bill to circulate?", "opts": {"A": "It gains value each time it changes owners, the way a collectible does.", "B": "It is handed out by the government to citizens who need it.", "C": "It wears out quickly from being folded and unfolded so often.", "D": "It keeps passing from person to person."}, "key": "D", "fb": {"correct": "Right — the healthy bill is the one that keeps moving through many hands.", "A": "A twenty stays a twenty; the passage never mentions value rising.", "B": "The mint prints bills, but the passage says it 'cannot make one circulate' — the passing around is done by people.", "C": "The worn bill is a clue that it has moved a lot — the wear is not the meaning."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "disseminate", "B": "spread", "C": "circulate", "D": "seep"}, "key": "C", "fb": {"correct": "Right. The manuscript travels through a group, lent from one member to the next until it <em>had made the full loop<\/em> and returned — and circulate is the word for exactly that person-to-person round.", "B": "Spread only says the chapters reached more people, by any means at all. This passage makes the means the whole point — <em>the route mattered as much as the pace<\/em>, member to member until the loop closed — so the most precise word must name that route.", "A": "To disseminate is to scatter something deliberately outward from a center to a list of recipients. Here <em>No publisher pushed copies outward from some central office<\/em>; instead <em>each member lent the bundle sideways to the next<\/em>.", "D": "To seep is to escape slowly at the edges, a detail at a time. These chapters did not: <em>Nor did the chapters merely trickle out at the edges<\/em> — within a month the whole novel <em>had made the full loop<\/em>."}}}, "grid": {"words": ["circulate", "spread", "disseminate", "seep"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "By lunch the petition had managed to ____ through the entire kitchen staff, passed hand to hand from the dish pit to the pastry station and back again.", "ks": ["circulate"], "fb": {"spread": "That word only says it reached more people, by any means at all. The sentence is specific about the route: hand to hand, around the whole staff, and back.", "disseminate": "That word is deliberate, top-down scattering — one office sending material out to a list. This petition moves sideways, passed by the staff themselves.", "seep": "That word means a slow escape at the edges, a detail at a time. Here the whole petition makes its full rounds before lunch."}}, {"s": "Rub your hands and stamp your feet on summit mornings, the guide told us — the body needs help getting blood to ____ when the cold pulls it inward.", "ks": ["circulate"], "fb": {"spread": "That word would have the blood covering more territory. The point here is motion around a loop — out to the cold fingers and back again.", "disseminate": "That word is for an office scattering documents outward to a list of recipients. Blood moving around the body's own loop is nothing of the kind.", "seep": "If blood does that, something is wrong — it means a slow escape, a leak. The guide wants it moving briskly around its loop."}}, {"s": "Each Friday the safety office would ____ the updated protocols to every lab head on its mailing list, whether anyone had asked for them or not.", "ks": ["disseminate"], "fb": {"circulate": "That word moves sideways — members passing a thing among themselves. These protocols travel one way, from the safety office outward to its list.", "spread": "That word says only that the protocols reach more people somehow. The sentence is about the manner: one office, pushing them outward, on purpose.", "seep": "Nothing escapes slowly at any edge here: a scheduled mailing goes out, deliberately, every Friday."}}, {"s": "The ministry built the broadcast network for a single purpose: to ____ its bulletins from the capital to every village loudspeaker at once.", "ks": ["disseminate"], "fb": {"circulate": "That word is for news making its own rounds, passed along inside the group. These bulletins travel one way: capital out, loudspeakers down.", "spread": "That word claims only reach. The sentence's whole point is the mechanism: one center, pushing its bulletins outward on purpose.", "seep": "Nothing creeps out at the edges here — everything lands everywhere 'at once,' by design."}}, {"s": "Driven by the wind, the grass fire needed no help at all to ____ across three dry counties overnight.", "ks": ["spread"], "fb": {"circulate": "That word needs a group to move through, hand to hand, or a loop to travel. A fire crossing open country does neither.", "disseminate": "That word needs a deliberate sender pushing something out to recipients. This fire 'needed no help at all.'", "seep": "That word is slow escape at the edges, a little at a time. Three counties in one night is the opposite of that."}}, {"s": "Despite the closed set, details of the ending had begun to ____ into the fan forums weeks early — a glimpsed costume, one page of script — never anything close to the whole story.", "ks": ["seep"], "fb": {"circulate": "That word means making the full rounds of a group. These are scraps slipping out at the edges — 'never anything close to the whole story.'", "disseminate": "That word needs someone deliberately sending material out. The studio is doing the opposite: trying to keep it in.", "spread": "That word would claim broad reach by any means. What the sentence describes is a trickle — a costume glimpsed, one loose page — the slow leak at the edges."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show the thing traveling through a group, passed along person to person — not just getting bigger or going farther. Try <i>around<\/i>, <i>hand to hand<\/i>, <i>rounds<\/i> or <i>through<\/i>."}};
+  var CFG = {"word": "circulate", "gradeUrl": "/api/grade", "taskId": "circulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses circulate correctly?", "opts": {"A": "The flyer circulated on the front door all semester, taped in the same spot until the sun had bleached the ink away.", "B": "Before the vote, board members quietly circulated a memo among themselves comparing the two bids line by line.", "C": "She circulated the spare key to her one neighbor before the trip and asked him to keep it in a drawer until she returned.", "D": "The fence circulated the reservoir, keeping hikers well back from the steep concrete rim on every side of the water."}, "key": "B", "fb": {"correct": "Correct! Circulate means to move through a group from person to person, and that is precisely the memo's journey — passed quietly among the board members, hand to hand, ahead of the vote.", "A": "Not quite! This flyer never moves at all — taped in one spot until it bleaches. Circulate means to travel through a group, and a thing fixed to a door for a semester is the opposite of traveling.", "C": "Not quite! One key, one neighbor, one drawer: a single handoff into storage isn't circulating. Circulate means moving on through a group, passed along from person to person.", "D": "Not quite! The fence surrounds the reservoir — that's encircle, the ring root's other job. Circulate means to move around through a group, and this fence isn't going anywhere."}}, "s3a": {"q": "In this passage, what does it mean for a bill to circulate?", "opts": {"A": "It gains value each time it changes owners, the way a collectible does.", "B": "It is handed out by the government to citizens who need it.", "C": "It wears out quickly from being folded and unfolded so often.", "D": "It keeps passing from person to person."}, "key": "D", "fb": {"correct": "Right — the healthy bill is the one that keeps moving through many hands.", "A": "A twenty stays a twenty; the passage never mentions value rising.", "B": "The mint prints bills, but the passage says it 'cannot make one circulate' — the passing around is done by people.", "C": "The worn bill is a clue that it has moved a lot — the wear is not the meaning."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "disseminate", "B": "spread", "C": "circulate", "D": "seep"}, "key": "C", "fb": {"correct": "Right. The manuscript travels through a group, lent from one member to the next until it <em>had made the full loop<\/em> and returned — and circulate is the word for exactly that person-to-person round.", "B": "Spread only says the chapters reached more people, by any means at all. This passage makes the means the whole point — <em>the route mattered as much as the pace<\/em>, member to member until the loop closed — so the most precise word must name that route.", "A": "To disseminate is to scatter something deliberately outward from a center to a list of recipients. Here <em>No publisher pushed copies outward from some central office<\/em>; instead <em>each member lent the bundle sideways to the next<\/em>.", "D": "To seep is to escape slowly at the edges, a detail at a time. These chapters did not: <em>Nor did the chapters merely trickle out at the edges<\/em> — within a month the whole novel <em>had made the full loop<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Driven by the wind, the grass fire needed no help at all to ____ across three dry counties overnight.", "options": ["circulate", "spread"], "key": "spread", "pair": "spread", "why_right": "The tell is <em>across three dry counties overnight<\/em> - open ground covered by any means at all, with no group to pass through and no loop to travel, which is the broadest word.", "why_wrong": "That word needs a group to move through, hand to hand, or a loop to travel. A fire crossing open country does neither."}, {"sentence": "The panic began to ____ through the stadium the instant all forty thousand faces turned toward the same black smoke above the players' tunnel, every section reacting at once.", "options": ["circulate", "spread"], "key": "spread", "pair": "spread", "why_right": "The tell is <em>every section reacting at once<\/em> - forty thousand people see the same smoke in one instant, so nothing is passed along any route, which is the broadest word.", "why_wrong": "That word needs a route through a group, something passed from person to person or making its rounds along a loop. Here every section sees the same smoke at one instant; nobody passes anything along."}, {"sentence": "The retrospective will ____ among six regional museums over the next two years, each hanging it for a season and crating it on to the next before it comes home to the lender.", "options": ["circulate", "spread"], "key": "circulate", "pair": "spread", "why_right": "The tell is <em>before it comes home to the lender<\/em> - one exhibition travels museum to museum around a loop and returns, the rounds-making word; the broadest word needs more ground covered.", "why_wrong": "That word says only that something covers more ground or reaches more people. One crated show passed museum to museum and coming home covers no new ground; it makes its rounds."}, {"sentence": "The ministry built the broadcast network for a single purpose: to ____ its bulletins from the capital to every village loudspeaker at once.", "options": ["circulate", "disseminate"], "key": "disseminate", "pair": "disseminate", "why_right": "The tell is <em>from the capital to every village loudspeaker at once<\/em> - one center pushes its bulletins outward to every recipient on purpose, deliberate top-down scattering with nothing passed sideways among villagers.", "why_wrong": "That word is for news making its own rounds, passed along inside the group. These bulletins travel one way: capital out, loudspeakers down."}, {"sentence": "The roof key would ____ among the eight tenants on its own, handed from the last user to the next asker, never through the landlord.", "options": ["circulate", "disseminate"], "key": "circulate", "pair": "disseminate", "why_right": "The tell is <em>handed from the last user to the next asker<\/em> - tenants pass the key sideways among themselves with nobody above sending it out, the rounds-making word rather than top-down scattering.", "why_wrong": "That word means deliberate, top-down scattering: one office sending copies outward to a list of recipients. A single key handed tenant to tenant, with the landlord never touching it, moves sideways on its own."}, {"sentence": "Tricks for unjamming the toll gate ____ among the booth attendants by demonstration alone, one showing the next at shift change; headquarters never writes one down.", "options": ["circulate", "disseminate"], "key": "circulate", "pair": "disseminate", "why_right": "The tell is <em>one showing the next at shift change<\/em> - the tricks pass sideways from attendant to attendant with nothing sent down from headquarters, the rounds-making word, not scattering from one office.", "why_wrong": "That word means deliberate scattering from the top: an office pushing guidelines outward to a list of recipients. Tricks shown attendant to attendant at shift change, with headquarters writing nothing, travel sideways among the members."}, {"sentence": "Despite the closed set, details of the ending had begun to ____ into the fan forums weeks early — a glimpsed costume, one page of script — never anything close to the whole story.", "options": ["circulate", "seep"], "key": "seep", "pair": "seep", "why_right": "The tell is <em>never anything close to the whole story<\/em> - scraps slip out slowly at the edges, a detail at a time, where the rounds-making word needs the whole thing actively passed along.", "why_wrong": "That word means making the full rounds of a group. These are scraps slipping out at the edges — 'never anything close to the whole story.'"}, {"sentence": "It took a single lunch period for the whole video of the principal's loud karaoke number to ____ through every table in the lunchroom, passed phone to phone, until every table had seen it.", "options": ["circulate", "seep"], "key": "circulate", "pair": "seep", "why_right": "The tell is <em>until every table had seen it<\/em> - the whole video goes phone to phone and makes the full rounds fast, where the weak word needs a slow trickle at the edges.", "why_wrong": "That word means a slow escape at the edges, a detail here and there. The whole video going phone to phone until every table has seen it makes the full rounds, and quickly."}], "display_order": [0, 3, 7, 2, 4, 1, 5, 6], "dimension_order": ["spread", "disseminate", "seep"], "dimension_feedback": {"spread": "Spread is the broadest word for reaching more people or covering more ground, by any means at all. Circulate specifies the route: the thing travels through a group, passed from person to person or making its rounds along a loop.", "disseminate": "Disseminate is deliberate, top-down scattering — an office disseminates guidelines outward to a list of recipients. Circulate moves sideways and often on its own: the members themselves pass the memo, the rumor, the petition around the circle.", "seep": "Seep is weaker than circulate: news that seeps escapes slowly at the edges, a detail here and there, while news that circulates is actively passed along, making the full rounds of the group."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show the thing traveling through a group, passed along person to person — not just getting bigger or going farther. Try <i>around<\/i>, <i>hand to hand<\/i>, <i>rounds<\/i> or <i>through<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="c11eab627f26">
+<meta name="build" content="03d36b2b1f6a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>vacillate &#8212; SAT Vocabulary, Course 3 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "vacillate", "gradeUrl": "/api/grade", "taskId": "vacillate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses vacillate correctly?", "opts": {"A": "Once she chose engineering, Dana vacillated: she filed the forms that hour and never once looked back.", "B": "The judge vacillated firmly, issuing the identical ruling in all nine of the cases before her.", "C": "Kofi vacillates between window and aisle every time he flies, changing his pick right up to check-in.", "D": "Stock prices vacillated upward all year in one straight, unbroken, and untroubled climb."}, "key": "C", "fb": {"correct": "Correct. Kofi swings between window and aisle on every booking, right up to check-in — repeated movement between choices is what vacillate means.", "A": "Dana 'filed the forms that hour and never once looked back' — a single firm decision, instantly settled. Vacillate means to swing between choices without settling; this sentence shows commitment, not hesitation.", "B": "'Vacillated firmly' contradicts itself: issuing 'the identical ruling' in nine straight cases is perfect consistency. Vacillate means to waver between options, hesitating and reversing — this judge never budges an inch.", "D": "Prices moving in 'one straight, unbroken, and untroubled climb' hold a single direction all year. Vacillate means to fluctuate — to bounce between choices or directions — so a steady rise is the opposite."}}, "s3a": {"q": "As it is used in the passage, \"vacillate\" most nearly means", "opts": {"A": "to postpone a decision while waiting for a better housing market", "B": "to swing repeatedly between opposite choices", "C": "to regret a decision as soon as it is finally made", "D": "to lose interest in a plan once it is made"}, "key": "B", "fb": {"correct": "Right. June's certainty reverses into August's, year after year -- her mind swings whole-hearted between selling and staying without ever landing.", "A": "The market never comes up; her swings are driven by her own moods, certain one way in June and the other by August.", "C": "She reverses before ever deciding -- no sale has happened for her to regret.", "D": "Her interest never fades: each swing is described as whole-hearted. The problem is direction, not enthusiasm."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hedge", "B": "flip-flop", "C": "seesaw", "D": "vacillate"}, "key": "D", "fb": {"correct": "Right. Vacillate is the formal word for a chooser swinging privately between options that demand a decision — she leans toward one kitchen, then the other, announces nothing, and stops only when her mentor makes her sign.", "C": "Seesaw is the picture word — a score or a lead tipping back and forth in plain view. Here the back-and-forth happens inside one chooser <em>unable to settle between<\/em> two offers; nothing is tipping in public view.", "B": "To flip-flop is to reverse a position already stated in public — it needs an audience. She has stated nothing at all: <em>Neither restaurant received so much as a hint of her thinking<\/em>.", "A": "To hedge is the mildest move: noncommittal wording while you stand still. She is not standing still — <em>the offer she praised on Monday was usually the offer she doubted by Friday<\/em>, a full swing from one choice to the other."}}}, "grid": {"words": ["vacillate", "seesaw", "flip-flop", "hedge"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "For a month the newlyweds continued to ____ between the downtown loft and the little house by the depot, leaning one way each night and the other by morning, telling no one.", "ks": ["vacillate"], "fb": {"flip-flop": "A public reversal of a stated position needs an audience; this couple has announced nothing -- the swinging is all private.", "seesaw": "That picture word suits scores and leads visibly tipping; here the motion is a chooser's mind swinging between options that demand a decision.", "hedge": "Dodging commitment in words is standing still; these two are genuinely swinging from one choice to the other."}}, {"s": "The zoning board has managed to ____ over the marina permit for two quarters, swinging toward approval in one closed session and away in the next, no position ever announced.", "ks": ["vacillate"], "fb": {"flip-flop": "Reversing a stated position needs a public stand to reverse; this board has announced nothing, and the swinging is all deliberation.", "seesaw": "Scores, moods, and leads tip like the playground plank; a board swinging between choices that demand a decision takes the formal word.", "hedge": "Careful non-committal wording is a standstill; two quarters of genuine swinging between options is real motion of mind."}}, {"s": "Voters mostly forgave the senator for changing course once, but to ____ twice more on the stadium -- each reversal announced at a rally -- cost her the district's trust.", "ks": ["flip-flop"], "fb": {"vacillate": "That word names the private swinging that happens before any stand is taken; announcing reversals at rallies is the public version, which has its own word.", "seesaw": "The playground word paints scores and leads tipping back and forth; a politician reversing announced stands is a different, more public act.", "hedge": "Refusing to commit in careful words is one failure; loudly committing and then reversing is another -- hers is the second."}}, {"s": "Subscribers howled when the columnist chose to ____ on the tunnel project in print yet again, backing it in one column and condemning it in the next.", "ks": ["flip-flop"], "fb": {"vacillate": "Swinging privately over an unmade decision is that word's home; publishing a stand and then reversing it needs the word that comes with an audience.", "seesaw": "A tipping score is watched, not stated; a writer contradicting her own printed stand is making public reversals.", "hedge": "Every column commits completely -- the trouble is that the next one commits to the opposite; nothing here avoids commitment."}}, {"s": "All through the fourth quarter the lead would ____ between the two schools, tipping with every basket while the crowd's roar swung along with it.", "ks": ["seesaw"], "fb": {"vacillate": "The formal word needs a chooser swinging between options that demand a decision; a lead tipping with every basket is pure visible motion.", "flip-flop": "No stated position exists to reverse; the score just keeps changing hands.", "hedge": "Avoiding commitment in words is something a speaker does; a scoreboard only tips."}}, {"s": "Pressed for a forecast, the analyst would only ____, wrapping each sentence in 'possibly' and 'in some scenarios' while never moving an inch toward either outcome.", "ks": ["hedge"], "fb": {"vacillate": "That word swings a mind fully from side to side; this analyst never moves at all -- she just avoids committing in words.", "flip-flop": "You cannot reverse a stated position you never state; her art is avoiding the stand entirely.", "seesaw": "Nothing tips one way and then the other; the careful wording holds everything motionless."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a chooser whose mind truly swings from one option to the other and back -- not a quick pause, and not a public reversal. Show the motion over time: try working in a word like <i>between<\/i>, <i>back<\/i>, <i>again<\/i> or <i>weeks<\/i>."}};
+  var CFG = {"word": "vacillate", "gradeUrl": "/api/grade", "taskId": "vacillate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses vacillate correctly?", "opts": {"A": "Once she chose engineering, Dana vacillated: she filed the forms that hour and never once looked back.", "B": "The judge vacillated firmly, issuing the identical ruling in all nine of the cases before her.", "C": "Kofi vacillates between window and aisle every time he flies, changing his pick right up to check-in.", "D": "Stock prices vacillated upward all year in one straight, unbroken, and untroubled climb."}, "key": "C", "fb": {"correct": "Correct. Kofi swings between window and aisle on every booking, right up to check-in — repeated movement between choices is what vacillate means.", "A": "Dana 'filed the forms that hour and never once looked back' — a single firm decision, instantly settled. Vacillate means to swing between choices without settling; this sentence shows commitment, not hesitation.", "B": "'Vacillated firmly' contradicts itself: issuing 'the identical ruling' in nine straight cases is perfect consistency. Vacillate means to waver between options, hesitating and reversing — this judge never budges an inch.", "D": "Prices moving in 'one straight, unbroken, and untroubled climb' hold a single direction all year. Vacillate means to fluctuate — to bounce between choices or directions — so a steady rise is the opposite."}}, "s3a": {"q": "As it is used in the passage, \"vacillate\" most nearly means", "opts": {"A": "to postpone a decision while waiting for a better housing market", "B": "to swing repeatedly between opposite choices", "C": "to regret a decision as soon as it is finally made", "D": "to lose interest in a plan once it is made"}, "key": "B", "fb": {"correct": "Right. June's certainty reverses into August's, year after year -- her mind swings whole-hearted between selling and staying without ever landing.", "A": "The market never comes up; her swings are driven by her own moods, certain one way in June and the other by August.", "C": "She reverses before ever deciding -- no sale has happened for her to regret.", "D": "Her interest never fades: each swing is described as whole-hearted. The problem is direction, not enthusiasm."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hedge", "B": "flip-flop", "C": "seesaw", "D": "vacillate"}, "key": "D", "fb": {"correct": "Right. Vacillate is the formal word for a chooser swinging privately between options that demand a decision — she leans toward one kitchen, then the other, announces nothing, and stops only when her mentor makes her sign.", "C": "Seesaw is the picture word — a score or a lead tipping back and forth in plain view. Here the back-and-forth happens inside one chooser <em>unable to settle between<\/em> two offers; nothing is tipping in public view.", "B": "To flip-flop is to reverse a position already stated in public — it needs an audience. She has stated nothing at all: <em>Neither restaurant received so much as a hint of her thinking<\/em>.", "A": "To hedge is the mildest move: noncommittal wording while you stand still. She is not standing still — <em>the offer she praised on Monday was usually the offer she doubted by Friday<\/em>, a full swing from one choice to the other."}}}, "pairwise": {"rows": [{"sentence": "For a month the newlyweds continued to ____ between the downtown loft and the little house by the depot, leaning one way each night and the other by morning, telling no one.", "options": ["vacillate", "flip-flop"], "key": "vacillate", "pair": "flip-flop", "why_right": "The tell is <em>telling no one<\/em> - the swinging stays entirely private, a chooser's mind moving between options that demand a decision before any position is announced.", "why_wrong": "A public reversal of a stated position needs an audience; this couple has announced nothing -- the swinging is all private."}, {"sentence": "All night the trawler's captain continued to ____ between running for the near harbor and riding out the blow, radioing nothing to the fleet.", "options": ["vacillate", "flip-flop"], "key": "vacillate", "pair": "flip-flop", "why_right": "The tell is <em>radioing nothing to the fleet<\/em> - no position is ever announced, so the swinging between courses stays a private, unmade decision, the card's whole ground for this word.", "why_wrong": "That word reverses a stated position in front of an audience; this captain has announced nothing to anyone, and every swing stays inside his own head."}, {"sentence": "Subscribers howled when the columnist chose to ____ on the tunnel project in print yet again, backing it in one column and condemning it in the next.", "options": ["vacillate", "flip-flop"], "key": "flip-flop", "pair": "flip-flop", "why_right": "The tell is <em>in print<\/em> - each reversal is a stated public position overturned before readers, and reversing an announced stand is exactly what the card gives this word.", "why_wrong": "Swinging privately over an unmade decision is that word's home; publishing a stand and then reversing it needs the word that comes with an audience."}, {"sentence": "By the print deadline the editor would still ____ on the September cover, approving the portrait one morning and the skyline the next, each approval wholehearted.", "options": ["vacillate", "hedge"], "key": "vacillate", "pair": "hedge", "why_right": "The tell is <em>each approval wholehearted<\/em> - her mind swings fully from one commitment to the other, real motion between choices rather than careful words holding her in place.", "why_wrong": "That word means dodging commitment in careful words while standing still; this editor commits outright each time, swinging wholeheartedly from one cover to the other."}, {"sentence": "Pressed for a forecast, the analyst would only ____, wrapping each sentence in 'possibly' and 'in some scenarios' while never moving an inch toward either outcome.", "options": ["vacillate", "hedge"], "key": "hedge", "pair": "hedge", "why_right": "The tell is <em>never moving an inch<\/em> - she stands perfectly still behind careful wording, avoiding commitment in words rather than genuinely swinging toward either outcome.", "why_wrong": "That word swings a mind fully from side to side; this analyst never moves at all -- she just avoids committing in words."}, {"sentence": "The fundraising thermometer out front rose and fell in plain view with every pledge and refund, while out of sight the director would ____ between restoring the annex and endowing the scholarship.", "options": ["vacillate", "seesaw"], "key": "vacillate", "pair": "seesaw", "why_right": "The tell is <em>out of sight<\/em> - the visible tipping is all the thermometer's, while a chooser swings privately between options that demand a decision, the card's ground for the formal word.", "why_wrong": "That word paints visible motion, like the thermometer tipping out front; the director's private swinging between two options that demand a decision takes the formal chooser's word."}, {"sentence": "Through all of March the valley's temperatures continued to ____ between hard frost and sudden thaw, and the orchard crews could do nothing about any of it but wait for a settled week.", "options": ["vacillate", "seesaw"], "key": "seesaw", "pair": "seesaw", "why_right": "The tell is <em>could do nothing about any of it<\/em> - nobody is choosing anything; a measured level tips back and forth on its own, visible motion rather than a mind at work.", "why_wrong": "That word is the formal move of a chooser - a mind swinging between options that demand a decision - and temperatures decide nothing; they simply tip back and forth."}, {"sentence": "The rusted weathervane on the courthouse dome would ____ between north and east with every gust, and the lawyers hurrying past below never once looked up.", "options": ["vacillate", "seesaw"], "key": "seesaw", "pair": "seesaw", "why_right": "The tell is <em>with every gust<\/em> - the swinging is pure visible motion driven by wind, with no chooser and no decision anywhere, the picture word's home ground on the card.", "why_wrong": "That word needs a chooser facing options that demand a decision; a weathervane faces nothing and decides nothing -- the swinging is visible motion and only that."}], "display_order": [7, 0, 6, 1, 3, 2, 4, 5], "dimension_order": ["seesaw", "flip-flop", "hedge"], "dimension_feedback": {"seesaw": "Seesaw is the picture word — scores, moods, and leads seesaw, tipping back and forth like the playground plank. It describes visible motion more than a mind at work. Vacillate is the formal word for a chooser: a voter, board, or buyer swinging between options that demand a decision.", "flip-flop": "To flip-flop is to reverse a stated position, usually in public — a candidate flip-flops when this week's speech contradicts last week's. Vacillate happens earlier and more privately: the mind swings between choices before any position is announced. Flip-flopping needs an audience; to vacillate needs only an unmade decision.", "hedge": "To hedge is the mildest move — you avoid committing in words while standing still; it stops far short of vacillating."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a chooser whose mind truly swings from one option to the other and back -- not a quick pause, and not a public reversal. Show the motion over time: try working in a word like <i>between<\/i>, <i>back<\/i>, <i>again<\/i> or <i>weeks<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

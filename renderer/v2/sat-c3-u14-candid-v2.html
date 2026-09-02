@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="de8d130dc707">
+<meta name="build" content="8a89c6637a3d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>candid &#8212; SAT Vocabulary, Course 3 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "candid", "gradeUrl": "/api/grade", "taskId": "candid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses candid correctly?", "opts": {"A": "His candid wedding toast praised the newlywed couple so lavishly that no one at the reception could tell what he actually thought of the match.", "B": "The senator's candid remarks were drafted by three aides and rehearsed twice in front of a mirror before the cameras arrived.", "C": "Her exit interview was candid: she named the two policies that had driven her out, and admitted the counteroffer she had nearly taken.", "D": "They kept the merger candid for months, referring to it only by a code name in every email between the two headquarters."}, "key": "C", "fb": {"correct": "Correct! Candid means honest and open, uncomfortable parts included — and an exit interview that names the real reasons and even admits the counteroffer is exactly that: the whole truth, volunteered.", "A": "Not quite! A toast so flattering that it hides the speaker's real opinion is the opposite of candid — the praise is working as camouflage. Candid speech shows you what the speaker thinks; this one is built so no one can tell.", "B": "Not quite! Remarks drafted by aides and rehearsed in a mirror are the product of careful staging. Candid speech is unrehearsed by definition — polish it twice for the cameras and the candor is gone.", "D": "Not quite! A merger hidden behind a code name is confidential — deliberately kept secret. Candid points the other way entirely: openness, with nothing filed under a false name."}}, "s3a": {"q": "As it is used in the passage, \"candid\" most nearly means", "opts": {"A": "openly self-critical, volunteering unflattering facts without being pressed", "B": "harsh in assigning blame to the teaching staff", "C": "cautious about interpreting a single year of scores", "D": "optimistic that the numbers would soon recover"}, "key": "A", "fb": {"correct": "Right. The newsletter names her own championed curriculum as the likeliest cause and lists the warning signs she 'waved away' — unflattering facts nobody forced her to publish.", "B": "She assigns the blame to herself, not the staff — the curriculum 'she herself had championed' and the signs she admits ignoring.", "C": "Caution is what the other principals chose, burying the number in back pages. She does the opposite.", "D": "The newsletter promises a plan, not a rosy forecast. Its whole force is in admitting what went wrong."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "candid", "B": "outspoken", "C": "honest", "D": "frank"}, "key": "D", "fb": {"correct": "Right. One plain statement, delivered when the question was put to her and dressed in nothing — <em>one unadorned sentence, no cushion on it<\/em>. That is a frank answer.", "A": "Candid describes a whole open posture — nothing rehearsed, nothing held in reserve. Hartmann is the opposite of that outside her one reply: she <em>guarded her views more closely than most<\/em>, and about her method and the price <em>she volunteered nothing<\/em>.", "B": "Outspoken people offer opinions nobody invited, and <em>colleagues could not recall her offering an opinion nobody had requested<\/em>. She gave her judgment only because <em>the collector who asked her directly<\/em> put the question to her.", "C": "Nothing in her reply was false, but honest only rules out lying — it says nothing about how bare the delivery is. What the passage stresses is <em>one unadorned sentence, no cushion on it<\/em>, and the stem asks for the most precise word for that."}}}, "grid": {"words": ["candid", "frank", "outspoken", "honest"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Asked how the trial was going, the lead researcher was entirely ____: she walked the board through every failed batch, including the two her own mistake had ruined.", "ks": ["candid"], "fb": {"frank": "That word leans on the delivery of one plain statement — a plain refusal, a plain verdict. This is a whole open accounting, batch by batch, with nothing held in reserve.", "outspoken": "That is opinion offered freely, invited or not. She was asked a real question and answered it — no soapbox required.", "honest": "True as far as it goes, but too mild. Avoiding falsehood would not require volunteering 'the two her own mistake had ruined' — she offers the uncomfortable part unasked."}}, {"s": "The memoir is startlingly ____ about the bankruptcy years, laying out even the debts the family never discussed aloud.", "ks": ["candid"], "fb": {"frank": "That fits one plain statement — an assessment, a refusal. A memoir that opens the family ledger page after page is showing a whole posture, not a single delivery.", "outspoken": "That word needs opinions pushed at a room, invited or not. A memoir about its own bankruptcies lectures nobody.", "honest": "Too mild for this. A book could avoid every falsehood and still keep the undiscussed debts out of it; this one volunteers them."}}, {"s": "Her ____ refusal — 'No, and please do not ask me again' — closed the negotiation in a single sentence.", "ks": ["frank"], "fb": {"candid": "That describes a whole open posture — nothing rehearsed, nothing in reserve. Here there is exactly one plain sentence and then silence; the word for the delivery of a single plain statement fits better.", "outspoken": "She is answering a request, not volunteering views to a room. No soapbox, no uninvited opinion — just one plain reply.", "honest": "Nobody doubts the truth of her answer; the sentence turns on how plainly it lands — one sentence, no cushioning."}}, {"s": "His ____ verdict on the bridge design filled a single line of the report: unsafe at any load.", "ks": ["frank"], "fb": {"candid": "That word covers a whole open manner across an exchange. A one-line verdict is a single plain statement, which is the other word's home ground.", "outspoken": "He was asked for this judgment — it is a commissioned report. Nothing here is pressed on an audience uninvited.", "honest": "The line's truth is not in question; what the sentence points at is the plain, unpadded delivery — five words, no cushioning."}}, {"s": "The new intern was ____ about the merger, volunteering his objections at every meeting though no one had invited them.", "ks": ["outspoken"], "fb": {"candid": "That word answers openly when the truth is called for — it needs only a real question. Nobody asked the intern anything; he brings his own soapbox.", "frank": "That fits a single plain statement. Objections volunteered 'at every meeting' are a habit of holding forth, not one delivery.", "honest": "No one accuses him of lying. What the sentence marks is that the opinions keep coming uninvited — a different failing entirely."}}, {"s": "Her carefully measured reply was ____ — nothing in it was false — yet the shortfall went unmentioned because nobody thought to ask.", "ks": ["honest"], "fb": {"candid": "That word volunteers the uncomfortable part nobody asked about. This reply kept the shortfall back precisely because nobody asked — true, but closed.", "frank": "A 'carefully measured' reply is the opposite of plain, unguarded delivery. Every word here is weighed before it leaves her mouth.", "outspoken": "That needs opinions volunteered freely, even unasked. This speaker offers nothing beyond what the question forces."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show someone volunteering an uncomfortable truth, not just avoiding a lie — the reader should see something admitted that no one demanded. Try working in a word like <i>admitted<\/i>, <i>even<\/i>, <i>unasked<\/i> or <i>mistake<\/i>."}};
+  var CFG = {"word": "candid", "gradeUrl": "/api/grade", "taskId": "candid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses candid correctly?", "opts": {"A": "His candid wedding toast praised the newlywed couple so lavishly that no one at the reception could tell what he actually thought of the match.", "B": "The senator's candid remarks were drafted by three aides and rehearsed twice in front of a mirror before the cameras arrived.", "C": "Her exit interview was candid: she named the two policies that had driven her out, and admitted the counteroffer she had nearly taken.", "D": "They kept the merger candid for months, referring to it only by a code name in every email between the two headquarters."}, "key": "C", "fb": {"correct": "Correct! Candid means honest and open, uncomfortable parts included — and an exit interview that names the real reasons and even admits the counteroffer is exactly that: the whole truth, volunteered.", "A": "Not quite! A toast so flattering that it hides the speaker's real opinion is the opposite of candid — the praise is working as camouflage. Candid speech shows you what the speaker thinks; this one is built so no one can tell.", "B": "Not quite! Remarks drafted by aides and rehearsed in a mirror are the product of careful staging. Candid speech is unrehearsed by definition — polish it twice for the cameras and the candor is gone.", "D": "Not quite! A merger hidden behind a code name is confidential — deliberately kept secret. Candid points the other way entirely: openness, with nothing filed under a false name."}}, "s3a": {"q": "As it is used in the passage, \"candid\" most nearly means", "opts": {"A": "openly self-critical, volunteering unflattering facts without being pressed", "B": "harsh in assigning blame to the teaching staff", "C": "cautious about interpreting a single year of scores", "D": "optimistic that the numbers would soon recover"}, "key": "A", "fb": {"correct": "Right. The newsletter names her own championed curriculum as the likeliest cause and lists the warning signs she 'waved away' — unflattering facts nobody forced her to publish.", "B": "She assigns the blame to herself, not the staff — the curriculum 'she herself had championed' and the signs she admits ignoring.", "C": "Caution is what the other principals chose, burying the number in back pages. She does the opposite.", "D": "The newsletter promises a plan, not a rosy forecast. Its whole force is in admitting what went wrong."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "candid", "B": "outspoken", "C": "honest", "D": "frank"}, "key": "D", "fb": {"correct": "Right. One plain statement, delivered when the question was put to her and dressed in nothing — <em>one unadorned sentence, no cushion on it<\/em>. That is a frank answer.", "A": "Candid describes a whole open posture — nothing rehearsed, nothing held in reserve. Hartmann is the opposite of that outside her one reply: she <em>guarded her views more closely than most<\/em>, and about her method and the price <em>she volunteered nothing<\/em>.", "B": "Outspoken people offer opinions nobody invited, and <em>colleagues could not recall her offering an opinion nobody had requested<\/em>. She gave her judgment only because <em>the collector who asked her directly<\/em> put the question to her.", "C": "Nothing in her reply was false, but honest only rules out lying — it says nothing about how bare the delivery is. What the passage stresses is <em>one unadorned sentence, no cushion on it<\/em>, and the stem asks for the most precise word for that."}}}, "pairwise": {"rows": [{"sentence": "The memoir is startlingly ____ about the bankruptcy years, laying out even the debts the family never discussed aloud.", "options": ["candid", "frank"], "key": "candid", "pair": "frank", "why_right": "The tell is <em>laying out even the debts the family never discussed aloud<\/em> - a whole open posture sustained across a book, nothing held in reserve; the rival word leans on the delivery of one plain statement.", "why_wrong": "That fits one plain statement — an assessment, a refusal. A memoir that opens the family ledger page after page is showing a whole posture, not a single delivery."}, {"sentence": "Her ____ refusal — 'No, and please do not ask me again' — closed the negotiation in a single sentence.", "options": ["candid", "frank"], "key": "frank", "pair": "frank", "why_right": "The tell is <em>closed the negotiation in a single sentence<\/em> - one plain refusal that gives no reason and opens nothing further, the card's own example of the plain-statement word rather than the whole open posture.", "why_wrong": "That describes a whole open posture — nothing rehearsed, nothing in reserve. Here there is exactly one plain sentence and then silence; the word for the delivery of a single plain statement fits better."}, {"sentence": "His ____ verdict on the bridge design filled a single line of the report: unsafe at any load.", "options": ["candid", "frank"], "key": "frank", "pair": "frank", "why_right": "The tell is <em>filled a single line of the report<\/em> - one plain, unpadded assessment delivered where it was asked for, nothing volunteered beyond it; that is the plain-statement word, not the whole open posture.", "why_wrong": "That word covers a whole open manner across an exchange. A one-line verdict is a single plain statement, which is the other word's home ground."}, {"sentence": "Asked how the trial was going, the lead researcher was entirely ____: she walked the board through every failed batch, including the two her own mistake had ruined.", "options": ["candid", "outspoken"], "key": "candid", "pair": "outspoken", "why_right": "The tell is <em>Asked how the trial was going<\/em> - a real question answered openly with facts, including the two that damage her; no soapbox and no opinions pressed on the room, which is what the rival word adds.", "why_wrong": "That is opinion offered freely, invited or not. She was asked a real question and answered it — no soapbox required."}, {"sentence": "The new intern was ____ about the merger, volunteering his objections at every meeting though no one had invited them.", "options": ["candid", "outspoken"], "key": "outspoken", "pair": "outspoken", "why_right": "The tell is <em>though no one had invited them<\/em> - opinions volunteered uninvited at every meeting is candor with the volume up; the rival word answers a real question and never needs a soapbox.", "why_wrong": "That word answers openly when the truth is called for — it needs only a real question. Nobody asked the intern anything; he brings his own soapbox."}, {"sentence": "The goalkeeper's reply to the one penalty question was quiet and ____, laying the miss on herself and nobody else.", "options": ["candid", "outspoken"], "key": "candid", "pair": "outspoken", "why_right": "The tell is <em>reply to the one penalty question was quiet<\/em> - a real question answered openly and quietly with the uncomfortable truth about herself; the rival word is candor with the volume up, opinions pressed on a room.", "why_wrong": "That word is candor with the volume up — opinions offered freely, invited or not, sometimes to the room's discomfort. A quiet reply to one question, owning the miss herself, needs no soapbox and offers no opinion."}, {"sentence": "Her carefully measured reply was ____ — nothing in it was false — yet the shortfall went unmentioned because nobody thought to ask.", "options": ["candid", "honest"], "key": "honest", "pair": "honest", "why_right": "The tell is <em>went unmentioned because nobody thought to ask<\/em> - the reply avoids every falsehood and stops right there, the milder rung; the rival word would have volunteered the shortfall unasked.", "why_wrong": "That word volunteers the uncomfortable part nobody asked about. This reply kept the shortfall back precisely because nobody asked — true, but closed."}, {"sentence": "Every witness told the truth when asked — only the foreman was ____, volunteering the crew's shortcut before anyone raised it.", "options": ["candid", "honest"], "key": "candid", "pair": "honest", "why_right": "The tell is <em>volunteering the crew's shortcut before anyone raised it<\/em> - every witness was truthful, so truthfulness singles out nobody; volunteering the uncomfortable part unasked is what the milder word stops short of.", "why_wrong": "That word means avoiding falsehood, and every witness in the room did that when asked, so it singles out nobody. Only the foreman volunteered the uncomfortable part before anyone raised it — the fuller word."}], "display_order": [5, 2, 7, 0, 4, 1, 6, 3], "dimension_order": ["frank", "outspoken", "honest"], "dimension_feedback": {"frank": "Frank and candid both hand over the unvarnished truth, but frank leans on the delivery of one plain statement — a frank assessment, a frank refusal. Candid describes the whole open posture: nothing rehearsed, nothing held in reserve, the speaker plain in every word.", "outspoken": "Outspoken is candor with the volume up — opinions offered freely, invited or not, sometimes to the room's discomfort. Candid answers openly when the truth is called for; it doesn't need a soapbox, only a real question.", "honest": "Honest is the milder rung: an honest answer avoids falsehood but may stop right there, while a candid one volunteers the uncomfortable parts nobody asked about."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show someone volunteering an uncomfortable truth, not just avoiding a lie — the reader should see something admitted that no one demanded. Try working in a word like <i>admitted<\/i>, <i>even<\/i>, <i>unasked<\/i> or <i>mistake<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

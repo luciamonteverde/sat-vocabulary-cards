@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="ed3ce1a47b67">
+<meta name="build" content="25c351660d72">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>demean &#8212; SAT Vocabulary, Course 2 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "demean", "gradeUrl": "/api/grade", "taskId": "demean", "minWords": 12, "items": {"s1": {"q": "Which sentence uses demean correctly?", "opts": {"A": "A late frost demeaned the orchard's oldest tree, snapping its crown limbs a week before blossom.", "B": "The maitre d' demeaned the visiting critic exactly once, skipping her name in a crowded Friday's introductions.", "C": "The quiz show demeaned its contestants nightly, docking points unless they crowed like roosters after every miss.", "D": "At first light the color guard demeaned the garrison flag to half-mast for the late commandant."}, "key": "C", "fb": {"correct": "Correct. Forcing contestants to crow like roosters for the cameras lowers their dignity for entertainment — demean in the exact sense.", "A": "Frost damages a tree, and a tree has no dignity to lose. Demeaning lowers a person's standing.", "B": "One skipped name on a crowded night is an oversight. Demeaning means deliberately lowering somebody's dignity.", "D": "Lowering a flag to half-mast is a mark of respect. Demeaning insults rather than honours."}}, "s3a": {"q": "As it is used in the passage, to \"demean\" someone most nearly means to:", "opts": {"A": "criticize them loudly and publicly in front of their colleagues", "B": "lower their dignity through how they are treated", "C": "assign them more difficult work than they can safely manage", "D": "dismiss them from a volunteer position"}, "key": "B", "fb": {"correct": "Right — \"no one was ever rude to her,\" yet \"every smiling shift assumed her judgment was worth nothing.\" The lowering is in the treatment, not in any remark.", "A": "The passage stresses the opposite: \"No one was ever rude to her.\" The harm needed no raised voice.", "C": "Her tasks were too small, not too hard — elevators and a coffee cart for a trauma surgeon.", "D": "She was never dismissed; she stayed, and eventually changed the program."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "insult", "B": "demean", "C": "slight", "D": "degrade"}, "key": "B", "fb": {"correct": "Right. Nobody is harsh and nothing is said, yet the folding chair, the \"visitor\" badge, and the buried pay line lower the interpreters' standing a little more each day. Quiet, polite-faced treatment that wears dignity down is exactly what it means to demean someone.", "D": "To degrade someone is loud, open work — shouted orders, public dressing-downs. This institute offers <em>no raised voice to report<\/em>; every courtesy stays perfectly intact.", "A": "An insult is one open blow — a slur or a sneer that stings and passes. Here there is <em>no single remark to protest<\/em>; nothing is ever said at all.", "C": "A slight is a single small omission, felt once and over. What the interpreters face is <em>a quiet routine, renewed every morning for years<\/em> — steady treatment, not one skipped courtesy."}}}, "grid": {"words": ["demean", "degrade", "insult", "slight"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Managers there never raise their voices; the roster itself is built to ____ the night staff, handing them the worst shifts under the politest of memos.", "ks": ["demean"], "fb": {"degrade": "That word drags a person down hard and openly — shouted orders, public dressing-downs. Here <em>managers there never raise their voices<\/em>; the lowering is quiet and polite-faced.", "insult": "There is no slur or sneer to quote — <em>the roster itself<\/em> does the work. That word needs a single open blow.", "slight": "A single skipped courtesy would fit that word. A roster built to hand out <em>the worst shifts<\/em>, memo after polite memo, lowers people steadily."}}, {"s": "Guests kept smiling as the maître d' steered the couple to the table by the kitchen door yet again, a courteous routine that managed to ____ them week after week.", "ks": ["demean"], "fb": {"degrade": "That word is loud and open — public dressing-downs. This is a <em>courteous routine<\/em>, smiling the whole time, which is exactly the quiet lowering the sentence needs.", "insult": "Nobody says a word to the couple. That word needs an open blow — a slur, a sneer — and here there is only a table by the kitchen door.", "slight": "One forgotten courtesy would fit that word; this happens <em>week after week<\/em>, steadily wearing their standing down."}}, {"s": "The drill sergeant seemed to relish any chance to ____ a recruit before the whole platoon, bellowing until the parade ground went silent.", "ks": ["degrade"], "fb": {"demean": "That word can work quietly, even politely, with never a harsh word spoken. <em>Bellowing<\/em> at a recruit <em>before the whole platoon<\/em> is the loud, open version — a different word's job.", "insult": "One sneer stings and passes. This is a full public dressing-down that lasts until <em>the parade ground went silent<\/em>.", "slight": "That word is a small omission — a skipped courtesy. A public bellowing is anything but small or accidental."}}, {"s": "Critics charged that the show's producers would openly ____ contestants, ordering them to grovel on camera for one more week's survival.", "ks": ["degrade"], "fb": {"demean": "That word smiles while it lowers people. Producers who <em>openly<\/em> order contestants to <em>grovel on camera<\/em> are doing it hard and in public — the blunt twin's territory.", "insult": "That word is one open remark that stings and passes. This is sustained treatment — orders, cameras, week after week.", "slight": "A skipped introduction is that word's scale. Groveling on camera is a public dragging-down, not a small omission."}}, {"s": "One sneer at her accent was all it took: the customer managed to ____ her in a single breath and was gone before the manager could turn around.", "ks": ["insult"], "fb": {"demean": "That word lowers someone steadily through how they are treated, often without a single remark. This is the opposite: one remark, <em>in a single breath<\/em>, then gone.", "degrade": "That word drags a person down hard and at length — shouted orders, public dressing-downs. One sneer from a stranger stings and passes.", "slight": "That word is something left undone — a name forgotten, a courtesy skipped. A sneer at her accent is an open blow, not an omission."}}, {"s": "Leaving her name off the exhibition program was a little thing, but enough to ____ her before the collectors she had courted all year.", "ks": ["slight"], "fb": {"demean": "That word wears standing down steadily, arrangement by arrangement. This is a single forgotten courtesy — <em>a little thing<\/em>, once.", "degrade": "Nobody dragged her down openly; her name was simply left off. That word needs harsh, open treatment.", "insult": "That word is an open blow — a slur, a sneer, words said aloud. Here nothing was said at all; something was left undone."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone's dignity being lowered by how they are treated — and it can happen politely, with no harsh word anywhere. Try working in a word like <i>dignity<\/i>, <i>beneath<\/i>, <i>politely<\/i> or <i>treated<\/i>."}};
+  var CFG = {"word": "demean", "gradeUrl": "/api/grade", "taskId": "demean", "minWords": 12, "items": {"s1": {"q": "Which sentence uses demean correctly?", "opts": {"A": "A late frost demeaned the orchard's oldest tree, snapping its crown limbs a week before blossom.", "B": "The maitre d' demeaned the visiting critic exactly once, skipping her name in a crowded Friday's introductions.", "C": "The quiz show demeaned its contestants nightly, docking points unless they crowed like roosters after every miss.", "D": "At first light the color guard demeaned the garrison flag to half-mast for the late commandant."}, "key": "C", "fb": {"correct": "Correct. Forcing contestants to crow like roosters for the cameras lowers their dignity for entertainment — demean in the exact sense.", "A": "Frost damages a tree, and a tree has no dignity to lose. Demeaning lowers a person's standing.", "B": "One skipped name on a crowded night is an oversight. Demeaning means deliberately lowering somebody's dignity.", "D": "Lowering a flag to half-mast is a mark of respect. Demeaning insults rather than honours."}}, "s3a": {"q": "As it is used in the passage, to \"demean\" someone most nearly means to:", "opts": {"A": "criticize them loudly and publicly in front of their colleagues", "B": "lower their dignity through how they are treated", "C": "assign them more difficult work than they can safely manage", "D": "dismiss them from a volunteer position"}, "key": "B", "fb": {"correct": "Right — \"no one was ever rude to her,\" yet \"every smiling shift assumed her judgment was worth nothing.\" The lowering is in the treatment, not in any remark.", "A": "The passage stresses the opposite: \"No one was ever rude to her.\" The harm needed no raised voice.", "C": "Her tasks were too small, not too hard — elevators and a coffee cart for a trauma surgeon.", "D": "She was never dismissed; she stayed, and eventually changed the program."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "insult", "B": "demean", "C": "slight", "D": "degrade"}, "key": "B", "fb": {"correct": "Right. Nobody is harsh and nothing is said, yet the folding chair, the \"visitor\" badge, and the buried pay line lower the interpreters' standing a little more each day. Quiet, polite-faced treatment that wears dignity down is exactly what it means to demean someone.", "D": "To degrade someone is loud, open work — shouted orders, public dressing-downs. This institute offers <em>no raised voice to report<\/em>; every courtesy stays perfectly intact.", "A": "An insult is one open blow — a slur or a sneer that stings and passes. Here there is <em>no single remark to protest<\/em>; nothing is ever said at all.", "C": "A slight is a single small omission, felt once and over. What the interpreters face is <em>a quiet routine, renewed every morning for years<\/em> — steady treatment, not one skipped courtesy."}}}, "pairwise": {"rows": [{"sentence": "Managers there never raise their voices; the roster itself is built to ____ the night staff, handing them the worst shifts under the politest of memos.", "options": ["demean", "degrade"], "key": "demean", "pair": "degrade", "why_right": "The tell is <em>under the politest of memos<\/em> - the lowering is quiet and polite-faced, never a harsh word spoken; nothing is dragged down hard or openly.", "why_wrong": "That word drags a person down hard and openly — shouted orders, public dressing-downs. Here <em>managers there never raise their voices<\/em>; the lowering is quiet and polite-faced."}, {"sentence": "The drill sergeant seemed to relish any chance to ____ a recruit before the whole platoon, bellowing until the parade ground went silent.", "options": ["demean", "degrade"], "key": "degrade", "pair": "degrade", "why_right": "The tell is <em>before the whole platoon<\/em> - bellowing at a recruit in public drags him down hard and openly, the blunt twin's home ground, nothing quiet or polite-faced about it.", "why_wrong": "That word can work quietly, even politely, with never a harsh word spoken. <em>Bellowing<\/em> at a recruit <em>before the whole platoon<\/em> is the loud, open version — a different word's job."}, {"sentence": "Critics charged that the show's producers would openly ____ contestants, ordering them to grovel on camera for one more week's survival.", "options": ["demean", "degrade"], "key": "degrade", "pair": "degrade", "why_right": "The tell is <em>ordering them to grovel on camera<\/em> - open, sustained dragging-down before an audience; the quiet, polite-faced word has no place here.", "why_wrong": "That word smiles while it lowers people. Producers who <em>openly<\/em> order contestants to <em>grovel on camera<\/em> are doing it hard and in public — the blunt twin's territory."}, {"sentence": "Guests kept smiling as the maître d' steered the couple to the table by the kitchen door yet again, a courteous routine that managed to ____ them week after week.", "options": ["demean", "insult"], "key": "demean", "pair": "insult", "why_right": "The tell is <em>a courteous routine<\/em> - no single remark exists to point to; an everyday arrangement, the table by the kitchen door, treats the couple as smaller than they are.", "why_wrong": "Nobody says a word to the couple. That word needs an open blow — a slur, a sneer — and here there is only a table by the kitchen door."}, {"sentence": "One sneer at her accent was all it took: the customer managed to ____ her in a single breath and was gone before the manager could turn around.", "options": ["demean", "insult"], "key": "insult", "pair": "insult", "why_right": "The tell is <em>in a single breath<\/em> - one open blow, a sneer that stings and passes; no everyday arrangement or steady treatment is anywhere in the scene.", "why_wrong": "That word lowers someone steadily through how they are treated, often without a single remark. This is the opposite: one remark, <em>in a single breath<\/em>, then gone."}, {"sentence": "Leaving her name off the exhibition program was a little thing, but enough to ____ her before the collectors she had courted all year.", "options": ["demean", "slight"], "key": "slight", "pair": "slight", "why_right": "The tell is <em>a little thing<\/em> - one small, single omission, a name left off once; nothing lowers her standing steadily, day after day.", "why_wrong": "That word wears standing down steadily, arrangement by arrangement. This is a single forgotten courtesy — <em>a little thing<\/em>, once."}, {"sentence": "The visitors' locker room is its own message: peeling paint, one cold tap, lockers a head shorter than the home side's, built to ____ every team that dresses there.", "options": ["demean", "slight"], "key": "demean", "pair": "slight", "why_right": "The tell is <em>every team that dresses there<\/em> - a standing arrangement lowering visitors' dignity team after team, with never a word spoken; no single small omission anywhere.", "why_wrong": "That word is one small omission - a courtesy skipped once. A room built to shrink its visitors does its work steadily, on every team, by design."}, {"sentence": "The senior partners still route their coffee orders through the firm's newest associate; the settled routine continues to ____ her, though every request arrives wrapped in a please.", "options": ["demean", "slight"], "key": "demean", "pair": "slight", "why_right": "The tell is <em>the settled routine<\/em> - coffee runs assigned day after day lower her standing steadily through treatment alone; nothing here is one small, single omission.", "why_wrong": "That word means one small, single omission - a name not remembered, an introduction skipped. Routing every coffee order through her is a settled, repeated arrangement, not one lapse."}], "display_order": [1, 5, 4, 7, 2, 6, 3, 0], "dimension_order": ["degrade", "insult", "slight"], "dimension_feedback": {"degrade": "Degrade is the blunt twin of demean: it drags a person down hard and openly — shouted orders, public dressing-downs. To demean can be quiet, even polite-faced; the dignity is lowered by how someone is treated, with never a harsh word spoken.", "insult": "An insult is one open blow — a slur, a sneer — that stings and passes. Demeaning treatment can smile the whole time: no single remark to point to, only an everyday arrangement that treats a person as smaller than they are.", "slight": "A slight is far milder than demeaning treatment — one small, single omission, a skipped introduction or a name not remembered; to demean someone is to lower their standing steadily, day after day."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone's dignity being lowered by how they are treated — and it can happen politely, with no harsh word anywhere. Try working in a word like <i>dignity<\/i>, <i>beneath<\/i>, <i>politely<\/i> or <i>treated<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

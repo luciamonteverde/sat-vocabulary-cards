@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="3034c8f90a6d">
+<meta name="build" content="cc3b5201501c">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>eloquent &#8212; SAT Vocabulary, Course 2 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "eloquent", "gradeUrl": "/api/grade", "taskId": "eloquent", "minWords": 12, "items": {"s1": {"q": "Which sentence uses eloquent correctly?", "opts": {"A": "The ballroom's eloquent chandeliers threw soft light across the polished marble floor all through the evening.", "B": "The valedictorian's eloquent tribute to the retiring librarian left half the gymnasium reaching for tissues.", "C": "You could hear the auctioneer's eloquent voice from the parking lot, though no one inside could follow a word of it.", "D": "Guests dreaded the eloquent neighbor who pinned them by the mailbox for an hour of aimless chatter about gutters."}, "key": "B", "fb": {"correct": "Correct! Eloquent means using language so fluently and movingly that it stirs the audience — and half a gymnasium reaching for tissues is the stirring, measured in real time.", "A": "Not quite! Eloquent describes language that moves people, so it's not the correct choice here because chandeliers say nothing — this sentence reaches for elegant, a near-twin about looks rather than language.", "C": "Not quite! Eloquent describes language that moves people, so it's not the correct choice here because a voice audible from the parking lot that no one can follow has volume without meaning — loud is not the same as moving.", "D": "Not quite! Eloquent describes language that moves people, so it's not the correct choice here because an hour of aimless chatter about gutters is mere talkativeness — quantity of speech, with none of the power the word promises."}}, "s3a": {"q": "As used in this passage, \"eloquent\" describes speech that is", "opts": {"A": "delivered smoothly and without any mistakes", "B": "moving to its audience", "C": "carefully organized from notes", "D": "charming enough to win over skeptical listeners"}, "key": "B", "fb": {"correct": "Right — the speech was unpolished, but it brought senators to their feet; the power to move is the whole claim.", "A": "The passage rules this out: he repeated himself and lost his place, and the reporters praised the speech anyway.", "C": "He spoke without notes, and no one praises the speech's organization — only its effect.", "D": "Reyes was not persuading anyone of anything; he was remembering the men who built the old span."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "silver-tongued", "B": "fluent", "C": "articulate", "D": "eloquent"}, "key": "B", "fb": {"correct": "Right. Four hours with <em>never a stumble, never a hunt for a word<\/em> is flow, and flow is all the tapes establish — fluent claims exactly that much and no more.", "C": "Articulate praises thought put into words cleanly and in good order. Dale's talk is the opposite on that score — <em>ideas in no order anyone could chart, doubling back, trailing off<\/em> — so the word about well-ordered thinking cannot be the precise one here.", "D": "Eloquent language moves its audience — that is the whole claim of the word. Here <em>nobody has ever claimed the monologues stirred a soul<\/em>, so it promises more than the tapes show.", "A": "Silver-tongued admires persuasive charm — the hint that the speaker could sell anything. Dale <em>sells nothing, urges nothing<\/em>; there is no persuasion in these hours for the word to admire or to suspect."}}}, "grid": {"words": ["eloquent", "articulate", "silver-tongued", "fluent"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The fisherman's eulogy for his brother was ____ past anyone's expecting: plain words, but by the second minute strangers at the back were wiping their eyes.", "ks": ["eloquent"], "fb": {"articulate": "That word praises thoughts put cleanly in order — it informs. This speech did something more: it left strangers wiping their eyes.", "fluent": "That word means speech that flows without a stumble, and flow alone moves no one. What matters here is the power that had the back rows in tears.", "silver-tongued": "That word admires persuasive charm with a raised eyebrow — a speaker who could sell anything. A man burying his brother is selling nothing."}}, {"s": "Forty years of chalk dust and no regrets, she said — a farewell so ____ that the whole hall rose, and even the trustees forgot to check their phones.", "ks": ["eloquent"], "fb": {"articulate": "That word means ideas put into words cleanly and in good order — praise for the mind's tidiness. A hall rising to its feet is proof of something stronger.", "fluent": "That word praises unbroken flow. Nobody stands up because a speech had no stumbles in it; they stood because it moved them.", "silver-tongued": "That word carries a hint of suspicion — charm deployed to win something. A teacher saying goodbye after forty years wants nothing from the room."}}, {"s": "She paused often, hunting for the next word, yet every idea arrived in clean order — a thoroughly ____ account of the outage that stirred no one and informed everyone.", "ks": ["articulate"], "fb": {"eloquent": "That word starts at clarity and adds the power to move. This account stirred no one — it earned its praise on order alone.", "fluent": "That word means speech flowing without a stumble, and she stumbled constantly — pausing, hunting for words. What survived intact was the order of the ideas.", "silver-tongued": "That word is persuasive charm you half distrust. An engineer's outage report charms no one and asks for nothing."}}, {"s": "Twice he doubled back to restate a point, yet his answers were ____ in the end: each thought complete, each in its place, and no one in the room moved by any of it.", "ks": ["articulate"], "fb": {"eloquent": "That word requires language that moves its audience. The sentence closes by saying no one was moved at all.", "fluent": "That word praises unbroken flow, and his flow broke twice — he had to circle back and restate. The virtue left standing is order.", "silver-tongued": "That word suggests a speaker who could sell anything. These answers persuaded no one of anything — they were simply complete and well arranged."}}, {"s": "Her museum patter flowed for an hour without one stumble — ____, certainly, though not a phrase of it stayed with anyone past the gift shop.", "ks": ["fluent"], "fb": {"eloquent": "That word means language with the power to stir its audience. Speech nobody remembers past the gift shop has stirred nothing.", "articulate": "That word praises thoughts put cleanly in order. The sentence praises only the unbroken hour of flow — and what was said left no trace.", "silver-tongued": "That word is charm with an agenda. A guide's routine patter has no agenda and wins nothing — it just never stops."}}, {"s": "The marina's ____ broker had the couple signing for a boat twice their budget — everyone admired the performance, and no one quite trusted it.", "ks": ["silver-tongued"], "fb": {"eloquent": "That word is earnest admiration for moving language, with no suspicion attached. Here everyone admires the performance and nobody quite trusts it.", "articulate": "That word praises clarity and good order. What this broker gets praised for is charm that empties wallets.", "fluent": "That word means the words flowed without a stumble — it says nothing about winning anyone over. Selling a couple a boat twice their budget takes more than smoothness."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show words moving an audience — not just clear or smooth speech. Put the listeners in it and show what the words did to them: try working in a word like <i>tears<\/i>, <i>silence<\/i>, <i>stood<\/i> or <i>stirred<\/i>."}};
+  var CFG = {"word": "eloquent", "gradeUrl": "/api/grade", "taskId": "eloquent", "minWords": 12, "items": {"s1": {"q": "Which sentence uses eloquent correctly?", "opts": {"A": "The ballroom's eloquent chandeliers threw soft light across the polished marble floor all through the evening.", "B": "The valedictorian's eloquent tribute to the retiring librarian left half the gymnasium reaching for tissues.", "C": "You could hear the auctioneer's eloquent voice from the parking lot, though no one inside could follow a word of it.", "D": "Guests dreaded the eloquent neighbor who pinned them by the mailbox for an hour of aimless chatter about gutters."}, "key": "B", "fb": {"correct": "Correct! Eloquent means using language so fluently and movingly that it stirs the audience — and half a gymnasium reaching for tissues is the stirring, measured in real time.", "A": "Not quite! Eloquent describes language that moves people, so it's not the correct choice here because chandeliers say nothing — this sentence reaches for elegant, a near-twin about looks rather than language.", "C": "Not quite! Eloquent describes language that moves people, so it's not the correct choice here because a voice audible from the parking lot that no one can follow has volume without meaning — loud is not the same as moving.", "D": "Not quite! Eloquent describes language that moves people, so it's not the correct choice here because an hour of aimless chatter about gutters is mere talkativeness — quantity of speech, with none of the power the word promises."}}, "s3a": {"q": "As used in this passage, \"eloquent\" describes speech that is", "opts": {"A": "delivered smoothly and without any mistakes", "B": "moving to its audience", "C": "carefully organized from notes", "D": "charming enough to win over skeptical listeners"}, "key": "B", "fb": {"correct": "Right — the speech was unpolished, but it brought senators to their feet; the power to move is the whole claim.", "A": "The passage rules this out: he repeated himself and lost his place, and the reporters praised the speech anyway.", "C": "He spoke without notes, and no one praises the speech's organization — only its effect.", "D": "Reyes was not persuading anyone of anything; he was remembering the men who built the old span."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "silver-tongued", "B": "fluent", "C": "articulate", "D": "eloquent"}, "key": "B", "fb": {"correct": "Right. Four hours with <em>never a stumble, never a hunt for a word<\/em> is flow, and flow is all the tapes establish — fluent claims exactly that much and no more.", "C": "Articulate praises thought put into words cleanly and in good order. Dale's talk is the opposite on that score — <em>ideas in no order anyone could chart, doubling back, trailing off<\/em> — so the word about well-ordered thinking cannot be the precise one here.", "D": "Eloquent language moves its audience — that is the whole claim of the word. Here <em>nobody has ever claimed the monologues stirred a soul<\/em>, so it promises more than the tapes show.", "A": "Silver-tongued admires persuasive charm — the hint that the speaker could sell anything. Dale <em>sells nothing, urges nothing<\/em>; there is no persuasion in these hours for the word to admire or to suspect."}}}, "pairwise": {"rows": [{"sentence": "The fisherman's eulogy for his brother was ____ past anyone's expecting: plain words, but by the second minute strangers at the back were wiping their eyes.", "options": ["eloquent", "articulate"], "key": "eloquent", "pair": "articulate", "why_right": "The tell is <em>strangers at the back were wiping their eyes<\/em> - eloquent language moves its audience; articulate would credit only the clean order of the words, which informs without stirring anyone.", "why_wrong": "That word praises thoughts put cleanly in order — it informs. This speech did something more: it left strangers wiping their eyes."}, {"sentence": "She paused often, hunting for the next word, yet every idea arrived in clean order — a thoroughly ____ account of the outage that stirred no one and informed everyone.", "options": ["eloquent", "articulate"], "key": "articulate", "pair": "articulate", "why_right": "The tell is <em>stirred no one and informed everyone<\/em> - articulate praises thoughts set in clean order that inform; eloquent would require language that actually moved the room.", "why_wrong": "That word starts at clarity and adds the power to move. This account stirred no one — it earned its praise on order alone."}, {"sentence": "Twice he doubled back to restate a point, yet his answers were ____ in the end: each thought complete, each in its place, and no one in the room moved by any of it.", "options": ["eloquent", "articulate"], "key": "articulate", "pair": "articulate", "why_right": "The tell is <em>no one in the room moved by any of it<\/em> - articulate credits complete, well-ordered thoughts; eloquent needs the power to stir, and the sentence says nobody was.", "why_wrong": "That word requires language that moves its audience. The sentence closes by saying no one was moved at all."}, {"sentence": "Forty years of chalk dust and no regrets, she said — a farewell so ____ that the whole hall rose, and even the trustees forgot to check their phones.", "options": ["eloquent", "silver-tongued"], "key": "eloquent", "pair": "silver-tongued", "why_right": "The tell is <em>the whole hall rose<\/em> - eloquent language stirs its audience in earnest; a farewell after forty years sells nothing, so silver-tongued's suspected charm has nothing to work on.", "why_wrong": "That word carries a hint of suspicion — charm deployed to win something. A teacher saying goodbye after forty years wants nothing from the room."}, {"sentence": "The veteran had no cause to plead and no one to win over, yet his account of the front was so ____ that the room fell silent and students were crying.", "options": ["eloquent", "silver-tongued"], "key": "eloquent", "pair": "silver-tongued", "why_right": "The tell is <em>no cause to plead and no one to win over<\/em> - with nothing to win, moving language in earnest is eloquent, not the half-distrusted charm of silver-tongued.", "why_wrong": "That word admires persuasive charm you half distrust -- a speaker who could sell anything. The veteran had nothing to win and no one to persuade; the words simply moved the room."}, {"sentence": "The marina's ____ broker had the couple signing for a boat twice their budget — everyone admired the performance, and no one quite trusted it.", "options": ["eloquent", "silver-tongued"], "key": "silver-tongued", "pair": "silver-tongued", "why_right": "The tell is <em>no one quite trusted it<\/em> - silver-tongued admires persuasive charm with a raised eyebrow; eloquent is that admiration without the suspicion, which a boat twice the budget cannot claim.", "why_wrong": "That word is earnest admiration for moving language, with no suspicion attached. Here everyone admires the performance and nobody quite trusts it."}, {"sentence": "Every sentence flowed without a stumble, yet what the papers quoted the next morning was the ____ heart of the address -- the part that had the delegates weeping.", "options": ["eloquent", "fluent"], "key": "eloquent", "pair": "fluent", "why_right": "The tell is <em>the part that had the delegates weeping<\/em> - the smoothness is already granted; the blank picks out the moving power, and flow alone moves no one.", "why_wrong": "That word means speech that flows without a stumble, and flow alone moves no one. The blank names the part that had delegates weeping -- that is power, not smoothness."}, {"sentence": "Her museum patter flowed for an hour without one stumble — ____, certainly, though not a phrase of it stayed with anyone past the gift shop.", "options": ["eloquent", "fluent"], "key": "fluent", "pair": "fluent", "why_right": "The tell is <em>not a phrase of it stayed with anyone<\/em> - fluent praises speech that flows without a stumble, and flow alone moves no one; eloquent would have left something behind.", "why_wrong": "That word means language with the power to stir its audience. Speech nobody remembers past the gift shop has stirred nothing."}], "display_order": [3, 2, 7, 1, 4, 0, 5, 6], "dimension_order": ["articulate", "silver-tongued", "fluent"], "dimension_feedback": {"articulate": "Articulate praises clarity: thoughts put into words cleanly and in good order. Eloquent starts there and adds power — eloquent language does not just inform its audience, it moves them.", "silver-tongued": "Silver-tongued admires persuasive charm, often with a raised eyebrow — the word hints the speaker could sell anything. Eloquent is admiration without the suspicion: moving language offered in earnest.", "fluent": "Fluent is milder than eloquent: fluent speech flows without a stumble, but flow alone moves no one — eloquent speech has the ease and the power to stir its audience."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show words moving an audience — not just clear or smooth speech. Put the listeners in it and show what the words did to them: try working in a word like <i>tears<\/i>, <i>silence<\/i>, <i>stood<\/i> or <i>stirred<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

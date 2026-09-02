@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="1fdc34ea355d">
+<meta name="build" content="41a7256d3fcd">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ephemeral &#8212; SAT Vocabulary, Course 2 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "ephemeral", "gradeUrl": "/api/grade", "taskId": "ephemeral", "minWords": 12, "items": {"s1": {"q": "Which sentence uses ephemeral correctly?", "opts": {"A": "The ephemeral fortress has guarded the pass since Roman times and shows no sign of falling.", "B": "She keeps an ephemeral journal, filling a page faithfully every day for thirty years.", "C": "Vernal pools are ephemeral, brimming with April rain and shrunk to cracked mud by July.", "D": "The ephemeral mountain rose a little higher each time the plates ground together beneath it."}, "key": "C", "fb": {"correct": "Right — a pool that brims in April and is cracked mud by July lives briefly and on schedule: ephemeral.", "A": "A fortress that has 'guarded the pass since Roman times' has endured for two thousand years. Ephemeral belongs to things that appear and vanish quickly — endurance on that scale rules the word out.", "B": "Filling a page 'faithfully every day for thirty years' is a marathon of persistence. Ephemeral means gone almost as soon as it arrives, so a decades-long habit is exactly what it cannot describe.", "D": "A mountain rising 'each time the plates ground together' is building over geologic ages — the slowest, most lasting process in view. Ephemeral wants a life measured in moments, not in eons."}}, "s3a": {"q": "In this passage, calling the bloom \"ephemeral\" means it", "opts": {"A": "can be cancelled entirely by a single dry winter", "B": "lives out its whole life in only a few days", "C": "fades from view while hikers stand watching it", "D": "is scheduled by the park rangers to end every week"}, "key": "B", "fb": {"correct": "Right — open, set seed, wither 'all within about a week,' and by design: 'the shortness... is the plant's whole strategy.'", "A": "Wet years and dry years decide whether it comes, not how long it lasts once it does.", "C": "The week-long bloom is fully there while it lasts; the claim is a short lifespan, not visible fading.", "D": "No one schedules it — heat, wind, and caterpillars end it; the brevity is in the plant's nature."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fleeting", "B": "temporary", "C": "vanishing", "D": "ephemeral"}, "key": "B", "fb": {"correct": "Right. Temporary claims only that an end is scheduled — these blocks were <em>meant to house war clerks for eighteen months<\/em> — and the claim survives however long the end takes to arrive.", "D": "Ephemeral squeezes a whole lifespan into a day or an hour — brevity as the thing's very nature. These blocks fail that test on the grandest scale: <em>Demolition arrived half a century later<\/em>.", "C": "Vanishing describes something disappearing as you watch — fading from sight or from existence. Nothing here was fading: <em>agencies moved in, corridors were repainted<\/em>, and the buildings stood in full use until the day they came down.", "A": "Fleeting names a single moment slipping past almost before you notice — a glance, a scent in a doorway. These buildings were the opposite of a moment: <em>generations of clerks spent whole careers inside them<\/em>."}}}, "grid": {"words": ["ephemeral", "vanishing", "fleeting", "temporary"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Mayflies are ____ by design: the adult lives out its entire span between one sunrise and the next, and that is all the life it was ever built for.", "ks": ["ephemeral"], "fb": {"vanishing": "That word catches a thing in the act of disappearing before your eyes. The mayfly is fully alive all day; its life is simply built short.", "fleeting": "That word names a moment slipping through your attention — a glance, a scent. This measures a whole lifespan, sunrise to sunrise.", "temporary": "That word says only that an end is scheduled, and it can cover ten standing years. A one-day lifespan is a much stronger claim."}}, {"s": "The chalk murals of the festival are ____, drawn at dawn for a single day's admiration and gone under the street sweepers by night.", "ks": ["ephemeral"], "fb": {"vanishing": "That word means fading from sight as you watch. All day the mural is completely there; the brevity is in its lifespan, not in any dissolving.", "fleeting": "That word is for split seconds of attention. A mural admired from dawn to dusk is not a passing glance — it is a short-lived work.", "temporary": "That word promises only a scheduled end — a bridge under that label can stand a decade. Dawn-to-night is a lifespan pressed into one day."}}, {"s": "The visa was ____, issued for the length of the fellowship and no longer, though the fellowship itself stretched to six years.", "ks": ["temporary"], "fb": {"ephemeral": "That word squeezes a whole existence into a day or an hour. Six years of validity is the opposite of that claim.", "vanishing": "That word means disappearing as you watch. The visa stayed fully in force to its last day.", "fleeting": "That word names an instant slipping past attention. A six-year term is measured in calendars, not blinks."}}, {"s": "The classroom in the gym was always ____ — set up while the flooded wing dried out, due to be struck the moment inspectors signed off.", "ks": ["temporary"], "fb": {"ephemeral": "That word makes a claim about lifespan — a day, an hour. This arrangement's only claim is that an end was planned; the drying could take a season.", "vanishing": "That word wants something fading before your eyes. The desks sit solidly in the gym until someone strikes them.", "fleeting": "That word is a moment brushing past. Weeks of classes in a gym is a scheduled stretch, not an instant."}}, {"s": "Guides now market tours of the ____ glacier, which has pulled back a hundred meters in a decade and thins further every summer.", "ks": ["vanishing"], "fb": {"ephemeral": "That word means brief by nature — a lifespan of a day or an hour. A glacier is thousands of years old; it is not short-lived, it is being lost.", "fleeting": "That word names an instant that slips attention. A hundred meters over a decade is slow, watchable loss.", "temporary": "That word means an end was scheduled from the start. Nobody planned this ending; the ice is simply going."}}, {"s": "Their eyes met for one ____ instant across the platform before the doors slid shut, and she spent the ride wondering who he was.", "ks": ["fleeting"], "fb": {"ephemeral": "That word sizes whole lifespans — things that exist fully and are gone within a day. A shared glance has no lifespan; it is a moment slipping past.", "vanishing": "That word catches something mid-disappearance. Nothing dissolves here; the moment simply ends when the doors do.", "temporary": "That word is for arrangements with a scheduled end — visas, rentals, stand-ins. An instant between strangers is not an arrangement."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Give your subject a whole life that fits inside a day or an hour — and make the shortness part of its nature, not an accident. Try working in words like <i>by morning<\/i>, <i>hours<\/i>, <i>bloomed<\/i> or <i>gone<\/i>."}};
+  var CFG = {"word": "ephemeral", "gradeUrl": "/api/grade", "taskId": "ephemeral", "minWords": 12, "items": {"s1": {"q": "Which sentence uses ephemeral correctly?", "opts": {"A": "The ephemeral fortress has guarded the pass since Roman times and shows no sign of falling.", "B": "She keeps an ephemeral journal, filling a page faithfully every day for thirty years.", "C": "Vernal pools are ephemeral, brimming with April rain and shrunk to cracked mud by July.", "D": "The ephemeral mountain rose a little higher each time the plates ground together beneath it."}, "key": "C", "fb": {"correct": "Right — a pool that brims in April and is cracked mud by July lives briefly and on schedule: ephemeral.", "A": "A fortress that has 'guarded the pass since Roman times' has endured for two thousand years. Ephemeral belongs to things that appear and vanish quickly — endurance on that scale rules the word out.", "B": "Filling a page 'faithfully every day for thirty years' is a marathon of persistence. Ephemeral means gone almost as soon as it arrives, so a decades-long habit is exactly what it cannot describe.", "D": "A mountain rising 'each time the plates ground together' is building over geologic ages — the slowest, most lasting process in view. Ephemeral wants a life measured in moments, not in eons."}}, "s3a": {"q": "In this passage, calling the bloom \"ephemeral\" means it", "opts": {"A": "can be cancelled entirely by a single dry winter", "B": "lives out its whole life in only a few days", "C": "fades from view while hikers stand watching it", "D": "is scheduled by the park rangers to end every week"}, "key": "B", "fb": {"correct": "Right — open, set seed, wither 'all within about a week,' and by design: 'the shortness... is the plant's whole strategy.'", "A": "Wet years and dry years decide whether it comes, not how long it lasts once it does.", "C": "The week-long bloom is fully there while it lasts; the claim is a short lifespan, not visible fading.", "D": "No one schedules it — heat, wind, and caterpillars end it; the brevity is in the plant's nature."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fleeting", "B": "temporary", "C": "vanishing", "D": "ephemeral"}, "key": "B", "fb": {"correct": "Right. Temporary claims only that an end is scheduled — these blocks were <em>meant to house war clerks for eighteen months<\/em> — and the claim survives however long the end takes to arrive.", "D": "Ephemeral squeezes a whole lifespan into a day or an hour — brevity as the thing's very nature. These blocks fail that test on the grandest scale: <em>Demolition arrived half a century later<\/em>.", "C": "Vanishing describes something disappearing as you watch — fading from sight or from existence. Nothing here was fading: <em>agencies moved in, corridors were repainted<\/em>, and the buildings stood in full use until the day they came down.", "A": "Fleeting names a single moment slipping past almost before you notice — a glance, a scent in a doorway. These buildings were the opposite of a moment: <em>generations of clerks spent whole careers inside them<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Mayflies are ____ by design: the adult lives out its entire span between one sunrise and the next, and that is all the life it was ever built for.", "options": ["ephemeral", "temporary"], "key": "ephemeral", "pair": "temporary", "why_right": "The tell is <em>all the life it was ever built for<\/em> - a one-day lifespan built into the creature's nature, existence itself squeezed brief, not merely an end put on a schedule.", "why_wrong": "That word says only that an end is scheduled, and it can cover ten standing years. A one-day lifespan is a much stronger claim."}, {"sentence": "The visa was ____, issued for the length of the fellowship and no longer, though the fellowship itself stretched to six years.", "options": ["ephemeral", "temporary"], "key": "temporary", "pair": "temporary", "why_right": "The tell is <em>issued for the length of the fellowship and no longer<\/em> - the end was scheduled from the start, and a scheduled term can run six whole years.", "why_wrong": "That word squeezes a whole existence into a day or an hour. Six years of validity is the opposite of that claim."}, {"sentence": "The classroom in the gym was always ____ — set up while the flooded wing dried out, due to be struck the moment inspectors signed off.", "options": ["ephemeral", "temporary"], "key": "temporary", "pair": "temporary", "why_right": "The tell is <em>due to be struck the moment inspectors signed off<\/em> - an end planned from the start is the whole claim; no one is measuring a day-long lifespan.", "why_wrong": "That word makes a claim about lifespan — a day, an hour. This arrangement's only claim is that an end was planned; the drying could take a season."}, {"sentence": "The chalk murals of the festival are ____, drawn at dawn for a single day's admiration and gone under the street sweepers by night.", "options": ["ephemeral", "vanishing"], "key": "ephemeral", "pair": "vanishing", "why_right": "The tell is <em>drawn at dawn for a single day's admiration<\/em> - the mural exists fully all day and its whole life is one day; nothing fades before your eyes.", "why_wrong": "That word means fading from sight as you watch. All day the mural is completely there; the brevity is in its lifespan, not in any dissolving."}, {"sentence": "Guides now market tours of the ____ glacier, which has pulled back a hundred meters in a decade and thins further every summer.", "options": ["ephemeral", "vanishing"], "key": "vanishing", "pair": "vanishing", "why_right": "The tell is <em>pulled back a hundred meters in a decade<\/em> - the glacier is disappearing as observers watch, fading from existence, though nothing about its long life was ever brief.", "why_wrong": "That word means brief by nature — a lifespan of a day or an hour. A glacier is thousands of years old; it is not short-lived, it is being lost."}, {"sentence": "The courier darted through one ____ gap between buses, open and shut again almost before the waiting drivers at the light registered it.", "options": ["ephemeral", "fleeting"], "key": "fleeting", "pair": "fleeting", "why_right": "The tell is <em>almost before the waiting drivers at the light registered it<\/em> - the gap is a single moment slipping through attention, not a thing whose whole lifespan is being measured.", "why_wrong": "That word measures a lifespan - something that exists fully and is gone within a day or an hour. A gap between buses is an instant slipping past, with no existence to size."}, {"sentence": "After one rare rain the desert's ____ bloom opened, covered the dunes, and finished, a whole flowering lived out inside a single day.", "options": ["ephemeral", "fleeting"], "key": "ephemeral", "pair": "fleeting", "why_right": "The tell is <em>a whole flowering lived out inside a single day<\/em> - the bloom exists fully from opening to finish, a complete lifespan squeezed into one day, not a moment slipping past.", "why_wrong": "That word names a moment passing almost before you notice - a glance, a scent. This bloom is watched all day, opening to finishing; its whole lifespan is the claim."}, {"sentence": "The supper club was ____ on principle: guests seated at dusk, ten courses served, and the room stripped to bare walls before the following noon.", "options": ["ephemeral", "fleeting"], "key": "ephemeral", "pair": "fleeting", "why_right": "The tell is <em>guests seated at dusk, ten courses served<\/em> - the club exists fully for one evening and is gone by noon, a whole brief lifespan, not one slipping moment.", "why_wrong": "That word names the swift slip of a single moment through your attention. An evening of ten courses, dusk to noon, is a whole existence lived out, not an instant."}], "display_order": [0, 6, 1, 3, 7, 2, 4, 5], "dimension_order": ["temporary", "vanishing", "fleeting"], "dimension_feedback": {"temporary": "Temporary says only that an end is scheduled — a temporary bridge can stand for ten years — while ephemeral squeezes a whole lifespan into a day or an hour.", "vanishing": "Vanishing describes something in the act of disappearing — fading from sight or from existence as you watch, like steam off a kettle or a species in decline. Ephemeral makes a different claim: the whole life was always going to be brief. A vanishing thing is going; an ephemeral thing never had long.", "fleeting": "A fleeting thing passes almost before you notice — a glance, a smile, a scent in a doorway. The word names the swift slip of a single moment through your attention. Ephemeral instead measures a lifespan: the thing exists fully and is gone within a day or an hour, its brevity part of its nature."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Give your subject a whole life that fits inside a day or an hour — and make the shortness part of its nature, not an accident. Try working in words like <i>by morning<\/i>, <i>hours<\/i>, <i>bloomed<\/i> or <i>gone<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

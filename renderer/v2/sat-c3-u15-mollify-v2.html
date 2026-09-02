@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9b9c7237abca">
+<meta name="build" content="8448b72ab6db">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mollify &#8212; SAT Vocabulary, Course 3 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "mollify", "gradeUrl": "/api/grade", "taskId": "mollify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mollify correctly?", "opts": {"A": "Hoping to mollify the angry villagers, the mayor reopened the footpath their grandparents had walked.", "B": "The trainer worked to mollify the marathoner's endurance with punishing hill sprints twice a week.", "C": "They tried to mollify the campfire with armfuls of dry cedar until the flames finally roared.", "D": "A good editor will mollify the manuscript's errors until every last one of them is gone."}, "key": "A", "fb": {"correct": "Right. Mollify means to soothe someone's anger — reopening the beloved footpath is aimed squarely at softening the villagers' fury.", "B": "This sentence uses mollify as if it meant build up — you cannot mollify 'the marathoner's endurance' with 'punishing hill sprints.' Mollify calms a furious person down; look for a hot temper being cooled.", "C": "Feeding 'armfuls of dry cedar' until the fire roars is stoking a blaze, not calming anybody. Mollify means to settle a person's fury — look for hot feelings being cooled, not flames being fed.", "D": "Here mollify stands in for fix: an editor working through 'the manuscript's errors.' Errors are not upset, and removing them soothes nobody's rage. Mollify needs a furious person being calmed down."}}, "s3a": {"q": "As it is used in the passage, \"mollify\" most nearly means:", "opts": {"A": "to genuinely soften someone's anger", "B": "to buy temporary quiet with concessions", "C": "to distract people from an inconvenience", "D": "to overrule objections by authority"}, "key": "A", "fb": {"correct": "Right — by spring the teacher's anger is 'not silenced but genuinely gone': the feeling itself was softened.", "B": "The buy-them-off route — coffee, extended hours — is exactly what 'changed nothing.'", "C": "The passage says the offers failed because they 'answered inconvenience rather than the real injury' — distraction was not the cure.", "D": "Nobody is overruled; the objections end because the readers were finally included."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "placate", "B": "calm", "C": "appease", "D": "mollify"}, "key": "D", "fb": {"correct": "Right. Her fury had a cause — <em>the family name had been the whole point of the gift<\/em> — and it was genuinely softened at the source, with <em>no refund and no promise of a renamed gallery<\/em>. Anger truly eased, nothing traded away: that is mollify.", "B": "Calm is the broadest of these verbs — you calm nerves, fright, a spooked horse. Mrs. Abara was not startled or jittery: she <em>wrote a furious letter<\/em> over a genuine wrong. Calm fits a rattled friend; it is too general for offended fury like this.", "A": "Placate usually means quieting someone's anger for the moment, often by handing something over — a placated visitor stops complaining for now. This anger ended for good: <em>It worked at the root<\/em>, and she <em>never raised the matter again<\/em>.", "C": "Appease means buying off anger by yielding something, often more than you should. Nothing was traded here: the registrar came <em>bringing no refund and no promise of a renamed gallery<\/em>, only the record of where the error began and its fix already in motion."}}}, "grid": {"words": ["mollify", "calm", "placate", "appease"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The foreman's public apology managed to ____ the deceived residents; their fury ebbed for good, though he offered them nothing beyond the admission itself.", "ks": ["mollify"], "fb": {"placate": "That word quiets anger by handing over a concession, and usually only for a while. Here nothing was conceded — <em>nothing beyond the admission itself<\/em> — and the fury ebbed <em>for good<\/em>.", "appease": "That word means buying off hostility by yielding, often shamefully. An apology yields nothing; no one was bought.", "calm": "That is the broad verb for settling any agitation — nerves, startle, tears. This sentence is specifically about fury at being <em>deceived<\/em> being softened once the wrong was owned."}}, {"s": "No voucher could ____ the bride's offended aunt, but ten sincere minutes on the porch did, and the grudge never resurfaced.", "ks": ["mollify"], "fb": {"placate": "That word works by concession and buys only a spell of quiet. The voucher — the concession — <em>failed<\/em>; what worked was sincerity, and the grudge <em>never resurfaced<\/em>.", "appease": "That word means buying off anger by yielding something. The one attempt to buy her off is exactly what the sentence says did not work.", "calm": "That is the plain, broad verb for settling anyone down. The aunt is <em>offended<\/em> — wronged and angry — and what the porch conversation softened was that grievance."}}, {"s": "Each time the warlord growled, the council voted to ____ him with another border town, and each concession fed his appetite instead of quieting any grievance.", "ks": ["appease"], "fb": {"mollify": "That word says someone's anger was genuinely softened. Nothing softens here — each border town <em>fed his appetite<\/em>.", "placate": "That word buys a spell of quiet from an angry party. No quiet is ever bought — <em>each time the warlord growled<\/em> the cycle restarts — and towns are being traded away, yielding on a scale that word does not carry.", "calm": "That is the broad verb for settling agitation. Handing over <em>another border town<\/em> is not settling anyone; it is paying an aggressor."}}, {"s": "A free dessert was enough to ____ the fuming customer for the evening, though he was back at the counter with the same complaint by Friday.", "ks": ["placate"], "fb": {"mollify": "That word means the anger itself genuinely softened. His did not — he was <em>back at the counter with the same complaint by Friday<\/em>.", "appease": "That word implies yielding more than one should, with an edge of weakness. <em>A free dessert<\/em> is small change — a routine gesture, not a surrender.", "calm": "That is the broad verb for settling agitation gently. This quiet was <em>bought<\/em> — one dessert for one evening — which is a different transaction."}}, {"s": "The lifeguard's first job was to ____ the panicking swimmer, who was frightened rather than hurt, before towing her in.", "ks": ["calm"], "fb": {"mollify": "That word takes on anger caused by a wrong. The swimmer is <em>frightened rather than hurt<\/em> — there is no grievance to soften, only panic to settle.", "placate": "That word buys quiet from someone angry, usually with a concession. Nobody here is angry, and nothing is being offered.", "appease": "That word buys off hostility by yielding. A panicking swimmer is not hostile, and the lifeguard yields nothing."}}, {"s": "Backstage, the conductor spent ten minutes trying to ____ a jittery soloist before her debut — there was nothing to apologize for, only nerves to settle.", "ks": ["calm"], "fb": {"mollify": "That word softens fury that a wrong has caused. Here there is <em>nothing to apologize for<\/em> — just stage-fright.", "placate": "That word quiets an angry person with a concession. The soloist is jittery, not aggrieved, and no concession is on offer.", "appease": "That word means buying off hostility by yielding. There is no hostility backstage — only <em>nerves to settle<\/em>."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone angry about a wrong, and that anger genuinely easing — not bought off or merely hushed. Try working in a word like <i>fury<\/i>, <i>apology<\/i>, <i>offended<\/i> or <i>softened<\/i>."}};
+  var CFG = {"word": "mollify", "gradeUrl": "/api/grade", "taskId": "mollify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mollify correctly?", "opts": {"A": "Hoping to mollify the angry villagers, the mayor reopened the footpath their grandparents had walked.", "B": "The trainer worked to mollify the marathoner's endurance with punishing hill sprints twice a week.", "C": "They tried to mollify the campfire with armfuls of dry cedar until the flames finally roared.", "D": "A good editor will mollify the manuscript's errors until every last one of them is gone."}, "key": "A", "fb": {"correct": "Right. Mollify means to soothe someone's anger — reopening the beloved footpath is aimed squarely at softening the villagers' fury.", "B": "This sentence uses mollify as if it meant build up — you cannot mollify 'the marathoner's endurance' with 'punishing hill sprints.' Mollify calms a furious person down; look for a hot temper being cooled.", "C": "Feeding 'armfuls of dry cedar' until the fire roars is stoking a blaze, not calming anybody. Mollify means to settle a person's fury — look for hot feelings being cooled, not flames being fed.", "D": "Here mollify stands in for fix: an editor working through 'the manuscript's errors.' Errors are not upset, and removing them soothes nobody's rage. Mollify needs a furious person being calmed down."}}, "s3a": {"q": "As it is used in the passage, \"mollify\" most nearly means:", "opts": {"A": "to genuinely soften someone's anger", "B": "to buy temporary quiet with concessions", "C": "to distract people from an inconvenience", "D": "to overrule objections by authority"}, "key": "A", "fb": {"correct": "Right — by spring the teacher's anger is 'not silenced but genuinely gone': the feeling itself was softened.", "B": "The buy-them-off route — coffee, extended hours — is exactly what 'changed nothing.'", "C": "The passage says the offers failed because they 'answered inconvenience rather than the real injury' — distraction was not the cure.", "D": "Nobody is overruled; the objections end because the readers were finally included."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "placate", "B": "calm", "C": "appease", "D": "mollify"}, "key": "D", "fb": {"correct": "Right. Her fury had a cause — <em>the family name had been the whole point of the gift<\/em> — and it was genuinely softened at the source, with <em>no refund and no promise of a renamed gallery<\/em>. Anger truly eased, nothing traded away: that is mollify.", "B": "Calm is the broadest of these verbs — you calm nerves, fright, a spooked horse. Mrs. Abara was not startled or jittery: she <em>wrote a furious letter<\/em> over a genuine wrong. Calm fits a rattled friend; it is too general for offended fury like this.", "A": "Placate usually means quieting someone's anger for the moment, often by handing something over — a placated visitor stops complaining for now. This anger ended for good: <em>It worked at the root<\/em>, and she <em>never raised the matter again<\/em>.", "C": "Appease means buying off anger by yielding something, often more than you should. Nothing was traded here: the registrar came <em>bringing no refund and no promise of a renamed gallery<\/em>, only the record of where the error began and its fix already in motion."}}}, "pairwise": {"rows": [{"sentence": "A free dessert was enough to ____ the fuming customer for the evening, though he was back at the counter with the same complaint by Friday.", "options": ["mollify", "placate"], "key": "placate", "pair": "placate", "why_right": "The tell is <em>for the evening<\/em> - one dessert bought one evening's quiet and the same complaint returned by Friday; a concession purchasing temporary peace is this word, not anger genuinely softened.", "why_wrong": "That word means the anger itself genuinely softened. His did not — he was <em>back at the counter with the same complaint by Friday<\/em>."}, {"sentence": "The foreman's public apology managed to ____ the deceived residents; their fury ebbed for good, though he offered them nothing beyond the admission itself.", "options": ["mollify", "placate"], "key": "mollify", "pair": "placate", "why_right": "The tell is <em>for good<\/em> - the residents' fury ebbed and stayed gone, with nothing conceded beyond owning the wrong; the anger itself softened, not the temporary quiet a concession buys.", "why_wrong": "That word quiets anger by handing over a concession, and usually only for a while. Here nothing was conceded — <em>nothing beyond the admission itself<\/em> — and the fury ebbed <em>for good<\/em>."}, {"sentence": "The surveyor's stakes did what no settlement could to ____ the neighbor, for the fence stopped short of his line, and he never raised it again.", "options": ["mollify", "placate"], "key": "mollify", "pair": "placate", "why_right": "The tell is <em>never raised it again<\/em> - nothing was conceded, only a fact shown, and the grievance itself dissolved for keeps; the other word buys a spell of quiet with a concession.", "why_wrong": "That word quiets anger with a concession, usually only for a while. The stakes conceded nothing — they showed the fence never crossed his line — and he never raised it again."}, {"sentence": "Each time the warlord growled, the council voted to ____ him with another border town, and each concession fed his appetite instead of quieting any grievance.", "options": ["mollify", "appease"], "key": "appease", "pair": "appease", "why_right": "The tell is <em>another border town<\/em> - hostility bought off by yielding territory, far more than anyone should, with the edge of weakness in full view; no fury is softened, only fed.", "why_wrong": "That word says someone's anger was genuinely softened. Nothing softens here — each border town <em>fed his appetite<\/em>."}, {"sentence": "No voucher could ____ the bride's offended aunt, but ten sincere minutes on the porch did, and the grudge never resurfaced.", "options": ["mollify", "appease"], "key": "mollify", "pair": "appease", "why_right": "The tell is <em>ten sincere minutes<\/em> - the one attempt to buy her off failed, and what softened the offended aunt's anger was conversation, with nothing yielded and nothing shameful traded away.", "why_wrong": "That word means buying off anger by yielding something. The one attempt to buy her off is exactly what the sentence says did not work."}, {"sentence": "The principal changed not one point of the grade the parents stormed in over, yet her rubric walk-through did ____ them, and they left thanking her.", "options": ["mollify", "appease"], "key": "mollify", "pair": "appease", "why_right": "The tell is <em>changed not one point<\/em> - the principal yielded nothing, so nothing was bought off; the parents' anger softened anyway, plain softening of fury with no trade behind it.", "why_wrong": "That word means buying off anger by yielding, often more than one should. The principal yielded nothing at all — not one point of the grade — yet the parents left thanking her."}, {"sentence": "The lifeguard's first job was to ____ the panicking swimmer, who was frightened rather than hurt, before towing her in.", "options": ["mollify", "calm"], "key": "calm", "pair": "calm", "why_right": "The tell is <em>frightened rather than hurt<\/em> - panic with no wrong done and no one to blame, the plain broad verb's home; the other word needs an offended party's fury.", "why_wrong": "That word takes on anger caused by a wrong. The swimmer is <em>frightened rather than hurt<\/em> — there is no grievance to soften, only panic to settle."}, {"sentence": "Backstage, the conductor spent ten minutes trying to ____ a jittery soloist before her debut — there was nothing to apologize for, only nerves to settle.", "options": ["mollify", "calm"], "key": "calm", "pair": "calm", "why_right": "The tell is <em>nothing to apologize for<\/em> - no wrong was done, so there is no fury at a wrong to soften; only nerves to settle, which is what the broad verb covers.", "why_wrong": "That word softens fury that a wrong has caused. Here there is <em>nothing to apologize for<\/em> — just stage-fright."}], "display_order": [1, 3, 2, 4, 6, 0, 7, 5], "dimension_order": ["placate", "appease", "calm"], "dimension_feedback": {"placate": "Placate means to quiet someone's anger, usually by handing over a concession, and it often buys only temporary peace. Mollify says the feeling itself was genuinely softened. A placated crowd stops shouting for now; a mollified crowd actually feels less wronged.", "appease": "Appease means to buy off anger or hostility by yielding — often yielding more than you should, which gives the word its edge of weakness. Mollify carries no such judgment: it simply says someone's fury was softened, not that anything shameful was traded away.", "calm": "Calm is the plainest, broadest verb for settling agitation of any kind — nerves, a spooked horse, a crying child. Mollify is narrower and takes on anger specifically: you calm a startled friend, but you mollify an offended one, softening fury that a wrong has caused."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone angry about a wrong, and that anger genuinely easing — not bought off or merely hushed. Try working in a word like <i>fury<\/i>, <i>apology<\/i>, <i>offended<\/i> or <i>softened<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

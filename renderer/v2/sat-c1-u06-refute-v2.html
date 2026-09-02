@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="25c4c8abf7dd">
+<meta name="build" content="b60abed6fa29">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>refute &#8212; SAT Vocabulary, Course 1 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "refute", "gradeUrl": "/api/grade", "taskId": "refute", "minWords": 12, "items": {"s1": {"q": "A snack company advertises that its granola bars contain zero added sugar. A consumer group pays a food-testing laboratory to analyze the bars — not because it suspects a lie, but because its standing policy is to check every label claim against test results before recommending any product. What is the consumer group trying to do?", "opts": {"A": "Refute the company's claim by producing lab evidence that proves it false.", "B": "Verify the company's claim by checking it against independent laboratory results.", "C": "Restate the company's claim so that more shoppers hear about it.", "D": "Negotiate with the company to change the recipe of the bars."}, "key": "B", "fb": {"correct": "Exactly. The group harbors no suspicion — it is checking the zero-sugar claim against independent lab results, as it does for every label, before recommending the bars. Checking a claim against a reliable standard is verifying it.", "A": "Refuting means setting out to prove a claim wrong, and the stem removes that aim in so many words: the group suspects no lie and orders the tests as standing policy for every product it recommends. If the lab happened to find sugar, the claim would fall — but proving it false is nobody's goal here; checking it is.", "C": "Restating the claim would just repeat the advertisement to a wider audience, and the group is not spreading the company's message — it is putting the message to a test.", "D": "Negotiating a recipe change would be a business bargain with the company, but no talks are happening — the group's only move is to send the bars to a lab and see whether the label is true."}}, "s3a": {"q": "In the passage, refute most nearly means…", "opts": {"A": "to raise doubts about a claim without settling the question", "B": "to defend a long-standing account against newer critics", "C": "to prove an accepted claim wrong with evidence", "D": "to mock an outdated belief in front of an audience"}, "key": "C", "fb": {"correct": "Right. The tags produce evidence — every bird flew east — and the passage says the data 'settled the question.' The old claim was not merely doubted; it was proven wrong.", "A": "The ending forecloses this: the claim 'did not survive the session,' and even the guide's editors conceded. Nothing was left unsettled.", "B": "Backwards. Amara expected to confirm the old account, but what her tags actually did was the opposite of defending it.", "D": "There is no mockery anywhere — a congress presentation and conceding editors. The tone is evidence, not ridicule."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rebut", "B": "debunk", "C": "disprove", "D": "refute"}, "key": "C", "fb": {"correct": "Right. Something false was simply shown to be false: no claim had ever been stated, no rival argued back, no myth circulated. Plain evidence sinking a quiet assumption is disproving, the plainest of these four words doing its plainest job.", "D": "Refuting always answers a claim someone actually made, an opponent's argument or a rival's hypothesis. This passage shuts that off: the idea spread <em>without anyone ever stating it, let alone defending it<\/em>, and there was <em>no rival to answer<\/em>.", "A": "To rebut is to argue back, answering a claim with a counterargument without necessarily defeating it. Nothing here argues at all: <em>the instruments simply recorded colder nights<\/em>, and the chart was <em>redrawn without a word of argument<\/em>.", "B": "Debunking exposes a myth or fad in a lighter, popular register, the way websites take apart urban legends. The passage rules that out directly: there was <em>no folklore to expose<\/em>, only one orchard's unstated working assumption."}}}, "grid": {"words": ["refute", "disprove", "rebut", "debunk"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "In the journal's reply pages, Dr. Okafor answered her critic's central claim with fresh sediment cores that ____ it beyond salvage.", "ks": ["refute"], "fb": {"disprove": "Disprove is the plain word for showing something false in any setting — a stray idea, a hunch. This sentence is built around answering an opponent's claim in formal scholarship, which calls for its more formal cousin.", "rebut": "Rebutting is answering back — a counterargument that need not win. <em>Beyond salvage<\/em> says the claim was destroyed, not merely answered.", "debunk": "Debunking exposes myths and fads in a light, popular register. A critic's claim in a journal's reply pages is scholarly argument, not an urban legend."}}, {"s": "Defense counsel promised the jury that the phone records would ____ the prosecution's central allegation rather than merely raise doubts about it.", "ks": ["refute"], "fb": {"disprove": "Disprove fits any setting — you can disprove a hunch nobody defended. Here the records answer an opponent's allegation in a courtroom, the formal arena where claims and arguments clash.", "rebut": "A rebuttal answers a claim without necessarily defeating it. Counsel promises more than an answer — <em>rather than merely raise doubts<\/em> — the allegation is to be proven wrong.", "debunk": "Debunking is for myths, fads, and urban legends, usually in a breezy popular register. A prosecution allegation before a jury is neither."}}, {"s": "By Friday her own follow-up measurements had quietly managed to ____ the private hunch she had started the week with.", "ks": ["disprove"], "fb": {"refute": "That word always answers a claim someone actually made — an opponent's argument in a debate, courtroom, or journal. A <em>private hunch<\/em> has no opponent behind it.", "rebut": "Rebutting means answering a claim with a counterargument. Nobody is arguing here; measurements quietly settle a question she kept to herself.", "debunk": "Debunking exposes public myths and fads. A hunch that never left her own week's work was never public enough to expose."}}, {"s": "A single counterexample on the seminar whiteboard was enough to ____ the conjecture before anyone had even bothered to champion it.", "ks": ["disprove"], "fb": {"refute": "That word answers a claim someone actually made and stands behind. This conjecture died <em>before anyone had even bothered to champion it<\/em> — there was no opponent to answer.", "rebut": "A rebuttal is a counterargument aimed at someone's case. With no one championing the conjecture, there was no case to argue against.", "debunk": "Debunking takes down myths and fads with a public following. A conjecture nobody championed had no following to disillusion."}}, {"s": "Given five minutes to ____ the motion, the senator answered it point for point, though the chamber ended the night unconvinced by either side.", "ks": ["rebut"], "fb": {"refute": "That word means the claim is proven wrong, usually with evidence, and the argument ends. Here <em>the chamber ended the night unconvinced by either side<\/em> — nothing ended.", "disprove": "To disprove is to show a thing false. The senator offers only argument — no proof lands, and the question stays open.", "debunk": "Debunking punctures myths and urban legends for a popular audience. A senate motion debated on the floor is neither."}}, {"s": "The site's cheerful weekly feature exists to ____ viral wellness fads, dismantling one miracle cure at a time for its million subscribers.", "ks": ["debunk"], "fb": {"refute": "That word lives where formal claims and arguments clash — courtrooms, journals, debates. A <em>cheerful weekly feature<\/em> puncturing wellness fads is playing a lighter game.", "disprove": "Disprove is the flat, neutral word for showing a statement false. This sentence exposes fads for a huge popular audience — <em>cheerful<\/em>, breezy, one miracle cure at a time.", "rebut": "Rebutting answers a particular claim with a counterargument. The feature isn't arguing with anyone in particular; it is exposing one fad after another."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a claim someone actually made — and proof that knocks it down, not just someone disagreeing. Try working in words like <i>claim<\/i>, <i>evidence<\/i>, <i>records<\/i> or <i>wrong<\/i>."}};
+  var CFG = {"word": "refute", "gradeUrl": "/api/grade", "taskId": "refute", "minWords": 12, "items": {"s1": {"q": "A snack company advertises that its granola bars contain zero added sugar. A consumer group pays a food-testing laboratory to analyze the bars — not because it suspects a lie, but because its standing policy is to check every label claim against test results before recommending any product. What is the consumer group trying to do?", "opts": {"A": "Refute the company's claim by producing lab evidence that proves it false.", "B": "Verify the company's claim by checking it against independent laboratory results.", "C": "Restate the company's claim so that more shoppers hear about it.", "D": "Negotiate with the company to change the recipe of the bars."}, "key": "B", "fb": {"correct": "Exactly. The group harbors no suspicion — it is checking the zero-sugar claim against independent lab results, as it does for every label, before recommending the bars. Checking a claim against a reliable standard is verifying it.", "A": "Refuting means setting out to prove a claim wrong, and the stem removes that aim in so many words: the group suspects no lie and orders the tests as standing policy for every product it recommends. If the lab happened to find sugar, the claim would fall — but proving it false is nobody's goal here; checking it is.", "C": "Restating the claim would just repeat the advertisement to a wider audience, and the group is not spreading the company's message — it is putting the message to a test.", "D": "Negotiating a recipe change would be a business bargain with the company, but no talks are happening — the group's only move is to send the bars to a lab and see whether the label is true."}}, "s3a": {"q": "In the passage, refute most nearly means…", "opts": {"A": "to raise doubts about a claim without settling the question", "B": "to defend a long-standing account against newer critics", "C": "to prove an accepted claim wrong with evidence", "D": "to mock an outdated belief in front of an audience"}, "key": "C", "fb": {"correct": "Right. The tags produce evidence — every bird flew east — and the passage says the data 'settled the question.' The old claim was not merely doubted; it was proven wrong.", "A": "The ending forecloses this: the claim 'did not survive the session,' and even the guide's editors conceded. Nothing was left unsettled.", "B": "Backwards. Amara expected to confirm the old account, but what her tags actually did was the opposite of defending it.", "D": "There is no mockery anywhere — a congress presentation and conceding editors. The tone is evidence, not ridicule."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rebut", "B": "debunk", "C": "disprove", "D": "refute"}, "key": "C", "fb": {"correct": "Right. Something false was simply shown to be false: no claim had ever been stated, no rival argued back, no myth circulated. Plain evidence sinking a quiet assumption is disproving, the plainest of these four words doing its plainest job.", "D": "Refuting always answers a claim someone actually made, an opponent's argument or a rival's hypothesis. This passage shuts that off: the idea spread <em>without anyone ever stating it, let alone defending it<\/em>, and there was <em>no rival to answer<\/em>.", "A": "To rebut is to argue back, answering a claim with a counterargument without necessarily defeating it. Nothing here argues at all: <em>the instruments simply recorded colder nights<\/em>, and the chart was <em>redrawn without a word of argument<\/em>.", "B": "Debunking exposes a myth or fad in a lighter, popular register, the way websites take apart urban legends. The passage rules that out directly: there was <em>no folklore to expose<\/em>, only one orchard's unstated working assumption."}}}, "pairwise": {"rows": [{"sentence": "In the journal's reply pages, Dr. Okafor answered her critic's central claim with fresh sediment cores that ____ it beyond salvage.", "options": ["refute", "debunk"], "key": "refute", "pair": "debunk", "why_right": "The tell is <em>the journal's reply pages<\/em> - a critic's claim answered in formal scholarship, refute's home ground; debunking belongs to myths and fads in a lighter, popular register.", "why_wrong": "Debunking exposes myths and fads in a light, popular register. A critic's claim in a journal's reply pages is scholarly argument, not an urban legend."}, {"sentence": "The site's cheerful weekly feature exists to ____ viral wellness fads, dismantling one miracle cure at a time for its million subscribers.", "options": ["refute", "debunk"], "key": "debunk", "pair": "debunk", "why_right": "The tell is <em>viral wellness fads<\/em> - a cheerful feature exposing miracle cures for a huge popular audience is debunking's exact territory; refuting lives where formal claims and arguments clash.", "why_wrong": "That word lives where formal claims and arguments clash — courtrooms, journals, debates. A <em>cheerful weekly feature<\/em> puncturing wellness fads is playing a lighter game."}, {"sentence": "In her dissertation defense, Ibarra faced the committee's sharpest objection head-on, using three replicated trials to ____ it before the panel moved to a vote.", "options": ["refute", "debunk"], "key": "refute", "pair": "debunk", "why_right": "The tell is <em>the committee's sharpest objection<\/em> - a formal scholarly argument answered with replicated evidence, which is refuting; debunking is for myths and fads in a lighter, popular register.", "why_wrong": "That word exposes myths, fads, and exaggerations, usually in a light, popular register - you debunk a ghost story. A committee's objection at a dissertation defense is formal scholarly argument."}, {"sentence": "Defense counsel promised the jury that the phone records would ____ the prosecution's central allegation rather than merely raise doubts about it.", "options": ["refute", "rebut"], "key": "refute", "pair": "rebut", "why_right": "The tell is <em>rather than merely raise doubts<\/em> - the records are promised to finish the allegation off, and evidence that proves a claim wrong refutes it; rebutting only answers back.", "why_wrong": "A rebuttal answers a claim without necessarily defeating it. Counsel promises more than an answer — <em>rather than merely raise doubts<\/em> — the allegation is to be proven wrong."}, {"sentence": "Given five minutes to ____ the motion, the senator answered it point for point, though the chamber ended the night unconvinced by either side.", "options": ["refute", "rebut"], "key": "rebut", "pair": "rebut", "why_right": "The tell is <em>unconvinced by either side<\/em> - the motion was answered point for point but never proven wrong; rebutting is arguing back without necessarily defeating the claim.", "why_wrong": "That word means the claim is proven wrong, usually with evidence, and the argument ends. Here <em>the chamber ended the night unconvinced by either side<\/em> — nothing ended."}, {"sentence": "Critics claimed the new alloy would buckle in frost, but two winters of strain-gauge readings were enough to ____ the claim outright, and the state dropped its review.", "options": ["refute", "rebut"], "key": "refute", "pair": "rebut", "why_right": "The tell is <em>the state dropped its review<\/em> - the readings finished the claim off outright, and the evidence refutes; a rebuttal merely responds and can leave the argument standing.", "why_wrong": "That word means answering a claim with a counterargument, without necessarily defeating it. Here the strain-gauge readings ended the matter outright - the claim was proven wrong, not merely answered."}, {"sentence": "By Friday her own follow-up measurements had quietly managed to ____ the private hunch she had started the week with.", "options": ["refute", "disprove"], "key": "disprove", "pair": "disprove", "why_right": "The tell is <em>the private hunch<\/em> - nothing here answers a claim anyone made; disprove is the plain word for showing something false in any setting, opponent or none.", "why_wrong": "That word always answers a claim someone actually made — an opponent's argument in a debate, courtroom, or journal. A <em>private hunch<\/em> has no opponent behind it."}, {"sentence": "A single counterexample on the seminar whiteboard was enough to ____ the conjecture before anyone had even bothered to champion it.", "options": ["refute", "disprove"], "key": "disprove", "pair": "disprove", "why_right": "The tell is <em>before anyone had even bothered to champion it<\/em> - with no opponent standing behind the conjecture, there is no claim to answer, only a statement shown false.", "why_wrong": "That word answers a claim someone actually made and stands behind. This conjecture died <em>before anyone had even bothered to champion it<\/em> — there was no opponent to answer."}], "display_order": [3, 2, 7, 5, 1, 6, 4, 0], "dimension_order": ["disprove", "rebut", "debunk"], "dimension_feedback": {"disprove": "Disprove is the plainest equivalent — to show that something is false, in any setting. Refute is its formal cousin, at home where claims and arguments clash: debates, courtrooms, scholarship. It always answers a claim someone actually made. You can disprove a stray idea; you refute an opponent's argument.", "rebut": "Rebut means to argue back against a claim — to answer it with a counterargument — without necessarily defeating it. Refute goes the whole way: it proves the claim wrong, usually with evidence. A lawyer rebuts by responding; the evidence refutes by finishing the argument off.", "debunk": "Debunk means to expose a myth, fad, or exaggeration as false, usually in a lighter, popular register — websites debunk urban legends. Refute is the formal, scholarly counterpart aimed at claims and arguments. You debunk a ghost story; you refute a rival's hypothesis."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a claim someone actually made — and proof that knocks it down, not just someone disagreeing. Try working in words like <i>claim<\/i>, <i>evidence<\/i>, <i>records<\/i> or <i>wrong<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="bb2d98deae82">
+<meta name="build" content="adff212dd8b0">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>novice &#8212; SAT Vocabulary, Course 2 Unit 18</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "novice", "gradeUrl": "/api/grade", "taskId": "novice", "minWords": 12, "items": {"s1": {"q": "Which sentence uses novice correctly?", "opts": {"A": "A novice with the chainsaw, Petra watched from the line as the instructor felled the tree.", "B": "The novice surgeon general has advised three successive presidents across nearly thirty years.", "C": "Novices at the riverboat casino count cards faster than the veteran dealers can shuffle them.", "D": "The vineyard's novice vines are more than two centuries old and still bearing every autumn."}, "key": "A", "fb": {"correct": "Correct. A beginner who hasn't yet trained on the saw, watching from the safety line — a novice exactly.", "B": "Someone who has 'advised three successive presidents' over thirty years stands at the summit of a long career. Novice marks the untrained start of one — the title and the record contradict each other.", "C": "These gamblers 'count cards faster than the veteran dealers' — a feat that takes years of practice. A novice is defined by lacking exactly that experience, so the label cannot fit players this polished.", "D": "Vines 'more than two centuries old' are the most established plants on the property, not beginners. Novice describes an untrained newcomer to an activity, never something ancient and long rooted."}}, "s3a": {"q": "In this passage, calling Mara a novice means she is", "opts": {"A": "a beginner learning the craft under a master's eye, still unproven", "B": "a student enrolled in a formal certificate program with a syllabus", "C": "a finished trainee who holds the job, with one season left to prove herself", "D": "someone naturally clumsy who will never be trusted with the heat"}, "key": "A", "fb": {"correct": "Right — <em>one unproven pair of hands under one master's eye<\/em> is the passage's own definition.", "B": "The passage rules this out directly: she had <em>no certificate program behind her and none ahead<\/em>.", "C": "Her instruction has barely begun — she gathers no glass at first and is not yet trusted with heat.", "D": "The label is called <em>not an insult but an address<\/em>; the failures are examined and expected to pass."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rookie", "B": "trainee", "C": "beginner", "D": "novice"}, "key": "A", "fb": {"correct": "Right. Her training is finished, the license is held, and what remains is a first year on the job to prove herself at full speed — a rookie's exact position: past instruction, short on real emergencies.", "D": "A novice is still under instruction, unproven and supervised, with the learning just begun. Dana is past all of that — <em>the licensing board added its exam last spring; every requirement is signed off<\/em> — so the word for someone on day one of training doesn't fit.", "B": "A trainee answers to an instructor and a syllabus inside a formal program. Here <em>no instructor stands over her shift<\/em> — the program is behind her, and nobody logs her hours anymore.", "C": "A beginner is just starting out, with no story attached. Dana brings <em>four years of simulations<\/em> to the ward, so she is far from just taking up the practice."}}}, "grid": {"words": ["novice", "beginner", "trainee", "rookie"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The climbing gym treats its first-month members as more than people merely starting out: each ____ ropes in under a watchful mentor, though there is no syllabus and no certificate anywhere in the building.", "ks": ["novice"], "fb": {"beginner": "The sentence sets that word aside itself: these are <em>more than people merely starting out<\/em>. The stage described is supervised learning inside a craft, which the plain word does not claim.", "trainee": "Enrollment is what that word marks, and there is <em>no syllabus and no certificate anywhere in the building<\/em> — just a mentor's eye.", "rookie": "That word wants the learning finished and a job held, with a season left to prove. These members are in their first month under instruction."}}, {"s": "In Chef Okafor's kitchen every ____ spends a year at the vegetable station, knife work checked nightly by the sous-chef, though the restaurant runs no formal program and issues nothing to frame.", "ks": ["novice"], "fb": {"beginner": "That word tells you someone is starting out and nothing more. This kitchen's word has to carry the rest: unproven hands, a station, and <em>knife work checked nightly<\/em>.", "trainee": "There is <em>no formal program<\/em> here and <em>nothing to frame<\/em> at the end — so the enrolled-student word has nothing to attach to.", "rookie": "Nightly checks at the vegetable station are instruction still underway. That word belongs to someone past all that, holding the job with a season to prove."}}, {"s": "Even pilots with ten thousand military hours enter the airline as a ____, working through the same eighteen-month syllabus of checkrides and sign-offs as everyone else.", "ks": ["trainee"], "fb": {"novice": "Ten thousand hours aloft is the opposite of green. What defines their stage is the <em>syllabus of checkrides and sign-offs<\/em> — enrollment, not inexperience.", "beginner": "Nobody with <em>ten thousand military hours<\/em> is starting out. The word has to name their place in a program, not their skill level.", "rookie": "That word arrives once the program is finished and the job is held. These pilots are still <em>working through<\/em> the eighteen-month syllabus."}}, {"s": "When a twenty-year freight conductor moves up to the locomotive cab, the railroad carries him on its books as a ____ for a full year: assigned examiner, rulebook checkpoints, a program office logging every signed-off run.", "ks": ["trainee"], "fb": {"novice": "Twenty years on freight crews leaves little that is green about him. His year is defined by <em>assigned examiner<\/em> and <em>rulebook checkpoints<\/em> — a program status.", "beginner": "A <em>twenty-year<\/em> conductor is no one's idea of just starting out. The slot names his standing in a formal program.", "rookie": "The <em>program office<\/em> is still <em>logging every signed-off run<\/em> — the course is not finished, so the word for the season after it does not fit yet."}}, {"s": "She took up jogging in April with no app, no club, and no plan beyond the end of her street; six weeks on, she is a perfectly happy ____.", "ks": ["beginner"], "fb": {"novice": "That word puts someone inside a discipline — unproven, supervised, learning ropes. She has <em>no club<\/em>, no coach, and <em>no plan beyond the end of her street<\/em>.", "trainee": "There is nothing to be enrolled in: <em>no app, no club, and no plan<\/em> — nobody hands out syllabi at the end of her street.", "rookie": "No team signed her and no course of instruction ended. That word needs a paid first season; she has a street and six happy weeks."}}, {"s": "Certification finished and a helmet with his name on it, Alvarez spends this first season as the station's ____, proving on live calls what the drill tower could only suggest.", "ks": ["rookie"], "fb": {"novice": "His instruction is behind him — <em>certification finished<\/em>. That word belongs back at the start, under an instructor's eye.", "beginner": "The point of the sentence is what is already banked: instruction done, job held, only the proving left. The plain starting-out word carries none of that.", "trainee": "The program is over and the helmet has <em>his name on it<\/em>. Nothing remains to be enrolled in."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone at the very start of learning a skill, unproven and probably watched over. Try working in a word like <i>first<\/i>, <i>learning<\/i>, <i>supervised<\/i> or <i>unproven<\/i>."}};
+  var CFG = {"word": "novice", "gradeUrl": "/api/grade", "taskId": "novice", "minWords": 12, "items": {"s1": {"q": "Which sentence uses novice correctly?", "opts": {"A": "A novice with the chainsaw, Petra watched from the line as the instructor felled the tree.", "B": "The novice surgeon general has advised three successive presidents across nearly thirty years.", "C": "Novices at the riverboat casino count cards faster than the veteran dealers can shuffle them.", "D": "The vineyard's novice vines are more than two centuries old and still bearing every autumn."}, "key": "A", "fb": {"correct": "Correct. A beginner who hasn't yet trained on the saw, watching from the safety line — a novice exactly.", "B": "Someone who has 'advised three successive presidents' over thirty years stands at the summit of a long career. Novice marks the untrained start of one — the title and the record contradict each other.", "C": "These gamblers 'count cards faster than the veteran dealers' — a feat that takes years of practice. A novice is defined by lacking exactly that experience, so the label cannot fit players this polished.", "D": "Vines 'more than two centuries old' are the most established plants on the property, not beginners. Novice describes an untrained newcomer to an activity, never something ancient and long rooted."}}, "s3a": {"q": "In this passage, calling Mara a novice means she is", "opts": {"A": "a beginner learning the craft under a master's eye, still unproven", "B": "a student enrolled in a formal certificate program with a syllabus", "C": "a finished trainee who holds the job, with one season left to prove herself", "D": "someone naturally clumsy who will never be trusted with the heat"}, "key": "A", "fb": {"correct": "Right — <em>one unproven pair of hands under one master's eye<\/em> is the passage's own definition.", "B": "The passage rules this out directly: she had <em>no certificate program behind her and none ahead<\/em>.", "C": "Her instruction has barely begun — she gathers no glass at first and is not yet trusted with heat.", "D": "The label is called <em>not an insult but an address<\/em>; the failures are examined and expected to pass."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rookie", "B": "trainee", "C": "beginner", "D": "novice"}, "key": "A", "fb": {"correct": "Right. Her training is finished, the license is held, and what remains is a first year on the job to prove herself at full speed — a rookie's exact position: past instruction, short on real emergencies.", "D": "A novice is still under instruction, unproven and supervised, with the learning just begun. Dana is past all of that — <em>the licensing board added its exam last spring; every requirement is signed off<\/em> — so the word for someone on day one of training doesn't fit.", "B": "A trainee answers to an instructor and a syllabus inside a formal program. Here <em>no instructor stands over her shift<\/em> — the program is behind her, and nobody logs her hours anymore.", "C": "A beginner is just starting out, with no story attached. Dana brings <em>four years of simulations<\/em> to the ward, so she is far from just taking up the practice."}}}, "pairwise": {"rows": [{"sentence": "Even pilots with ten thousand military hours enter the airline as a ____, working through the same eighteen-month syllabus of checkrides and sign-offs as everyone else.", "options": ["novice", "trainee"], "key": "trainee", "pair": "trainee", "why_right": "The tell is <em>ten thousand military hours<\/em> - nothing green remains for the inexperience word to mark; the stage is defined by enrollment in a formal program of checkrides and sign-offs.", "why_wrong": "Ten thousand hours aloft is the opposite of green. What defines their stage is the <em>syllabus of checkrides and sign-offs<\/em> — enrollment, not inexperience."}, {"sentence": "When a twenty-year freight conductor moves up to the locomotive cab, the railroad carries him on its books as a ____ for a full year: assigned examiner, rulebook checkpoints, a program office logging every signed-off run.", "options": ["novice", "trainee"], "key": "trainee", "pair": "trainee", "why_right": "The tell is <em>a program office logging every signed-off run<\/em> - his year is defined entirely by enrollment machinery, not by any greenness a twenty-year conductor could still claim.", "why_wrong": "Twenty years on freight crews leaves little that is green about him. His year is defined by <em>assigned examiner<\/em> and <em>rulebook checkpoints<\/em> — a program status."}, {"sentence": "The stained-glass studio keeps each ____ on scrap panes for a whole spring, an old glazier wandering by to correct every cut, though nobody enrolled anywhere and no paper waits at the end.", "options": ["novice", "trainee"], "key": "novice", "pair": "trainee", "why_right": "The tell is <em>nobody enrolled anywhere<\/em> - the word marks the inexperience itself, green hands corrected cut by cut, with no program for enrollment to attach to.", "why_wrong": "That word means a beginner already enrolled in a formal program, answering to an instructor and a syllabus. Here nobody enrolled anywhere, and no paper waits at the end."}, {"sentence": "She took up jogging in April with no app, no club, and no plan beyond the end of her street; six weeks on, she is a perfectly happy ____.", "options": ["novice", "beginner"], "key": "beginner", "pair": "beginner", "why_right": "The tell is <em>no app, no club, and no plan<\/em> - just starting out with no story attached: no discipline, nobody supervising, nothing enrolled in anywhere.", "why_wrong": "That word puts someone inside a discipline — unproven, supervised, learning ropes. She has <em>no club<\/em>, no coach, and <em>no plan beyond the end of her street<\/em>."}, {"sentence": "The climbing gym treats its first-month members as more than people merely starting out: each ____ ropes in under a watchful mentor, though there is no syllabus and no certificate anywhere in the building.", "options": ["novice", "beginner"], "key": "novice", "pair": "beginner", "why_right": "The tell is <em>more than people merely starting out<\/em> - the sentence itself sets the plain word aside; what fills the blank must carry supervision inside a discipline, unproven and under instruction.", "why_wrong": "The sentence sets that word aside itself: these are <em>more than people merely starting out<\/em>. The stage described is supervised learning inside a craft, which the plain word does not claim."}, {"sentence": "Certification finished and a helmet with his name on it, Alvarez spends this first season as the station's ____, proving on live calls what the drill tower could only suggest.", "options": ["novice", "rookie"], "key": "rookie", "pair": "rookie", "why_right": "The tell is <em>Certification finished<\/em> - training is complete and the job is held, with only a first season left to prove; day-one instruction is far behind him.", "why_wrong": "His instruction is behind him — <em>certification finished<\/em>. That word belongs back at the start, under an instructor's eye."}, {"sentence": "In Chef Okafor's kitchen every ____ spends a year at the vegetable station, knife work checked nightly by the sous-chef, though the restaurant runs no formal program and issues nothing to frame.", "options": ["novice", "rookie"], "key": "novice", "pair": "rookie", "why_right": "The tell is <em>knife work checked nightly<\/em> - instruction is still fully underway; the card sends rookie past all that, training finished and the job held with a season to prove.", "why_wrong": "Nightly checks at the vegetable station are instruction still underway. That word belongs to someone past all that, holding the job with a season to prove."}, {"sentence": "Halfway through avalanche school, Rosa is still a ____ on the mountain: she shadows a patroller on every sweep and has yet to earn a radio of her own.", "options": ["novice", "rookie"], "key": "novice", "pair": "rookie", "why_right": "The tell is <em>has yet to earn a radio of her own<\/em> - training unfinished, job not yet held: she is still green and under instruction, the day-one word's exact place.", "why_wrong": "That word wants the learning finished and a job held, with only a first season left to prove. Rosa is halfway through avalanche school, still shadowing a patroller on every sweep."}], "display_order": [5, 0, 6, 2, 4, 7, 3, 1], "dimension_order": ["beginner", "trainee", "rookie"], "dimension_feedback": {"beginner": "Beginner is the plain, all-purpose word for someone just starting out — any activity, any setting, no story attached. A novice is a beginner seen from inside a discipline: unproven, supervised, learning the ropes under instruction. Every novice is a beginner; beginner alone claims nothing about training.", "trainee": "A trainee is a beginner already enrolled in a formal program, answering to an instructor and a syllabus. A novice may be just as green with no program anywhere — the word marks the inexperience itself, not the enrollment. Every trainee begins as a novice; not every novice signs up.", "rookie": "A rookie has less learning ahead than a novice — the rookie's training is finished and the job is held, with only a first season left to prove, while the novice is still on day one of instruction."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone at the very start of learning a skill, unproven and probably watched over. Try working in a word like <i>first<\/i>, <i>learning<\/i>, <i>supervised<\/i> or <i>unproven<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="2d8a66587966">
+<meta name="build" content="6eaf046e3f5f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>erratic &#8212; SAT Vocabulary, Course 2 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "erratic", "gradeUrl": "/api/grade", "taskId": "erratic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses erratic correctly?", "opts": {"A": "The ferry's famously erratic schedule never wavered all season: top of every hour, dawn to dusk, seven days a week.", "B": "My erratic uncle has worn the same tweed jacket to every family dinner for thirty straight years.", "C": "The surveyor's erratic report was rejected over a single misplaced decimal in the final column.", "D": "In the cold the old wiper motor turned erratic, sweeping twice, stalling mid-arc, then racing through five strokes."}, "key": "D", "fb": {"correct": "Correct! Erratic means following no regular pattern — uneven and unpredictable in behavior — and this motor earns the word: two sweeps, a stall mid-arc, then five racing strokes, with no rhythm anyone could learn.", "A": "Not quite! Erratic means following no regular pattern, and a ferry that leaves at the top of every hour, all season, is the opposite — that schedule is clockwork, and the sentence even brags about it.", "B": "Not quite! An unusual taste repeated at every single dinner for thirty years is a fixed habit, not a broken pattern. The word for odd-but-unvarying is eccentric; erratic requires behavior that actually swings.", "C": "Not quite! Erratic is about pattern, not correctness. One misplaced decimal makes a report mistaken — erroneous, from the same root — but a single tidy slip is not the lurching, uneven behavior erratic describes."}}, "s3a": {"q": "In this passage, calling the knuckleball \"erratic\" means that it", "opts": {"A": "arrived only occasionally, with long gaps between throws", "B": "followed no pattern anyone could learn, even mid-flight", "C": "was thrown carelessly, without any aim at all", "D": "traveled too slowly for the radar guns to read"}, "key": "B", "fb": {"correct": "Right — the catchers' technical sense: misbehaving continuously, in flight, with no rhythm or pattern anyone could study.", "A": "The passage rules that out directly: the ball misbehaved continuously, in flight, 'not now and then.'", "C": "Ordonez insisted he aimed every throw — the trying was real. The wildness was in the flight, not the effort.", "D": "The radar guns disagreed about the pitch; nothing says it was too slow to read."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "haphazard", "B": "sporadic", "C": "uneven", "D": "erratic"}, "key": "A", "fb": {"correct": "Right — haphazard: the quarter was put together with no plan or system at all, each family building wherever a cart could reach. The lanes record planlessness — not lurching behavior, not gaps in time, not mild variation.", "D": "Erratic describes something lurching and swerving while it happens — a drone in gusts, a wavering pulse. Nothing here is performing at all: <em>nothing in the quarter moves or misbehaves today<\/em>. The flaw the lanes record lies in how the district was assembled, not in any ongoing behavior.", "B": "Sporadic is a claim about timing — events surfacing only now and then, with long gaps between. The passage rules that out: building continued at <em>a few houses every year for a century<\/em>, a calendar with no gaps in it.", "C": "Uneven says only that something varies — a little more here, a little less there — and a district could grow unevenly while still following a plan. This one followed nothing: <em>no surveyor ever laying a line<\/em>, a stronger failure than mild variation."}}}, "grid": {"words": ["erratic", "sporadic", "haphazard", "uneven"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "In gusty air the survey drone's flight turned ____ — lurching left, hanging dead still, then darting ahead — with no rhythm its pilot could learn or counter.", "ks": ["erratic"], "fb": {"sporadic": "That word is about timing — things that surface only now and then, with gaps between. This flight is misbehaving continuously, in the movement itself.", "haphazard": "That word points at a missing plan, something thrown together carelessly. The pilot here is trying hard — the machine swerves anyway.", "uneven": "Merely varying a little, fast here and slow there, doesn't cover lurching, stalling, and darting with no rhythm at all."}}, {"s": "The old furnace turned ____ this winter — roaring, dying to a whisper, surging back within one evening — and the repairman's chart of it showed no cycle at all.", "ks": ["erratic"], "fb": {"sporadic": "The gaps-and-silences word doesn't fit a machine misfiring continuously through one evening.", "haphazard": "Nothing here was thrown together without a plan — the sentence describes performance with no pattern, not sloppy assembly.", "uneven": "A little fast here and a little slow there is that word's whole reach — a roar dying to a whisper and surging back is far past it."}}, {"s": "Seismographs record the volcano's rumbles as ____ — a burst in 1912, silence for half a century, then a single week of tremors in 1968.", "ks": ["sporadic"], "fb": {"erratic": "That word describes behavior that lurches and races while it is happening. Here the story is the gaps — decades of quiet between bursts.", "haphazard": "Nothing was thrown together carelessly — the sentence is about when the rumbles come, not how anything was arranged.", "uneven": "That mild word covers a pace that varies a little — not half a century of silence between events."}}, {"s": "Once harvest ends, volunteer turnout at the food bank is ____ at best — two helpers one October Saturday, then no one at all until spring.", "ks": ["sporadic"], "fb": {"erratic": "The helpers who do come behave perfectly normally — the issue is the long gaps between appearances, which is a timing matter.", "haphazard": "No one arranged anything carelessly; the sentence is counting the long silences between visits.", "uneven": "That word names small variation in a steady flow. Months with no one at all is a different animal."}}, {"s": "The evacuation left the archive shelved in ____ fashion — tax ledgers wedged among lunch menus, nothing labeled, no system anyone could reconstruct.", "ks": ["haphazard"], "fb": {"erratic": "That word wants something moving or performing without pattern. Shelves stand still — what's missing here is any plan behind them.", "sporadic": "Timing isn't the issue; nothing comes and goes. The boxes were simply put back with no system.", "uneven": "Mild variation doesn't describe tax ledgers wedged among lunch menus — the sentence says there was no system at all."}}, {"s": "Reviewers found the carefully structured memoir's pacing slightly ____ — a touch hurried in the middle chapters, a shade slow near the end — never enough to lose a reader.", "ks": ["uneven"], "fb": {"erratic": "Lurching, stalling, racing — that's what that word claims, and 'a touch hurried... a shade slow' is far milder than that.", "sporadic": "Nothing surfaces at intervals with long gaps between; the pages flow continuously, just not at one speed.", "haphazard": "'Carefully structured' rules out any missing plan — the flaw is a small wobble in speed, nothing more."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show behavior with no rhythm while it is happening — lurching and racing, not just pausing between events. Try working in a word like <i>suddenly<\/i>, <i>then<\/i>, <i>swerved<\/i> or <i>no warning<\/i>."}};
+  var CFG = {"word": "erratic", "gradeUrl": "/api/grade", "taskId": "erratic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses erratic correctly?", "opts": {"A": "The ferry's famously erratic schedule never wavered all season: top of every hour, dawn to dusk, seven days a week.", "B": "My erratic uncle has worn the same tweed jacket to every family dinner for thirty straight years.", "C": "The surveyor's erratic report was rejected over a single misplaced decimal in the final column.", "D": "In the cold the old wiper motor turned erratic, sweeping twice, stalling mid-arc, then racing through five strokes."}, "key": "D", "fb": {"correct": "Correct! Erratic means following no regular pattern — uneven and unpredictable in behavior — and this motor earns the word: two sweeps, a stall mid-arc, then five racing strokes, with no rhythm anyone could learn.", "A": "Not quite! Erratic means following no regular pattern, and a ferry that leaves at the top of every hour, all season, is the opposite — that schedule is clockwork, and the sentence even brags about it.", "B": "Not quite! An unusual taste repeated at every single dinner for thirty years is a fixed habit, not a broken pattern. The word for odd-but-unvarying is eccentric; erratic requires behavior that actually swings.", "C": "Not quite! Erratic is about pattern, not correctness. One misplaced decimal makes a report mistaken — erroneous, from the same root — but a single tidy slip is not the lurching, uneven behavior erratic describes."}}, "s3a": {"q": "In this passage, calling the knuckleball \"erratic\" means that it", "opts": {"A": "arrived only occasionally, with long gaps between throws", "B": "followed no pattern anyone could learn, even mid-flight", "C": "was thrown carelessly, without any aim at all", "D": "traveled too slowly for the radar guns to read"}, "key": "B", "fb": {"correct": "Right — the catchers' technical sense: misbehaving continuously, in flight, with no rhythm or pattern anyone could study.", "A": "The passage rules that out directly: the ball misbehaved continuously, in flight, 'not now and then.'", "C": "Ordonez insisted he aimed every throw — the trying was real. The wildness was in the flight, not the effort.", "D": "The radar guns disagreed about the pitch; nothing says it was too slow to read."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "haphazard", "B": "sporadic", "C": "uneven", "D": "erratic"}, "key": "A", "fb": {"correct": "Right — haphazard: the quarter was put together with no plan or system at all, each family building wherever a cart could reach. The lanes record planlessness — not lurching behavior, not gaps in time, not mild variation.", "D": "Erratic describes something lurching and swerving while it happens — a drone in gusts, a wavering pulse. Nothing here is performing at all: <em>nothing in the quarter moves or misbehaves today<\/em>. The flaw the lanes record lies in how the district was assembled, not in any ongoing behavior.", "B": "Sporadic is a claim about timing — events surfacing only now and then, with long gaps between. The passage rules that out: building continued at <em>a few houses every year for a century<\/em>, a calendar with no gaps in it.", "C": "Uneven says only that something varies — a little more here, a little less there — and a district could grow unevenly while still following a plan. This one followed nothing: <em>no surveyor ever laying a line<\/em>, a stronger failure than mild variation."}}}, "pairwise": {"rows": [{"sentence": "In gusty air the survey drone's flight turned ____ — lurching left, hanging dead still, then darting ahead — with no rhythm its pilot could learn or counter.", "options": ["erratic", "sporadic"], "key": "erratic", "pair": "sporadic", "why_right": "The tell is <em>lurching left, hanging dead still, then darting ahead<\/em> - the misbehavior is continuous and lives in the movement itself, not in events that surface now and then with gaps between.", "why_wrong": "That word is about timing — things that surface only now and then, with gaps between. This flight is misbehaving continuously, in the movement itself."}, {"sentence": "Seismographs record the volcano's rumbles as ____ — a burst in 1912, silence for half a century, then a single week of tremors in 1968.", "options": ["erratic", "sporadic"], "key": "sporadic", "pair": "sporadic", "why_right": "The tell is <em>silence for half a century<\/em> - events surfacing only now and then with decades-long gaps between them, a pure timing story with nothing lurching while it happens.", "why_wrong": "That word describes behavior that lurches and races while it is happening. Here the story is the gaps — decades of quiet between bursts."}, {"sentence": "Once harvest ends, volunteer turnout at the food bank is ____ at best — two helpers one October Saturday, then no one at all until spring.", "options": ["erratic", "sporadic"], "key": "sporadic", "pair": "sporadic", "why_right": "The tell is <em>no one at all until spring<\/em> - a months-long gap between appearances makes this a timing matter; the helpers who do come behave perfectly normally.", "why_wrong": "The helpers who do come behave perfectly normally — the issue is the long gaps between appearances, which is a timing matter."}, {"sentence": "The intern's espresso shots came out ____ — one bitter, one sour, one perfect — though she followed the same recipe card and tamped each pull with care.", "options": ["erratic", "haphazard"], "key": "erratic", "pair": "haphazard", "why_right": "The tell is <em>followed the same recipe card and tamped each pull with care<\/em> - a plan exists and care is applied, yet the performance holds no pattern; effortful control going wrong anyway.", "why_wrong": "That word points at a missing plan, something thrown together with no care or system. She followed the recipe card and timed every pull - the shots strayed anyway."}, {"sentence": "The evacuation left the archive shelved in ____ fashion — tax ledgers wedged among lunch menus, nothing labeled, no system anyone could reconstruct.", "options": ["erratic", "haphazard"], "key": "haphazard", "pair": "haphazard", "why_right": "The tell is <em>no system anyone could reconstruct<\/em> - a static arrangement thrown together with no care or plan; nothing here moves or performs, so the missing-pattern word has nothing to attach to.", "why_wrong": "That word wants something moving or performing without pattern. Shelves stand still — what's missing here is any plan behind them."}, {"sentence": "The old furnace turned ____ this winter — roaring, dying to a whisper, surging back within one evening — and the repairman's chart of it showed no cycle at all.", "options": ["erratic", "uneven"], "key": "erratic", "pair": "uneven", "why_right": "The tell is <em>roaring, dying to a whisper, surging back<\/em> - performance that lurches, stalls, and races with no learnable rhythm, far past a pace that merely varies a little.", "why_wrong": "A little fast here and a little slow there is that word's whole reach — a roar dying to a whisper and surging back is far past it."}, {"sentence": "Reviewers found the carefully structured memoir's pacing slightly ____ — a touch hurried in the middle chapters, a shade slow near the end — never enough to lose a reader.", "options": ["erratic", "uneven"], "key": "uneven", "pair": "uneven", "why_right": "The tell is <em>never enough to lose a reader<\/em> - mild variation only, a touch fast here and a shade slow there, with none of the lurching, stalling, and racing the harder word claims.", "why_wrong": "Lurching, stalling, racing — that's what that word claims, and 'a touch hurried... a shade slow' is far milder than that."}, {"sentence": "Down the backstretch the colt's pace turned ____ — bolting ahead, stalling to a near walk, then bolting again — until the jockey gave up steadying him.", "options": ["erratic", "uneven"], "key": "erratic", "pair": "uneven", "why_right": "The tell is <em>bolting ahead, stalling to a near walk, then bolting again<\/em> - a pace that lurches, stalls, and races with no rhythm, far past one that merely varies a little.", "why_wrong": "That word covers a pace that merely varies - a little fast here, a little slow there. Bolting and stalling to a near walk is lurching, far past its reach."}], "display_order": [1, 5, 4, 0, 6, 3, 7, 2], "dimension_order": ["sporadic", "haphazard", "uneven"], "dimension_feedback": {"sporadic": "Sporadic is about timing: sporadic events surface only now and then, with long gaps between — a few sightings a year, a cough that comes and goes. Erratic is about the behavior itself, uneven and lurching even while it is happening.", "haphazard": "Haphazard points at the missing plan — a haphazard stack of boxes was thrown together with no care or system. Erratic describes the missing pattern in how something moves or performs; an erratic driver may be trying hard and swerving anyway.", "uneven": "Uneven is milder than erratic: an uneven pace merely varies, a little fast here and a little slow there, while an erratic one lurches, stalls, and races with no rhythm anyone could learn."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show behavior with no rhythm while it is happening — lurching and racing, not just pausing between events. Try working in a word like <i>suddenly<\/i>, <i>then<\/i>, <i>swerved<\/i> or <i>no warning<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

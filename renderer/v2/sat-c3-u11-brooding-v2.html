@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="7524b0378bfd">
+<meta name="build" content="144393bc40ba">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>brooding &#8212; SAT Vocabulary, Course 3 Unit 11</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "brooding", "gradeUrl": "/api/grade", "taskId": "brooding", "minWords": 12, "items": {"s1": {"q": "Which sentence uses brooding correctly?", "opts": {"A": "The brooding tenant pounded on the superintendent's door every night, airing each grievance at full volume down the hall.", "B": "He was brooding for exactly one moment — the toast burned, he shrugged it off, and the whole thing was forgotten before the second cup of coffee.", "C": "The brooding bride spent all spring joyfully sampling cakes and happily narrowing the guest list with her sisters.", "D": "After the harvest failed, the old farmer turned brooding, walking the dead rows at dusk and turning the seed catalog's promises over in silence."}, "key": "D", "fb": {"correct": "Correct! Brooding means sunk in dark, silent thought, turning a trouble over and over — and that is this farmer exactly: alone in the dead rows at dusk, sitting on the failed season the way a hen sits on her eggs.", "A": "Not quite! Pounding on doors and airing grievances down the hall is gloom broadcast at full volume. Brooding does its work in silence — the trouble gets turned over inwardly, not shouted at the neighbors.", "B": "Not quite! A shrug and a burned slice forgotten before the second cup is far too brief. Brooding sits on a trouble and keeps it warm for days; a flicker of annoyance doesn't qualify.", "C": "Not quite! Joyful cake-tastings and happy planning have no darkness in them at all. Brooding is a dark preoccupation — the thought at its center is a trouble, not a treat."}}, "s3a": {"q": "In this passage, 'brooding' most nearly means", "opts": {"A": "dwelling darkly on a single trouble", "B": "posing dramatically for effect", "C": "daydreaming about her next engineering project", "D": "openly angry at the painter"}, "key": "A", "fb": {"correct": "Right — 'a mind circling one defeat, unable to set it down' is dark dwelling with one thought at the center.", "B": "The passage says the opposite — 'nothing in the pose is theatrical.'", "C": "Her mind is on the bridge she lost, not on anything ahead; the circling is around a defeat.", "D": "No anger is aimed at anyone in the room; the storm 'is all indoors.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "moody", "B": "brooding", "C": "pensive", "D": "sullen"}, "key": "A", "fb": {"correct": "Right. The gloom comes and goes on its own clock — <em>a darkness settled on him for a day or two and lifted as unaccountably as it had come<\/em> — and it <em>fixed on nothing at all<\/em>. Shifting spells of gloom without much cause is exactly what moody names.", "B": "Brooding is one dark spell with an object — a person stuck on something in particular, turning it over and over. This dispatcher has the opposite: <em>He nursed no quarrel and rehearsed no defeat<\/em>, and the gloom lifts <em>as unaccountably as it had come<\/em>.", "D": "Sullen is gloom worn steadily on the outside — the scowl, the short answers, the refusal to join in. That cannot describe a man who is regularly <em>the best company in the building, all jokes and covered shifts<\/em>; his dark days are interruptions, not his manner.", "C": "Pensive means absorbed in thought, and the thinking can be calm, even pleasant. Nothing here is being thought over at all — <em>the spells fixed on nothing at all<\/em> — and what arrives is <em>a darkness<\/em>, not reflection."}}}, "grid": {"words": ["brooding", "sullen", "moody", "pensive"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The inventor was ____ for weeks after the ruling, alone in his workshop each night with the judge's single phrase, turning it over and over.", "ks": ["brooding"], "fb": {"sullen": "That word is gloom worn on the outside — the scowl, the short answers; this man is alone, and the dark is all inward.", "moody": "Shifting spells without much cause is the wrong shape; this is one spell, weeks long, with a named cause at its center.", "pensive": "Calm, even pleasant thought does not fit a man locked on a losing ruling night after night."}}, {"s": "Their father was ____ for a month after the quarrel — courteous enough at dinner, but always returning, in the quiet, to his brother's parting words.", "ks": ["brooding"], "fb": {"sullen": "Outward gloom would show at the table — scowls, short answers; he stays courteous, and the darkness works underneath.", "moody": "That word needs spells that come and go without much cause; this is one long spell with a quarrel at its center.", "pensive": "Thought can be calm and even pleasant under that word; circling a brother's parting words for a month is dwelling gone dark."}}, {"s": "The transfer student stayed ____ through orientation week — arms folded, one-word answers, declining every icebreaker with a flat stare.", "ks": ["sullen"], "fb": {"brooding": "That word needs a specific trouble being turned over inside; all the sentence shows is the outside — folded arms and flat stares.", "moody": "Spells that come and go would lift somewhere in a week; this gloom sits in place, worn openly at everyone.", "pensive": "Quiet absorption can be pleasant and polite; one-word answers and a flat stare are a wall, not a thought."}}, {"s": "The demoted sous-chef turned ____ on the line, answering the head chef in clipped syllables and banging pans down just short of defiance.", "ks": ["sullen"], "fb": {"brooding": "The inward word wants a thought being worked over in silence; this is noise — pans, clipped syllables, a show for the kitchen.", "moody": "Shifting, causeless spells is the wrong shape: the cause is the demotion and the gloom holds steady, aimed outward.", "pensive": "Calm thought does not bang pans; nothing here is quiet or absorbed."}}, {"s": "Roommates learned to live with the cellist's ____ stretches — bright at breakfast, glowering by noon, sunny again before rehearsal, no reason offered.", "ks": ["moody"], "fb": {"brooding": "That word fixes on one trouble turned over and over; these swings have no center — 'no reason offered.'", "sullen": "That is a gloom that sits and stays, worn at people; this lifts by evening and returns without cause — the swing itself is the point.", "pensive": "Absorption in thought is not what swings here; the changes are weather, not thinking."}}, {"s": "The retiring judge grew ____ on the courthouse steps, smiling faintly as forty years of mornings drifted back to her.", "ks": ["pensive"], "fb": {"brooding": "The dark version of dwelling has no faint smile in it; her forty years pass warmly, not as a wound.", "sullen": "No gloom is aimed at anyone — there is a smile on the steps, not a scowl.", "moody": "No spells swing here; this is one calm, absorbed pause, and a pleasant one."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should trap someone alone with one dark thought they keep returning to — quiet outside, storm inside. Try working in <i>silent<\/i>, <i>replaying<\/i>, <i>kept returning<\/i> or <i>dwelled<\/i>."}};
+  var CFG = {"word": "brooding", "gradeUrl": "/api/grade", "taskId": "brooding", "minWords": 12, "items": {"s1": {"q": "Which sentence uses brooding correctly?", "opts": {"A": "The brooding tenant pounded on the superintendent's door every night, airing each grievance at full volume down the hall.", "B": "He was brooding for exactly one moment — the toast burned, he shrugged it off, and the whole thing was forgotten before the second cup of coffee.", "C": "The brooding bride spent all spring joyfully sampling cakes and happily narrowing the guest list with her sisters.", "D": "After the harvest failed, the old farmer turned brooding, walking the dead rows at dusk and turning the seed catalog's promises over in silence."}, "key": "D", "fb": {"correct": "Correct! Brooding means sunk in dark, silent thought, turning a trouble over and over — and that is this farmer exactly: alone in the dead rows at dusk, sitting on the failed season the way a hen sits on her eggs.", "A": "Not quite! Pounding on doors and airing grievances down the hall is gloom broadcast at full volume. Brooding does its work in silence — the trouble gets turned over inwardly, not shouted at the neighbors.", "B": "Not quite! A shrug and a burned slice forgotten before the second cup is far too brief. Brooding sits on a trouble and keeps it warm for days; a flicker of annoyance doesn't qualify.", "C": "Not quite! Joyful cake-tastings and happy planning have no darkness in them at all. Brooding is a dark preoccupation — the thought at its center is a trouble, not a treat."}}, "s3a": {"q": "In this passage, 'brooding' most nearly means", "opts": {"A": "dwelling darkly on a single trouble", "B": "posing dramatically for effect", "C": "daydreaming about her next engineering project", "D": "openly angry at the painter"}, "key": "A", "fb": {"correct": "Right — 'a mind circling one defeat, unable to set it down' is dark dwelling with one thought at the center.", "B": "The passage says the opposite — 'nothing in the pose is theatrical.'", "C": "Her mind is on the bridge she lost, not on anything ahead; the circling is around a defeat.", "D": "No anger is aimed at anyone in the room; the storm 'is all indoors.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "moody", "B": "brooding", "C": "pensive", "D": "sullen"}, "key": "A", "fb": {"correct": "Right. The gloom comes and goes on its own clock — <em>a darkness settled on him for a day or two and lifted as unaccountably as it had come<\/em> — and it <em>fixed on nothing at all<\/em>. Shifting spells of gloom without much cause is exactly what moody names.", "B": "Brooding is one dark spell with an object — a person stuck on something in particular, turning it over and over. This dispatcher has the opposite: <em>He nursed no quarrel and rehearsed no defeat<\/em>, and the gloom lifts <em>as unaccountably as it had come<\/em>.", "D": "Sullen is gloom worn steadily on the outside — the scowl, the short answers, the refusal to join in. That cannot describe a man who is regularly <em>the best company in the building, all jokes and covered shifts<\/em>; his dark days are interruptions, not his manner.", "C": "Pensive means absorbed in thought, and the thinking can be calm, even pleasant. Nothing here is being thought over at all — <em>the spells fixed on nothing at all<\/em> — and what arrives is <em>a darkness<\/em>, not reflection."}}}, "pairwise": {"rows": [{"sentence": "The transfer student stayed ____ through orientation week — arms folded, one-word answers, declining every icebreaker with a flat stare.", "options": ["brooding", "sullen"], "key": "sullen", "pair": "sullen", "why_right": "The tell is <em>arms folded, one-word answers<\/em> - sullen is gloom worn on the outside at people, all outward display, with no single thought being turned over inside.", "why_wrong": "That word needs a specific trouble being turned over inside; all the sentence shows is the outside — folded arms and flat stares."}, {"sentence": "The demoted sous-chef turned ____ on the line, answering the head chef in clipped syllables and banging pans down just short of defiance.", "options": ["brooding", "sullen"], "key": "sullen", "pair": "sullen", "why_right": "The tell is <em>banging pans down<\/em> - sullen wears its gloom outward and loud, where dark dwelling stays silent; noise for the whole kitchen is display, not a thought held inside.", "why_wrong": "The inward word wants a thought being worked over in silence; this is noise — pans, clipped syllables, a show for the kitchen."}, {"sentence": "The inventor was ____ for weeks after the ruling, alone in his workshop each night with the judge's single phrase, turning it over and over.", "options": ["brooding", "sullen"], "key": "brooding", "pair": "sullen", "why_right": "The tell is <em>turning it over and over<\/em> - brooding turns the gloom inward onto one thought held at the center, not worn outward at anyone the way sullen is.", "why_wrong": "That word is gloom worn on the outside — the scowl, the short answers; this man is alone, and the dark is all inward."}, {"sentence": "Roommates learned to live with the cellist's ____ stretches — bright at breakfast, glowering by noon, sunny again before rehearsal, no reason offered.", "options": ["brooding", "moody"], "key": "moody", "pair": "moody", "why_right": "The tell is <em>no reason offered<\/em> - moody is shifting spells of gloom that come and go without much cause, not one dark spell fixed on a single trouble.", "why_wrong": "That word fixes on one trouble turned over and over; these swings have no center — 'no reason offered.'"}, {"sentence": "Their father was ____ for a month after the quarrel — courteous enough at dinner, but always returning, in the quiet, to his brother's parting words.", "options": ["brooding", "moody"], "key": "brooding", "pair": "moody", "why_right": "The tell is <em>always returning, in the quiet, to his brother's parting words<\/em> - brooding is one dark spell fixed on a single object, not gloom that swings without any cause.", "why_wrong": "That word needs spells that come and go without much cause; this is one long spell with a quarrel at its center."}, {"sentence": "All season the pianist grew ____ — returning nightly to the one bar he had fumbled, playing it over in silence.", "options": ["brooding", "moody"], "key": "brooding", "pair": "moody", "why_right": "The tell is <em>the one bar he had fumbled<\/em> - brooding fixes on one particular trouble turned over in silence, where moody swings gloomy and bright with no such center.", "why_wrong": "That word means shifting spells of gloom that come and go without much cause. This is one long dark spell fixed on a single fumbled bar, returned to night after night."}, {"sentence": "The retiring judge grew ____ on the courthouse steps, smiling faintly as forty years of mornings drifted back to her.", "options": ["brooding", "pensive"], "key": "pensive", "pair": "pensive", "why_right": "The tell is <em>smiling faintly<\/em> - pensive is thought that can be calm, even pleasant, while brooding shuts the door and turns the same dwelling dark.", "why_wrong": "The dark version of dwelling has no faint smile in it; her forty years pass warmly, not as a wound."}, {"sentence": "That winter the widowed sculptor turned ____, alone in the cold studio, unable to stop staring at his wife's unfinished portrait.", "options": ["brooding", "pensive"], "key": "brooding", "pair": "pensive", "why_right": "The tell is <em>unable to stop staring at his wife's unfinished portrait<\/em> - brooding shuts the door and turns the thought dark, unable to let go, where pensive keeps the thinking calm.", "why_wrong": "That word means thought that can be calm, even pleasant. Grief-locked staring at a dead wife's unfinished portrait is dwelling turned dark, which is the stronger word's ground."}], "display_order": [1, 3, 0, 6, 5, 7, 2, 4], "dimension_order": ["sullen", "moody", "pensive"], "dimension_feedback": {"sullen": "Sullen is gloom worn on the outside — the scowl, the short answers, the refusal to join in. Brooding turns the gloom inward: the dark mood has a thought at the center of it, being turned over and over.", "moody": "Moody means given to shifting spells of gloom that come and go without much cause. Brooding is one dark spell with an object — a brooding person is stuck on something in particular.", "pensive": "Pensive is milder than brooding — absorbed in thought, but the thinking can be calm, even pleasant; brooding shuts the door and turns the thought dark."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should trap someone alone with one dark thought they keep returning to — quiet outside, storm inside. Try working in <i>silent<\/i>, <i>replaying<\/i>, <i>kept returning<\/i> or <i>dwelled<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

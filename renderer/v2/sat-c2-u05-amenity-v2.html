@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="02b602443f79">
+<meta name="build" content="6b5755334f7a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>amenity &#8212; SAT Vocabulary, Course 2 Unit 5</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "amenity", "gradeUrl": "/api/grade", "taskId": "amenity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses amenity correctly?", "opts": {"A": "The rental cabin's greatest amenity, according to its own listing, was that it lacked running water, heating, and electricity.", "B": "Renters on the tour perked up at each amenity: covered bike storage, a package locker, and a rooftop garden with grills.", "C": "The hurricane was a destructive amenity that closed the coastal highway for a month and flooded the harbor town.", "D": "Losing the lawsuit proved an expensive amenity for the firm's once-spotless national reputation."}, "key": "B", "fb": {"correct": "Right - bike storage, package lockers, and a rooftop garden are exactly what amenity means: built-in extras that add comfort or convenience.", "A": "A cabin that 'lacked running water, heating, and electricity' is defined by what it is missing — the listing calls an absence a comfort. An amenity is a feature a place actually has that makes life easier; look for genuine extras.", "C": "'A destructive amenity' contradicts itself: a hurricane that 'closed the coastal highway for a month' strips comfort away rather than adding it. An amenity is a pleasant extra a place provides — a disaster cannot be one.", "D": "Calling a lost lawsuit 'an expensive amenity' bends the word toward damage and cost. An amenity adds comfort or convenience; a blow to a firm's reputation subtracts instead — the sentence needs a word like setback."}}, "s3a": {"q": "In this passage, an \"amenity\" is best understood as", "opts": {"A": "a basic necessity, like hot water, that guests assume", "B": "a pleasing extra feature of a place", "C": "a service that exists only to save guests time and effort", "D": "a charge added to the bill for special services"}, "key": "B", "fb": {"correct": "Right - pools, reading rooms, mail tubes: features of the building that please guests beyond what anyone assumes.", "A": "The passage rules this out directly: hot water goes unmentioned because a guest simply assumes it - the word begins where the basics end.", "C": "The mail tubes save nobody a single minute and still make the list, so saving effort cannot be the test.", "D": "Nothing in the passage concerns billing; the list describes what the building offers, not what it charges."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "perk", "B": "comfort", "C": "convenience", "D": "amenity"}, "key": "B", "fb": {"correct": "Right. What the passengers describe is the at-ease feeling itself — they <em>stepped down rested, warm, and unwilling to hurry off<\/em> — not any feature that produced it.", "D": "An amenity is a concrete feature a place offers — something you could list, install, or advertise. But this was <em>not anything the railway could point to or install<\/em>, and <em>designers went looking and found no single fixture responsible<\/em>. The blank names what travelers felt, not a feature.", "C": "A convenience saves time or effort, and this trip is the slow option by a wide margin: it <em>cannot compete on speed<\/em> when <em>the flight between the two capitals takes ninety minutes<\/em>. Nobody is praising a time-saver.", "A": "A perk is a small extra that comes with a job or a membership, granted to sweeten a deal. Here <em>Nothing about it was reserved for crew or cardholders<\/em> — it reaches every ticket-holder alike."}}}, "grid": {"words": ["amenity", "convenience", "perk", "comfort"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The renovated library's most argued-over ____ is the rooftop reading terrace: it saves nobody any time, but patrons line up for the view.", "ks": ["amenity"], "fb": {"convenience": "That word must save someone time or effort, wherever it lives. The terrace <em>saves nobody any time<\/em> - it simply pleases.", "perk": "That word is an extra attached to a job or membership, granted to sweeten a deal. The terrace belongs to the building and greets every patron alike.", "comfort": "That is the pleasant feeling itself - being warm, rested, at ease. The gap names a thing you can point to on a roof, not a feeling."}}, {"s": "The dormitory listing reads like a tour of the building's every ____ - laundry on each floor, a window lounge, a practice booth - each offered to anyone who lives there.", "ks": ["amenity"], "fb": {"convenience": "That word covers only what saves time or effort. The laundry might qualify, but a <em>window lounge<\/em> saves nothing - it simply pleases - so the covering word must be broader.", "perk": "That word sweetens a job or a membership. Nothing here is tied to a position; the features come with the building itself.", "comfort": "That is what a resident might feel in the lounge - the ease itself. The listing counts things: booths, lounges, machines."}}, {"s": "The pharmacy's new refill-by-text service is a genuine ____ rather than a destination: thirty seconds from anywhere, no counter, no line.", "ks": ["convenience"], "fb": {"amenity": "That word names a built-in feature of a place - a lobby fireplace, a rooftop garden. This service works <em>from anywhere<\/em> and is expressly <em>not a destination<\/em>.", "perk": "That word is a sweetener attached to a job or membership. Any customer can text a refill; nothing is granted to a select few.", "comfort": "That is the feeling of ease itself. The gap names a service whose whole value is the thirty seconds it saves."}}, {"s": "Regulars call the grocery's order-ahead app a small ____: it shaves twenty minutes off the weekly shop, and that saving - not any charm of its own - is its entire point.", "ks": ["convenience"], "fb": {"amenity": "That word points at a pleasing feature of a place - something you might linger over. The app has <em>no charm of its own<\/em>; its whole worth is the twenty minutes.", "perk": "That word comes attached to a job or membership. This is open to every regular with the app - nothing is being granted to sweeten a position.", "comfort": "That is the pleasant, at-ease feeling itself. Nothing here is about ease - only about minutes saved."}}, {"s": "The recruiter admitted the salary was ordinary but leaned hard on the little extras of the job - staff parking, free matinee passes - each ____ dangled to make the offer shine.", "ks": ["perk"], "fb": {"amenity": "That word belongs to a place - the building's pool, the park's bandshell. Parking passes and matinees come with the <em>job<\/em>, dangled by a recruiter.", "convenience": "That word must save time or effort. A free matinee saves neither - it is a treat attached to the position.", "comfort": "That is the at-ease feeling itself, not something a recruiter can dangle in an offer letter."}}, {"s": "After three days without power, the first hot shower delivered a kind of ____ no brochure could list: not a feature at all, just warmth and ease flooding back into the body.", "ks": ["comfort"], "fb": {"amenity": "That word is precisely what brochures list - the pool, the shuttle, the terrace. The sentence insists this is <em>not a feature at all<\/em>, but the feeling itself.", "convenience": "That word saves you time or effort. The shower saves nothing; what it delivers is <em>warmth and ease<\/em> - a state, not a shortcut.", "perk": "That word is an extra granted with a job or membership. Nobody granted this; it is the felt relief of ease returning."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Name a concrete feature a place offers beyond the basics - something you could print in a brochure, not a feeling. Try working in a word like <i>lobby<\/i>, <i>pool<\/i>, <i>shuttle<\/i> or <i>rooftop<\/i>."}};
+  var CFG = {"word": "amenity", "gradeUrl": "/api/grade", "taskId": "amenity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses amenity correctly?", "opts": {"A": "The rental cabin's greatest amenity, according to its own listing, was that it lacked running water, heating, and electricity.", "B": "Renters on the tour perked up at each amenity: covered bike storage, a package locker, and a rooftop garden with grills.", "C": "The hurricane was a destructive amenity that closed the coastal highway for a month and flooded the harbor town.", "D": "Losing the lawsuit proved an expensive amenity for the firm's once-spotless national reputation."}, "key": "B", "fb": {"correct": "Right - bike storage, package lockers, and a rooftop garden are exactly what amenity means: built-in extras that add comfort or convenience.", "A": "A cabin that 'lacked running water, heating, and electricity' is defined by what it is missing — the listing calls an absence a comfort. An amenity is a feature a place actually has that makes life easier; look for genuine extras.", "C": "'A destructive amenity' contradicts itself: a hurricane that 'closed the coastal highway for a month' strips comfort away rather than adding it. An amenity is a pleasant extra a place provides — a disaster cannot be one.", "D": "Calling a lost lawsuit 'an expensive amenity' bends the word toward damage and cost. An amenity adds comfort or convenience; a blow to a firm's reputation subtracts instead — the sentence needs a word like setback."}}, "s3a": {"q": "In this passage, an \"amenity\" is best understood as", "opts": {"A": "a basic necessity, like hot water, that guests assume", "B": "a pleasing extra feature of a place", "C": "a service that exists only to save guests time and effort", "D": "a charge added to the bill for special services"}, "key": "B", "fb": {"correct": "Right - pools, reading rooms, mail tubes: features of the building that please guests beyond what anyone assumes.", "A": "The passage rules this out directly: hot water goes unmentioned because a guest simply assumes it - the word begins where the basics end.", "C": "The mail tubes save nobody a single minute and still make the list, so saving effort cannot be the test.", "D": "Nothing in the passage concerns billing; the list describes what the building offers, not what it charges."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "perk", "B": "comfort", "C": "convenience", "D": "amenity"}, "key": "B", "fb": {"correct": "Right. What the passengers describe is the at-ease feeling itself — they <em>stepped down rested, warm, and unwilling to hurry off<\/em> — not any feature that produced it.", "D": "An amenity is a concrete feature a place offers — something you could list, install, or advertise. But this was <em>not anything the railway could point to or install<\/em>, and <em>designers went looking and found no single fixture responsible<\/em>. The blank names what travelers felt, not a feature.", "C": "A convenience saves time or effort, and this trip is the slow option by a wide margin: it <em>cannot compete on speed<\/em> when <em>the flight between the two capitals takes ninety minutes<\/em>. Nobody is praising a time-saver.", "A": "A perk is a small extra that comes with a job or a membership, granted to sweeten a deal. Here <em>Nothing about it was reserved for crew or cardholders<\/em> — it reaches every ticket-holder alike."}}}, "pairwise": {"rows": [{"sentence": "The pharmacy's new refill-by-text service is a genuine ____ rather than a destination: thirty seconds from anywhere, no counter, no line.", "options": ["amenity", "convenience"], "key": "convenience", "pair": "convenience", "why_right": "The tell is <em>rather than a destination<\/em> - this saver of time belongs to no place at all, and a built-in feature of a place is exactly what it is not.", "why_wrong": "That word names a built-in feature of a place - a lobby fireplace, a rooftop garden. This service works <em>from anywhere<\/em> and is expressly <em>not a destination<\/em>."}, {"sentence": "Regulars call the grocery's order-ahead app a small ____: it shaves twenty minutes off the weekly shop, and that saving - not any charm of its own - is its entire point.", "options": ["amenity", "convenience"], "key": "convenience", "pair": "convenience", "why_right": "The tell is <em>not any charm of its own<\/em> - the app's whole worth is the minutes it saves, and anything valued purely for saving time or effort is this word.", "why_wrong": "That word points at a pleasing feature of a place - something you might linger over. The app has <em>no charm of its own<\/em>; its whole worth is the twenty minutes."}, {"sentence": "The renovated library's most argued-over ____ is the rooftop reading terrace: it saves nobody any time, but patrons line up for the view.", "options": ["amenity", "convenience"], "key": "amenity", "pair": "convenience", "why_right": "The tell is <em>saves nobody any time<\/em> - a feature of the building that pleases without saving any effort at all is precisely this word's territory.", "why_wrong": "That word must save someone time or effort, wherever it lives. The terrace <em>saves nobody any time<\/em> - it simply pleases."}, {"sentence": "The recruiter admitted the salary was ordinary but leaned hard on the little extras of the job - staff parking, free matinee passes - each ____ dangled to make the offer shine.", "options": ["amenity", "perk"], "key": "perk", "pair": "perk", "why_right": "The tell is <em>the little extras of the job<\/em> - parking and passes come attached to the position, dangled to sweeten the offer, not features belonging to any building.", "why_wrong": "That word belongs to a place - the building's pool, the park's bandshell. Parking passes and matinees come with the <em>job<\/em>, dangled by a recruiter."}, {"sentence": "The dormitory listing reads like a tour of the building's every ____ - laundry on each floor, a window lounge, a practice booth - each offered to anyone who lives there.", "options": ["amenity", "perk"], "key": "amenity", "pair": "perk", "why_right": "The tell is <em>the building's every<\/em> - these features belong to the place itself and greet every resident, not extras granted with a job or membership.", "why_wrong": "That word sweetens a job or a membership. Nothing here is tied to a position; the features come with the building itself."}, {"sentence": "The city pool's newest ____ is open to whoever walks in: a bank of sun shelters by the shallow end, built for anyone wilting in the July light.", "options": ["amenity", "perk"], "key": "amenity", "pair": "perk", "why_right": "The tell is <em>open to whoever walks in<\/em> - the shelters are the pool's own feature, offered to everyone who uses the place, not an extra granted to members.", "why_wrong": "That word comes with a job or a membership, granted to sweeten a deal. Nothing is granted here - the shelters belong to the pool and serve whoever walks in."}, {"sentence": "After three days without power, the first hot shower delivered a kind of ____ no brochure could list: not a feature at all, just warmth and ease flooding back into the body.", "options": ["amenity", "comfort"], "key": "comfort", "pair": "comfort", "why_right": "The tell is <em>not a feature at all<\/em> - what returns is warmth and ease themselves, the felt state a person enjoys rather than anything a place could list.", "why_wrong": "That word is precisely what brochures list - the pool, the shuttle, the terrace. The sentence insists this is <em>not a feature at all<\/em>, but the feeling itself."}, {"sentence": "Rather than cut its rates, the roadside hotel installs one new ____ each winter: an ice machine first, then a coffee nook, this year a heated boot rack by the door.", "options": ["amenity", "comfort"], "key": "amenity", "pair": "comfort", "why_right": "The tell is <em>installs one new<\/em> - what the hotel adds is a concrete, listable feature of the place, a thing you can install and advertise rather than a feeling anyone feels.", "why_wrong": "That word is the pleasant, at-ease feeling itself - something you feel, not something a hotel can <em>install<\/em>. Ice machines and boot racks are the features that produce the feeling."}], "display_order": [2, 4, 7, 0, 3, 1, 5, 6], "dimension_order": ["convenience", "perk", "comfort"], "dimension_feedback": {"convenience": "A convenience is anything that saves you time or effort - a drive-through window, an online form - wherever it happens to live. An amenity is a built-in feature of a place, and it can please without saving any effort at all: a lobby fireplace saves nothing, yet it is a classic amenity.", "perk": "A perk is a small informal extra that comes with a job or a membership, granted to sweeten the deal - free coffee, an employee discount. An amenity belongs to a place rather than a position: it is a feature the building, park, or hotel itself offers everyone who uses it.", "comfort": "Comfort is the pleasant, at-ease feeling itself - being warm, rested, and unbothered. An amenity is the concrete feature that produces that feeling: the heated pool, the shuttle, the in-unit washer. You feel comfort; you list, install, or advertise an amenity."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Name a concrete feature a place offers beyond the basics - something you could print in a brochure, not a feeling. Try working in a word like <i>lobby<\/i>, <i>pool<\/i>, <i>shuttle<\/i> or <i>rooftop<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

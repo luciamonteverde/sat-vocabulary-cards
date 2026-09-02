@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="943cc02ab6d6">
+<meta name="build" content="7e4c4a311a40">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>inquisitor &#8212; SAT Vocabulary, Course 1 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "inquisitor", "gradeUrl": "/api/grade", "taskId": "inquisitor", "minWords": 12, "items": {"s1": {"q": "For three hours a detective walks a witness through her account of a warehouse fire — recorded, formal, and thorough. He follows the department's question list, lets her finish every answer before asking the next, and keeps the same level tone from start to finish, accusing her of nothing. Which description best fits the role the detective is playing?", "opts": {"A": "An interrogator", "B": "An inquisitor", "C": "An admirer", "D": "A defender"}, "key": "A", "fb": {"correct": "Yes — three recorded hours of intense, official, by-the-book questioning is exactly what an interrogator does. The intensity is real; the hostility never appears.", "B": "An inquisitor grills with hostile, accusing relentlessness — the word names a manner, not a duration. Three hours supplies the length, but the manner is missing everywhere the stem looks: he lets her finish every answer, keeps the same level tone, and accuses her of nothing. Intense and official without hostility is an interrogator; the inquisitor's accusing zeal never appears.", "C": "An admirer would sound warm and personally captivated, but his thoroughness comes from the department's question list, not fascination — he is doing a job, methodically. Professional attention is not admiration.", "D": "A defender shields someone from attack or accusation, but he is neither attacking nor protecting — he is gathering her account, question by question, as a neutral official. Name the role built around formal questioning."}}, "s3a": {"q": "As it is used in this passage, \"inquisitor\" most nearly means:", "opts": {"A": "a neutral official who tests candidates", "B": "a hostile questioner who presumes guilt", "C": "a courtroom lawyer arguing the state's case against a defendant", "D": "a careful, rule-bound checker of facts"}, "key": "B", "fb": {"correct": "Right. Voss's questions arrive as accusations, he treats pauses as confessions, and the colleague names the pattern exactly: 'presuming guilt and calling it rigor.'", "A": "Nothing about Voss is neutral — his questions read as charges, and the passage says thoroughness does not require his hostility.", "C": "There is no court and no case anywhere; the word here names the manner of a hiring interview.", "D": "The passage distinguishes exactly this: Voss claims he is 'only thorough,' and the last paragraph rejects the excuse."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "examiner", "B": "inquisitor", "C": "prosecutor", "D": "cross-examiner"}, "key": "C", "fb": {"correct": "Right. Prosecutor names an office — the one that <em>decides which charges the state will bring<\/em> and speaks first for the state at trial — and the passage's whole point is that the office is a job, one that <em>can be done gently<\/em>.", "B": "Inquisitor names a manner, not an office: hostile, relentless questioning that presumes guilt. This passage strips that manner away — <em>she presumes nothing and badgers no one<\/em> — and asks instead for the word that <em>names a job, not a temperament<\/em>.", "A": "An examiner tests or inspects with no hostility and no accusation anywhere in the work — grading papers, checking eyesight. Delgado's duties do not fit that neutrality: <em>her office alone decides which charges the state will bring<\/em>.", "D": "A cross-examiner probes testimony in court, sharply but within the rules, once witnesses take the stand. Delgado's role starts far earlier and runs far wider: <em>hers is the first voice the jury hears<\/em>, before any witness has spoken."}}}, "grid": {"words": ["inquisitor", "cross-examiner", "examiner", "prosecutor"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "By the second hour of dinner her father-in-law had stopped conversing and become pure ____ — question after hostile question about her job, her plans, her past, each assuming the worst.", "ks": ["inquisitor"], "fb": {"examiner": "That word names a neutral person who tests or inspects — grading, checking, assessing — with no hostility implied. This questioning assumes the worst before she can answer.", "cross-examiner": "That word belongs to a courtroom, where sharp questions still stay inside legal rules. This is a family dinner with no rules at all.", "prosecutor": "That names an official role — accusing inside the law, in a court. A father-in-law at dinner holds no office; the blank names how he is behaving."}}, {"s": "The show was billed as a friendly interview, but by the third question the host had turned ____, pressing every guest with an accusing zeal no courtroom would ever have allowed.", "ks": ["inquisitor"], "fb": {"examiner": "That is a neutral assessor — eyesight, essays, parallel parking. An accusing zeal that no courtroom would allow is nothing like neutral.", "cross-examiner": "That word's probing, however sharp, works inside the rules of a courtroom. The sentence says this pressing goes beyond what any courtroom would allow.", "prosecutor": "That is a legal office, exercised inside the law. This host holds no office and observes no limits — the word needed here names a style."}}, {"s": "The driving-test ____ noted every mirror check without a flicker of feeling on his face, passed Sam through politely, and moved without a word to the next waiting car.", "ks": ["examiner"], "fb": {"inquisitor": "That word accuses someone of grilling with hostile, relentless persistence. This man is expressionless, polite, and entirely neutral.", "cross-examiner": "That names someone testing sworn testimony in court, probing a witness's story. Watching mirror checks from the passenger seat is assessment, not adversarial questioning.", "prosecutor": "That is the courtroom official whose job is to accuse. Nothing here is an accusation — Sam simply passed a test."}}, {"s": "Candidates for the piano diploma play behind a screen while the ____ marks tone and timing on a printed sheet, entirely indifferent to whose hands are on the keys.", "ks": ["examiner"], "fb": {"inquisitor": "That word means a hostile, relentless questioner who presumes guilt. This person asks nothing at all and is indifferent by design.", "cross-examiner": "That belongs in a courtroom, testing a witness's account under the rules. Here there is no witness — only music and a marking sheet.", "prosecutor": "That names the official who accuses in court. Scoring tone and timing behind a screen accuses no one."}}, {"s": "Under the judge's eye, the defense's ____ probed the witness's timeline for a full hour — sharp and insistent, yet never once straying outside the rules of evidence.", "ks": ["cross-examiner"], "fb": {"inquisitor": "That word names questioning with no limits and an accusing zeal. This hour of probing stayed strictly inside the rules of evidence — its sharpness serves procedure.", "examiner": "That names a neutral assessor — nothing adversarial about it. Probing a witness's timeline in court is adversarial by design.", "prosecutor": "That is the state's accusing official — and this questioner works for the defense. The blank names the role of testing testimony, whichever side does it."}}, {"s": "Only one figure in the courtroom carries the state's whole case: the ____, whose job from opening statement to final verdict is to accuse, and to do it inside the law.", "ks": ["prosecutor"], "fb": {"inquisitor": "That names a style — hostile, relentless, presuming guilt anywhere at all. The blank names an official courtroom role that works inside the law.", "cross-examiner": "That names the act of testing a witness's account. The blank spans the whole case, opening statement to verdict — an office, not one courtroom maneuver.", "examiner": "That is a neutral assessor with no side to argue. This figure's entire job is to argue one side — the accusation."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone firing hostile, relentless questions that assume guilt — anywhere at all, not just a courtroom. Try working in words like <i>grilled<\/i>, <i>accusing<\/i>, <i>barrage<\/i> or <i>as if on trial<\/i>."}};
+  var CFG = {"word": "inquisitor", "gradeUrl": "/api/grade", "taskId": "inquisitor", "minWords": 12, "items": {"s1": {"q": "For three hours a detective walks a witness through her account of a warehouse fire — recorded, formal, and thorough. He follows the department's question list, lets her finish every answer before asking the next, and keeps the same level tone from start to finish, accusing her of nothing. Which description best fits the role the detective is playing?", "opts": {"A": "An interrogator", "B": "An inquisitor", "C": "An admirer", "D": "A defender"}, "key": "A", "fb": {"correct": "Yes — three recorded hours of intense, official, by-the-book questioning is exactly what an interrogator does. The intensity is real; the hostility never appears.", "B": "An inquisitor grills with hostile, accusing relentlessness — the word names a manner, not a duration. Three hours supplies the length, but the manner is missing everywhere the stem looks: he lets her finish every answer, keeps the same level tone, and accuses her of nothing. Intense and official without hostility is an interrogator; the inquisitor's accusing zeal never appears.", "C": "An admirer would sound warm and personally captivated, but his thoroughness comes from the department's question list, not fascination — he is doing a job, methodically. Professional attention is not admiration.", "D": "A defender shields someone from attack or accusation, but he is neither attacking nor protecting — he is gathering her account, question by question, as a neutral official. Name the role built around formal questioning."}}, "s3a": {"q": "As it is used in this passage, \"inquisitor\" most nearly means:", "opts": {"A": "a neutral official who tests candidates", "B": "a hostile questioner who presumes guilt", "C": "a courtroom lawyer arguing the state's case against a defendant", "D": "a careful, rule-bound checker of facts"}, "key": "B", "fb": {"correct": "Right. Voss's questions arrive as accusations, he treats pauses as confessions, and the colleague names the pattern exactly: 'presuming guilt and calling it rigor.'", "A": "Nothing about Voss is neutral — his questions read as charges, and the passage says thoroughness does not require his hostility.", "C": "There is no court and no case anywhere; the word here names the manner of a hiring interview.", "D": "The passage distinguishes exactly this: Voss claims he is 'only thorough,' and the last paragraph rejects the excuse."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "examiner", "B": "inquisitor", "C": "prosecutor", "D": "cross-examiner"}, "key": "C", "fb": {"correct": "Right. Prosecutor names an office — the one that <em>decides which charges the state will bring<\/em> and speaks first for the state at trial — and the passage's whole point is that the office is a job, one that <em>can be done gently<\/em>.", "B": "Inquisitor names a manner, not an office: hostile, relentless questioning that presumes guilt. This passage strips that manner away — <em>she presumes nothing and badgers no one<\/em> — and asks instead for the word that <em>names a job, not a temperament<\/em>.", "A": "An examiner tests or inspects with no hostility and no accusation anywhere in the work — grading papers, checking eyesight. Delgado's duties do not fit that neutrality: <em>her office alone decides which charges the state will bring<\/em>.", "D": "A cross-examiner probes testimony in court, sharply but within the rules, once witnesses take the stand. Delgado's role starts far earlier and runs far wider: <em>hers is the first voice the jury hears<\/em>, before any witness has spoken."}}}, "pairwise": {"rows": [{"sentence": "By the second hour of dinner her father-in-law had stopped conversing and become pure ____ — question after hostile question about her job, her plans, her past, each assuming the worst.", "options": ["inquisitor", "examiner"], "key": "inquisitor", "pair": "examiner", "why_right": "The tell is <em>each assuming the worst<\/em> - questioning that presumes guilt before she can answer is accusing, not assessing, and the neutral tester-word carries no hostility at all.", "why_wrong": "That word names a neutral person who tests or inspects — grading, checking, assessing — with no hostility implied. This questioning assumes the worst before she can answer."}, {"sentence": "The driving-test ____ noted every mirror check without a flicker of feeling on his face, passed Sam through politely, and moved without a word to the next waiting car.", "options": ["inquisitor", "examiner"], "key": "examiner", "pair": "examiner", "why_right": "The tell is <em>passed Sam through politely<\/em> - an expressionless, courteous assessment is neutral testing, with none of the hostile relentless grilling the other word accuses someone of.", "why_wrong": "That word accuses someone of grilling with hostile, relentless persistence. This man is expressionless, polite, and entirely neutral."}, {"sentence": "Candidates for the piano diploma play behind a screen while the ____ marks tone and timing on a printed sheet, entirely indifferent to whose hands are on the keys.", "options": ["inquisitor", "examiner"], "key": "examiner", "pair": "examiner", "why_right": "The tell is <em>entirely indifferent<\/em> - a scorer who asks nothing and favors no one is the neutral assessor; hostile, relentless, guilt-presuming questioning is absent by design.", "why_wrong": "That word means a hostile, relentless questioner who presumes guilt. This person asks nothing at all and is indifferent by design."}, {"sentence": "The show was billed as a friendly interview, but by the third question the host had turned ____, pressing every guest with an accusing zeal no courtroom would ever have allowed.", "options": ["inquisitor", "cross-examiner"], "key": "inquisitor", "pair": "cross-examiner", "why_right": "The tell is <em>no courtroom would ever have allowed<\/em> - this pressing exceeds every procedural limit, and the courtroom word's sharpness stays inside legal rules by definition.", "why_wrong": "That word's probing, however sharp, works inside the rules of a courtroom. The sentence says this pressing goes beyond what any courtroom would allow."}, {"sentence": "When the class hamster vanished, Mr. Boyd made himself the room's ____, grilling one eight-year-old after another as though the theft were already proven.", "options": ["inquisitor", "cross-examiner"], "key": "inquisitor", "pair": "cross-examiner", "why_right": "The tell is <em>as though the theft were already proven<\/em> - questioning that presumes guilt in a classroom serves zeal, not procedure, and no court or rules are anywhere in sight.", "why_wrong": "That word tests testimony in court, probing sharply but inside legal rules and limits. A classroom grilling that treats the theft as already proven has no court and no limits."}, {"sentence": "Under the judge's eye, the defense's ____ probed the witness's timeline for a full hour — sharp and insistent, yet never once straying outside the rules of evidence.", "options": ["inquisitor", "cross-examiner"], "key": "cross-examiner", "pair": "cross-examiner", "why_right": "The tell is <em>never once straying outside the rules of evidence<\/em> - probing that stays inside courtroom procedure is sharpness serving the rules, not limitless accusing zeal.", "why_wrong": "That word names questioning with no limits and an accusing zeal. This hour of probing stayed strictly inside the rules of evidence — its sharpness serves procedure."}, {"sentence": "The hiring manager was supposed to chat about her resume, but he spent the hour as her ____, firing hostile questions as if she had already lied to him twice.", "options": ["inquisitor", "prosecutor"], "key": "inquisitor", "pair": "prosecutor", "why_right": "The tell is <em>as if she had already lied<\/em> - hostile questioning that presumes guilt names a manner, and this interviewer holds no office and argues no case in any court.", "why_wrong": "That word names a courtroom office - the official who accuses and argues the state's case inside the law. A hiring manager grilling a candidate holds no office at all."}, {"sentence": "Only one figure in the courtroom carries the state's whole case: the ____, whose job from opening statement to final verdict is to accuse, and to do it inside the law.", "options": ["inquisitor", "prosecutor"], "key": "prosecutor", "pair": "prosecutor", "why_right": "The tell is <em>to accuse, and to do it inside the law<\/em> - a lawful courtroom office carrying the state's case is a role, not a hostile questioning style.", "why_wrong": "That names a style — hostile, relentless, presuming guilt anywhere at all. The blank names an official courtroom role that works inside the law."}], "display_order": [2, 4, 7, 5, 0, 3, 6, 1], "dimension_order": ["cross-examiner", "examiner", "prosecutor"], "dimension_feedback": {"cross-examiner": "A cross-examiner tests testimony in court, probing sharply but within legal rules and limits. An inquisitor recognizes no such limits: the questioning is hostile and accusing wherever it happens, courtroom or kitchen. A cross-examiner's sharpness serves procedure; an inquisitor's serves zeal.", "examiner": "An examiner is a neutral person who tests or inspects — grading papers, checking eyesight — with no hostility implied at all. An inquisitor is never neutral: the word accuses someone of grilling with hostile, relentless persistence. Examiners assess; inquisitors accuse.", "prosecutor": "A prosecutor is a courtroom official whose job is to accuse and argue the case against a defendant, inside the law. An inquisitor may hold no office at all: the word names a manner — hostile, relentless questioning that presumes guilt. Prosecutor names a role; inquisitor names a style."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone firing hostile, relentless questions that assume guilt — anywhere at all, not just a courtroom. Try working in words like <i>grilled<\/i>, <i>accusing<\/i>, <i>barrage<\/i> or <i>as if on trial<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

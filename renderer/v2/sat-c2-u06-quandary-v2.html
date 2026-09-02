@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="fdd0ec6f6cc8">
+<meta name="build" content="54db2fa80a7d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>quandary &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "quandary", "gradeUrl": "/api/grade", "taskId": "quandary", "minWords": 12, "items": {"s1": {"q": "Which sentence uses quandary correctly?", "opts": {"A": "Whether to correct a mistake made in her team's favor left the captain in a quandary.", "B": "We spent the whole morning in a pleasant quandary, needing nothing and deciding nothing.", "C": "The crew mined the old quandary for gravel until the first frost in October.", "D": "She ordered a quandary of ribbon for the fair booths down at the grange hall."}, "key": "A", "fb": {"correct": "Correct. Honesty against loyalty, with no option that costs nothing - the captain is inside a perplexed, unresolvable state, which is precisely a quandary.", "B": "No dilemma lives in a morning spent 'needing nothing and deciding nothing'. A quandary needs a genuinely stuck choice — competing pulls with no comfortable way out.", "C": "This sentence 'mined the old quandary for gravel' as though the word were a rock pit — that is a quarry, a sound-alike. A quandary is a perplexed, stuck state over a hard choice, not a place.", "D": "Ribbon is ordered by the yard or the spool — 'a quandary of ribbon' swaps in a sound-alike for a quantity. The real word names a baffled, cannot-decide state of mind, nothing you can buy."}}, "s3a": {"q": "In this passage, Dana's \"quandary\" is best described as", "opts": {"A": "a classic fork between exactly two painful options", "B": "being stuck among real options, each carrying a real cost, with no rule to sort them", "C": "an outside emergency that left her with no options at all", "D": "brief, low-stakes wavering over choices that mattered little either way"}, "key": "B", "fb": {"correct": "Right. Three real roads -- return, keep, or loan -- each costing something she was hired to protect, and every offered rule pointing a different way. Stuck among costly options is the word's exact claim.", "A": "Count the roads: return, keep, or loan. Three options, not the two-horned fork.", "C": "She has options -- three of them. Her trouble is that each one costs, not that circumstances erased them.", "D": "A season of being stuck over a museum's centerpiece and its funding is neither brief nor low-stakes."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "dilemma", "B": "indecision", "C": "predicament", "D": "quandary"}, "key": "C", "fb": {"correct": "Right. A tight spot needs no choice in it to be a tight spot: wedged <em>six steps from the door<\/em> with the crane <em>booked until morning<\/em>, the crew is simply stuck — and stuck, decision or no decision, is exactly this word's territory.", "D": "A quandary is a chooser's trap: real options in front of you, each costing something, and no rule to sort them. Here <em>no options sat before the crew to weigh<\/em> — being stuck was never a matter of choosing.", "A": "A dilemma is the classic two-horned fork, both branches painful. This crew had no fork at all: <em>there was no second path even to refuse<\/em>.", "B": "Indecision is the wobble between live choices. <em>No one wavered<\/em>, and <em>the remedy was obvious from the first minute<\/em> — nothing here waited on anyone making up their mind."}}}, "grid": {"words": ["quandary", "dilemma", "predicament", "indecision"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Amara's ____ over the three offers lasted all of March: each meant giving up something she loved, and no rule she tried could sort them -- she simply circled, stuck.", "ks": ["quandary"], "fb": {"dilemma": "That's the word for the classic fork with exactly two painful options. Amara has <em>three<\/em> offers on the table -- one too many for the two-horned word.", "predicament": "That word suits an external jam -- a stalled car, an overdrawn account. Nothing outside has trapped Amara; the trap is entirely in the choosing.", "indecision": "That word is the everyday wobble between near-equal small things. Each of these roads costs <em>something she loved<\/em> -- the stakes are real."}}, {"s": "Deven's ____ ran all term: report his best friend's shoplifting and lose him, stay silent and carry it, or hint to a teacher and betray them both -- each road cost something he prized.", "ks": ["quandary"], "fb": {"dilemma": "That word names a fork with exactly two horns. Deven counts <em>three<\/em> roads -- report, stay silent, or hint -- so the two-option word doesn't fit.", "predicament": "That word wants an outside jam -- a flat tire, an empty account. Deven's term-long trouble is made of nothing but the choice itself.", "indecision": "That's the word for wobbling over stakes that barely matter. Losing a best friend or carrying a secret all term is not a small-stakes wobble."}}, {"s": "The tide swept in behind the tidepoolers and cut off the sandbar path home, leaving the whole class in a soaking ____ with the cliff at their backs.", "ks": ["predicament"], "fb": {"quandary": "That word is a chooser's trap -- real options, each with a price, and no rule to sort them. This class isn't choosing anything; the tide chose for them.", "dilemma": "That word needs exactly two painful options on the table. There are no options here at all -- only water rising and a cliff behind.", "indecision": "That word means hesitating between choices. Nothing here is a choice -- it's a wet, physical jam."}}, {"s": "Keys locked inside, phone at 1 percent, and the last bus of the night pulling away -- Tomas's ____ was complete before he had a single decision to make.", "ks": ["predicament"], "fb": {"quandary": "That word needs real options, each costing something, with no rule to sort them. The sentence says the jam was complete <em>before any decision existed<\/em>.", "dilemma": "That word is the classic two-horned choice. Locked keys and a dead phone offer no horns at all -- just a mess.", "indecision": "That word means dithering between options. Tomas has no options to dither between; circumstances closed them all."}}, {"s": "The transplant board faced the classic ____ : one liver, two matching patients, and either call meant leaving someone to wait who might not survive the waiting.", "ks": ["dilemma"], "fb": {"quandary": "That word names the stuck, circling state a hard choice puts you in. The sentence points at the choice itself -- <em>one liver, two patients<\/em> -- the classic fork you face.", "predicament": "That word suits external jams -- stalled cars, cut paths. The board's difficulty is nothing outside the two options in front of it.", "indecision": "That's the everyday word for wavering over things that barely matter. Either call here may cost a life."}}, {"s": "Her ____ over the paint chips -- eggshell, then ivory, then eggshell again -- ran forty minutes and ended only when the store announced closing time.", "ks": ["indecision"], "fb": {"quandary": "That word needs options that each cost something real, with no rule to sort them. Two near-identical whites for a hallway cost nothing but forty minutes.", "dilemma": "That word wants exactly two painful horns. Eggshell versus ivory wounds no one -- there's nothing at stake but a wall's tint.", "predicament": "That word means a tight spot that holds you. Nothing held her -- the store even had to close to end it."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone stuck among real choices, where every way out carries a price -- not a mere delay in picking. Weigh the exits with a word like <i>either<\/i>, <i>cost<\/i>, <i>stuck<\/i> or <i>whichever<\/i>."}};
+  var CFG = {"word": "quandary", "gradeUrl": "/api/grade", "taskId": "quandary", "minWords": 12, "items": {"s1": {"q": "Which sentence uses quandary correctly?", "opts": {"A": "Whether to correct a mistake made in her team's favor left the captain in a quandary.", "B": "We spent the whole morning in a pleasant quandary, needing nothing and deciding nothing.", "C": "The crew mined the old quandary for gravel until the first frost in October.", "D": "She ordered a quandary of ribbon for the fair booths down at the grange hall."}, "key": "A", "fb": {"correct": "Correct. Honesty against loyalty, with no option that costs nothing - the captain is inside a perplexed, unresolvable state, which is precisely a quandary.", "B": "No dilemma lives in a morning spent 'needing nothing and deciding nothing'. A quandary needs a genuinely stuck choice — competing pulls with no comfortable way out.", "C": "This sentence 'mined the old quandary for gravel' as though the word were a rock pit — that is a quarry, a sound-alike. A quandary is a perplexed, stuck state over a hard choice, not a place.", "D": "Ribbon is ordered by the yard or the spool — 'a quandary of ribbon' swaps in a sound-alike for a quantity. The real word names a baffled, cannot-decide state of mind, nothing you can buy."}}, "s3a": {"q": "In this passage, Dana's \"quandary\" is best described as", "opts": {"A": "a classic fork between exactly two painful options", "B": "being stuck among real options, each carrying a real cost, with no rule to sort them", "C": "an outside emergency that left her with no options at all", "D": "brief, low-stakes wavering over choices that mattered little either way"}, "key": "B", "fb": {"correct": "Right. Three real roads -- return, keep, or loan -- each costing something she was hired to protect, and every offered rule pointing a different way. Stuck among costly options is the word's exact claim.", "A": "Count the roads: return, keep, or loan. Three options, not the two-horned fork.", "C": "She has options -- three of them. Her trouble is that each one costs, not that circumstances erased them.", "D": "A season of being stuck over a museum's centerpiece and its funding is neither brief nor low-stakes."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "dilemma", "B": "indecision", "C": "predicament", "D": "quandary"}, "key": "C", "fb": {"correct": "Right. A tight spot needs no choice in it to be a tight spot: wedged <em>six steps from the door<\/em> with the crane <em>booked until morning<\/em>, the crew is simply stuck — and stuck, decision or no decision, is exactly this word's territory.", "D": "A quandary is a chooser's trap: real options in front of you, each costing something, and no rule to sort them. Here <em>no options sat before the crew to weigh<\/em> — being stuck was never a matter of choosing.", "A": "A dilemma is the classic two-horned fork, both branches painful. This crew had no fork at all: <em>there was no second path even to refuse<\/em>.", "B": "Indecision is the wobble between live choices. <em>No one wavered<\/em>, and <em>the remedy was obvious from the first minute<\/em> — nothing here waited on anyone making up their mind."}}}, "pairwise": {"rows": [{"sentence": "Amara's ____ over the three offers lasted all of March: each meant giving up something she loved, and no rule she tried could sort them -- she simply circled, stuck.", "options": ["quandary", "dilemma"], "key": "quandary", "pair": "dilemma", "why_right": "The tell is <em>the three offers<\/em> - a dilemma is the classic fork with exactly two options, and quandary names the stuck, circling state a costly unsortable choice creates.", "why_wrong": "That's the word for the classic fork with exactly two painful options. Amara has <em>three<\/em> offers on the table -- one too many for the two-horned word."}, {"sentence": "Deven's ____ ran all term: report his best friend's shoplifting and lose him, stay silent and carry it, or hint to a teacher and betray them both -- each road cost something he prized.", "options": ["quandary", "dilemma"], "key": "quandary", "pair": "dilemma", "why_right": "The tell is <em>or hint to a teacher<\/em> - a third road on the table, one more than the two-horned fork allows; quandary covers a chooser stuck among several costly roads.", "why_wrong": "That word names a fork with exactly two horns. Deven counts <em>three<\/em> roads -- report, stay silent, or hint -- so the two-option word doesn't fit."}, {"sentence": "The transplant board faced the classic ____ : one liver, two matching patients, and either call meant leaving someone to wait who might not survive the waiting.", "options": ["quandary", "dilemma"], "key": "dilemma", "pair": "dilemma", "why_right": "The tell is <em>one liver, two matching patients<\/em> - exactly two painful options, the two-horned fork itself, and something the board faces rather than a state it sits in.", "why_wrong": "That word names the stuck, circling state a hard choice puts you in. The sentence points at the choice itself -- <em>one liver, two patients<\/em> -- the classic fork you face."}, {"sentence": "The museum's windfall left the curator in a pleasant ____: three donated masterpieces, one open wall, and no rule of taste or history that could rank them.", "options": ["quandary", "predicament"], "key": "quandary", "pair": "predicament", "why_right": "The tell is <em>The museum's windfall<\/em> - nothing has gone wrong here; the only knot is choosing among donated goods, and that chooser's trap is exactly what quandary names.", "why_wrong": "That word means a tight spot - a stalled car, an overdrawn account. A windfall of masterpieces is the opposite of trouble; the only difficulty is the choosing itself."}, {"sentence": "The tide swept in behind the tidepoolers and cut off the sandbar path home, leaving the whole class in a soaking ____ with the cliff at their backs.", "options": ["quandary", "predicament"], "key": "predicament", "pair": "predicament", "why_right": "The tell is <em>cut off the sandbar path home<\/em> - an outside jam made by the sea, with no options to weigh; a predicament is any tight spot, choice or none.", "why_wrong": "That word is a chooser's trap -- real options, each with a price, and no rule to sort them. This class isn't choosing anything; the tide chose for them."}, {"sentence": "Keys locked inside, phone at 1 percent, and the last bus of the night pulling away -- Tomas's ____ was complete before he had a single decision to make.", "options": ["quandary", "predicament"], "key": "predicament", "pair": "predicament", "why_right": "The tell is <em>before he had a single decision to make<\/em> - the jam is fully formed with no options in it; a predicament is any tight spot, no choice required.", "why_wrong": "That word needs real options, each costing something, with no rule to sort them. The sentence says the jam was complete <em>before any decision existed<\/em>."}, {"sentence": "Yuki's ____ over the family orchard filled the whole autumn: selling it would fund her mother's care, keeping it meant ruinous debt, and no advisor could tell her which loss was smaller.", "options": ["quandary", "indecision"], "key": "quandary", "pair": "indecision", "why_right": "The tell is <em>which loss was smaller<\/em> - every option here costs something real, and the card sends that knot to quandary; indecision is the everyday wobble between menu items.", "why_wrong": "That word is the everyday wobble between near-equal small things - the card's menu items. An orchard weighed against a mother's care puts a real cost on every road."}, {"sentence": "Her ____ over the paint chips -- eggshell, then ivory, then eggshell again -- ran forty minutes and ended only when the store announced closing time.", "options": ["quandary", "indecision"], "key": "indecision", "pair": "indecision", "why_right": "The tell is <em>eggshell, then ivory, then eggshell again<\/em> - a wobble between near-identical shades with nothing real at stake, indecision's everyday territory rather than a costly knot.", "why_wrong": "That word needs options that each cost something real, with no rule to sort them. Two near-identical whites for a hallway cost nothing but forty minutes."}], "display_order": [0, 3, 7, 1, 4, 6, 5, 2], "dimension_order": ["dilemma", "predicament", "indecision"], "dimension_feedback": {"dilemma": "A dilemma is the two-horned choice itself — the classic word for a fork with exactly two options, both of them painful. A quandary is the state that such a choice puts you in: stuck, puzzled, circling. You face a dilemma; you are in a quandary.", "predicament": "A predicament is any tight spot — a stalled car, an overdrawn account — whether or not a choice is involved at all. A quandary is specifically a chooser's trap: real options sit in front of you, each one costing something, and no rule sorts them.", "indecision": "Indecision is the everyday wobble between menu items; a quandary goes further - a knot where every option costs something real."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show someone stuck among real choices, where every way out carries a price -- not a mere delay in picking. Weigh the exits with a word like <i>either<\/i>, <i>cost<\/i>, <i>stuck<\/i> or <i>whichever<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

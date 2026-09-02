@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4bed03dbde54">
+<meta name="build" content="9e2a7147c953">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>magnify &#8212; SAT Vocabulary, Course 2 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "magnify", "gradeUrl": "/api/grade", "taskId": "magnify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses magnify correctly?", "opts": {"A": "Talk radio magnified the mayor's cold into a health crisis.", "B": "The editor magnified the headline until it fit the half-page space.", "C": "Her calm debrief magnified the team's worries away before the final.", "D": "The speakers magnified the bass until the floorboards buzzed."}, "key": "A", "fb": {"correct": "Correct. The mayor's cold never worsened — only its seeming size grew on the air. Making things appear larger than they are is magnify's exact work.", "B": "The editor genuinely resized the type — 'until it fit the half-page space' is layout work, an actual enlargement. Magnify here should mean exaggerating how big or important something merely seems, beyond the truth.", "C": "Worries soothed 'away before the final' were shrunk, not grown. Magnify enlarges — it makes things loom bigger or weigh more — so it cannot describe calming a team's fears down.", "D": "Bass boosted 'until the floorboards buzzed' has been strengthened — amplified, this unit's other sound word. Magnify concerns seeming size or importance, not driving more power through a speaker."}}, "s3a": {"q": "In this passage, what does \"magnify\" most nearly mean?", "opts": {"A": "explain the details of something more clearly", "B": "make something seem larger and more important than it really is", "C": "increase the price collectors would pay", "D": "repeat a story until it is famous"}, "key": "B", "fb": {"correct": "Right -- 'the stamps never changed. What grew was the space they filled': the error's seeming importance swelled far past the trivial thing it was.", "A": "Nothing gets clearer in the passage -- the error was understood within days; what changed is how large it loomed.", "C": "Prices did climb, but as a symptom -- the word describes the error's swelling importance, not its price tag.", "D": "The retellings are the engine, not the meaning -- the word names what happened to the error's seeming importance as they piled up."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "exaggerate", "B": "dramatize", "C": "magnify", "D": "overplay"}, "key": "C", "fb": {"correct": "Right. Nobody overstated anything — <em>no one ever had to stretch a single claim<\/em> — yet with every rival source gone, the diary's seeming importance swelled until it filled the whole picture of the fort.", "A": "To exaggerate is to stretch the claim itself — it lives in the telling. This passage closes that door: <em>no one ever had to stretch a single claim to get it there<\/em>. The record was never bent.", "B": "Dramatizing needs a teller staging events for an audience. There is no performance anywhere in this passage — the change happens <em>quietly<\/em>, through <em>Sheer survival<\/em>, with no one retelling the diary at all.", "D": "To overplay something is to give it a bit more weight than it earned. What happens here goes far beyond a heavier billing: one clerk's grumbling <em>now shapes how three generations of textbooks picture life at the fort<\/em>."}}}, "grid": {"words": ["magnify", "exaggerate", "dramatize", "overplay"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Left alone with it overnight, she would ____ the interview slip until one clumsy answer seemed to fill the whole hour -- though she never said a word about it to anyone.", "ks": ["magnify"], "fb": {"exaggerate": "Exaggerating stretches a claim in the telling. She tells nobody anything -- the slip swells in one silent mind.", "dramatize": "Dramatizing restages events as a performance for an audience. There is no audience here and nothing is retold -- the worry grows in silence.", "overplay": "Overplaying gives something a bit more weight than it earned. A single slip swelling to fill the whole hour has gone far past a bit."}}, {"s": "The museum's lighting is designed to ____ the dagger's importance: alone in its case under a single spotlight, a minor artifact looms like the centerpiece of the age.", "ks": ["magnify"], "fb": {"exaggerate": "Exaggerating lives in the telling -- someone stretching a claim. Nobody says anything here; a spotlight and an empty case do all the work.", "dramatize": "Dramatizing retells events as a performance for an audience. No story is told about this dagger -- its seeming importance is simply swollen by light and placement.", "overplay": "Overplaying adds a bit of extra weight. A minor artifact looming like 'the centerpiece of the age' is swelling on a different scale."}}, {"s": "Ask Theo about the ferry crossing and he will ____ it into a one-man adventure -- pacing the kitchen, doing the captain's voice, timing the thunder for when the cousins lean in.", "ks": ["dramatize"], "fb": {"magnify": "That word swells a thing's seeming size or importance, and needs no audience at all. This sentence is all audience -- voices, pacing, timing -- a show being staged.", "exaggerate": "Exaggerating stretches the claim itself -- a taller wave, a longer delay. Theo goes further: he restages the whole event as a performance, with parts and sound effects.", "overplay": "Overplaying gives something a bit more weight than it earned. A kitchen performance with a captain's voice and timed thunder is not a bit of extra weight -- it is a production."}}, {"s": "Every fire drill turns into theater when Ms. Row runs it: she will ____ the walk to the parking lot as an escape from an invisible blaze, assigning parts and narrating the smoke.", "ks": ["dramatize"], "fb": {"magnify": "That word makes something seem bigger or more important than it is, even in silence. Ms. Row is not swelling the drill's importance -- she is staging it, parts and all.", "exaggerate": "Exaggerating would be claiming the hallway was smokier or the danger nearer than the facts support. This is a whole scene acted out, with parts assigned.", "overplay": "Overplaying is a modest excess of emphasis. Narrated smoke and an invisible blaze make a stage production, not a slight overweighting."}}, {"s": "Dev will ____ his commute when he wants sympathy -- 'two hours door to door,' he sighs, though the transit app puts it at fifty minutes.", "ks": ["exaggerate"], "fb": {"magnify": "That word bloats how big or important a thing seems -- and can do it without a word spoken. Dev's stretching is entirely in the words: a spoken claim bent past the facts.", "dramatize": "Dramatizing restages an event as a performance. One sighed sentence is not a staging -- it is a claim stretched in the telling.", "overplay": "Overplaying nudges the emphasis a size past what is earned. Fifty minutes billed as two hours is not a nudge."}}, {"s": "Reviewers felt the biography would ____ the senator's one youthful arrest -- the account itself is accurate, but a single night in 1968 hardly earns its own chapter.", "ks": ["overplay"], "fb": {"magnify": "That word makes a thing loom far larger than life. This arrest never looms -- the pages are accurate and sober; there are simply more of them than one night earned.", "exaggerate": "Exaggerating stretches the facts of a claim. These facts are untouched -- 'the account itself is accurate' -- the flaw is the extra weight of a whole chapter.", "dramatize": "Dramatizing stages events bigger than life, peril and rescue included. Nothing here is staged; a plain, accurate account is just given too much room."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something seeming bigger or more important than the facts allow -- best done by putting the small fact and the huge shadow side by side. Try working in a word like <i>loomed<\/i>, <i>seemed<\/i>, <i>tiny<\/i> or <i>whole<\/i>."}};
+  var CFG = {"word": "magnify", "gradeUrl": "/api/grade", "taskId": "magnify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses magnify correctly?", "opts": {"A": "Talk radio magnified the mayor's cold into a health crisis.", "B": "The editor magnified the headline until it fit the half-page space.", "C": "Her calm debrief magnified the team's worries away before the final.", "D": "The speakers magnified the bass until the floorboards buzzed."}, "key": "A", "fb": {"correct": "Correct. The mayor's cold never worsened — only its seeming size grew on the air. Making things appear larger than they are is magnify's exact work.", "B": "The editor genuinely resized the type — 'until it fit the half-page space' is layout work, an actual enlargement. Magnify here should mean exaggerating how big or important something merely seems, beyond the truth.", "C": "Worries soothed 'away before the final' were shrunk, not grown. Magnify enlarges — it makes things loom bigger or weigh more — so it cannot describe calming a team's fears down.", "D": "Bass boosted 'until the floorboards buzzed' has been strengthened — amplified, this unit's other sound word. Magnify concerns seeming size or importance, not driving more power through a speaker."}}, "s3a": {"q": "In this passage, what does \"magnify\" most nearly mean?", "opts": {"A": "explain the details of something more clearly", "B": "make something seem larger and more important than it really is", "C": "increase the price collectors would pay", "D": "repeat a story until it is famous"}, "key": "B", "fb": {"correct": "Right -- 'the stamps never changed. What grew was the space they filled': the error's seeming importance swelled far past the trivial thing it was.", "A": "Nothing gets clearer in the passage -- the error was understood within days; what changed is how large it loomed.", "C": "Prices did climb, but as a symptom -- the word describes the error's swelling importance, not its price tag.", "D": "The retellings are the engine, not the meaning -- the word names what happened to the error's seeming importance as they piled up."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "exaggerate", "B": "dramatize", "C": "magnify", "D": "overplay"}, "key": "C", "fb": {"correct": "Right. Nobody overstated anything — <em>no one ever had to stretch a single claim<\/em> — yet with every rival source gone, the diary's seeming importance swelled until it filled the whole picture of the fort.", "A": "To exaggerate is to stretch the claim itself — it lives in the telling. This passage closes that door: <em>no one ever had to stretch a single claim to get it there<\/em>. The record was never bent.", "B": "Dramatizing needs a teller staging events for an audience. There is no performance anywhere in this passage — the change happens <em>quietly<\/em>, through <em>Sheer survival<\/em>, with no one retelling the diary at all.", "D": "To overplay something is to give it a bit more weight than it earned. What happens here goes far beyond a heavier billing: one clerk's grumbling <em>now shapes how three generations of textbooks picture life at the fort<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Left alone with it overnight, she would ____ the interview slip until one clumsy answer seemed to fill the whole hour -- though she never said a word about it to anyone.", "options": ["magnify", "exaggerate"], "key": "magnify", "pair": "exaggerate", "why_right": "The tell is <em>never said a word about it to anyone<\/em> - the slip swells in one silent mind while the facts stay as they were; nothing is stretched in any telling.", "why_wrong": "Exaggerating stretches a claim in the telling. She tells nobody anything -- the slip swells in one silent mind."}, {"sentence": "Dev will ____ his commute when he wants sympathy -- 'two hours door to door,' he sighs, though the transit app puts it at fifty minutes.", "options": ["magnify", "exaggerate"], "key": "exaggerate", "pair": "exaggerate", "why_right": "The tell is <em>two hours door to door<\/em> - the claim itself is stretched in the telling, fifty minutes spoken as two hours; the stretching lives entirely in Dev's words.", "why_wrong": "That word bloats how big or important a thing seems -- and can do it without a word spoken. Dev's stretching is entirely in the words: a spoken claim bent past the facts."}, {"sentence": "Printed full-page on the report's cover, the close-up seems to ____ the hairline crack -- a cosmetic blemish looks structural at that scale, though the caption beneath gives only the accurate measurements.", "options": ["magnify", "exaggerate"], "key": "magnify", "pair": "exaggerate", "why_right": "The tell is <em>gives only the accurate measurements<\/em> - the telling stays honest while sheer scale swells the crack's seeming size; the facts underneath stay exactly as they were.", "why_wrong": "That word stretches the claim itself and lives in the telling. The only telling here, the caption, is accurate to the millimeter; the swelling is done silently by scale."}, {"sentence": "Ask Theo about the ferry crossing and he will ____ it into a one-man adventure -- pacing the kitchen, doing the captain's voice, timing the thunder for when the cousins lean in.", "options": ["magnify", "dramatize"], "key": "dramatize", "pair": "dramatize", "why_right": "The tell is <em>doing the captain's voice<\/em> - Theo restages the crossing as a performance for an audience, the teller staging the scene; the show is the point, not silent swelling.", "why_wrong": "That word swells a thing's seeming size or importance, and needs no audience at all. This sentence is all audience -- voices, pacing, timing -- a show being staged."}, {"sentence": "The museum's lighting is designed to ____ the dagger's importance: alone in its case under a single spotlight, a minor artifact looms like the centerpiece of the age.", "options": ["magnify", "dramatize"], "key": "magnify", "pair": "dramatize", "why_right": "The tell is <em>alone in its case under a single spotlight<\/em> - placement and light silently swell the dagger's seeming importance; no events are retold and nothing is performed.", "why_wrong": "Dramatizing retells events as a performance for an audience. No story is told about this dagger -- its seeming importance is simply swollen by light and placement."}, {"sentence": "Reviewers felt the biography would ____ the senator's one youthful arrest -- the account itself is accurate, but a single night in 1968 hardly earns its own chapter.", "options": ["magnify", "overplay"], "key": "overplay", "pair": "overplay", "why_right": "The tell is <em>hardly earns its own chapter<\/em> - the accurate account gets a bit more weight than one night earned; nothing looms larger than life, so the milder word fits.", "why_wrong": "That word makes a thing loom far larger than life. This arrest never looms -- the pages are accurate and sober; there are simply more of them than one night earned."}, {"sentence": "Family memory would ____ the borrowed lawnmower across forty years until it loomed over every reunion as the defining injury of the brothers' lives.", "options": ["magnify", "overplay"], "key": "magnify", "pair": "overplay", "why_right": "The tell is <em>the defining injury of the brothers' lives<\/em> - a borrowed lawnmower now fills the frame and looms far larger than life, well past a bit more weight.", "why_wrong": "That word gives something a bit more weight than it earned. A lawnmower looming over every reunion as the defining injury of two lives has swollen far past a bit."}, {"sentence": "The bulletin will ____ the Route 9 roadwork tonight -- coverage accurate to the minute, just a shade more airtime than a two-minute delay earns, and nobody misled about its size.", "options": ["magnify", "overplay"], "key": "overplay", "pair": "overplay", "why_right": "The tell is <em>just a shade more airtime<\/em> - an accurate report given a bit more weight than a two-minute delay earned; nothing swells or looms larger than life.", "why_wrong": "That word bloats a thing's seeming size until it fills the frame. Nobody here is misled about the delay's size; an accurate report simply gets a shade more room than it earned."}], "display_order": [2, 5, 0, 7, 4, 6, 1, 3], "dimension_order": ["exaggerate", "dramatize", "overplay"], "dimension_feedback": {"exaggerate": "To exaggerate is to stretch the claim itself — faster, bigger, worse than the facts support — and it lives in the telling. Magnify can work without a single word spoken: the thing's seeming size and importance swell while the facts underneath stay exactly as they were. Exaggeration bends the account; magnify bloats the image.", "dramatize": "Dramatize means to retell events so they play bigger than life — a teller staging the scene for an audience, complete with peril and rescue. Magnify needs no performance and no audience; a worry magnified in one silent mind still swells. Dramatize is about the show; magnify is about the seeming size.", "overplay": "To overplay a stumble is to give it a bit more weight than it earned; magnify goes further — the stumble fills the frame and looms far larger than life."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something seeming bigger or more important than the facts allow -- best done by putting the small fact and the huge shadow side by side. Try working in a word like <i>loomed<\/i>, <i>seemed<\/i>, <i>tiny<\/i> or <i>whole<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

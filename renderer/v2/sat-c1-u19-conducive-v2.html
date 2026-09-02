@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="b529ef43362f">
+<meta name="build" content="35b69feb710c">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>conducive &#8212; SAT Vocabulary, Course 1 Unit 19</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "conducive", "gradeUrl": "/api/grade", "taskId": "conducive", "minWords": 12, "items": {"s1": {"q": "When a gravel quarry opens up the road, a vineyard manager fears its dust will coat her vines and set back her grapes, while a rival grower jokes that mineral dust will actually feed them. She spends a season measuring: rows nearest the road and rows farthest from it ripen on the same day, with identical sugar and identical acidity, in dusty weeks and rain-washed weeks alike. Which statement best describes what the quarry dust is for the grapes?", "opts": {"A": "It works against the ripening of the grapes.", "B": "It is conducive to the ripening of the grapes.", "C": "It makes no difference to the grapes one way or the other.", "D": "It guarantees a noticeably richer harvest in dusty years."}, "key": "C", "fb": {"correct": "Correct. Rows nearest the road and rows farthest from it ripen on the same day with identical sugar and acidity, in dusty weeks and clean ones alike — the dust neither helps nor hurts. A condition with zero effect either way simply makes no difference.", "A": "Working against the ripening would show up as later or worse fruit in the rows nearest the road, and the measurements found neither — the dusty rows matched the clean ones exactly. There is no harm here to name.", "B": "Conducive means helping to bring a result about — conditions that push an outcome along. But the rows farthest from the dust ripened on the very same day, with identical sugar and acidity, so the dust contributed nothing to the result. A condition is only conducive to an outcome it actually helps produce, and this one has zero effect.", "D": "A guarantee is the strongest claim on offer, and the evidence cannot support even a mild boost — dusty weeks and rain-washed weeks ended in identical fruit. Nothing here promises a richer harvest."}}, "s3a": {"q": "In this passage, \"conducive\" most nearly means:", "opts": {"A": "helping a particular result come about", "B": "doing no harm to the seedlings", "C": "pleasant for the gardeners to work in", "D": "giving one garden plot an edge over its neighbors"}, "key": "A", "fb": {"correct": "Right -- the soil's failure was that a seed was 'never helped'; the word names conditions that push a result along.", "B": "The passage rejects that bar outright: the seed 'was not harmed so much as never helped.' Not hurting is not enough.", "C": "Nobody discusses the gardeners' comfort; the question is what the soil does for germination.", "D": "No plot competes with another here -- the word points at the outcome, sprouting, not at a winner."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "advantageous", "B": "harmless", "C": "favorable", "D": "conducive"}, "key": "B", "fb": {"correct": "Right. The beam did no damage — and no good either: it <em>neither degraded nor improved<\/em> the sky, and the preserve <em>gained nothing from the laser and lost nothing to it<\/em>. Doing no damage, and pushing nothing along, is exactly this word's ground.", "D": "Conducive would mean the beam actively helped some outcome along. The study found nothing being helped: <em>sky brightness at every station stayed exactly where it had been, neither degraded nor improved<\/em>. What changes nothing pushes nothing along.", "C": "Favorable conditions lean things your way in a general sense. These conditions did not lean anywhere: <em>The preserve gained nothing from the laser<\/em>, and the sky simply <em>stayed exactly where it had been<\/em>.", "A": "Advantageous means someone gains an edge or a better position. There are no winners in this study — the preserve <em>gained nothing from the laser and lost nothing to it<\/em> — and no rival appears anywhere for anyone to gain ground on."}}}, "grid": {"words": ["conducive", "favorable", "advantageous", "harmless"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Coaches found the long bus rides oddly ____ to team bonding: hours of shared boredom actively pushed the friendships along, whoever gained from them.", "ks": ["conducive"], "fb": {"favorable": "That word paints conditions as generally good. This sentence names the specific outcome the rides helped produce -- <em>team bonding<\/em> -- which calls for the more pointed word.", "advantageous": "That word centers on who gains an edge. Here nobody outdoes anybody; the point is that an outcome got helped along, <em>whoever gained<\/em>.", "harmless": "Doing no damage is a low bar. These rides <em>actively pushed the friendships along<\/em> -- they helped the result happen."}}, {"s": "The town's wide sidewalks and slow traffic were ____ to walking to school, making the habit more likely each term, though no child gained anything over another.", "ks": ["conducive"], "fb": {"favorable": "That word would just call the streets pleasant in general. The sentence points them at one outcome -- <em>walking to school<\/em> -- and says they help it come about.", "advantageous": "An edge needs a winner. Here <em>no child gained anything over another<\/em>; the streets simply help a result happen.", "harmless": "That word only says no damage is done. These streets go further, <em>making the habit more likely<\/em>."}}, {"s": "Critics' notices were broadly ____ that autumn, kind to the studio in a general way, aimed at no particular result and giving no rival an edge.", "ks": ["favorable"], "fb": {"conducive": "That word needs a specific outcome the conditions help produce, almost always with 'to.' These notices are <em>aimed at no particular result<\/em> -- just generally good.", "advantageous": "That word says someone gains an edge. The notices give <em>no rival an edge<\/em>; they are simply kind in a general way.", "harmless": "Merely doing no damage undersells them -- the notices are <em>kind to the studio<\/em>, actively good in a general way."}}, {"s": "Growers called that spring ____ -- mild and bright in a general way, pointed at no particular harvest outcome, and handing no farm an edge over its neighbors.", "ks": ["favorable"], "fb": {"conducive": "That word ties conditions to a named outcome they help produce. This spring is <em>pointed at no particular harvest outcome<\/em>.", "advantageous": "An edge needs a gainer, and this weather hands <em>no farm an edge over its neighbors<\/em>.", "harmless": "That word only rules out damage. <em>Mild and bright<\/em> weather is good in itself, the stronger general claim."}}, {"s": "The early registration window was plainly ____ to returning students: they locked in the best schedules while newcomers picked over what remained.", "ks": ["advantageous"], "fb": {"conducive": "That word centers on an outcome coming about, whoever benefits. This window benefits one group at the other's expense -- returning students win <em>while newcomers picked over what remained<\/em>.", "favorable": "Leaning-their-way undersells it: they <em>locked in the best schedules<\/em>, a real gain in position over others.", "harmless": "Hardly -- what one group gains here, the <em>newcomers<\/em> lose."}}, {"s": "The inspector ruled the old dye ____: it neither stained the water nor helped anything grow, doing no damage and pushing no outcome along in any direction.", "ks": ["harmless"], "fb": {"conducive": "That word means actively helping an outcome come about. This dye <em>pushed no outcome along in any direction<\/em>.", "favorable": "Good conditions are a positive claim; the ruling here is purely negative -- <em>doing no damage<\/em>, nothing more.", "advantageous": "No one gains anything from a dye that <em>neither stained the water nor helped anything grow<\/em>."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs conditions that help a named outcome come about -- and the word almost always takes 'to' before that outcome. Try working in words like <i>to<\/i>, <i>helped<\/i>, <i>likely<\/i> or <i>environment<\/i>."}};
+  var CFG = {"word": "conducive", "gradeUrl": "/api/grade", "taskId": "conducive", "minWords": 12, "items": {"s1": {"q": "When a gravel quarry opens up the road, a vineyard manager fears its dust will coat her vines and set back her grapes, while a rival grower jokes that mineral dust will actually feed them. She spends a season measuring: rows nearest the road and rows farthest from it ripen on the same day, with identical sugar and identical acidity, in dusty weeks and rain-washed weeks alike. Which statement best describes what the quarry dust is for the grapes?", "opts": {"A": "It works against the ripening of the grapes.", "B": "It is conducive to the ripening of the grapes.", "C": "It makes no difference to the grapes one way or the other.", "D": "It guarantees a noticeably richer harvest in dusty years."}, "key": "C", "fb": {"correct": "Correct. Rows nearest the road and rows farthest from it ripen on the same day with identical sugar and acidity, in dusty weeks and clean ones alike — the dust neither helps nor hurts. A condition with zero effect either way simply makes no difference.", "A": "Working against the ripening would show up as later or worse fruit in the rows nearest the road, and the measurements found neither — the dusty rows matched the clean ones exactly. There is no harm here to name.", "B": "Conducive means helping to bring a result about — conditions that push an outcome along. But the rows farthest from the dust ripened on the very same day, with identical sugar and acidity, so the dust contributed nothing to the result. A condition is only conducive to an outcome it actually helps produce, and this one has zero effect.", "D": "A guarantee is the strongest claim on offer, and the evidence cannot support even a mild boost — dusty weeks and rain-washed weeks ended in identical fruit. Nothing here promises a richer harvest."}}, "s3a": {"q": "In this passage, \"conducive\" most nearly means:", "opts": {"A": "helping a particular result come about", "B": "doing no harm to the seedlings", "C": "pleasant for the gardeners to work in", "D": "giving one garden plot an edge over its neighbors"}, "key": "A", "fb": {"correct": "Right -- the soil's failure was that a seed was 'never helped'; the word names conditions that push a result along.", "B": "The passage rejects that bar outright: the seed 'was not harmed so much as never helped.' Not hurting is not enough.", "C": "Nobody discusses the gardeners' comfort; the question is what the soil does for germination.", "D": "No plot competes with another here -- the word points at the outcome, sprouting, not at a winner."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "advantageous", "B": "harmless", "C": "favorable", "D": "conducive"}, "key": "B", "fb": {"correct": "Right. The beam did no damage — and no good either: it <em>neither degraded nor improved<\/em> the sky, and the preserve <em>gained nothing from the laser and lost nothing to it<\/em>. Doing no damage, and pushing nothing along, is exactly this word's ground.", "D": "Conducive would mean the beam actively helped some outcome along. The study found nothing being helped: <em>sky brightness at every station stayed exactly where it had been, neither degraded nor improved<\/em>. What changes nothing pushes nothing along.", "C": "Favorable conditions lean things your way in a general sense. These conditions did not lean anywhere: <em>The preserve gained nothing from the laser<\/em>, and the sky simply <em>stayed exactly where it had been<\/em>.", "A": "Advantageous means someone gains an edge or a better position. There are no winners in this study — the preserve <em>gained nothing from the laser and lost nothing to it<\/em> — and no rival appears anywhere for anyone to gain ground on."}}}, "pairwise": {"rows": [{"sentence": "Coaches found the long bus rides oddly ____ to team bonding: hours of shared boredom actively pushed the friendships along, whoever gained from them.", "options": ["conducive", "favorable"], "key": "conducive", "pair": "favorable", "why_right": "The tell is <em>actively pushed the friendships along<\/em> - the rides help one named outcome come about, the pointed to-an-outcome frame the card gives this word, whoever gains.", "why_wrong": "That word paints conditions as generally good. This sentence names the specific outcome the rides helped produce -- <em>team bonding<\/em> -- which calls for the more pointed word."}, {"sentence": "The town's wide sidewalks and slow traffic were ____ to walking to school, making the habit more likely each term, though no child gained anything over another.", "options": ["conducive", "advantageous"], "key": "conducive", "pair": "advantageous", "why_right": "The tell is <em>making the habit more likely each term<\/em> - conditions tied to one named outcome they help produce, with no edge for anyone in sight.", "why_wrong": "An edge needs a winner. Here <em>no child gained anything over another<\/em>; the streets simply help a result happen."}, {"sentence": "Critics' notices were broadly ____ that autumn, kind to the studio in a general way, aimed at no particular result and giving no rival an edge.", "options": ["conducive", "favorable"], "key": "favorable", "pair": "favorable", "why_right": "The tell is <em>aimed at no particular result<\/em> - the notices are good in a general way, exactly the register the card gives this word when no named outcome is being helped.", "why_wrong": "That word needs a specific outcome the conditions help produce, almost always with 'to.' These notices are <em>aimed at no particular result<\/em> -- just generally good."}, {"sentence": "Growers called that spring ____ -- mild and bright in a general way, pointed at no particular harvest outcome, and handing no farm an edge over its neighbors.", "options": ["conducive", "favorable"], "key": "favorable", "pair": "favorable", "why_right": "The tell is <em>mild and bright in a general way<\/em> - generally good conditions with no named outcome being produced, which is this word's territory on the card.", "why_wrong": "That word ties conditions to a named outcome they help produce. This spring is <em>pointed at no particular harvest outcome<\/em>."}, {"sentence": "The early registration window was plainly ____ to returning students: they locked in the best schedules while newcomers picked over what remained.", "options": ["conducive", "advantageous"], "key": "advantageous", "pair": "advantageous", "why_right": "The tell is <em>while newcomers picked over what remained<\/em> - one group gains a concrete edge at another's expense, and centering on who gains is this word's job.", "why_wrong": "That word centers on an outcome coming about, whoever benefits. This window benefits one group at the other's expense -- returning students win <em>while newcomers picked over what remained<\/em>."}, {"sentence": "The inspector ruled the old dye ____: it neither stained the water nor helped anything grow, doing no damage and pushing no outcome along in any direction.", "options": ["conducive", "harmless"], "key": "harmless", "pair": "harmless", "why_right": "The tell is <em>pushing no outcome along in any direction<\/em> - the dye simply does no damage and helps nothing happen, the strict absence-of-damage claim this word makes.", "why_wrong": "That word means actively helping an outcome come about. This dye <em>pushed no outcome along in any direction<\/em>."}, {"sentence": "The lodge's spotty reception proved oddly ____ to card games after dinner: decks appeared at every table, and every guest was drawn in alike, no one gaining a thing over anyone.", "options": ["conducive", "advantageous"], "key": "conducive", "pair": "advantageous", "why_right": "The tell is <em>no one gaining a thing over anyone<\/em> - the card's edge word centers on who gains; here conditions simply help one named pastime come about for everyone.", "why_wrong": "That word centers on who gains an edge. Here every guest was drawn in alike and no one pulled ahead; the reception simply helped one shared pastime come about."}, {"sentence": "Left unmowed all June, the strip of wildflowers proved ____ to the return of the orchard's bees, drawing pollinators back in numbers no one had seen in years.", "options": ["conducive", "harmless"], "key": "conducive", "pair": "harmless", "why_right": "The tell is <em>drawing pollinators back<\/em> - the strip actively helps a named outcome along, which the card sets above a condition that simply does no damage.", "why_wrong": "That word means simply doing no damage. These wildflowers did far more than leave the bees unharmed -- they actively drew pollinators back, helping the return come about."}], "display_order": [4, 0, 1, 3, 5, 6, 2, 7], "dimension_order": ["favorable", "advantageous", "harmless"], "dimension_feedback": {"favorable": "Favorable means providing good conditions in a general way — favorable weather, a favorable climate for small businesses. Conducive is more pointed: it names the specific outcome the conditions help produce, and it is nearly always followed by 'to' that outcome. A morning can be favorable; a dim, quiet room is conducive to sleep.", "advantageous": "Advantageous means giving someone a benefit or an edge, and it centers on who gains. Conducive centers on the outcome instead: conditions that help a particular result come about, whoever benefits. A rule change is advantageous to one team; a silent library is conducive to study for everyone in it.", "harmless": "A harmless condition simply does no damage, while a conducive one actively helps an outcome along."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs conditions that help a named outcome come about -- and the word almost always takes 'to' before that outcome. Try working in words like <i>to<\/i>, <i>helped<\/i>, <i>likely<\/i> or <i>environment<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

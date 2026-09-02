@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4dcbaafef53d">
+<meta name="build" content="87e604f14944">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>uncanny &#8212; SAT Vocabulary, Course 1 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "uncanny", "gradeUrl": "/api/grade", "taskId": "uncanny", "minWords": 12, "items": {"s1": {"q": "At the county fair, a stranger at the guessing booth told Malik the exact street he grew up on, his dog's name, and the tune his mother used to whistle, all before Malik had said a single word. Malik walked away with a chill down his spine. How did the stranger's guesses feel to Malik?", "opts": {"A": "Perfectly ordinary", "B": "Boring", "C": "Encouraging and warmly comforting", "D": "Uncanny"}, "key": "D", "fb": {"correct": "Correct. A total stranger naming his childhood street, his dog, and his mother's whistling tune before Malik spoke a word felt accurate in a way nothing ordinary could account for — uncanny.", "A": "Perfectly ordinary guesses would be the kind anyone at a fair might get lucky with. A total stranger named Malik's childhood street, his dog, and the tune his mother whistled, all unprompted — ordinary luck does not reach that far, and the chill tells you Malik knew it.", "B": "Boring means so unremarkable you forget it within minutes. Small talk does not send a chill down anyone's spine — Malik walked away shaken, not bored. Find the word for strangeness that unsettles because it resists explanation.", "C": "'Warmly comforting' misreads Malik's reaction — the guesses left him with a chill, not reassurance. A stranger reciting impossibly exact knowledge of your life is unnerving, not encouraging. Choose the word for eerie, unexplainable accuracy."}}, "s3a": {"q": "In this passage, calling Marisol's accuracy \"uncanny\" means it was", "opts": {"A": "so strange that no ordinary explanation seemed to account for it", "B": "frightening to everyone who watched her work in the office", "C": "the product of a clever trick that Pruitt eventually exposed", "D": "proof of genuinely supernatural powers"}, "key": "A", "fb": {"correct": "Right — Pruitt found nothing, and the passage says her accuracy 'simply outran every explanation he tried.'", "B": "Nobody in the passage is afraid; Pruitt is skeptical and methodical, not frightened.", "C": "The opposite — he checked for marked corners, smells, and patterns in the paper, and found nothing.", "D": "He 'did not call it magic'; the passage stays in an ordinary office and simply reports that every explanation failed."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "eerie", "B": "otherworldly", "C": "uncanny", "D": "unnerving"}, "key": "C", "fb": {"correct": "Right. The team <em>ruled out routine, engine sounds, and cues from relatives<\/em>, yet the timing kept happening among perfectly ordinary things — strangeness that seems to defy natural explanation is exactly what uncanny names.", "A": "Eerie is strangeness felt as fear — a ghostly, frightening atmosphere. This household <em>greeted each vigil with delight rather than dread<\/em>, so nothing in the scene frightens anyone.", "D": "Unnerving means making someone lose their calm, and anything can do that — but here even <em>the skeptics never felt their composure slip<\/em>.", "B": "Otherworldly describes what seems to belong beyond the natural world entirely. This passage insists on the opposite: <em>an ordinary dog in an ordinary house<\/em>."}}}, "grid": {"words": ["uncanny", "eerie", "unnerving", "otherworldly"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Separated at birth and raised on different continents, the twins gave answers so exactly alike that the study team, more fascinated than frightened, called the match ____: no theory of coincidence could account for it.", "ks": ["uncanny"], "fb": {"eerie": "That word describes strangeness felt as fear — a ghostly, frightening atmosphere. This team is <em>more fascinated than frightened<\/em>; nothing in the study scares anyone.", "unnerving": "That word means making someone lose their calm. Nobody here comes unglued — the researchers are fascinated, not rattled.", "otherworldly": "That word belongs to what seems beyond the natural world entirely. A questionnaire study of twins is squarely of this world; it is the explanation that keeps failing, not nature."}}, {"s": "The ranger, long used to the forest at night, admitted the abandoned fire tower still felt ____ to her: ghostly in the moonlight, though she knew exactly why every board groaned.", "ks": ["eerie"], "fb": {"uncanny": "That word needs strangeness that defies natural explanation. The ranger <em>knew exactly why every board groaned<\/em> — the cause is fully accounted for; only the frightening atmosphere remains.", "unnerving": "That word means making someone lose their calm. This ranger is long used to the forest at night and stays composed — the claim is about the tower's ghostly feel, not her nerves.", "otherworldly": "That word describes what seems to belong beyond the natural world. A creaking fire tower in moonlight is entirely of this world — just a frightening place after dark."}}, {"s": "Visitors left the fair's fortune-teller more baffled than afraid, calling her accuracy ____ after she named detail upon detail of their lives and every ordinary trick they checked for came up empty.", "ks": ["uncanny"], "fb": {"eerie": "That word means strangeness felt as fear, a frightening atmosphere. These visitors leave <em>more baffled than afraid<\/em> — the strangeness puzzles rather than scares.", "unnerving": "That word describes what makes someone lose their calm. The visitors stay composed enough to test for tricks; bafflement, not rattled nerves, is the point.", "otherworldly": "That word suits what seems to belong beyond the natural world entirely. A fair booth is as ordinary a setting as they come — what fails here is every explanation, not nature."}}, {"s": "The night staff, unhurried and used to blackouts, still found the powerless corridor ____ in the ghost-pale glow of the emergency lamps, its shadows pooling like something from a haunted film.", "ks": ["eerie"], "fb": {"uncanny": "That word requires strangeness no natural explanation covers. Here the cause is banal — a blackout and emergency lamps — and everyone knows it; what remains is the ghostly atmosphere.", "unnerving": "That word means making someone lose their calm, and this staff is <em>unhurried and used to blackouts<\/em>. The claim is about the corridor's haunted look, not anyone's nerves.", "otherworldly": "That word points beyond the natural world entirely. A dim corridor lit by emergency lamps is thoroughly of this world — merely frightening to look at."}}, {"s": "Nothing about the interviewer was strange — she simply let each answer hang in ten seconds of silence — yet candidates found the pause ____ and lost the thread of their own arguments.", "ks": ["unnerving"], "fb": {"eerie": "That word needs strangeness felt as fear — a ghostly atmosphere. The sentence says outright that <em>nothing about the interviewer was strange<\/em>; the pause just costs people their poise.", "uncanny": "That word requires strangeness that defies natural explanation. This cause could not be plainer — she lets the silence stretch on purpose. What matters is the effect on the candidates' composure.", "otherworldly": "That word describes what seems beyond the natural world. Ten silent seconds in an interview are utterly ordinary; their power is what they do to a candidate's calm."}}, {"s": "Tourists described the blue light inside the ice cave as ____ — a beauty that seemed to belong somewhere beyond the earth — and photographed it in delight while the guides explained every shade of it.", "ks": ["otherworldly"], "fb": {"uncanny": "That word needs strangeness that defies explanation, and the guides <em>explained every shade of it<\/em>. What the light does is seem to come from beyond the earth, not resist understanding.", "eerie": "That word means strangeness felt as fear. These tourists photograph the glow <em>in delight<\/em> — the light amazes; it does not frighten.", "unnerving": "That word describes losing one's calm. Delighted tourists taking photos are perfectly composed; the light's power is its seeming to come from somewhere beyond the earth."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show strangeness that resists ordinary explanation, not just something spooky or odd. Let a reader watch the search for a cause fail — try working in a word like <i>somehow<\/i>, <i>no explanation<\/i>, <i>coincidence<\/i> or <i>impossibly<\/i>."}};
+  var CFG = {"word": "uncanny", "gradeUrl": "/api/grade", "taskId": "uncanny", "minWords": 12, "items": {"s1": {"q": "At the county fair, a stranger at the guessing booth told Malik the exact street he grew up on, his dog's name, and the tune his mother used to whistle, all before Malik had said a single word. Malik walked away with a chill down his spine. How did the stranger's guesses feel to Malik?", "opts": {"A": "Perfectly ordinary", "B": "Boring", "C": "Encouraging and warmly comforting", "D": "Uncanny"}, "key": "D", "fb": {"correct": "Correct. A total stranger naming his childhood street, his dog, and his mother's whistling tune before Malik spoke a word felt accurate in a way nothing ordinary could account for — uncanny.", "A": "Perfectly ordinary guesses would be the kind anyone at a fair might get lucky with. A total stranger named Malik's childhood street, his dog, and the tune his mother whistled, all unprompted — ordinary luck does not reach that far, and the chill tells you Malik knew it.", "B": "Boring means so unremarkable you forget it within minutes. Small talk does not send a chill down anyone's spine — Malik walked away shaken, not bored. Find the word for strangeness that unsettles because it resists explanation.", "C": "'Warmly comforting' misreads Malik's reaction — the guesses left him with a chill, not reassurance. A stranger reciting impossibly exact knowledge of your life is unnerving, not encouraging. Choose the word for eerie, unexplainable accuracy."}}, "s3a": {"q": "In this passage, calling Marisol's accuracy \"uncanny\" means it was", "opts": {"A": "so strange that no ordinary explanation seemed to account for it", "B": "frightening to everyone who watched her work in the office", "C": "the product of a clever trick that Pruitt eventually exposed", "D": "proof of genuinely supernatural powers"}, "key": "A", "fb": {"correct": "Right — Pruitt found nothing, and the passage says her accuracy 'simply outran every explanation he tried.'", "B": "Nobody in the passage is afraid; Pruitt is skeptical and methodical, not frightened.", "C": "The opposite — he checked for marked corners, smells, and patterns in the paper, and found nothing.", "D": "He 'did not call it magic'; the passage stays in an ordinary office and simply reports that every explanation failed."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "eerie", "B": "otherworldly", "C": "uncanny", "D": "unnerving"}, "key": "C", "fb": {"correct": "Right. The team <em>ruled out routine, engine sounds, and cues from relatives<\/em>, yet the timing kept happening among perfectly ordinary things — strangeness that seems to defy natural explanation is exactly what uncanny names.", "A": "Eerie is strangeness felt as fear — a ghostly, frightening atmosphere. This household <em>greeted each vigil with delight rather than dread<\/em>, so nothing in the scene frightens anyone.", "D": "Unnerving means making someone lose their calm, and anything can do that — but here even <em>the skeptics never felt their composure slip<\/em>.", "B": "Otherworldly describes what seems to belong beyond the natural world entirely. This passage insists on the opposite: <em>an ordinary dog in an ordinary house<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Separated at birth and raised on different continents, the twins gave answers so exactly alike that the study team, more fascinated than frightened, called the match ____: no theory of coincidence could account for it.", "options": ["uncanny", "eerie"], "key": "uncanny", "pair": "eerie", "why_right": "The tell is <em>more fascinated than frightened<\/em> - no fear is present, so strangeness felt as fear is off the table; what remains is a match no theory of coincidence could account for.", "why_wrong": "That word describes strangeness felt as fear — a ghostly, frightening atmosphere. This team is <em>more fascinated than frightened<\/em>; nothing in the study scares anyone."}, {"sentence": "Visitors left the fair's fortune-teller more baffled than afraid, calling her accuracy ____ after she named detail upon detail of their lives and every ordinary trick they checked for came up empty.", "options": ["uncanny", "unnerving"], "key": "uncanny", "pair": "unnerving", "why_right": "The tell is <em>every ordinary trick they checked for came up empty<\/em> - the accuracy defies each natural explanation tried on it, and the composed, methodical checking shows nobody losing their calm.", "why_wrong": "That word describes what makes someone lose their calm. The visitors stay composed enough to test for tricks; bafflement, not rattled nerves, is the point."}, {"sentence": "The ranger, long used to the forest at night, admitted the abandoned fire tower still felt ____ to her: ghostly in the moonlight, though she knew exactly why every board groaned.", "options": ["uncanny", "eerie"], "key": "eerie", "pair": "eerie", "why_right": "The tell is <em>she knew exactly why every board groaned<\/em> - the cause is fully accounted for, so nothing defies natural explanation; what remains is the ghostly, frightening atmosphere this word names.", "why_wrong": "That word needs strangeness that defies natural explanation. The ranger <em>knew exactly why every board groaned<\/em> — the cause is fully accounted for; only the frightening atmosphere remains."}, {"sentence": "The night staff, unhurried and used to blackouts, still found the powerless corridor ____ in the ghost-pale glow of the emergency lamps, its shadows pooling like something from a haunted film.", "options": ["uncanny", "eerie"], "key": "eerie", "pair": "eerie", "why_right": "The tell is <em>ghost-pale glow of the emergency lamps<\/em> - the frightening, haunted-film atmosphere is this word's claim, and its cause is a plain blackout that defies no explanation at all.", "why_wrong": "That word requires strangeness no natural explanation covers. Here the cause is banal — a blackout and emergency lamps — and everyone knows it; what remains is the ghostly atmosphere."}, {"sentence": "Nothing about the interviewer was strange — she simply let each answer hang in ten seconds of silence — yet candidates found the pause ____ and lost the thread of their own arguments.", "options": ["uncanny", "unnerving"], "key": "unnerving", "pair": "unnerving", "why_right": "The tell is <em>lost the thread of their own arguments<\/em> - candidates visibly lose their calm, which is this word's whole claim, while the pause's cause is plain and fully explained.", "why_wrong": "That word requires strangeness that defies natural explanation. This cause could not be plainer — she lets the silence stretch on purpose. What matters is the effect on the candidates' composure."}, {"sentence": "Tourists described the blue light inside the ice cave as ____ — a beauty that seemed to belong somewhere beyond the earth — and photographed it in delight while the guides explained every shade of it.", "options": ["uncanny", "otherworldly"], "key": "otherworldly", "pair": "otherworldly", "why_right": "The tell is <em>seemed to belong somewhere beyond the earth<\/em> - the card's own test for this word - while the guides' full explanation of every shade leaves nothing defying explanation.", "why_wrong": "That word needs strangeness that defies explanation, and the guides <em>explained every shade of it<\/em>. What the light does is seem to come from beyond the earth, not resist understanding."}, {"sentence": "The lobby ferns flourished on Marta's shifts and wilted on her days off; the florist tested light, water, and soil, found nothing, and the staff - amused rather than rattled - called the pattern ____.", "options": ["uncanny", "unnerving"], "key": "uncanny", "pair": "unnerving", "why_right": "The tell is <em>tested light, water, and soil, found nothing<\/em> - the strangeness resists every ordinary explanation tried on it, which is this word's stricter test, whatever the staff's steady mood.", "why_wrong": "That word means making someone lose their calm, and anything can do it. This staff is amused rather than rattled - nobody comes unglued; what fails here is every explanation."}, {"sentence": "Auditors found the lottery kiosk perfectly ordinary - a standard printer, sealed software - which made its habit of printing winning tickets, on plain paper in ordinary ink, every fourth Tuesday all the more ____.", "options": ["uncanny", "otherworldly"], "key": "uncanny", "pair": "otherworldly", "why_right": "The tell is <em>a standard printer, sealed software<\/em> - the strangeness happens among perfectly ordinary things and resists the audit's every explanation, while nothing here seems to belong beyond the natural world.", "why_wrong": "That word describes what seems to belong beyond the natural world - light too perfect for earth. A sealed kiosk printing plain paper tickets is squarely of this world; only its explanation fails."}], "display_order": [6, 3, 1, 5, 0, 4, 2, 7], "dimension_order": ["eerie", "unnerving", "otherworldly"], "dimension_feedback": {"eerie": "Eerie describes strangeness felt as fear: a ghostly, frightening atmosphere, whatever its cause. Uncanny adds a stricter test — the strangeness seems to defy natural explanation, the way a guess that proves impossibly exact does. Something eerie scares you; something uncanny also puzzles you.", "unnerving": "Unnerving means making someone lose their calm, and anything can do it: a near miss, a long stare, a sudden drop. Uncanny points at one particular source of unease — a strangeness that seems to slip past natural explanation altogether.", "otherworldly": "Otherworldly describes what seems to belong beyond the natural world entirely, like light or music too perfect for earth. Uncanny stays in this world: an uncanny event happens among ordinary things, yet resists every ordinary explanation you try on it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show strangeness that resists ordinary explanation, not just something spooky or odd. Let a reader watch the search for a cause fail — try working in a word like <i>somehow<\/i>, <i>no explanation<\/i>, <i>coincidence<\/i> or <i>impossibly<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

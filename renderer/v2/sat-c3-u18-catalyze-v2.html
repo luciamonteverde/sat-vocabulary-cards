@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="57e6aa879026">
+<meta name="build" content="ed52023ad0a7">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>catalyze &#8212; SAT Vocabulary, Course 3 Unit 18</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "catalyze", "gradeUrl": "/api/grade", "taskId": "catalyze", "minWords": 12, "items": {"s1": {"q": "Which sentence uses catalyze correctly?", "opts": {"A": "The heavy snowfall catalyzed the marathon, forcing officials to call it off well before dawn.", "B": "Her long silence catalyzed the rumor to a complete standstill within a single day.", "C": "The committee catalyzed the proposal for two years, letting it gather dust in a locked drawer.", "D": "The new fitness coach catalyzed the squad's turnaround, and the wins came faster every month."}, "key": "D", "fb": {"correct": "Right. The coach sets the turnaround moving and speeds it along -- the change soon races ahead of anything one hire did by itself. That is catalyzing.", "A": "Snow 'forcing officials to call it off' ended the marathon — that is stopping a process, not starting or quickening it. Catalyze means to spark something into motion or hurry it along. Look for change being set going.", "B": "Bringing a rumor 'to a complete standstill' is the reverse of catalyzing it. To catalyze is to trigger a process or accelerate it. Ask whether anything in the sentence is actually being set in motion.", "C": "'Letting it gather dust in a locked drawer' is years of inaction. Catalyze means to kick a process off or hurry it up, and a shelved proposal has no motion at all. Find something sparked forward."}}, "s3a": {"q": "As used in this passage, \"catalyzed\" most nearly means", "opts": {"A": "replaced with something better", "B": "briefly interrupted", "C": "created single-handedly from nothing, with no earlier effort involved", "D": "sped up a change that was already under way and kept it moving"}, "key": "D", "fb": {"correct": "Right — the shows already existed; the booth made everything move faster and stayed behind the process the whole time.", "A": "Nothing was replaced — the same two shows kept going, joined by new ones.", "B": "Output doubled and nine programs launched; nothing was interrupted.", "C": "The passage rules this out: 'two shows already existed' before the booth arrived."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "spark", "B": "catalyze", "C": "kindle", "D": "trigger"}, "key": "B", "fb": {"correct": "Right. The archive set the faster search in motion and then stayed behind it — <em>finds doubled the first season and doubled again the next<\/em>, and the survey was still supplying the charts years on. Starting a change and then speeding every later stage of it is exactly what catalyze means.", "A": "Spark would mean the archive supplied one first flash and its work ended there. The passage shows the opposite: <em>years later the survey still supplies the charts behind nearly every new discovery<\/em> — an influence that keeps working long after any first moment.", "D": "Trigger fits something already primed and waiting, set off all at once. This search was a long-running effort — divers <em>had hunted the lake’s lost schooners for decades<\/em> — and the change gathered season by season rather than releasing in a single instant.", "C": "Kindle means starting something small and feeding it slowly along, as a first flame is coaxed. Nothing here is coaxed: <em>finds doubled the first season and doubled again the next<\/em> — a brisk, visible acceleration, not a patient feeding."}}}, "grid": {"words": ["catalyze", "spark", "trigger", "kindle"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Economists credit the microloan fund with helping to ____ the region's recovery — it set the rebuilding in motion, then stayed behind it, quickening every later stage.", "ks": ["catalyze"], "fb": {"spark": "That word supplies the first flash and is finished. This fund <em>stayed behind it, quickening every later stage<\/em> — its work never ended at the start.", "trigger": "That word releases something already primed, all at once. A regional recovery is a long running process, and the fund kept speeding it for years.", "kindle": "That word starts something small and feeds it slowly along. Here the whole point is acceleration — every later stage ran quicker."}}, {"s": "The apple slices were already browning slowly on their own; one drop of the leaf extract seemed to ____ the process, and a change that should have taken all afternoon finished in minutes.", "ks": ["catalyze"], "fb": {"spark": "That word starts something that wasn't happening yet. These slices were <em>already browning slowly on their own<\/em> — the drop changed the speed, not the start.", "trigger": "That word sets off a primed, waiting mechanism in one instant. Here a change already in motion simply began to run much faster.", "kindle": "That word coaxes something along gently from small beginnings. An afternoon's change <em>finished in minutes<\/em> — that is acceleration, not slow feeding."}}, {"s": "The charges had been set and checked for weeks; at noon a single turn of the switch would ____ the collapse, the whole primed structure letting go at once.", "ks": ["trigger"], "fb": {"catalyze": "That word makes a running process go faster and stays behind it. A demolition has no running process — everything waits, then releases <em>at once<\/em>.", "spark": "That word starts something that then develops on its own. Here nothing develops: the structure was <em>primed<\/em> for weeks and simply let go.", "kindle": "That word feeds a small beginning patiently along. There is no slow beginning in a building <em>letting go at once<\/em>."}}, {"s": "Even a trace of peanut dust can ____ the reaction in a sensitized patient: the immune system is already primed, and the response arrives all at once.", "ks": ["trigger"], "fb": {"catalyze": "That word speeds a process that is already running. Nothing here was running — the system sat <em>already primed<\/em>, then went off in an instant.", "spark": "That word supplies a first flash that starts something growing. This response doesn't grow; it <em>arrives all at once<\/em> from a system built and waiting.", "kindle": "That word means starting small and feeding gently. A whole-body response arriving in one instant is the opposite of a coaxed beginning."}}, {"s": "The room had no quarrel brewing when class began, yet one offhand comment was enough to ____ an hour of debate — its maker said nothing more, and the argument ran on without him.", "ks": ["spark"], "fb": {"catalyze": "That word both starts a process and keeps it running faster, like an engine underneath. This speaker <em>said nothing more<\/em> — his part ended with the first flash.", "trigger": "That word releases something already primed. The room had <em>no quarrel brewing<\/em> — there was nothing loaded to set off.", "kindle": "That word feeds a small start patiently until it can stand. One comment, then silence — nothing here was tended along."}}, {"s": "Her grandfather set out to ____ an interest in chess in the girl — one small puzzle a week, never more, the curiosity fed patiently until it no longer needed him.", "ks": ["kindle"], "fb": {"catalyze": "That word makes a process run visibly faster than it could alone. This one was held deliberately slow — <em>one small puzzle a week, never more<\/em>.", "spark": "That word is a single first flash, finished at the start. The grandfather's work ran for months — <em>fed patiently<\/em> is the opposite of one flash.", "trigger": "That word sets off something primed, all in one instant. An interest built puzzle by puzzle has no instant and nothing waiting to release."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something both getting a process going and making it run faster — not a one-time push. Try working in words like <i>faster<\/i>, <i>already<\/i>, <i>kept<\/i> or <i>within a year<\/i>."}};
+  var CFG = {"word": "catalyze", "gradeUrl": "/api/grade", "taskId": "catalyze", "minWords": 12, "items": {"s1": {"q": "Which sentence uses catalyze correctly?", "opts": {"A": "The heavy snowfall catalyzed the marathon, forcing officials to call it off well before dawn.", "B": "Her long silence catalyzed the rumor to a complete standstill within a single day.", "C": "The committee catalyzed the proposal for two years, letting it gather dust in a locked drawer.", "D": "The new fitness coach catalyzed the squad's turnaround, and the wins came faster every month."}, "key": "D", "fb": {"correct": "Right. The coach sets the turnaround moving and speeds it along -- the change soon races ahead of anything one hire did by itself. That is catalyzing.", "A": "Snow 'forcing officials to call it off' ended the marathon — that is stopping a process, not starting or quickening it. Catalyze means to spark something into motion or hurry it along. Look for change being set going.", "B": "Bringing a rumor 'to a complete standstill' is the reverse of catalyzing it. To catalyze is to trigger a process or accelerate it. Ask whether anything in the sentence is actually being set in motion.", "C": "'Letting it gather dust in a locked drawer' is years of inaction. Catalyze means to kick a process off or hurry it up, and a shelved proposal has no motion at all. Find something sparked forward."}}, "s3a": {"q": "As used in this passage, \"catalyzed\" most nearly means", "opts": {"A": "replaced with something better", "B": "briefly interrupted", "C": "created single-handedly from nothing, with no earlier effort involved", "D": "sped up a change that was already under way and kept it moving"}, "key": "D", "fb": {"correct": "Right — the shows already existed; the booth made everything move faster and stayed behind the process the whole time.", "A": "Nothing was replaced — the same two shows kept going, joined by new ones.", "B": "Output doubled and nine programs launched; nothing was interrupted.", "C": "The passage rules this out: 'two shows already existed' before the booth arrived."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "spark", "B": "catalyze", "C": "kindle", "D": "trigger"}, "key": "B", "fb": {"correct": "Right. The archive set the faster search in motion and then stayed behind it — <em>finds doubled the first season and doubled again the next<\/em>, and the survey was still supplying the charts years on. Starting a change and then speeding every later stage of it is exactly what catalyze means.", "A": "Spark would mean the archive supplied one first flash and its work ended there. The passage shows the opposite: <em>years later the survey still supplies the charts behind nearly every new discovery<\/em> — an influence that keeps working long after any first moment.", "D": "Trigger fits something already primed and waiting, set off all at once. This search was a long-running effort — divers <em>had hunted the lake’s lost schooners for decades<\/em> — and the change gathered season by season rather than releasing in a single instant.", "C": "Kindle means starting something small and feeding it slowly along, as a first flame is coaxed. Nothing here is coaxed: <em>finds doubled the first season and doubled again the next<\/em> — a brisk, visible acceleration, not a patient feeding."}}}, "pairwise": {"rows": [{"sentence": "The apple slices were already browning slowly on their own; one drop of the leaf extract seemed to ____ the process, and a change that should have taken all afternoon finished in minutes.", "options": ["catalyze", "spark"], "key": "catalyze", "pair": "spark", "why_right": "The tell is <em>already browning slowly on their own<\/em> - nothing was started; a change already running was made to run faster, the catalyst's job rather than a first flash.", "why_wrong": "That word starts something that wasn't happening yet. These slices were <em>already browning slowly on their own<\/em> — the drop changed the speed, not the start."}, {"sentence": "The room had no quarrel brewing when class began, yet one offhand comment was enough to ____ an hour of debate — its maker said nothing more, and the argument ran on without him.", "options": ["catalyze", "spark"], "key": "spark", "pair": "spark", "why_right": "The tell is <em>said nothing more<\/em> - one comment supplied the first flash and its maker's work ended there; nothing stayed behind the debate like an engine, speeding it along.", "why_wrong": "That word both starts a process and keeps it running faster, like an engine underneath. This speaker <em>said nothing more<\/em> — his part ended with the first flash."}, {"sentence": "The treasurer's first appeal set the alumni fund going, but she never stepped away — for ten years she worked to ____ it, each drive larger and quicker than the last.", "options": ["catalyze", "spark"], "key": "catalyze", "pair": "spark", "why_right": "The tell is <em>for ten years she worked<\/em> - a decade spent behind the fund, quickening every drive; the first appeal was the flash, but the blank names the engine that followed.", "why_wrong": "That word supplies the first flash and is finished there. Ten years of drives, each larger and quicker than the last, is an engine staying behind the process, not a single match."}, {"sentence": "Economists credit the microloan fund with helping to ____ the region's recovery — it set the rebuilding in motion, then stayed behind it, quickening every later stage.", "options": ["catalyze", "trigger"], "key": "catalyze", "pair": "trigger", "why_right": "The tell is <em>quickening every later stage<\/em> - a long running process kept running faster for years; nothing primed and waiting was released in one instant.", "why_wrong": "That word releases something already primed, all at once. A regional recovery is a long running process, and the fund kept speeding it for years."}, {"sentence": "The charges had been set and checked for weeks; at noon a single turn of the switch would ____ the collapse, the whole primed structure letting go at once.", "options": ["catalyze", "trigger"], "key": "trigger", "pair": "trigger", "why_right": "The tell is <em>letting go at once<\/em> - charges primed for weeks and released in a single instant; no running process exists here for anything to speed up.", "why_wrong": "That word makes a running process go faster and stays behind it. A demolition has no running process — everything waits, then releases <em>at once<\/em>."}, {"sentence": "The airbag sensor sits armed for years doing nothing; a hard enough jolt to the bumper will ____ it, and the bag is fully out before the driver can blink.", "options": ["catalyze", "trigger"], "key": "trigger", "pair": "trigger", "why_right": "The tell is <em>sits armed for years doing nothing<\/em> - a mechanism primed and waiting, then set off in one instant; there was no running process here for anything to speed up.", "why_wrong": "That word speeds a process that is already running and stays behind it. Nothing was running here — a sensor sat armed and waiting, then went off in one instant."}, {"sentence": "Her grandfather set out to ____ an interest in chess in the girl — one small puzzle a week, never more, the curiosity fed patiently until it no longer needed him.", "options": ["catalyze", "kindle"], "key": "kindle", "pair": "kindle", "why_right": "The tell is <em>one small puzzle a week<\/em> - a small beginning fed slowly and patiently for months; nothing here accelerates, which is what the rival word requires.", "why_wrong": "That word makes a process run visibly faster than it could alone. This one was held deliberately slow — <em>one small puzzle a week, never more<\/em>."}, {"sentence": "Her Portuguese had crawled along through two years of textbooks; one term abroad began to ____ it, and inside a month she was arguing with shopkeepers, quicker each week.", "options": ["catalyze", "kindle"], "key": "catalyze", "pair": "kindle", "why_right": "The tell is <em>quicker each week<\/em> - a process two years under way was made to accelerate visibly, gaining speed it never found alone; nothing was started small or fed slowly.", "why_wrong": "That word means starting something small and feeding it slowly along. Her Portuguese was already two years under way, and one term made it visibly accelerate, quicker each week."}], "display_order": [1, 4, 2, 3, 7, 0, 6, 5], "dimension_order": ["spark", "trigger", "kindle"], "dimension_feedback": {"spark": "To spark something is to supply the first flash that starts it, and the word's work ends there. To catalyze goes further: whatever catalyzes a change both starts it and speeds it, staying behind the process like an engine rather than a single match.", "trigger": "To trigger something is to set it off when it was already primed and waiting, like a tripwire — the release happens at once. To catalyze a change is different: the change is a running process, and the catalyst makes it run faster than it would alone.", "kindle": "To kindle something is to start it small and feed it slowly, the way a first flame is coaxed along with twigs. To catalyze is brisker — a catalyzed process visibly accelerates, gaining speed it could never have found on its own."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something both getting a process going and making it run faster — not a one-time push. Try working in words like <i>faster<\/i>, <i>already<\/i>, <i>kept<\/i> or <i>within a year<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="a3ff8016476b">
+<meta name="build" content="45f16ee92f51">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nondescript &#8212; SAT Vocabulary, Course 1 Unit 3</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "nondescript", "gradeUrl": "/api/grade", "taskId": "nondescript", "minWords": 12, "items": {"s1": {"q": "A detective is trying to track down a getaway car after a robbery. Which detail would make the car nondescript, and therefore hardest for witnesses to remember?", "opts": {"A": "It was a common silver sedan with no bumper stickers or unusual features.", "B": "It had a personalized vanity plate reading 'RUN4IT' mounted on the back.", "C": "It was painted with bright orange racing stripes along both sides.", "D": "It had a badly dented rear bumper and a cracked, taped-over taillight."}, "key": "A", "fb": {"correct": "Right. A common silver sedan with nothing unusual about it gives witnesses nothing to grab onto — no feature stands out, which is exactly what nondescript means.", "B": "A plate reading 'RUN4IT' is a one-of-a-kind identifier any witness would remember instantly. You are looking for the detail that gives witnesses nothing at all to hold onto.", "C": "'Bright orange racing stripes' announce a car from a block away — bold markings are exactly what sticks in memory. Nondescript describes the car nobody could pick out of traffic.", "D": "Visible damage works like a fingerprint: a 'badly dented' rear end and a 'taped-over' taillight are details witnesses can describe to police. The word you're testing means the opposite — nothing worth reporting."}}, "s3a": {"q": "As used in this passage, 'nondescript' most nearly means:", "opts": {"A": "dressed in a clever disguise designed to make witnesses remember someone else entirely", "B": "offering no distinctive features for a description to hold onto", "C": "unknown by name to the people around him, however clearly they can picture his face", "D": "easy to lose sight of in a large crowd, where any face disappears among hundreds of others"}, "key": "B", "fb": {"correct": "Right — the trainees' descriptions stall because 'nothing about him rises to the level of a detail.'", "A": "The passage says the goal 'is not disguise but absence' — nothing is faked, only removed.", "C": "His name never comes up; the trainees fail at his appearance, not his identity.", "D": "Crowds may help couriers, but the lesson uses a photograph of him alone — and description still fails."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "generic", "B": "forgettable", "C": "nondescript", "D": "anonymous"}, "key": "C", "fb": {"correct": "Right. Brownish above, paler below, no bars, no ring — the plainness is a fact about the bird itself, which gives even professional describers nothing distinctive to report. That is this word's exact ground.", "A": "Generic means a thing could be any one of many identical copies, but this bird is <em>the sole member of its genus<\/em> — there is nothing else like it to be interchangeable with.", "D": "Anonymous means carrying no name or identity, but <em>its name on every regional checklist<\/em> shows this bird is named and known everywhere it occurs.", "B": "Forgettable says a thing slips out of memory the moment you look away, but <em>Birders remember their sightings perfectly well<\/em> — memory is doing its job here."}}}, "grid": {"words": ["nondescript", "generic", "anonymous", "forgettable"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Witnesses could tell the detective almost nothing about the getaway car — a gray, ____ sedan, they kept saying, with not one feature worth mentioning.", "ks": ["nondescript"], "fb": {"generic": "That word says a thing could be any one of many identical copies. No copies come up — the trouble is this car itself, which offered 'not one feature worth mentioning.'", "anonymous": "That word is about a missing name or identity. The detective isn't asking who owned the car; the witnesses fail at its features.", "forgettable": "That word says a thing slips out of memory. The witnesses remember the car fine — gray, a sedan — there was simply nothing on it to describe."}}, {"s": "The safe house survived by being ____ — a brick duplex whose face offered a passerby neither charm nor flaw to fix on.", "ks": ["nondescript"], "fb": {"generic": "That word means interchangeable with many identical others. The sentence never mentions copies — it describes this one face, which gives the eye nothing.", "anonymous": "That word means lacking a name or identity. The house may be on every map; what protects it is a face with 'neither charm nor flaw.'", "forgettable": "That word describes what happens in your memory afterward. The blank describes the house itself — the featureless face that causes the forgetting."}}, {"s": "The label's new single is ____: the same four chords, the same drum sound, interchangeable with a dozen other songs on this week's chart.", "ks": ["generic"], "fb": {"nondescript": "That word means the thing itself offers nothing you could describe. This song is easy to describe — four chords, one drum sound — the trouble is that the description fits a dozen others.", "anonymous": "That word means carrying no name or identity. The single is named, labeled, and charting; identity isn't the issue.", "forgettable": "That word says the song slips from memory. You might hum it all day — and still be humming any of twelve songs, which is the actual complaint."}}, {"s": "City planners worried the new food court would feel ____ — the same twelve franchises found in every mall in the state, in the same order.", "ks": ["generic"], "fb": {"nondescript": "That word means nothing about the thing can be described at all. This food court is easy to describe — twelve familiar franchises — the worry is that the description fits every mall in the state.", "anonymous": "That word means without a name or identity. A hall of famous franchise signs is wall-to-wall names.", "forgettable": "That word is about memory failing afterward. Visitors will remember it fine — and then find the identical version one town over."}}, {"s": "The city's most photographed sculpture is, strangely, ____: the artist never signed it, the plaque is blank, and no archive records who commissioned it.", "ks": ["anonymous"], "fb": {"nondescript": "That word means offering no feature worth noticing — yet this is 'the most photographed sculpture' in the city. What it lacks is a name, not features.", "generic": "That word means one of many identical things. This sculpture is one of a kind; what's missing is any record of who made it.", "forgettable": "That word means it slips from memory. A landmark people photograph daily is the opposite — it is merely unclaimed."}}, {"s": "The keynote was competent and even pleasant, yet somehow ____: by the shuttle ride back to the hotel, none of us could repeat a single line of it.", "ks": ["forgettable"], "fb": {"nondescript": "That word says the thing itself has no describable features. This talk had them — 'competent and even pleasant' — yet it still evaporated on the ride home.", "generic": "That word means interchangeable with many identical others. No other keynotes are compared; the sentence measures only what stuck with us.", "anonymous": "That word is about a missing name. The speaker was right there on the program — what went missing was every line of the talk, from our memories."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Deny your reader details — try <i>featureless<\/i> or <i>hard to describe<\/i> — and show someone failing to point to anything about it, not just call it plain."}};
+  var CFG = {"word": "nondescript", "gradeUrl": "/api/grade", "taskId": "nondescript", "minWords": 12, "items": {"s1": {"q": "A detective is trying to track down a getaway car after a robbery. Which detail would make the car nondescript, and therefore hardest for witnesses to remember?", "opts": {"A": "It was a common silver sedan with no bumper stickers or unusual features.", "B": "It had a personalized vanity plate reading 'RUN4IT' mounted on the back.", "C": "It was painted with bright orange racing stripes along both sides.", "D": "It had a badly dented rear bumper and a cracked, taped-over taillight."}, "key": "A", "fb": {"correct": "Right. A common silver sedan with nothing unusual about it gives witnesses nothing to grab onto — no feature stands out, which is exactly what nondescript means.", "B": "A plate reading 'RUN4IT' is a one-of-a-kind identifier any witness would remember instantly. You are looking for the detail that gives witnesses nothing at all to hold onto.", "C": "'Bright orange racing stripes' announce a car from a block away — bold markings are exactly what sticks in memory. Nondescript describes the car nobody could pick out of traffic.", "D": "Visible damage works like a fingerprint: a 'badly dented' rear end and a 'taped-over' taillight are details witnesses can describe to police. The word you're testing means the opposite — nothing worth reporting."}}, "s3a": {"q": "As used in this passage, 'nondescript' most nearly means:", "opts": {"A": "dressed in a clever disguise designed to make witnesses remember someone else entirely", "B": "offering no distinctive features for a description to hold onto", "C": "unknown by name to the people around him, however clearly they can picture his face", "D": "easy to lose sight of in a large crowd, where any face disappears among hundreds of others"}, "key": "B", "fb": {"correct": "Right — the trainees' descriptions stall because 'nothing about him rises to the level of a detail.'", "A": "The passage says the goal 'is not disguise but absence' — nothing is faked, only removed.", "C": "His name never comes up; the trainees fail at his appearance, not his identity.", "D": "Crowds may help couriers, but the lesson uses a photograph of him alone — and description still fails."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "generic", "B": "forgettable", "C": "nondescript", "D": "anonymous"}, "key": "C", "fb": {"correct": "Right. Brownish above, paler below, no bars, no ring — the plainness is a fact about the bird itself, which gives even professional describers nothing distinctive to report. That is this word's exact ground.", "A": "Generic means a thing could be any one of many identical copies, but this bird is <em>the sole member of its genus<\/em> — there is nothing else like it to be interchangeable with.", "D": "Anonymous means carrying no name or identity, but <em>its name on every regional checklist<\/em> shows this bird is named and known everywhere it occurs.", "B": "Forgettable says a thing slips out of memory the moment you look away, but <em>Birders remember their sightings perfectly well<\/em> — memory is doing its job here."}}}, "pairwise": {"rows": [{"sentence": "Witnesses could tell the detective almost nothing about the getaway car — a gray, ____ sedan, they kept saying, with not one feature worth mentioning.", "options": ["nondescript", "forgettable"], "key": "nondescript", "pair": "forgettable", "why_right": "The tell is <em>not one feature worth mentioning<\/em> - the fault is in the car itself, which offered nothing to describe; the witnesses' memories are plainly working.", "why_wrong": "That word says a thing slips out of memory. The witnesses remember the car fine — gray, a sedan — there was simply nothing on it to describe."}, {"sentence": "The safe house survived by being ____ — a brick duplex whose face offered a passerby neither charm nor flaw to fix on.", "options": ["nondescript", "anonymous"], "key": "nondescript", "pair": "anonymous", "why_right": "The tell is <em>neither charm nor flaw to fix on<\/em> - the house survives on its featureless face, a fact about looks; a missing name or identity is a different claim entirely.", "why_wrong": "That word means lacking a name or identity. The house may be on every map; what protects it is a face with 'neither charm nor flaw.'"}, {"sentence": "The label's new single is ____: the same four chords, the same drum sound, interchangeable with a dozen other songs on this week's chart.", "options": ["nondescript", "generic"], "key": "generic", "pair": "generic", "why_right": "The tell is <em>interchangeable with a dozen other songs<\/em> - one of many near-identical copies; its features are easy to describe, they just describe a dozen others too.", "why_wrong": "That word means the thing itself offers nothing you could describe. This song is easy to describe — four chords, one drum sound — the trouble is that the description fits a dozen others."}, {"sentence": "City planners worried the new food court would feel ____ — the same twelve franchises found in every mall in the state, in the same order.", "options": ["nondescript", "generic"], "key": "generic", "pair": "generic", "why_right": "The tell is <em>the same twelve franchises found in every mall in the state<\/em> - a copy among identical copies; everything in it is easy to name, and that is the planners' worry.", "why_wrong": "That word means nothing about the thing can be described at all. This food court is easy to describe — twelve familiar franchises — the worry is that the description fits every mall in the state."}, {"sentence": "The city's most photographed sculpture is, strangely, ____: the artist never signed it, the plaque is blank, and no archive records who commissioned it.", "options": ["nondescript", "anonymous"], "key": "anonymous", "pair": "anonymous", "why_right": "The tell is <em>the artist never signed it, the plaque is blank<\/em> - a name and identity are what is missing; the city's most photographed sculpture plainly has features worth noticing.", "why_wrong": "That word means offering no feature worth noticing — yet this is 'the most photographed sculpture' in the city. What it lacks is a name, not features."}, {"sentence": "The keynote was competent and even pleasant, yet somehow ____: by the shuttle ride back to the hotel, none of us could repeat a single line of it.", "options": ["nondescript", "forgettable"], "key": "forgettable", "pair": "forgettable", "why_right": "The tell is <em>none of us could repeat a single line of it<\/em> - the failure happens in the listeners' memory afterward, though the talk itself had describable virtues.", "why_wrong": "That word says the thing itself has no describable features. This talk had them — 'competent and even pleasant' — yet it still evaporated on the ride home."}, {"sentence": "The potter's only surviving jar is ____: no two like it were ever thrown, yet its dull glaze and plain sides give a cataloguer nothing to write down.", "options": ["nondescript", "generic"], "key": "nondescript", "pair": "generic", "why_right": "The tell is <em>no two like it were ever thrown<\/em> - the jar is one of a kind, so the many-identical-copies word cannot apply; its plain sides simply defeat description.", "why_wrong": "That word means one of many identical things - a hotel room like every other. This jar is unique; what it lacks is not copies but any feature worth writing down."}, {"sentence": "Every clerk in the courthouse knew the process server by name, yet he remained ____ in person: medium height, mid-brown hair, a face that offered nothing for a description to hold.", "options": ["nondescript", "anonymous"], "key": "nondescript", "pair": "anonymous", "why_right": "The tell is <em>knew the process server by name<\/em> - his identity is no mystery at all; what fails is his features, a face giving a description nothing to hold.", "why_wrong": "That word means carrying no name or identity. Every clerk knows the server's name - what his person lacks is a single feature a description could hold."}], "display_order": [1, 2, 0, 7, 6, 5, 4, 3], "dimension_order": ["generic", "anonymous", "forgettable"], "dimension_feedback": {"generic": "Generic stresses that something could be any one of many identical things — a generic hotel room looks like every other hotel room. Nondescript makes a different point: nothing about the thing itself can be described or remembered, whether or not copies of it exist.", "anonymous": "Anonymous means carrying no name or identity — an anonymous donor, an anonymous office tower with no sign on it. Nondescript is about features, not names: a nondescript building offers nothing worth noticing. A striking landmark can still be anonymous if no one knows what it is.", "forgettable": "Forgettable says a thing slips out of memory the moment you look away. Nondescript explains why: there was never a distinctive feature to hold onto. One word describes the effect on you; the other describes the thing itself."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Deny your reader details — try <i>featureless<\/i> or <i>hard to describe<\/i> — and show someone failing to point to anything about it, not just call it plain."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

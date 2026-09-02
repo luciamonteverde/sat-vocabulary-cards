@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6748b3ac4290">
+<meta name="build" content="f492bef2b425">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fragility &#8212; SAT Vocabulary, Course 1 Unit 17</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "fragility", "gradeUrl": "/api/grade", "taskId": "fragility", "minWords": 12, "items": {"s1": {"q": "For the school egg-drop contest, Priyanka's team sealed their raw egg inside a capsule padded with cotton, straw, and springy drinking straws before dropping it from the gym balcony. Why did the team build so much padding into the capsule?", "opts": {"A": "Because contest rules said heavier capsules would earn extra points.", "B": "Because the egg's fragility meant a hard landing could crack it.", "C": "Because the padding kept the egg cold and fresh until judging.", "D": "Because they wanted the capsule to bounce back into the air for extra style points."}, "key": "B", "fb": {"correct": "Yes. A raw eggshell can break from a single sharp knock, so every layer of cotton and straw guards against its fragility — how easily it cracks — during the fall.", "A": "'Too heavy for one person to lift' never comes up — bubble wrap and foam peanuts guard against shattering, not against strain. Ask what quality of hand-painted china calls for that padding.", "C": "A box marked HANDLE WITH CARE on all six sides is meant to be seen, so 'hide the tea set' cannot be the goal. The precautions protect something breakable, not something secret.", "D": "'Waterproof for the trip' misreads the packing: bubble wrap and foam peanuts cushion knocks and jolts, and do nothing against water. Think about what kind of damage cushioning prevents."}}, "s3a": {"q": "In this passage, the \"fragility\" of the pages means they", "opts": {"A": "break or crumble at the lightest careless touch", "B": "were shoddily made on cheap paper and never meant to last", "C": "are so valuable that they must be locked away from thieves", "D": "have faded so badly that no one can read them anymore"}, "key": "A", "fb": {"correct": "Right — 'Turn a 1943 issue carelessly and the corner snaps off like a potato chip.'", "B": "The passage blocks that reading: 'Even the finest paper of that era was acidic.' The problem is chemistry, not shoddy work.", "C": "Access is limited to protect the paper from touch, not from theft.", "D": "Staff are scanning the pages precisely because they can still be read."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "frailty", "B": "fragility", "C": "delicacy", "D": "flimsiness"}, "key": "B", "fb": {"correct": "Right. These are solidly made objects that nonetheless break under the smallest forces — <em>a bare hand's warmth or one light knock<\/em> — and fragility names exactly how easily that damage happens.", "D": "Flimsiness blames thin, insubstantial construction — a thing that was never sturdy to begin with. These cores come up <em>dense and flawless, a solid cylinder of ancient ice<\/em>; nothing about their build is at fault.", "A": "Frailty is the bodily weakness of a living person, especially someone elderly or ill. The passage is about objects — <em>ice cores that hold eighty thousand years of trapped atmosphere<\/em> — not about anyone's body.", "C": "Delicacy points to fineness that calls for gentle handling, and these samples do get careful treatment. But the passage's point is actual breakage — one knock can <em>craze a section into useless shards<\/em> — not elegance asking for care."}}}, "grid": {"words": ["fragility", "flimsiness", "frailty", "delicacy"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Archivists handle the century-old film reels with gloves and padded trays: the ____ of the finely made stock is such that one careless bend can crack a whole scene into flakes.", "ks": ["fragility"], "fb": {"flimsiness": "That word blames a thin, shoddy build — something never sturdy to begin with. This stock was <em>finely made<\/em>; it simply breaks terribly easily now.", "frailty": "That word names the bodily weakness of a living person, especially someone elderly or ill. Film reels are objects.", "delicacy": "That word suggests something fine that calls for gentle handling, and stops there. Here <em>one careless bend<\/em> destroys a whole scene — actual breakage under the smallest force."}}, {"s": "One firm shake exposed the ____ of the bookcase: particleboard a finger thick, joints held by glue alone, a piece that had never been sturdy for a single day of its life.", "ks": ["flimsiness"], "fb": {"fragility": "That word describes how easily damage happens, and it can belong to something finely and solidly made, like antique glass. This sentence is an indictment of the build itself — thin board and glue.", "frailty": "That word is the bodily weakness of a living person. A bookcase has no body to weaken.", "delicacy": "That word suggests something fine that deserves gentle handling. Cheap board and glued joints are not fine — just badly built."}}, {"s": "The pastry chef moved the finely spun sugar swan in a rigid case, all too aware of its ____: one bump against the van wall and the sculpture would burst into splinters.", "ks": ["fragility"], "fb": {"flimsiness": "That word blames thin, careless construction. This swan is <em>finely spun<\/em> by a chef — beautifully made, and still ready to shatter.", "frailty": "That word belongs to a living person's failing body. A sugar sculpture is an object.", "delicacy": "That word says a fine thing deserves gentle care, and stops there. This sentence goes further down the card's scale: <em>one bump<\/em> means actual destruction."}}, {"s": "Inspectors condemned the roadside stalls for the ____ of their frames — scrap lath and staples, walls that flexed in a mild breeze and had been makeshift from the day they went up.", "ks": ["flimsiness"], "fb": {"fragility": "That word can describe finely made things and speaks to how easily damage happens. These stalls' problem is the build itself — scrap and staples, never sturdy from day one.", "frailty": "That word names a living person's bodily weakness — an ill or elderly patient. Market stalls have no health to fail.", "delicacy": "That word implies something fine deserving gentle hands. Scrap lath stapled together is the opposite of fine."}}, {"s": "The nurses adjusted the therapy to the patient's growing ____ — at ninety-one she tired after a few steps, and her grip could no longer manage a full water pitcher.", "ks": ["frailty"], "fb": {"fragility": "That word belongs to objects and structures — glass, paper, thin ice. The card keeps a different word for a person's failing body, and this sentence is about a ninety-one-year-old's strength.", "flimsiness": "That word blames thin, insubstantial construction — shelves, stalls, cheap frames. A patient's fading strength is not a build defect.", "delicacy": "That word suggests something fine that wants gentle handling. This sentence measures failing strength — tiring after a few steps, a grip that cannot hold a pitcher."}}, {"s": "Conservators praised the ____ of the hand-painted fan — silk fine enough to show brushwork on both sides — and handled it gently, though it had survived two centuries of use without a tear.", "ks": ["delicacy"], "fb": {"fragility": "That word means the thing actually breaks or is damaged with very little force. This fan <em>survived two centuries of use without a tear<\/em> — it asks for gentle hands, but it holds.", "flimsiness": "That word blames weak, insubstantial construction. Silk fine enough to show brushwork on both sides is exquisite craft, and the fan has lasted two hundred years.", "frailty": "That word is a living person's bodily weakness. A painted fan is an object."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something that can actually break or crumble under the smallest force — even something finely made. Try working in a phrase like <i>one touch<\/i>, <i>shatter<\/i>, <i>crumble<\/i> or <i>handled with care<\/i>."}};
+  var CFG = {"word": "fragility", "gradeUrl": "/api/grade", "taskId": "fragility", "minWords": 12, "items": {"s1": {"q": "For the school egg-drop contest, Priyanka's team sealed their raw egg inside a capsule padded with cotton, straw, and springy drinking straws before dropping it from the gym balcony. Why did the team build so much padding into the capsule?", "opts": {"A": "Because contest rules said heavier capsules would earn extra points.", "B": "Because the egg's fragility meant a hard landing could crack it.", "C": "Because the padding kept the egg cold and fresh until judging.", "D": "Because they wanted the capsule to bounce back into the air for extra style points."}, "key": "B", "fb": {"correct": "Yes. A raw eggshell can break from a single sharp knock, so every layer of cotton and straw guards against its fragility — how easily it cracks — during the fall.", "A": "'Too heavy for one person to lift' never comes up — bubble wrap and foam peanuts guard against shattering, not against strain. Ask what quality of hand-painted china calls for that padding.", "C": "A box marked HANDLE WITH CARE on all six sides is meant to be seen, so 'hide the tea set' cannot be the goal. The precautions protect something breakable, not something secret.", "D": "'Waterproof for the trip' misreads the packing: bubble wrap and foam peanuts cushion knocks and jolts, and do nothing against water. Think about what kind of damage cushioning prevents."}}, "s3a": {"q": "In this passage, the \"fragility\" of the pages means they", "opts": {"A": "break or crumble at the lightest careless touch", "B": "were shoddily made on cheap paper and never meant to last", "C": "are so valuable that they must be locked away from thieves", "D": "have faded so badly that no one can read them anymore"}, "key": "A", "fb": {"correct": "Right — 'Turn a 1943 issue carelessly and the corner snaps off like a potato chip.'", "B": "The passage blocks that reading: 'Even the finest paper of that era was acidic.' The problem is chemistry, not shoddy work.", "C": "Access is limited to protect the paper from touch, not from theft.", "D": "Staff are scanning the pages precisely because they can still be read."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "frailty", "B": "fragility", "C": "delicacy", "D": "flimsiness"}, "key": "B", "fb": {"correct": "Right. These are solidly made objects that nonetheless break under the smallest forces — <em>a bare hand's warmth or one light knock<\/em> — and fragility names exactly how easily that damage happens.", "D": "Flimsiness blames thin, insubstantial construction — a thing that was never sturdy to begin with. These cores come up <em>dense and flawless, a solid cylinder of ancient ice<\/em>; nothing about their build is at fault.", "A": "Frailty is the bodily weakness of a living person, especially someone elderly or ill. The passage is about objects — <em>ice cores that hold eighty thousand years of trapped atmosphere<\/em> — not about anyone's body.", "C": "Delicacy points to fineness that calls for gentle handling, and these samples do get careful treatment. But the passage's point is actual breakage — one knock can <em>craze a section into useless shards<\/em> — not elegance asking for care."}}}, "pairwise": {"rows": [{"sentence": "Archivists handle the century-old film reels with gloves and padded trays: the ____ of the finely made stock is such that one careless bend can crack a whole scene into flakes.", "options": ["fragility", "flimsiness"], "key": "fragility", "pair": "flimsiness", "why_right": "The tell is <em>finely made<\/em> - flimsiness blames a thin, shoddy build that was never sturdy, but this stock was crafted well and simply breaks easily now, the card's fragility in fine work.", "why_wrong": "That word blames a thin, shoddy build — something never sturdy to begin with. This stock was <em>finely made<\/em>; it simply breaks terribly easily now."}, {"sentence": "One firm shake exposed the ____ of the bookcase: particleboard a finger thick, joints held by glue alone, a piece that had never been sturdy for a single day of its life.", "options": ["fragility", "flimsiness"], "key": "flimsiness", "pair": "flimsiness", "why_right": "The tell is <em>never been sturdy for a single day<\/em> - thin particleboard and glued joints indict the build itself, the card's flimsiness, while fragility describes how easily damage happens, not the build.", "why_wrong": "That word describes how easily damage happens, and it can belong to something finely and solidly made, like antique glass. This sentence is an indictment of the build itself — thin board and glue."}, {"sentence": "Inspectors condemned the roadside stalls for the ____ of their frames — scrap lath and staples, walls that flexed in a mild breeze and had been makeshift from the day they went up.", "options": ["fragility", "flimsiness"], "key": "flimsiness", "pair": "flimsiness", "why_right": "The tell is <em>makeshift from the day they went up<\/em> - scrap lath and staples were never sturdy to begin with, the insubstantial construction the card calls flimsiness rather than ease of damage.", "why_wrong": "That word can describe finely made things and speaks to how easily damage happens. These stalls' problem is the build itself — scrap and staples, never sturdy from day one."}, {"sentence": "The nurses adjusted the therapy to the patient's growing ____ — at ninety-one she tired after a few steps, and her grip could no longer manage a full water pitcher.", "options": ["fragility", "frailty"], "key": "frailty", "pair": "frailty", "why_right": "The tell is <em>at ninety-one she tired after a few steps<\/em> - the bodily weakness of a living, elderly patient, which the card assigns to frailty; fragility belongs to objects and structures.", "why_wrong": "That word belongs to objects and structures — glass, paper, thin ice. The card keeps a different word for a person's failing body, and this sentence is about a ninety-one-year-old's strength."}, {"sentence": "The paleontologists winched the dinosaur skeleton in a plaster cradle, mindful of the ____ of bones that eighty million years had turned to chalky stone that flakes at a fingertip.", "options": ["fragility", "frailty"], "key": "fragility", "pair": "frailty", "why_right": "The tell is <em>flakes at a fingertip<\/em> - stone bones that crumble under the smallest force are objects easily damaged, the card's fragility; frailty is reserved for bodily weakness of a living person.", "why_wrong": "That word names the bodily weakness of a living person, especially the elderly or ill. These bones turned to stone eighty million years ago - an object now, not a failing body."}, {"sentence": "The pastry chef moved the finely spun sugar swan in a rigid case, all too aware of its ____: one bump against the van wall and the sculpture would burst into splinters.", "options": ["fragility", "delicacy"], "key": "fragility", "pair": "delicacy", "why_right": "The tell is <em>one bump against the van wall<\/em> - the swan would actually burst into splinters at the slightest force, the card's fragility, past merely being fine and deserving gentle hands.", "why_wrong": "That word says a fine thing deserves gentle care, and stops there. This sentence goes further down the card's scale: <em>one bump<\/em> means actual destruction."}, {"sentence": "Conservators praised the ____ of the hand-painted fan — silk fine enough to show brushwork on both sides — and handled it gently, though it had survived two centuries of use without a tear.", "options": ["fragility", "delicacy"], "key": "delicacy", "pair": "delicacy", "why_right": "The tell is <em>survived two centuries of use without a tear<\/em> - the fan asks for gentle hands but does not break under small forces, so the card's gentler word, delicacy, is right.", "why_wrong": "That word means the thing actually breaks or is damaged with very little force. This fan <em>survived two centuries of use without a tear<\/em> — it asks for gentle hands, but it holds."}, {"sentence": "Such was the ____ of the dried bridal wreath that a petal snapped off when a guest merely brushed the display stand, and the florist declared it past saving.", "options": ["fragility", "delicacy"], "key": "fragility", "pair": "delicacy", "why_right": "The tell is <em>merely brushed the display stand<\/em> - a petal snapped off at a stray touch, real damage under very little force, past mere fineness that calls for gentle handling.", "why_wrong": "That word suggests something fine that calls for gentle handling, and stops there. Here a petal has already snapped off at a brush against the stand - the wreath breaks with little force."}], "display_order": [6, 1, 5, 3, 2, 4, 0, 7], "dimension_order": ["flimsiness", "frailty", "delicacy"], "dimension_feedback": {"flimsiness": "Flimsiness is weakness that comes from thin, insubstantial construction: a flimsy shelf was never sturdy to begin with. Fragility can belong to something finely and solidly made, like antique glass, that simply cannot survive rough handling. Flimsiness blames the build; fragility describes how easily damage happens.", "frailty": "Frailty is the bodily weakness of a living person, especially someone elderly or ill. Fragility belongs to objects and structures: glass, old paper, thin ice, things that break or crumble under small forces. You would speak of a patient's frailty but a vase's fragility.", "delicacy": "Delicacy suggests something fine that calls for gentle handling, while fragility means the object can actually break or be damaged with very little force."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something that can actually break or crumble under the smallest force — even something finely made. Try working in a phrase like <i>one touch<\/i>, <i>shatter<\/i>, <i>crumble<\/i> or <i>handled with care<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

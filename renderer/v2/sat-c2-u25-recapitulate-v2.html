@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f98586f74663">
+<meta name="build" content="119678f24fc1">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>recapitulate &#8212; SAT Vocabulary, Course 2 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "recapitulate", "gradeUrl": "/api/grade", "taskId": "recapitulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses recapitulate correctly?", "opts": {"A": "The gymnast recapitulated her opening vault twice more after practice until the tricky landing finally stuck.", "B": "Hopelessly outnumbered and low on powder, the garrison recapitulated at dawn and opened the fortress gates.", "C": "The eldest cousin recapitulated the family's year in one toast: three graduations, two moves, one baby.", "D": "After a hard week of flu it took Ben nearly another week to recapitulate his strength for the summit climb."}, "key": "C", "fb": {"correct": "Correct. Compressing the family's year into one toast, point by point, is recapitulating — the main points restated so the whole is visible.", "A": "Practicing 'her opening vault twice more' is repeating a physical routine until it works. Recapitulate is about speech or writing: pulling the main points together and restating them briefly, not redoing an action.", "B": "A garrison that 'opened the fortress gates' at dawn is surrendering — the word for that is capitulate. Recapitulate looks similar but means something different: briefly restating the main points of what was said or done.", "D": "Ben needing a week to 'recapitulate his strength' confuses this word with recuperate, which means to recover. Recapitulating never rebuilds energy; it condenses information, restating the main points in a shorter form."}}, "s3a": {"q": "As it is used in this passage, \"recapitulate\" most nearly means", "opts": {"A": "to walk through all the night's main points, in order", "B": "to mention one or two of the night's highlights so the day team can start quickly", "C": "to write the night's events into each patient's permanent chart before leaving", "D": "to question the arriving day team about its plan for every patient on the ward"}, "key": "A", "fb": {"correct": "Yes -- 'what changed, what was given, what to watch,' for every patient in turn, with nothing skipped and nothing out of order. A systematic, ordered retelling is the whole requirement.", "B": "Highlights are exactly what gets a new nurse 'stopped and sent back to the top of the list.' The word demands complete, ordered coverage.", "C": "The handoff is spoken, and the passage never mentions charts. The word here names an ordered spoken retelling.", "D": "The direction is wrong: the night team delivers the summary; nobody is questioning the day team."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "go over", "B": "recapitulate", "C": "restate", "D": "touch on"}, "key": "B", "fb": {"correct": "Right. She walks back through every move, in the order it was played, until the whole game stands complete — a systematic, ordered, point-by-point summary is exactly what recapitulate means.", "C": "Restate means saying one point again in fresh words, with no promise of covering everything or keeping order. This account is the opposite of piecemeal: it runs <em>in the exact order they were played<\/em>, <em>leaving no move out and none out of sequence<\/em>.", "A": "Go over is the casual way to revisit material, in any order the moment allows. A ritual built on <em>a fixed discipline<\/em> is a formal, systematic pass, not an informal ramble through whatever comes to mind.", "D": "Touch on is the slightest pass of all — a topic named in a phrase and left behind. Here <em>the room holds the full record<\/em> before any judgment is offered, which is far more than a passing mention."}}}, "grid": {"words": ["recapitulate", "restate", "go over", "touch on"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Before the descent, the expedition leader paused to ____ the route plan, walking back through every waypoint and turn in the order the team would meet them.", "ks": ["recapitulate"], "fb": {"restate": "That word takes one point at a time, in fresh words, with no promise of order or coverage. This briefing walks back through <em>every waypoint and turn<\/em>, in sequence.", "go over": "That casual phrase allows any order and any length. Here the order is fixed -- <em>the order the team would meet them<\/em> -- and nothing may be left out.", "touch on": "That phrase names a topic in passing and moves along. Walking back through <em>every waypoint and turn<\/em> is the opposite of a passing mention."}}, {"s": "The final training slide asked the presenter to ____ everything covered since morning, point by point, so the new hires left with the whole day in order.", "ks": ["recapitulate"], "fb": {"restate": "That word means saying one point again, more clearly -- piecemeal, no order promised. This slide demands <em>everything covered since morning, point by point<\/em>.", "go over": "That phrase is the informal, any-order way to revisit material. Here the job is systematic: the whole day handed back <em>in order<\/em>.", "touch on": "A passing mention states nothing of substance. Leaving new hires with <em>the whole day in order<\/em> requires working through every point."}}, {"s": "When the reporter looked lost, the economist paused to ____ her main claim in plainer words -- the same single point, said once more so it finally landed.", "ks": ["restate"], "fb": {"recapitulate": "That word walks back through all the main points, in order. Here there is only <em>the same single point<\/em>, said once more.", "go over": "That phrase means revisiting material at whatever length the moment allows. The economist is not revisiting material -- she says one claim again, <em>in plainer words<\/em>, and moves on.", "touch on": "A passing mention states nothing of substance. This point is repeated deliberately <em>so it finally landed<\/em> -- the opposite of brushing past it."}}, {"s": "The editor asked the author to ____ the book's thesis in the opening paragraph -- one idea, recast in cleaner words, with the chapter's structure left untouched.", "ks": ["restate"], "fb": {"recapitulate": "That word promises an ordered return through all the main points. The editor wants <em>one idea<\/em> recast -- everything else stays as it was.", "go over": "That phrase means working back through material informally. Nothing is worked back through here; one sentence is rewritten <em>in cleaner words<\/em>.", "touch on": "A passing mention would leave the thesis vague. The editor wants it said fully and cleanly -- substance, not a name-drop."}}, {"s": "Can we ____ the itinerary once more in the car, jumping around to whatever bits worry us, before we walk in and meet the clients?", "ks": ["go over"], "fb": {"recapitulate": "That word is formal and strictly ordered -- point by point, nothing skipped. This is a car-ride run-through, <em>jumping around<\/em> at will.", "restate": "That word takes a single point and says it again more clearly. This is a whole itinerary being revisited, in no particular order.", "touch on": "That phrase means a bare passing mention. They plan to keep at the itinerary for the whole ride -- <em>whatever bits worry us<\/em> get real time."}}, {"s": "With the bell about to ring, the teacher could only ____ the treaty's aftermath -- one passing sentence naming it -- and promised the full story tomorrow.", "ks": ["touch on"], "fb": {"recapitulate": "That word walks back through all the main points in order. One sentence squeezed in <em>with the bell about to ring<\/em> covers nothing.", "restate": "That word says an already-made point again, more clearly. This topic is brand new to the class and gets only a name.", "go over": "That phrase means actually working through material for a while. There was time for <em>one passing sentence<\/em>, no more."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show someone working back through ALL the main points, in order -- not just mentioning a topic again. Try working in a word like <i>point by point<\/i>, <i>in order<\/i>, <i>each<\/i> or <i>summary<\/i>."}};
+  var CFG = {"word": "recapitulate", "gradeUrl": "/api/grade", "taskId": "recapitulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses recapitulate correctly?", "opts": {"A": "The gymnast recapitulated her opening vault twice more after practice until the tricky landing finally stuck.", "B": "Hopelessly outnumbered and low on powder, the garrison recapitulated at dawn and opened the fortress gates.", "C": "The eldest cousin recapitulated the family's year in one toast: three graduations, two moves, one baby.", "D": "After a hard week of flu it took Ben nearly another week to recapitulate his strength for the summit climb."}, "key": "C", "fb": {"correct": "Correct. Compressing the family's year into one toast, point by point, is recapitulating — the main points restated so the whole is visible.", "A": "Practicing 'her opening vault twice more' is repeating a physical routine until it works. Recapitulate is about speech or writing: pulling the main points together and restating them briefly, not redoing an action.", "B": "A garrison that 'opened the fortress gates' at dawn is surrendering — the word for that is capitulate. Recapitulate looks similar but means something different: briefly restating the main points of what was said or done.", "D": "Ben needing a week to 'recapitulate his strength' confuses this word with recuperate, which means to recover. Recapitulating never rebuilds energy; it condenses information, restating the main points in a shorter form."}}, "s3a": {"q": "As it is used in this passage, \"recapitulate\" most nearly means", "opts": {"A": "to walk through all the night's main points, in order", "B": "to mention one or two of the night's highlights so the day team can start quickly", "C": "to write the night's events into each patient's permanent chart before leaving", "D": "to question the arriving day team about its plan for every patient on the ward"}, "key": "A", "fb": {"correct": "Yes -- 'what changed, what was given, what to watch,' for every patient in turn, with nothing skipped and nothing out of order. A systematic, ordered retelling is the whole requirement.", "B": "Highlights are exactly what gets a new nurse 'stopped and sent back to the top of the list.' The word demands complete, ordered coverage.", "C": "The handoff is spoken, and the passage never mentions charts. The word here names an ordered spoken retelling.", "D": "The direction is wrong: the night team delivers the summary; nobody is questioning the day team."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "go over", "B": "recapitulate", "C": "restate", "D": "touch on"}, "key": "B", "fb": {"correct": "Right. She walks back through every move, in the order it was played, until the whole game stands complete — a systematic, ordered, point-by-point summary is exactly what recapitulate means.", "C": "Restate means saying one point again in fresh words, with no promise of covering everything or keeping order. This account is the opposite of piecemeal: it runs <em>in the exact order they were played<\/em>, <em>leaving no move out and none out of sequence<\/em>.", "A": "Go over is the casual way to revisit material, in any order the moment allows. A ritual built on <em>a fixed discipline<\/em> is a formal, systematic pass, not an informal ramble through whatever comes to mind.", "D": "Touch on is the slightest pass of all — a topic named in a phrase and left behind. Here <em>the room holds the full record<\/em> before any judgment is offered, which is far more than a passing mention."}}}, "pairwise": {"rows": [{"sentence": "Before the descent, the expedition leader paused to ____ the route plan, walking back through every waypoint and turn in the order the team would meet them.", "options": ["recapitulate", "restate"], "key": "recapitulate", "pair": "restate", "why_right": "The tell is <em>every waypoint and turn<\/em> - a complete, ordered walk back through the plan's points, the systematic return this word promises where the piecemeal word takes one point at a time.", "why_wrong": "That word takes one point at a time, in fresh words, with no promise of order or coverage. This briefing walks back through <em>every waypoint and turn<\/em>, in sequence."}, {"sentence": "The final training slide asked the presenter to ____ everything covered since morning, point by point, so the new hires left with the whole day in order.", "options": ["recapitulate", "go over"], "key": "recapitulate", "pair": "go over", "why_right": "The tell is <em>point by point<\/em> - a structured closing summary with ordered, complete coverage, the formal promise this word makes where the casual phrase allows any order and length.", "why_wrong": "That phrase is the informal, any-order way to revisit material. Here the job is systematic: the whole day handed back <em>in order<\/em>."}, {"sentence": "When the reporter looked lost, the economist paused to ____ her main claim in plainer words -- the same single point, said once more so it finally landed.", "options": ["recapitulate", "restate"], "key": "restate", "pair": "restate", "why_right": "The tell is <em>the same single point<\/em> - one claim said again in plainer words to make it land, piecemeal and clearer, with no walk back through all the main points.", "why_wrong": "That word walks back through all the main points, in order. Here there is only <em>the same single point<\/em>, said once more."}, {"sentence": "The editor asked the author to ____ the book's thesis in the opening paragraph -- one idea, recast in cleaner words, with the chapter's structure left untouched.", "options": ["recapitulate", "restate"], "key": "restate", "pair": "restate", "why_right": "The tell is <em>one idea, recast in cleaner words<\/em> - a single point said again for clarity, no order or coverage promised, and everything around it left exactly as it was.", "why_wrong": "That word promises an ordered return through all the main points. The editor wants <em>one idea<\/em> recast -- everything else stays as it was."}, {"sentence": "Can we ____ the itinerary once more in the car, jumping around to whatever bits worry us, before we walk in and meet the clients?", "options": ["recapitulate", "go over"], "key": "go over", "pair": "go over", "why_right": "The tell is <em>jumping around to whatever bits worry us<\/em> - an informal revisit in any order, at whatever length the drive allows, not an ordered point-by-point return through everything.", "why_wrong": "That word is formal and strictly ordered -- point by point, nothing skipped. This is a car-ride run-through, <em>jumping around<\/em> at will."}, {"sentence": "With the bell about to ring, the teacher could only ____ the treaty's aftermath -- one passing sentence naming it -- and promised the full story tomorrow.", "options": ["recapitulate", "touch on"], "key": "touch on", "pair": "touch on", "why_right": "The tell is <em>one passing sentence naming it<\/em> - a topic named in a phrase with nothing of substance stated, the slightest pass rather than any ordered return through main points.", "why_wrong": "That word walks back through all the main points in order. One sentence squeezed in <em>with the bell about to ring<\/em> covers nothing."}, {"sentence": "At the end of the knife-skills class, the instructor ____ every technique demonstrated, in the order taught, giving each a one-sentence reminder of when to use it.", "options": ["recapitulate", "touch on"], "key": "recapitulate", "pair": "touch on", "why_right": "The tell is <em>in the order taught, giving each a one-sentence reminder<\/em> - an ordered return through every point with real substance stated, far beyond naming a topic and moving along.", "why_wrong": "That phrase means naming a topic in passing and moving on, stating nothing of substance. Here every technique gets its own one-sentence reminder, delivered in order - a full return, not a mention."}, {"sentence": "Club bylaws require the secretary to ____ every motion debated that evening, in the order raised, before the minutes close and members cast their votes.", "options": ["recapitulate", "go over"], "key": "recapitulate", "pair": "go over", "why_right": "The tell is <em>every motion debated that evening, in the order raised<\/em> - complete ordered coverage fixed by rule, the formal point-by-point promise this word makes and a casual revisit never does.", "why_wrong": "That phrase is the casual way to revisit material - informally, in any order, at whatever length the moment allows. Nothing here is casual: the bylaws fix both the order and the coverage."}], "display_order": [1, 3, 6, 2, 7, 0, 5, 4], "dimension_order": ["restate", "go over", "touch on"], "dimension_feedback": {"restate": "Restate means to say a point again, usually in fresh words, to make it clearer or firmer — one point at a time, with no promise of order or coverage. Recapitulate is systematic where restate is piecemeal: it walks back through all the main points, in order, so the whole holds together.", "go over": "Go over is the casual phrase for revisiting material — informally, in any order, at whatever length the moment allows. Recapitulate is its formal cousin, at home in lectures, briefings, and closing arguments, and it promises an ordered, point-by-point return through everything that matters.", "touch on": "Touch on is a much slighter pass than recapitulate — a speaker names a topic in a phrase and moves along, stating nothing of substance about it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show someone working back through ALL the main points, in order -- not just mentioning a topic again. Try working in a word like <i>point by point<\/i>, <i>in order<\/i>, <i>each<\/i> or <i>summary<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="24bd6e91977d">
+<meta name="build" content="6c8263d47a59">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>antithesis &#8212; SAT Vocabulary, Course 2 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "antithesis", "gradeUrl": "/api/grade", "taskId": "antithesis", "minWords": 12, "items": {"s1": {"q": "Which sentence uses antithesis correctly?", "opts": {"A": "As the antithesis of patience, the birdwatcher sat motionless for nine full hours to photograph a single heron.", "B": "Reviewers called the sequel the antithesis of the original: where the first film whispered and lingered, this one shouts, sprints, and explains everything twice.", "C": "Her essay's antithesis, printed in bold above the opening paragraph, announced the claim she would spend five pages defending.", "D": "The senior senator warmly praised her longtime antithesis across the aisle, noting that the two of them had voted identically on every single budget for a decade."}, "key": "B", "fb": {"correct": "Correct! The antithesis of something is its absolute opposite, contradicting it point for point — and the review lists the points: whispering against shouting, lingering against sprinting, restraint against over-explanation.", "A": "Not quite! The antithesis of something is its absolute opposite, so it's not the correct choice here because sitting motionless for nine hours is patience itself — the sentence uses the word as if it meant the perfect example rather than the perfect opposite.", "C": "Not quite! The antithesis of something is its absolute opposite, so it's not the correct choice here because a claim announced and then defended for five pages is the essay's thesis — the word this sentence wanted has no 'anti' in it.", "D": "Not quite! The antithesis of something is its absolute opposite, so it's not the correct choice here because two lawmakers who voted identically for a decade agree — an antithesis across the aisle would oppose her vote for vote, not match it."}}, "s3a": {"q": "As it is used in this passage, \"antithesis\" most nearly means", "opts": {"A": "a rival competing for the same title", "B": "a person who contradicts another point for point", "C": "a partner whose strengths complete one's own", "D": "someone noticeably different in a single respect"}, "key": "B", "fb": {"correct": "Right. The columnist reaches past 'rival' and 'foil' precisely because the opposition runs through everything — play, preparation, and life off the board.", "A": "The passage explicitly says the pairing was <em>not merely<\/em> about the title — rivalry is the word the columnist passes over.", "C": "Nothing in the passage joins the two as partners; each is built to refute the other, not to complete them.", "D": "One respect would undersell it: speed, preparation, and public life all run opposite — the pattern holds everywhere."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "contrast", "B": "antithesis", "C": "polar opposite", "D": "converse"}, "key": "B", "fb": {"correct": "Right. The gardens oppose each other in essence — <em>not along a single axis but in everything, point for point<\/em> — and antithesis is the word that claims exactly that total, deliberate opposition.", "C": "A polar opposite marks the two ends of a single axis — hot against cold. This passage insists the plots disagree <em>not along a single axis<\/em>, so a one-axis word is too narrow for what the gardeners built.", "D": "The converse is one particular statement flipped and read back. Nothing here reverses a proposition: the passage sets two whole places against each other — <em>One is symmetrical, the other patternless<\/em> — dimension after dimension.", "A": "A contrast needs only a noticeable difference, and these gardens go far beyond noticing. They disagree <em>point for point<\/em>, so the mild word undersells what the passage describes."}}}, "grid": {"words": ["antithesis", "polar opposite", "converse", "contrast"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Critics call the sequel the ____ of the original film: where one was slow, silent, and starless, the other is loud, frantic, and stuffed with celebrities — the two differ point for point.", "ks": ["antithesis"], "fb": {"polar opposite": "That everyday phrase puts two things at the ends of one axis — hot and cold. These films collide on three fronts at once, point for point, and the critics' register wants the formal term.", "converse": "That names the logical reversal of one particular statement — flip its terms and read it back. You cannot flip a film.", "contrast": "That only requires two things to differ noticeably. Point-for-point collision on pace, sound, and casting claims far more."}}, {"s": "Logic students learn that flipping 'all poets are dreamers' yields its ____ — 'all dreamers are poets' — and that the reversed statement needs its own proof.", "ks": ["converse"], "fb": {"antithesis": "That word declares total opposition — a whole thing contradicted point for point. The flipped sentence is not opposed to the original at all; both can be true together.", "polar opposite": "That phrase belongs to axes — hot against cold, north against south. Exchanging a statement's two terms puts nothing at any far end.", "contrast": "That word needs a noticeable difference between two things. Here the second statement is just the first read backward — the relation is mechanical, not a matter of difference."}}, {"s": "Philosophers treat the ascetic code as the ____ of the courtier's: on food, dress, speech, and sleep the two collide point for point, sharing nothing but the questions.", "ks": ["antithesis"], "fb": {"polar opposite": "That everyday phrase pins two things to the ends of a single axis. These codes collide on four fronts at once — essence against essence, in a scholar's vocabulary.", "converse": "That word reverses one particular statement — flip the terms, read it back. A whole code of conduct has no terms to flip.", "contrast": "That word asks only that two things differ noticeably. Codes that share nothing but the questions are in total collision."}}, {"s": "The economist reminded the panel that 'cheap credit fuels building' does not establish its ____, and that 'building fuels cheap credit' must be tested on its own.", "ks": ["converse"], "fb": {"antithesis": "That word names a total, point-for-point contradiction. The flipped claim does not contradict the original — both could hold at once, which is why each needs its own test.", "polar opposite": "That phrase places two things at the ends of one axis. Swapping subject and object in a sentence creates a reversal, not an extreme.", "contrast": "That word marks a noticeable difference between two things. These two claims differ only in direction — the terms are identical, merely exchanged."}}, {"s": "As sleepers the roommates could not be further apart — lark against owl, dawn runs against midnight snacks — each the other's ____ on that one axis, and easy company on every other question.", "ks": ["polar opposite"], "fb": {"antithesis": "That formal word declares opposition in essence, point for point. These two clash on exactly one axis and agree on everything else.", "converse": "That is a logical term for one statement read with its terms exchanged. Two roommates' sleep schedules are not a proposition.", "contrast": "That word needs only a noticeable difference. Lark against owl at the two extremes of one scale is the stronger, everyday pairing."}}, {"s": "Reviewers noted a pleasant ____ between the album's brisk first half and its more wistful finale — noticeably different moods, nothing more sweeping than that.", "ks": ["contrast"], "fb": {"antithesis": "That word declares total, point-for-point opposition. The sentence itself says the difference is noticeable and <em>nothing more sweeping than that<\/em>.", "polar opposite": "That phrase pins two things to the extreme ends of one axis. Brisk and wistful are different moods, not opposite poles of a single dial.", "converse": "That is the logical reversal of one particular statement. Album halves have no terms to exchange."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to claim total opposition — one thing contradicting another on every front, not just one difference. Stack the reversals: try working in a phrase like <i>point for point<\/i>, <i>in every respect<\/i>, <i>nothing shared<\/i> or <i>exact<\/i>."}};
+  var CFG = {"word": "antithesis", "gradeUrl": "/api/grade", "taskId": "antithesis", "minWords": 12, "items": {"s1": {"q": "Which sentence uses antithesis correctly?", "opts": {"A": "As the antithesis of patience, the birdwatcher sat motionless for nine full hours to photograph a single heron.", "B": "Reviewers called the sequel the antithesis of the original: where the first film whispered and lingered, this one shouts, sprints, and explains everything twice.", "C": "Her essay's antithesis, printed in bold above the opening paragraph, announced the claim she would spend five pages defending.", "D": "The senior senator warmly praised her longtime antithesis across the aisle, noting that the two of them had voted identically on every single budget for a decade."}, "key": "B", "fb": {"correct": "Correct! The antithesis of something is its absolute opposite, contradicting it point for point — and the review lists the points: whispering against shouting, lingering against sprinting, restraint against over-explanation.", "A": "Not quite! The antithesis of something is its absolute opposite, so it's not the correct choice here because sitting motionless for nine hours is patience itself — the sentence uses the word as if it meant the perfect example rather than the perfect opposite.", "C": "Not quite! The antithesis of something is its absolute opposite, so it's not the correct choice here because a claim announced and then defended for five pages is the essay's thesis — the word this sentence wanted has no 'anti' in it.", "D": "Not quite! The antithesis of something is its absolute opposite, so it's not the correct choice here because two lawmakers who voted identically for a decade agree — an antithesis across the aisle would oppose her vote for vote, not match it."}}, "s3a": {"q": "As it is used in this passage, \"antithesis\" most nearly means", "opts": {"A": "a rival competing for the same title", "B": "a person who contradicts another point for point", "C": "a partner whose strengths complete one's own", "D": "someone noticeably different in a single respect"}, "key": "B", "fb": {"correct": "Right. The columnist reaches past 'rival' and 'foil' precisely because the opposition runs through everything — play, preparation, and life off the board.", "A": "The passage explicitly says the pairing was <em>not merely<\/em> about the title — rivalry is the word the columnist passes over.", "C": "Nothing in the passage joins the two as partners; each is built to refute the other, not to complete them.", "D": "One respect would undersell it: speed, preparation, and public life all run opposite — the pattern holds everywhere."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "contrast", "B": "antithesis", "C": "polar opposite", "D": "converse"}, "key": "B", "fb": {"correct": "Right. The gardens oppose each other in essence — <em>not along a single axis but in everything, point for point<\/em> — and antithesis is the word that claims exactly that total, deliberate opposition.", "C": "A polar opposite marks the two ends of a single axis — hot against cold. This passage insists the plots disagree <em>not along a single axis<\/em>, so a one-axis word is too narrow for what the gardeners built.", "D": "The converse is one particular statement flipped and read back. Nothing here reverses a proposition: the passage sets two whole places against each other — <em>One is symmetrical, the other patternless<\/em> — dimension after dimension.", "A": "A contrast needs only a noticeable difference, and these gardens go far beyond noticing. They disagree <em>point for point<\/em>, so the mild word undersells what the passage describes."}}}, "pairwise": {"rows": [{"sentence": "As sleepers the roommates could not be further apart — lark against owl, dawn runs against midnight snacks — each the other's ____ on that one axis, and easy company on every other question.", "options": ["antithesis", "polar opposite"], "key": "polar opposite", "pair": "polar opposite", "why_right": "The tell is <em>on that one axis<\/em> - the roommates sit at the far ends of a single scale and agree everywhere else, which is the everyday phrase's exact home ground.", "why_wrong": "That formal word declares opposition in essence, point for point. These two clash on exactly one axis and agree on everything else."}, {"sentence": "Critics call the sequel the ____ of the original film: where one was slow, silent, and starless, the other is loud, frantic, and stuffed with celebrities — the two differ point for point.", "options": ["antithesis", "polar opposite"], "key": "antithesis", "pair": "polar opposite", "why_right": "The tell is <em>the two differ point for point<\/em> - pace, sound, and casting are reversed together, opposition in essence across every front, more than two ends of any single axis.", "why_wrong": "That everyday phrase puts two things at the ends of one axis — hot and cold. These films collide on three fronts at once, point for point, and the critics' register wants the formal term."}, {"sentence": "Media historians cast the evening paper as the ____ of its morning rival: anonymous where the other ran bylines, sober where it screamed, skeptical where it swooned -- colliding point for point.", "options": ["antithesis", "polar opposite"], "key": "antithesis", "pair": "polar opposite", "why_right": "The tell is <em>anonymous where the other ran bylines<\/em> - front after front reversed at once is opposition in essence, not two things sitting at the far ends of one everyday axis.", "why_wrong": "That phrase is the everyday name for two ends of a single axis. Bylines, tone, and sourcing reversed together is opposition in essence - point for point, not one dial."}, {"sentence": "Logic students learn that flipping 'all poets are dreamers' yields its ____ — 'all dreamers are poets' — and that the reversed statement needs its own proof.", "options": ["antithesis", "converse"], "key": "converse", "pair": "converse", "why_right": "The tell is <em>the reversed statement needs its own proof<\/em> - one particular claim has had its terms exchanged and read back, the logical reversal this word names, with nothing opposed at all.", "why_wrong": "That word declares total opposition — a whole thing contradicted point for point. The flipped sentence is not opposed to the original at all; both can be true together."}, {"sentence": "Philosophers treat the ascetic code as the ____ of the courtier's: on food, dress, speech, and sleep the two collide point for point, sharing nothing but the questions.", "options": ["antithesis", "converse"], "key": "antithesis", "pair": "converse", "why_right": "The tell is <em>on food, dress, speech, and sleep<\/em> - a whole way of living is contradicted point for point, not one proposition whose terms could be flipped and read back.", "why_wrong": "That word reverses one particular statement — flip the terms, read it back. A whole code of conduct has no terms to flip."}, {"sentence": "The reformers ran the new orphanage as the ____ of the old workhouse: unlocked doors against barred gates, names against numbers, play against drill -- the old regime contradicted point for point.", "options": ["antithesis", "converse"], "key": "antithesis", "pair": "converse", "why_right": "The tell is <em>names against numbers<\/em> - a whole institution's regime contradicted point for point; a way of running things is not a statement whose terms could be flipped.", "why_wrong": "That word names the logical reversal of one particular statement - flip the terms and read it back. An orphanage's whole regime has no terms to exchange."}, {"sentence": "Reviewers noted a pleasant ____ between the album's brisk first half and its more wistful finale — noticeably different moods, nothing more sweeping than that.", "options": ["antithesis", "contrast"], "key": "contrast", "pair": "contrast", "why_right": "The tell is <em>nothing more sweeping than that<\/em> - the halves merely differ noticeably in mood, and the sentence itself disclaims any point-for-point collision in essence.", "why_wrong": "That word declares total, point-for-point opposition. The sentence itself says the difference is noticeable and <em>nothing more sweeping than that<\/em>."}, {"sentence": "Visitors often remark on the ____ between the two brothers' shops -- one tidy, one cheerfully cluttered -- though both sell the same stock at the same fair prices.", "options": ["antithesis", "contrast"], "key": "contrast", "pair": "contrast", "why_right": "The tell is <em>both sell the same stock<\/em> - one noticeable difference in housekeeping against everything shared is exactly this word's claim: two things that merely differ noticeably.", "why_wrong": "That word declares total opposition - contradiction point for point, nothing shared but the axis. Brothers who differ in tidiness while selling identical stock share nearly everything."}], "display_order": [1, 4, 0, 6, 3, 2, 5, 7], "dimension_order": ["polar opposite", "converse", "contrast"], "dimension_feedback": {"polar opposite": "Polar opposite is the everyday phrase for two things at opposite ends of one axis — hot and cold, north and south. Antithesis is its formal cousin and claims more: opposition in essence, point for point, the kind a writer builds an argument around.", "converse": "The converse is a logical reversal of one particular statement or relation — flip the terms and read it back. Antithesis opposes something whole — a person, a style, an idea — not just a single proposition turned around.", "contrast": "A contrast is far weaker than an antithesis: two things merely need to differ noticeably to contrast, while an antithesis contradicts the other thing point for point."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to claim total opposition — one thing contradicting another on every front, not just one difference. Stack the reversals: try working in a phrase like <i>point for point<\/i>, <i>in every respect<\/i>, <i>nothing shared<\/i> or <i>exact<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

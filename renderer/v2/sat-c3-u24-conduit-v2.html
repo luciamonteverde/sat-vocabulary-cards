@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6f8693dc742d">
+<meta name="build" content="0e44d61fe94b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>conduit &#8212; SAT Vocabulary, Course 3 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "conduit", "gradeUrl": "/api/grade", "taskId": "conduit", "minWords": 12, "items": {"s1": {"q": "Which sentence uses conduit correctly?", "opts": {"A": "The warehouse was the shipment's final conduit, the place where the crates were unloaded, shelved, catalogued, and never moved so much as an inch again.", "B": "The columnist was the conduit of the scandal, inventing the whole story herself at her desk before ever breathing a word of it to another living soul.", "C": "Engineers praised the dam as a perfect conduit, sealing the canyon so completely that not one drop escaped downstream all year.", "D": "Prosecutors alleged the charity was a conduit for the cartel's cash, taking donations in at one end and wiring them, barely disguised, out the other."}, "key": "D", "fb": {"correct": "Correct! A conduit is a channel things pass through, and this charity is the figurative textbook case: donations flow in one end and wire out the other, the organization merely the pipe between.", "A": "Not quite! Nothing passes through this warehouse — the crates arrive, get shelved, and never move again. That makes it a terminus, and a conduit is defined by the through: things must leave the other end.", "B": "Not quite! A conduit passes along what starts somewhere else. This columnist invented the story herself, which makes her its source — and a source is the one thing a pure conduit never is.", "C": "Not quite! A dam that lets nothing through is a barrier, the conduit's opposite. A conduit exists to carry flow, and 'not one drop escaped' means the flow is exactly what this structure stops."}}, "s3a": {"q": "What does calling Amaya a conduit say about her role?", "opts": {"A": "She was the family's official representative, empowered to negotiate on their behalf with landlords and schools.", "B": "She decided which messages were safe for her parents to hear and which should be softened first.", "C": "Messages passed through her unchanged, with nothing added or removed.", "D": "She was too young for the work she was given."}, "key": "C", "fb": {"correct": "Right — 'passage, not judgment': whatever came in went out the same, even the harshness.", "A": "She negotiated nothing — her parents insisted the messages pass through 'with nothing added and nothing left out.'", "B": "Softening was exactly what she was not allowed to do: 'the harshness was delivered too.'", "D": "Her age is part of the story, but the word describes what she did: carry things through unchanged."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "intermediary", "B": "channel", "C": "conduit", "D": "checkpoint"}, "key": "B", "fb": {"correct": "Right. What the readings follow is a route through a system — several steps, no single carrier — and channel is the word for any route along which something flows: the passage insists only <em>that a route exists<\/em>.", "C": "A conduit is the concrete carrier itself — one pipe, one person — with cargo in at one end and out at the other. Here <em>No single messenger carries the numbers<\/em>: the journey runs through <em>a mailed postcard, a regional clearinghouse, a nightly transfer to the records office<\/em>, and no one thing does the carrying.", "A": "An intermediary is a person who stands between parties and acts — filtering, advising, negotiating. In this passage <em>no one along the way weighs their merit<\/em>; the figures <em>pass from step to step exactly as recorded<\/em>.", "D": "A checkpoint stops what arrives, inspects it, and sometimes turns it back. Here the flow is never interrupted: <em>nothing is ever held at any stage for inspection<\/em>."}}}, "grid": {"words": ["conduit", "channel", "intermediary", "checkpoint"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Neither family would speak to the other, so the wedding planner became a pure ____ between them: every message crossed her desk word for word, nothing softened, nothing added.", "ks": ["conduit"], "fb": {"intermediary": "That word is a go-between who acts — negotiating, filtering, advising. This planner does none of it: 'word for word, nothing softened, nothing added.'", "checkpoint": "That word stops things to inspect them, and sometimes turns them back. Every message here goes straight through, untouched.", "channel": "That word names any route at all, and floats toward the abstract. The sentence is pointing at the carrier herself — and at what she pointedly does not do to what she carries."}}, {"s": "The engineers threaded a single buried ____ beneath the plaza to carry every fiber line into the terminal — in at one end, out at the other, untouched.", "ks": ["conduit"], "fb": {"intermediary": "That word is a person — someone who negotiates between parties. Nothing buried under a plaza negotiates anything.", "checkpoint": "That word means inspection and the chance of being turned back. These lines run straight through: in one end, out the other.", "channel": "That word can name any route, and drifts easily into the abstract. The sentence wants the physical carrier itself — the threaded, buried thing doing the carrying."}}, {"s": "Rather than face the gallery directly, the sculptor hired a seasoned ____ who tempered her demands, translated the curator's jargon, and talked both sides toward a number.", "ks": ["intermediary"], "fb": {"conduit": "That word insists things pass through untouched — and often denies the carrier added anything. This person tempers, translates, and talks both sides toward a number.", "channel": "A route can carry a message; it cannot temper a demand or talk anyone toward a number. This row needs the person who acts.", "checkpoint": "That word halts things for inspection. She halts nothing — her whole job is keeping the deal moving."}}, {"s": "Sanctions kept the two ministries from meeting, so a retired judge served as ____, carrying proposals across town and returning with counteroffers she had already pressure-tested.", "ks": ["intermediary"], "fb": {"conduit": "That word claims pure passage — what goes in comes out unchanged. Her cargo comes back 'already pressure-tested,' which is to say worked on.", "channel": "That word names the path a thing travels, not a person applying judgment to proposals at each crossing.", "checkpoint": "Nothing here is halted or inspected against its will; she exists to keep the exchange moving."}}, {"s": "Every request must travel by the proper ____, the clerk recited — this form, that office, then the registry — a route through the system rather than any one carrier or gate.", "ks": ["channel"], "fb": {"conduit": "That word names one concrete carrier doing the carrying — and the clerk has just denied there is one: it is a route, not a carrier.", "intermediary": "That word is a person who negotiates in the middle. This is paperwork geography — forms and offices, nobody brokering anything.", "checkpoint": "Nothing along this route stops a request to inspect it — the clerk rules out any 'gate.' Things keep moving; they just have a prescribed path."}}, {"s": "Every crate of relics leaving the dig must pass the customs ____ at the port, where seals are examined and roughly a tenth of the shipments are turned back.", "ks": ["checkpoint"], "fb": {"conduit": "That word carries cargo straight through without interference. Here every crate is halted, examined, and one in ten never gets through at all.", "channel": "That word is the path things travel. This is the opposite of travel — the spot where everything must stop and be looked at.", "intermediary": "That word is a person negotiating between two sides. Nothing here negotiates; seals are examined and shipments pass or go back."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something flowing through a carrier — pipe or person — and coming out the far side unchanged. Try <i>through<\/i>, <i>passed along<\/i>, <i>untouched<\/i> or <i>straight<\/i>."}};
+  var CFG = {"word": "conduit", "gradeUrl": "/api/grade", "taskId": "conduit", "minWords": 12, "items": {"s1": {"q": "Which sentence uses conduit correctly?", "opts": {"A": "The warehouse was the shipment's final conduit, the place where the crates were unloaded, shelved, catalogued, and never moved so much as an inch again.", "B": "The columnist was the conduit of the scandal, inventing the whole story herself at her desk before ever breathing a word of it to another living soul.", "C": "Engineers praised the dam as a perfect conduit, sealing the canyon so completely that not one drop escaped downstream all year.", "D": "Prosecutors alleged the charity was a conduit for the cartel's cash, taking donations in at one end and wiring them, barely disguised, out the other."}, "key": "D", "fb": {"correct": "Correct! A conduit is a channel things pass through, and this charity is the figurative textbook case: donations flow in one end and wire out the other, the organization merely the pipe between.", "A": "Not quite! Nothing passes through this warehouse — the crates arrive, get shelved, and never move again. That makes it a terminus, and a conduit is defined by the through: things must leave the other end.", "B": "Not quite! A conduit passes along what starts somewhere else. This columnist invented the story herself, which makes her its source — and a source is the one thing a pure conduit never is.", "C": "Not quite! A dam that lets nothing through is a barrier, the conduit's opposite. A conduit exists to carry flow, and 'not one drop escaped' means the flow is exactly what this structure stops."}}, "s3a": {"q": "What does calling Amaya a conduit say about her role?", "opts": {"A": "She was the family's official representative, empowered to negotiate on their behalf with landlords and schools.", "B": "She decided which messages were safe for her parents to hear and which should be softened first.", "C": "Messages passed through her unchanged, with nothing added or removed.", "D": "She was too young for the work she was given."}, "key": "C", "fb": {"correct": "Right — 'passage, not judgment': whatever came in went out the same, even the harshness.", "A": "She negotiated nothing — her parents insisted the messages pass through 'with nothing added and nothing left out.'", "B": "Softening was exactly what she was not allowed to do: 'the harshness was delivered too.'", "D": "Her age is part of the story, but the word describes what she did: carry things through unchanged."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "intermediary", "B": "channel", "C": "conduit", "D": "checkpoint"}, "key": "B", "fb": {"correct": "Right. What the readings follow is a route through a system — several steps, no single carrier — and channel is the word for any route along which something flows: the passage insists only <em>that a route exists<\/em>.", "C": "A conduit is the concrete carrier itself — one pipe, one person — with cargo in at one end and out at the other. Here <em>No single messenger carries the numbers<\/em>: the journey runs through <em>a mailed postcard, a regional clearinghouse, a nightly transfer to the records office<\/em>, and no one thing does the carrying.", "A": "An intermediary is a person who stands between parties and acts — filtering, advising, negotiating. In this passage <em>no one along the way weighs their merit<\/em>; the figures <em>pass from step to step exactly as recorded<\/em>.", "D": "A checkpoint stops what arrives, inspects it, and sometimes turns it back. Here the flow is never interrupted: <em>nothing is ever held at any stage for inspection<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Every request must travel by the proper ____, the clerk recited — this form, that office, then the registry — a route through the system rather than any one carrier or gate.", "options": ["conduit", "channel"], "key": "channel", "pair": "channel", "why_right": "The tell is <em>rather than any one carrier or gate<\/em> - forms and offices make an abstract path with nothing single doing the carrying, which is the any-route word, not the carrier itself.", "why_wrong": "That word names one concrete carrier doing the carrying — and the clerk has just denied there is one: it is a route, not a carrier."}, {"sentence": "For a century the village's only ____ to the crown was the harvest fair: grievances were spoken from the platform and answered at the next one, and nothing traveled between them in anyone's hands.", "options": ["conduit", "channel"], "key": "channel", "pair": "channel", "why_right": "The tell is <em>nothing traveled between them in anyone's hands<\/em> - a route with no pipe and no person carrying, the any-route word in its abstract use; the other word names the carrier itself.", "why_wrong": "That word names the concrete carrier itself, a pipe or a person passing things through untouched. A yearly fair where grievances are spoken and answered has no carrier; it is an abstract route."}, {"sentence": "Rather than face the gallery directly, the sculptor hired a seasoned ____ who tempered her demands, translated the curator's jargon, and talked both sides toward a number.", "options": ["conduit", "intermediary"], "key": "intermediary", "pair": "intermediary", "why_right": "The tell is <em>talked both sides toward a number<\/em> - she tempers demands, translates jargon and negotiates, acting on everything she carries, where the pure-passage word insists nothing was touched or added.", "why_wrong": "That word insists things pass through untouched — and often denies the carrier added anything. This person tempers, translates, and talks both sides toward a number."}, {"sentence": "The agent did all the haggling; the cousin who carried the signed pages across the border each week served as ____ and nothing else, reading none of them and altering none.", "options": ["conduit", "intermediary"], "key": "conduit", "pair": "intermediary", "why_right": "The tell is <em>reading none of them and altering none<\/em> - the cousin transmits the pages untouched while the agent does the negotiating, which is the pure-passage word, not the go-between who acts.", "why_wrong": "That word is a go-between who acts: negotiating, filtering, advising. Here the agent does all of that, and the cousin who carries the pages reads none and alters none, moving them through untouched."}, {"sentence": "During the call the intern served as ____ for the board's questions and only that, typing each into the chat as spoken and reading the CEO's answers back without a word of her own.", "options": ["conduit", "intermediary"], "key": "conduit", "pair": "intermediary", "why_right": "The tell is <em>without a word of her own<\/em> - questions go in as spoken and answers come back untouched, so she adds nothing, the pure-passage word rather than the advising go-between.", "why_wrong": "That word means a person between parties who acts, negotiating, filtering or advising. This intern types the questions as spoken and reads the answers without a word of her own; nothing is acted on."}, {"sentence": "Every basket of gifts for the monks passes through one ____ at the gatehouse, where a lay brother unwraps each, lists it, and sends a few back with their givers.", "options": ["conduit", "checkpoint"], "key": "checkpoint", "pair": "checkpoint", "why_right": "The tell is <em>sends a few back with their givers<\/em> - every basket is stopped, unwrapped and listed and some never get through, the grudging inspection point, not the passage that carries cargo untouched.", "why_wrong": "That word carries its cargo straight through without interference. At this gatehouse every basket is unwrapped and listed and some are sent back with their givers, which is inspection, not passage."}, {"sentence": "The old brass tube between the teller's window and the vault is a plain ____: a canister drops in upstairs and lands below eight seconds later, its wax seal unbroken.", "options": ["conduit", "checkpoint"], "key": "conduit", "pair": "checkpoint", "why_right": "The tell is <em>its wax seal unbroken<\/em> - the canister passes from window to vault in eight seconds with nothing stopped or opened on the way, the carry-it-through word, not the inspection point.", "why_wrong": "That word is the place where passage halts: everything stopped, inspected, and sometimes turned back. A canister landing eight seconds later with its seal unbroken was stopped by nothing and inspected by no one."}, {"sentence": "The mountain tunnel became a ____ for the relief convoys: no truck was waved down, no crate was opened, and loads entering at dawn rolled out the far end by noon just as packed.", "options": ["conduit", "checkpoint"], "key": "conduit", "pair": "checkpoint", "why_right": "The tell is <em>no crate was opened<\/em> - the convoys pass in at dawn and out at noon just as packed, so the tunnel carries its cargo through without interference rather than halting it.", "why_wrong": "That word stops what passes through it: trucks waved down, crates opened, some turned back. Here no truck was stopped and no crate opened; the loads rolled out just as they were packed."}], "display_order": [4, 5, 0, 7, 2, 6, 3, 1], "dimension_order": ["channel", "intermediary", "checkpoint"], "dimension_feedback": {"channel": "A channel is any route along which something flows, and the word floats easily into the abstract — 'channels of communication.' A conduit is the concrete carrier itself, pipe or person, and it stresses pure passage: what enters, leaves, unchanged.", "intermediary": "An intermediary is a person standing between parties who usually acts — negotiating, filtering, advising. A conduit just transmits: calling someone a conduit insists that things move through them untouched, and often denies they added anything at all.", "checkpoint": "A checkpoint passes things through more grudgingly than a conduit: everything is stopped, inspected, and sometimes turned back, while a conduit carries its cargo straight through without interference."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something flowing through a carrier — pipe or person — and coming out the far side unchanged. Try <i>through<\/i>, <i>passed along<\/i>, <i>untouched<\/i> or <i>straight<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

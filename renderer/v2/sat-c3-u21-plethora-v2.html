@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="a1ddfc90c81a">
+<meta name="build" content="38fde909c429">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>plethora &#8212; SAT Vocabulary, Course 3 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "plethora", "gradeUrl": "/api/grade", "taskId": "plethora", "minWords": 12, "items": {"s1": {"q": "Which sentence uses plethora correctly?", "opts": {"A": "A plethora of lifeboats — exactly one for the liner's four hundred passengers — reassured absolutely no one on board.", "B": "The final exam's plethora of questions, both of them long essays, took the whole class the full three hours to finish.", "C": "The garage sale's plethora of extension cords — ninety at last count — outlasted every buyer, and we donated them by the barrel.", "D": "We admired the desert trail's famous plethora of shade at high noon in the middle of a cloudless August heat wave."}, "key": "C", "fb": {"correct": "Correct! Ninety extension cords nobody will buy is abundance past the point of use — a plethora in the word's exact, slightly exasperated sense.", "A": "One lifeboat 'for the liner's four hundred passengers' is a dangerous shortage, the opposite of excess. A plethora means more of something than anyone needs — look for supply spilling past demand.", "B": "An exam whose questions number exactly two — 'both of them long essays' — offers a tiny handful. Plethora signals overabundance, so many that the amount itself becomes the story; look for overflow, not a short list.", "D": "On a 'cloudless August' noon the desert trail has no shade at all, so its 'famous plethora' mocks the word. Plethora demands genuine excess — look for far more than enough."}}, "s3a": {"q": "As used in the passage, a \"plethora\" of platforms most nearly means:", "opts": {"A": "a selection carefully curated down to the essentials", "B": "more platforms than anyone can actually use", "C": "a sudden shortage of programming worth watching", "D": "a steady rise in monthly subscription prices"}, "key": "B", "fb": {"correct": "Right -- eleven subscriptions, four of them forgotten, is more than any viewer uses; the word names that pile of too many.", "A": "Curation is the opposite of what the critics describe -- and it is what Marisol had to do herself at the end.", "C": "There is no shortage; each platform still has a show worth watching. The problem is how many platforms there are.", "D": "Fees are mentioned, but the critics' complaint is the number of platforms, not the direction of prices."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "deluge", "B": "plethora", "C": "plenty", "D": "oversupply"}, "key": "A", "fb": {"correct": "Right. A deluge is abundance arriving as a flood — the emphasis all on the rush of what keeps pouring in. That is the portal's effect exactly: requests <em>land the instant a physician clicks<\/em>, <em>arriving faster than any pharmacist can safely check them<\/em>.", "B": "A plethora is the standing pile — more already sitting there than anyone can use. The passage clears the shelves of blame: <em>Stock was never the trouble<\/em>, and <em>the storeroom holds months of inventory<\/em>. What broke the workflow was arrival, not accumulation.", "D": "Oversupply is a market condition — production outrunning what buyers want, goods left unsold. Here nothing is unwanted: <em>every order is genuinely needed<\/em>. The pharmacy's problem is pace, not demand.", "C": "Plenty means comfortably enough, with no strain in it. This is strain from start to finish: requests <em>arriving faster than any pharmacist can safely check them<\/em>, until the volume <em>had broken the old workflow<\/em>."}}}, "grid": {"words": ["plethora", "oversupply", "deluge", "plenty"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The office kitchen has accumulated a baffling ____ of mugs -- four shelves' worth for a staff of twelve, most of them never touched.", "ks": ["plethora"], "fb": {"oversupply": "That is the economist's word for markets where production outran buyers; an office mug shelf has no market in sight.", "deluge": "Nothing is pouring in -- these mugs <em>accumulated<\/em> long ago and now just sit, <em>most of them never touched<\/em>.", "plenty": "Comfortably enough stops well short of this: <em>four shelves' worth for a staff of twelve<\/em> is more than anyone asked for."}}, {"s": "New hires inherit a sprawling ____ of dashboards -- seven tools tracking the same three numbers -- all installed years before anyone can remember why.", "ks": ["plethora"], "fb": {"oversupply": "No supply-and-demand story here -- nobody produced dashboards for buyers who vanished. It is just a workplace pile of too many.", "deluge": "That word is a flood still arriving; these tools were <em>installed years before<\/em> and simply remain.", "plenty": "Enough would be one tool that works; <em>seven tools tracking the same three numbers<\/em> is more than anyone can use."}}, {"s": "When the station announced free festival passes, a sudden ____ of calls swamped the switchboard before the song had even ended.", "ks": ["deluge"], "fb": {"plethora": "That word names the standing pile once everything has landed; here the calls are still <em>swamping the switchboard<\/em> -- the rush of arrival is the point.", "oversupply": "No supply-and-demand ledger here; the scene is a flood of incoming calls, not warehouses filling.", "plenty": "Comfortably enough would not <em>swamp the switchboard before the song had even ended<\/em>."}}, {"s": "The day the recall notice aired, a relentless ____ of returned toasters began arriving at the depot, delivery vans queuing down the block.", "ks": ["deluge"], "fb": {"plethora": "That word is the pile of too many once everything has landed; here the toasters <em>began arriving<\/em> and the vans are still <em>queuing down the block<\/em>.", "oversupply": "That word means production outran what buyers wanted; these are recall returns pouring back, not unsold stock.", "plenty": "Comfortably enough does not queue delivery vans down the block."}}, {"s": "Analysts blame the idle cranes on a global ____ of container ships: yards kept building after freight rates fell, and unsold hulls now sit at anchor.", "ks": ["oversupply"], "fb": {"plethora": "That is the lively everyday word for a pile of too many; an analyst weighing <em>freight rates<\/em> and unsold stock reaches for the market term.", "deluge": "No flood is arriving -- the ships <em>sit at anchor<\/em>; the problem is supply against demand, not a rush.", "plenty": "Enough-and-comfortable is not the claim; building continued <em>after freight rates fell<\/em>, past what buyers wanted."}}, {"s": "Asked if the field kitchen had enough bread for the crews, the quartermaster said '____' -- every shelf filled, and nothing going stale.", "ks": ["plenty"], "fb": {"plethora": "A pile of more than anyone can use is exactly what the quartermaster denies: <em>nothing going stale<\/em>.", "oversupply": "That word needs supply outrunning demand; here supply and need match exactly.", "deluge": "Nothing is pouring in -- the bread is shelved and the count is settled."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a pile of MORE than anyone needs or uses -- already sitting there, not still arriving. Try working in words like <i>unused<\/i>, <i>leftover<\/i>, <i>drawer<\/i> or <i>only one<\/i>."}};
+  var CFG = {"word": "plethora", "gradeUrl": "/api/grade", "taskId": "plethora", "minWords": 12, "items": {"s1": {"q": "Which sentence uses plethora correctly?", "opts": {"A": "A plethora of lifeboats — exactly one for the liner's four hundred passengers — reassured absolutely no one on board.", "B": "The final exam's plethora of questions, both of them long essays, took the whole class the full three hours to finish.", "C": "The garage sale's plethora of extension cords — ninety at last count — outlasted every buyer, and we donated them by the barrel.", "D": "We admired the desert trail's famous plethora of shade at high noon in the middle of a cloudless August heat wave."}, "key": "C", "fb": {"correct": "Correct! Ninety extension cords nobody will buy is abundance past the point of use — a plethora in the word's exact, slightly exasperated sense.", "A": "One lifeboat 'for the liner's four hundred passengers' is a dangerous shortage, the opposite of excess. A plethora means more of something than anyone needs — look for supply spilling past demand.", "B": "An exam whose questions number exactly two — 'both of them long essays' — offers a tiny handful. Plethora signals overabundance, so many that the amount itself becomes the story; look for overflow, not a short list.", "D": "On a 'cloudless August' noon the desert trail has no shade at all, so its 'famous plethora' mocks the word. Plethora demands genuine excess — look for far more than enough."}}, "s3a": {"q": "As used in the passage, a \"plethora\" of platforms most nearly means:", "opts": {"A": "a selection carefully curated down to the essentials", "B": "more platforms than anyone can actually use", "C": "a sudden shortage of programming worth watching", "D": "a steady rise in monthly subscription prices"}, "key": "B", "fb": {"correct": "Right -- eleven subscriptions, four of them forgotten, is more than any viewer uses; the word names that pile of too many.", "A": "Curation is the opposite of what the critics describe -- and it is what Marisol had to do herself at the end.", "C": "There is no shortage; each platform still has a show worth watching. The problem is how many platforms there are.", "D": "Fees are mentioned, but the critics' complaint is the number of platforms, not the direction of prices."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "deluge", "B": "plethora", "C": "plenty", "D": "oversupply"}, "key": "A", "fb": {"correct": "Right. A deluge is abundance arriving as a flood — the emphasis all on the rush of what keeps pouring in. That is the portal's effect exactly: requests <em>land the instant a physician clicks<\/em>, <em>arriving faster than any pharmacist can safely check them<\/em>.", "B": "A plethora is the standing pile — more already sitting there than anyone can use. The passage clears the shelves of blame: <em>Stock was never the trouble<\/em>, and <em>the storeroom holds months of inventory<\/em>. What broke the workflow was arrival, not accumulation.", "D": "Oversupply is a market condition — production outrunning what buyers want, goods left unsold. Here nothing is unwanted: <em>every order is genuinely needed<\/em>. The pharmacy's problem is pace, not demand.", "C": "Plenty means comfortably enough, with no strain in it. This is strain from start to finish: requests <em>arriving faster than any pharmacist can safely check them<\/em>, until the volume <em>had broken the old workflow<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The office kitchen has accumulated a baffling ____ of mugs -- four shelves' worth for a staff of twelve, most of them never touched.", "options": ["plethora", "oversupply"], "key": "plethora", "pair": "oversupply", "why_right": "The tell is <em>four shelves' worth for a staff of twelve<\/em> - an office kitchen is no market, nobody stopped buying anything; this is the everyday word for a pile of too many.", "why_wrong": "That is the economist's word for markets where production outran buyers; an office mug shelf has no market in sight."}, {"sentence": "Analysts blame the idle cranes on a global ____ of container ships: yards kept building after freight rates fell, and unsold hulls now sit at anchor.", "options": ["plethora", "oversupply"], "key": "oversupply", "pair": "oversupply", "why_right": "The tell is <em>yards kept building after freight rates fell<\/em> - a market where supply has outrun demand, reported in an analyst's register, which takes the economist's word over the everyday one.", "why_wrong": "That is the lively everyday word for a pile of too many; an analyst weighing <em>freight rates<\/em> and unsold stock reaches for the market term."}, {"sentence": "The band fields two players yet owns a lopsided ____ of tubas, eleven in all, each donated by a family clearing an attic.", "options": ["plethora", "oversupply"], "key": "plethora", "pair": "oversupply", "why_right": "The tell is <em>each donated by a family clearing an attic<\/em> - no market, no buyers, nothing sold; this is the everyday word for a pile of too many, not the economist's.", "why_wrong": "That is the economist's word for a market where supply has outrun demand and buyers stopped buying; nobody bought or sold these tubas -- families simply handed them over."}, {"sentence": "When the station announced free festival passes, a sudden ____ of calls swamped the switchboard before the song had even ended.", "options": ["plethora", "deluge"], "key": "deluge", "pair": "deluge", "why_right": "The tell is <em>swamped the switchboard<\/em> - abundance still arriving as a flood, faster than anyone can respond to it; the other word names the standing pile left once everything has landed.", "why_wrong": "That word names the standing pile once everything has landed; here the calls are still <em>swamping the switchboard<\/em> -- the rush of arrival is the point."}, {"sentence": "The day the recall notice aired, a relentless ____ of returned toasters began arriving at the depot, delivery vans queuing down the block.", "options": ["plethora", "deluge"], "key": "deluge", "pair": "deluge", "why_right": "The tell is <em>began arriving<\/em> - the emphasis is all on the rush of arrival, vans still queuing; the other word is the pile that remains once everything has landed.", "why_wrong": "That word is the pile of too many once everything has landed; here the toasters <em>began arriving<\/em> and the vans are still <em>queuing down the block<\/em>."}, {"sentence": "The prop room holds a ____ of rubber swords from forty years of pirate musicals, and nobody has drawn one in a decade.", "options": ["plethora", "deluge"], "key": "plethora", "pair": "deluge", "why_right": "The tell is <em>nobody has drawn one in a decade<\/em> - nothing is arriving, the swords simply sit; this is the standing pile of more than anyone can use, not a flood pouring in.", "why_wrong": "That word is abundance arriving as a flood, the emphasis on the rush of arrival; these swords gathered over forty years and now sit untouched -- nothing is pouring in."}, {"sentence": "Asked if the field kitchen had enough bread for the crews, the quartermaster said '____' -- every shelf filled, and nothing going stale.", "options": ["plethora", "plenty"], "key": "plenty", "pair": "plenty", "why_right": "The tell is <em>nothing going stale<\/em> - every loaf is used, so supply is comfortably enough and no more; the other word needs a pile of more than anyone can use.", "why_wrong": "A pile of more than anyone can use is exactly what the quartermaster denies: <em>nothing going stale<\/em>."}, {"sentence": "By closing day the regatta still held a ____ of printed programs, three for every ticket sold, and volunteers were using the leftover boxes as footstools.", "options": ["plethora", "plenty"], "key": "plethora", "pair": "plenty", "why_right": "The tell is <em>three for every ticket sold<\/em> - that is already more than anyone asked for, boxes turned into footstools, well past the comfortably enough the other word stops at.", "why_wrong": "That word is comfortably enough and stops there; three programs for every ticket sold, with boxes left over to sit on, is already more than anyone asked for."}], "display_order": [4, 1, 6, 3, 0, 7, 5, 2], "dimension_order": ["oversupply", "deluge", "plenty"], "dimension_feedback": {"oversupply": "Oversupply is the economist's word for a market where supply has outrun demand — warehouses filling because buyers stopped buying. A plethora needs no market at all: it is the livelier, everyday word for a pile of too many, from passwords to remote controls.", "deluge": "A deluge is abundance arriving as a flood — applications, emails, complaints pouring in faster than anyone can respond, the emphasis all on the rush of arrival. A plethora is what remains once everything has landed: the standing pile of more than anyone can use.", "plenty": "Plenty stops short of plethora — plenty is comfortably enough, while a plethora is already more than anyone asked for."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a pile of MORE than anyone needs or uses -- already sitting there, not still arriving. Try working in words like <i>unused<\/i>, <i>leftover<\/i>, <i>drawer<\/i> or <i>only one<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

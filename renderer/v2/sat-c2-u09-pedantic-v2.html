@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="33a71783deb3">
+<meta name="build" content="b96c38a6886e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pedantic &#8212; SAT Vocabulary, Course 2 Unit 9</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pedantic", "gradeUrl": "/api/grade", "taskId": "pedantic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pedantic correctly?", "opts": {"A": "Her pedantic summary of the treaty ran a single breezy sentence and left out every date and every clause.", "B": "The pedantic tour bus driver skipped the palace entirely so that everyone could get to lunch twenty minutes early.", "C": "He was too pedantic to notice that the recipe called for grams rather than ounces until the cake collapsed.", "D": "The seminar's most pedantic voice spent ten minutes on the poet's dash while the poem went undiscussed."}, "key": "D", "fb": {"correct": "Correct. Ten minutes of dash-sorting while the poem waits — minor rules elevated over the poem itself, with expertise on parade: pedantic.", "A": "\"A single breezy sentence\" that drops every date and clause is the reverse of pedantry. A pedant buries you in fine print and technicalities; this summary skips them all.", "B": "Skipping the palace to reach lunch \"twenty minutes early\" is corner-cutting for convenience. A pedantic guide would do the opposite: recite every minor fact and rule at exhausting length.", "C": "This one contradicts itself — missing that \"the recipe called for grams\" is inattention to detail, and a pedantic cook is exactly the person who pounces on grams versus ounces."}}, "s3a": {"q": "In this passage, calling the guide's insistence \"pedantic\" means it was", "opts": {"A": "fixed on small correctness mainly so his own knowledge would be seen", "B": "precise in exactly the ways the group had asked him to be", "C": "based on botany he had largely invented", "D": "openly insulting to the hikers who made mistakes"}, "key": "A", "fb": {"correct": "Right. The labels were trifling, nobody had asked, and the guide 'made sure we felt' how much he knew — detail policed chiefly for display.", "B": "The passage says the opposite: the labels were pressed 'whether or not anyone had asked.'", "C": "The passage rules this out directly — 'Nobody doubted his knowledge.'", "D": "He corrects and lectures, but nothing in the passage shows insult; the group is worn down, not mocked."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pedantic", "B": "hairsplitting", "C": "nitpicking", "D": "careful"}, "key": "C", "fb": {"correct": "Right. Real but trivial faults, logged weekly as a settled habit of criticism — <em>finding fault was the habit<\/em> — with no learning on display anywhere. That is nitpicking exactly.", "A": "Pedantic fault-finding carries a motive: small rules policed so everyone sees how much the enforcer knows. These lists show off nothing — <em>no history, no manual cited, no hint that he knew the hobby better than anyone else<\/em>.", "B": "Hairsplitting draws distinctions too fine to matter — differences that live only in wording, like 'annual' against 'yearly'. These were not distinctions but small, checkable errors: the <em>faults were real<\/em>, from the mislabeled siding to the leaning mast.", "D": "A careful chairman would catch what matters and stop there. These lists never met that bar from either side: the faults were <em>never ones a visitor would notice<\/em>, and <em>finding fault was the habit<\/em> rather than the means to a better layout."}}}, "grid": {"words": ["pedantic", "nitpicking", "hairsplitting", "careful"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The docent's tour turned ____ within minutes: he halted at every plaque to recite catalogue numbers, plainly savoring how much he knew.", "ks": ["pedantic"], "fb": {"nitpicking": "That word is a habit of finding fault — a comma here, an error there. The docent criticizes nothing; he recites detail to be admired for it.", "hairsplitting": "That word draws distinctions too fine to matter. No two things are being pried apart here — catalogue numbers are simply being performed for an audience.", "careful": "Care serves the work or the audience and stops at what matters. Halting at every plaque to savor one's own knowledge serves only the man doing the halting."}}, {"s": "Her editor was relentlessly ____, faulting a stray comma on one page and a trivial rounding slip on the next, never pausing to show off what he knew.", "ks": ["nitpicking"], "fb": {"pedantic": "The sentence says he <em>never pauses to show off what he knew<\/em> — that word needs the parade of learning, details policed so the expert's knowledge gets seen.", "hairsplitting": "That word separates things too similar to matter — differences real only under a magnifying glass. A comma and a rounding slip are ordinary small errors, not fine distinctions.", "careful": "Care catches what matters and stops there. Faulting trivia on every page, relentlessly, is a habit of criticism that has left the work's real needs behind."}}, {"s": "What should have been a five-minute answer became a ____ seminar on the seventeen recognized exceptions, delivered mostly so we would know he had memorized them.", "ks": ["pedantic"], "fb": {"nitpicking": "That word faults small things — it is a habit of criticism. Nothing here is being criticized; detail is being performed for an audience.", "hairsplitting": "That word only says the distinctions are too fine to matter. The sentence turns on something more: the seminar exists <em>so we would know he had memorized<\/em> the exceptions.", "careful": "Care serves the person who asked and stops when the question is answered. A five-minute answer swollen into a seminar serves the speaker instead."}}, {"s": "The inspector's report was pure ____: forty small faults, down to a smudged label, no expertise on parade, while the rusted fire escape got barely a sentence.", "ks": ["nitpicking"], "fb": {"pedantic": "The sentence says there is <em>no expertise on parade<\/em>. That word needs that extra ingredient — detail policed chiefly so the writer's learning gets seen.", "hairsplitting": "That word draws distinctions too fine to matter. A smudged label is not a fine distinction; it is just one more small fault on a long list of blame.", "careful": "Care catches what matters and stops there. A report that buries the rusted fire escape under forty small faults has its priorities exactly backwards."}}, {"s": "The debate stalled on the ____ question of whether the fee was 'annual' or merely 'yearly' — a difference no client would ever feel.", "ks": ["hairsplitting"], "fb": {"pedantic": "That word needs a show-off motive — minor rules pressed so the presser's learning gets seen. Nobody here is parading knowledge; two nearly identical words are being pried apart.", "nitpicking": "That word faults small errors — a comma, a rounding slip. Nothing is wrong here; the argument is over a difference <em>no client would ever feel<\/em>.", "careful": "Care weighs what matters and stops. Stalling a whole debate on a difference no client would ever feel is the opposite of stopping at what matters."}}, {"s": "Her proofreading was ____ but humane: she caught the misdated invoice and the doubled paragraph, then let the harmless quirks of voice stand.", "ks": ["careful"], "fb": {"pedantic": "That word drifts past the work onto trifling rules, pressed to display the presser's learning. She does the opposite — she <em>lets the harmless quirks of voice stand<\/em>.", "nitpicking": "That word faults every small thing it can reach. She deliberately leaves the small stuff alone and fixes only what matters.", "hairsplitting": "That word draws distinctions too fine to matter. A misdated invoice and a doubled paragraph matter plainly — no magnifying glass required."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show the small rules being pressed to display the presser's knowledge — not just precision. Try working in a word like <i>recited<\/i>, <i>unasked<\/i>, <i>trivial<\/i> or <i>audience<\/i>."}};
+  var CFG = {"word": "pedantic", "gradeUrl": "/api/grade", "taskId": "pedantic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pedantic correctly?", "opts": {"A": "Her pedantic summary of the treaty ran a single breezy sentence and left out every date and every clause.", "B": "The pedantic tour bus driver skipped the palace entirely so that everyone could get to lunch twenty minutes early.", "C": "He was too pedantic to notice that the recipe called for grams rather than ounces until the cake collapsed.", "D": "The seminar's most pedantic voice spent ten minutes on the poet's dash while the poem went undiscussed."}, "key": "D", "fb": {"correct": "Correct. Ten minutes of dash-sorting while the poem waits — minor rules elevated over the poem itself, with expertise on parade: pedantic.", "A": "\"A single breezy sentence\" that drops every date and clause is the reverse of pedantry. A pedant buries you in fine print and technicalities; this summary skips them all.", "B": "Skipping the palace to reach lunch \"twenty minutes early\" is corner-cutting for convenience. A pedantic guide would do the opposite: recite every minor fact and rule at exhausting length.", "C": "This one contradicts itself — missing that \"the recipe called for grams\" is inattention to detail, and a pedantic cook is exactly the person who pounces on grams versus ounces."}}, "s3a": {"q": "In this passage, calling the guide's insistence \"pedantic\" means it was", "opts": {"A": "fixed on small correctness mainly so his own knowledge would be seen", "B": "precise in exactly the ways the group had asked him to be", "C": "based on botany he had largely invented", "D": "openly insulting to the hikers who made mistakes"}, "key": "A", "fb": {"correct": "Right. The labels were trifling, nobody had asked, and the guide 'made sure we felt' how much he knew — detail policed chiefly for display.", "B": "The passage says the opposite: the labels were pressed 'whether or not anyone had asked.'", "C": "The passage rules this out directly — 'Nobody doubted his knowledge.'", "D": "He corrects and lectures, but nothing in the passage shows insult; the group is worn down, not mocked."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pedantic", "B": "hairsplitting", "C": "nitpicking", "D": "careful"}, "key": "C", "fb": {"correct": "Right. Real but trivial faults, logged weekly as a settled habit of criticism — <em>finding fault was the habit<\/em> — with no learning on display anywhere. That is nitpicking exactly.", "A": "Pedantic fault-finding carries a motive: small rules policed so everyone sees how much the enforcer knows. These lists show off nothing — <em>no history, no manual cited, no hint that he knew the hobby better than anyone else<\/em>.", "B": "Hairsplitting draws distinctions too fine to matter — differences that live only in wording, like 'annual' against 'yearly'. These were not distinctions but small, checkable errors: the <em>faults were real<\/em>, from the mislabeled siding to the leaning mast.", "D": "A careful chairman would catch what matters and stop there. These lists never met that bar from either side: the faults were <em>never ones a visitor would notice<\/em>, and <em>finding fault was the habit<\/em> rather than the means to a better layout."}}}, "pairwise": {"rows": [{"sentence": "The docent's tour turned ____ within minutes: he halted at every plaque to recite catalogue numbers, plainly savoring how much he knew.", "options": ["pedantic", "hairsplitting"], "key": "pedantic", "pair": "hairsplitting", "why_right": "The tell is <em>recite catalogue numbers<\/em> - detail performed for a captive audience, plainly savored so the reciter's learning gets seen; no two near-identical things are being pried apart here.", "why_wrong": "That word draws distinctions too fine to matter. No two things are being pried apart here — catalogue numbers are simply being performed for an audience."}, {"sentence": "What should have been a five-minute answer became a ____ seminar on the seventeen recognized exceptions, delivered mostly so we would know he had memorized them.", "options": ["pedantic", "nitpicking"], "key": "pedantic", "pair": "nitpicking", "why_right": "The tell is <em>so we would know he had memorized them<\/em> - minor rules pressed on an audience chiefly to display learning; nothing anywhere is being faulted or criticized.", "why_wrong": "That word faults small things — it is a habit of criticism. Nothing here is being criticized; detail is being performed for an audience."}, {"sentence": "Her editor was relentlessly ____, faulting a stray comma on one page and a trivial rounding slip on the next, never pausing to show off what he knew.", "options": ["pedantic", "nitpicking"], "key": "nitpicking", "pair": "nitpicking", "why_right": "The tell is <em>faulting a stray comma on one page<\/em> - a standing habit of criticism reaching every small thing, with the parade of learning expressly ruled out of it.", "why_wrong": "The sentence says he <em>never pauses to show off what he knew<\/em> — that word needs the parade of learning, details policed so the expert's knowledge gets seen."}, {"sentence": "The groundskeeper was ____ about the volunteers' weeding, a stray root here, a crooked border there, finding small fault everywhere while claiming no expertise and parading none.", "options": ["pedantic", "nitpicking"], "key": "nitpicking", "pair": "nitpicking", "why_right": "The tell is <em>claiming no expertise and parading none<\/em> - fault found in every small thing as sheer habit, while the display of learning that the other word requires is expressly absent.", "why_wrong": "That word needs the parade of learning — details policed chiefly so the expert's knowledge gets seen. This fault-finding parades nothing; it is criticism as sheer habit."}, {"sentence": "The debate stalled on the ____ question of whether the fee was 'annual' or merely 'yearly' — a difference no client would ever feel.", "options": ["pedantic", "hairsplitting"], "key": "hairsplitting", "pair": "hairsplitting", "why_right": "The tell is <em>no client would ever feel<\/em> - two near-identical wordings pried apart, a difference real only under a magnifying glass, with nobody parading any learning over it.", "why_wrong": "That word needs a show-off motive — minor rules pressed so the presser's learning gets seen. Nobody here is parading knowledge; two nearly identical words are being pried apart."}, {"sentence": "Her proofreading was ____ but humane: she caught the misdated invoice and the doubled paragraph, then let the harmless quirks of voice stand.", "options": ["pedantic", "careful"], "key": "careful", "pair": "careful", "why_right": "The tell is <em>let the harmless quirks of voice stand<\/em> - the real errors are caught and the trifles deliberately spared: strictness that serves the work and stops at what matters.", "why_wrong": "That word drifts past the work onto trifling rules, pressed to display the presser's learning. She does the opposite — she <em>lets the harmless quirks of voice stand<\/em>."}, {"sentence": "The pub quiz's new scorer was ____ from the first round: answers marked wrong for a missing accent on 'café,' each ruling read aloud, dictionary edition and all.", "options": ["pedantic", "careful"], "key": "pedantic", "pair": "careful", "why_right": "The tell is <em>dictionary edition and all<\/em> - trifling rules pressed past anything that matters, each ruling staged so the scorer's learning gets seen; care would stop at answers that count.", "why_wrong": "That word catches what matters and stops there. Marking answers wrong over a missing accent, then reciting the dictionary edition, drifts far past the point where care serves anyone."}, {"sentence": "The beginners' knife lesson turned ____ midway: a long detour on how the julienne differs from the allumette by half a millimeter, his Lyon training worked into every sentence.", "options": ["pedantic", "careful"], "key": "pedantic", "pair": "careful", "why_right": "The tell is <em>his Lyon training worked into every sentence<\/em> - the detour serves the demonstrator's display, minor detail pressed on beginners far past the point where care would stop.", "why_wrong": "That word serves the learners and stops at what matters. A half-millimeter distinction, aired to beginners with the teacher's pedigree attached, has left the lesson's real needs behind."}], "display_order": [1, 5, 4, 2, 6, 0, 3, 7], "dimension_order": ["nitpicking", "hairsplitting", "careful"], "dimension_feedback": {"nitpicking": "Nitpicking faults every small thing it can reach — a comma here, a rounding error there — but it stays a habit of criticism. Pedantic behavior needs a further ingredient: the parade of learning — details policed chiefly so the expert's knowledge gets seen.", "hairsplitting": "Hairsplitting draws distinctions too fine to matter — differences real only under a magnifying glass. A pedantic performance often splits hairs, but the word adds a motive: minor rules pressed on an audience mainly to show off what the presser knows.", "careful": "A careful proofreader catches what matters and stops there; pedantic strictness drifts past that point — off the work itself and onto trifling rules, with the reader left behind."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show the small rules being pressed to display the presser's knowledge — not just precision. Try working in a word like <i>recited<\/i>, <i>unasked<\/i>, <i>trivial<\/i> or <i>audience<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

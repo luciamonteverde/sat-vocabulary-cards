@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="24d79380be89">
+<meta name="build" content="4e88172bb59e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pallid &#8212; SAT Vocabulary, Course 3 Unit 17</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pallid", "gradeUrl": "/api/grade", "taskId": "pallid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pallid correctly?", "opts": {"A": "The chili simmered pallid with habaneros, and one spoonful watered every eye at the table.", "B": "Her pallid singing shook the rafters and rattled the windows in their frames.", "C": "Hours of boiling left the broccoli pallid and limp on the platter.", "D": "He kept a pallid schedule, seeing five clients before noon and five more after."}, "key": "C", "fb": {"correct": "Right. Vegetables boiled until the green is gone have lost the color they ought to have — drained and washed out, pallid in the word's plainest sense.", "A": "A chili that 'watered every eye at the table' is at full strength — this sentence uses pallid as if it meant fiery. Pallid means drained of color, washed out. Look for something faded, not something potent.", "B": "Singing that 'shook the rafters' is anything but pallid — the sentence reaches for forceful or thunderous. Pallid describes something faded and colorless, weak rather than strong. Find what has lost its color or vigor.", "D": "Ten clients a day is a packed calendar, so 'a pallid schedule' contradicts itself — the writer wants busy or grueling. Pallid means lacking color, drained and dull. Look for something washed of its brightness."}}, "s3a": {"q": "As it is used in the passage, \"pallid\" describes shoots that are:", "opts": {"A": "drained of the color they ought to have", "B": "completely transparent, with no color at all", "C": "shorter and weaker than normal", "D": "a natural, healthy shade of light green"}, "key": "A", "fb": {"correct": "Right — the shoots are 'yellow-white where healthy green belonged'; the word marks color missing from something that should have it.", "B": "The shoots aren't transparent — they're a ghostly yellow-white; faded, not invisible.", "C": "The closet tray actually grew taller; height isn't the problem, color is.", "D": "'Where healthy green belonged' says this shade is wrong, not natural."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pale", "B": "colorless", "C": "pallid", "D": "wan"}, "key": "B", "fb": {"correct": "Right. Colorless states the plainest fact — no tint present at all: <em>there was never a tint to lose<\/em>, and the sample holds <em>not even a whisper of straw or gold<\/em>. Absence here is a neutral, even welcome, fact about the spirit.", "C": "Pallid passes a judgment: a tint missing from something that ought to have one, drained by sickness, fright, or age. The passage removes the ought — <em>there was never a tint to lose<\/em> — and the guide treats the sample as <em>a proper run<\/em>, not a damaged one. Nothing has been drained away.", "D": "Wan is the faint, drained look of long tiredness or illness, and it nearly always describes a person. The passage says <em>Nothing about it is faded or drained<\/em>, and a fresh spirit off a still has neither a face nor fatigue to show.", "A": "Pale means light in tint — fair skin, a light sky — a lighter shade of something still present. This sample holds <em>not even a whisper of straw or gold<\/em>. There is no lighter shade here; there is nothing to shade at all."}}}, "grid": {"words": ["pallid", "wan", "colorless", "pale"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "When the elevator dropped a floor, his face went ____ in an instant — fright draining color a face ought to keep — though he'd slept ten hours the night before.", "ks": ["pallid"], "fb": {"wan": "He <em>slept ten hours<\/em> and the change came <em>in an instant<\/em> — this word carries long tiredness or illness behind the fading, and there's none here.", "colorless": "A face is something that <em>ought<\/em> to have color, so the sentence needs the word that carries that judgment, not the plain statement of fact.", "pale": "Natural, healthy fairness isn't what happened — fright <em>drained<\/em> the color out of his face."}}, {"s": "The February sky hung ____ over the fields — a sky that ought to be blue drained to nearly nothing, the sun a faint smudge behind it.", "ks": ["pallid"], "fb": {"wan": "This word belongs to a person's drained, tired face; a February <em>sky<\/em> isn't carrying fatigue.", "colorless": "The point isn't the bare fact of little color — it's that blue <em>ought<\/em> to be there and has been drained away; that judgment needs the stronger word.", "pale": "A light sky can be perfectly natural; this one is <em>drained to nearly nothing<\/em>, missing color it should have."}}, {"s": "The assay came back exactly as hoped: the purified solution was ____, holding no tint at all — precisely what a flawless batch should look like.", "ks": ["colorless"], "fb": {"pallid": "Nothing has gone wrong here — <em>no tint at all<\/em> is exactly what a flawless batch <em>should<\/em> look like; nothing was drained of color it ought to have.", "wan": "This word describes a person's drained, weary look, not a beaker of solution.", "pale": "Even the lightest color is too much: the claim is <em>no tint at all<\/em>."}}, {"s": "Pure methane is ____ as well as odorless — the leak shows up on no camera and tints nothing it passes through — which is why the plant adds a dye.", "ks": ["colorless"], "fb": {"pallid": "No color has been lost from something that ought to have it — a gas with no visible trace is simply a stated fact.", "wan": "A drained, tired look belongs to people; this is a gas in a pipe.", "pale": "Faintly tinted would still show on a camera; this <em>shows up on no camera<\/em> — the absence is total."}}, {"s": "After the third night shift in a row, her smile had gone ____ — faint and drained, the tiredness showing through it like light through thin paper.", "ks": ["wan"], "fb": {"pallid": "There's no pigment to drain from a smile — what's fading is strength, <em>the tiredness showing through<\/em>, and the sentence needs the word for weary faintness.", "colorless": "No one is measuring color here; the smile is faint with exhaustion.", "pale": "Natural lightness isn't the point — the faintness comes from <em>the third night shift in a row<\/em>."}}, {"s": "Sunscreen and a wide hat kept her complexion ____ through the whole Sicilian summer — light by nature and perfectly healthy, never a sign of sickness.", "ks": ["pale"], "fb": {"pallid": "Nothing has been drained by sickness or fright — her skin is <em>light by nature and perfectly healthy<\/em>.", "wan": "No tiredness or illness hides behind this — the sentence says <em>never a sign of sickness<\/em>.", "colorless": "Light-toned skin still has color; the total-absence word overshoots."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show color gone from something that ought to have it — a reader needs both the absence and the wrongness. Try working in a word like <i>drained<\/i>, <i>ought<\/i>, <i>sickly<\/i> or <i>washed-out<\/i>."}};
+  var CFG = {"word": "pallid", "gradeUrl": "/api/grade", "taskId": "pallid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pallid correctly?", "opts": {"A": "The chili simmered pallid with habaneros, and one spoonful watered every eye at the table.", "B": "Her pallid singing shook the rafters and rattled the windows in their frames.", "C": "Hours of boiling left the broccoli pallid and limp on the platter.", "D": "He kept a pallid schedule, seeing five clients before noon and five more after."}, "key": "C", "fb": {"correct": "Right. Vegetables boiled until the green is gone have lost the color they ought to have — drained and washed out, pallid in the word's plainest sense.", "A": "A chili that 'watered every eye at the table' is at full strength — this sentence uses pallid as if it meant fiery. Pallid means drained of color, washed out. Look for something faded, not something potent.", "B": "Singing that 'shook the rafters' is anything but pallid — the sentence reaches for forceful or thunderous. Pallid describes something faded and colorless, weak rather than strong. Find what has lost its color or vigor.", "D": "Ten clients a day is a packed calendar, so 'a pallid schedule' contradicts itself — the writer wants busy or grueling. Pallid means lacking color, drained and dull. Look for something washed of its brightness."}}, "s3a": {"q": "As it is used in the passage, \"pallid\" describes shoots that are:", "opts": {"A": "drained of the color they ought to have", "B": "completely transparent, with no color at all", "C": "shorter and weaker than normal", "D": "a natural, healthy shade of light green"}, "key": "A", "fb": {"correct": "Right — the shoots are 'yellow-white where healthy green belonged'; the word marks color missing from something that should have it.", "B": "The shoots aren't transparent — they're a ghostly yellow-white; faded, not invisible.", "C": "The closet tray actually grew taller; height isn't the problem, color is.", "D": "'Where healthy green belonged' says this shade is wrong, not natural."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pale", "B": "colorless", "C": "pallid", "D": "wan"}, "key": "B", "fb": {"correct": "Right. Colorless states the plainest fact — no tint present at all: <em>there was never a tint to lose<\/em>, and the sample holds <em>not even a whisper of straw or gold<\/em>. Absence here is a neutral, even welcome, fact about the spirit.", "C": "Pallid passes a judgment: a tint missing from something that ought to have one, drained by sickness, fright, or age. The passage removes the ought — <em>there was never a tint to lose<\/em> — and the guide treats the sample as <em>a proper run<\/em>, not a damaged one. Nothing has been drained away.", "D": "Wan is the faint, drained look of long tiredness or illness, and it nearly always describes a person. The passage says <em>Nothing about it is faded or drained<\/em>, and a fresh spirit off a still has neither a face nor fatigue to show.", "A": "Pale means light in tint — fair skin, a light sky — a lighter shade of something still present. This sample holds <em>not even a whisper of straw or gold<\/em>. There is no lighter shade here; there is nothing to shade at all."}}}, "pairwise": {"rows": [{"sentence": "When the elevator dropped a floor, his face went ____ in an instant — fright draining color a face ought to keep — though he'd slept ten hours the night before.", "options": ["pallid", "wan"], "key": "pallid", "pair": "wan", "why_right": "The tell is <em>slept ten hours the night before<\/em> - no long tiredness or illness sits behind this fading; fright drained, in an instant, color the face ought to keep.", "why_wrong": "He <em>slept ten hours<\/em> and the change came <em>in an instant<\/em> — this word carries long tiredness or illness behind the fading, and there's none here."}, {"sentence": "After the third night shift in a row, her smile had gone ____ — faint and drained, the tiredness showing through it like light through thin paper.", "options": ["pallid", "wan"], "key": "wan", "pair": "wan", "why_right": "The tell is <em>the tiredness showing through<\/em> - the faint, drained look of long tiredness in a person, which is this word's whole claim; a smile has no color to drain, only strength.", "why_wrong": "There's no pigment to drain from a smile — what's fading is strength, <em>the tiredness showing through<\/em>, and the sentence needs the word for weary faintness."}, {"sentence": "Forty summers in the shop window had left the silk banner ____ — its scarlet drained to the color of weak tea — though the cloth itself was sound.", "options": ["pallid", "wan"], "key": "pallid", "pair": "wan", "why_right": "The tell is <em>its scarlet drained to the color of weak tea<\/em> - color missing from something that ought to have it, drained by age; nobody tired or ill is in the scene.", "why_wrong": "That word means the faint, drained look of long tiredness or illness in a person; a banner bleached by forty summers has lost color, not strength, and nobody here is tired."}, {"sentence": "Pure methane is ____ as well as odorless — the leak shows up on no camera and tints nothing it passes through — which is why the plant adds a dye.", "options": ["pallid", "colorless"], "key": "colorless", "pair": "colorless", "why_right": "The tell is <em>tints nothing it passes through<\/em> - no color is present at all, stated as plain fact; a gas has no color it ought to have, so nothing was drained.", "why_wrong": "No color has been lost from something that ought to have it — a gas with no visible trace is simply a stated fact."}, {"sentence": "The assay came back exactly as hoped: the purified solution was ____, holding no tint at all — precisely what a flawless batch should look like.", "options": ["pallid", "colorless"], "key": "colorless", "pair": "colorless", "why_right": "The tell is <em>what a flawless batch should look like<\/em> - no color at all is the proper state, a plain fact; nothing was drained from something that ought to have color.", "why_wrong": "Nothing has gone wrong here — <em>no tint at all<\/em> is exactly what a flawless batch <em>should<\/em> look like; nothing was drained of color it ought to have."}, {"sentence": "By the time they hauled the swimmer out his lips had gone ____ — a faint blue-grey where red belongs — though he was talking within a minute.", "options": ["pallid", "colorless"], "key": "pallid", "pair": "colorless", "why_right": "The tell is <em>a faint blue-grey where red belongs<\/em> - some color remains, so this is no plain fact of none; what has drained is the red the lips ought to have.", "why_wrong": "That word means no color is present at all, a plain statement of fact; these lips still show a faint blue-grey, and the sentence marks the red they ought to have."}, {"sentence": "The cast came off after eight weeks and the arm beneath looked ____ — stripped of the tan the other arm still carried, the skin gone the color of candle wax.", "options": ["pallid", "pale"], "key": "pallid", "pair": "pale", "why_right": "The tell is <em>stripped of the tan the other arm still carried<\/em> - the color this arm ought to have is on the other one, so the look is drained, not natural lightness.", "why_wrong": "That word can be natural, healthy lightness and stops short of a look drained of color it ought to have; the other arm still wears the tan this one has lost."}, {"sentence": "The cabinetmaker chose ash for its ____ grain — a clean, creamy blond straight out of the log, exactly the shade the standing tree had been and the shade it would keep.", "options": ["pallid", "pale"], "key": "pale", "pair": "pale", "why_right": "The tell is <em>exactly the shade the standing tree had been<\/em> - the lightness is natural, nothing was drained from it, and this word alone can be light without anything being wrong.", "why_wrong": "That word means color missing from something that ought to have it, drained by fright, sickness, or age; ash comes out of the log this blond and stays so, nothing lost."}], "display_order": [3, 0, 7, 5, 2, 6, 4, 1], "dimension_order": ["wan", "colorless", "pale"], "dimension_feedback": {"wan": "Wan is the faint, drained look of long tiredness or illness, and it nearly always describes a person and hints at the fatigue behind the fading. Pallid is broader in what it can describe: color missing from anything that ought to have some — a face, a sky, old wallpaper — whether fright, sickness, or age did the draining.", "colorless": "Colorless is the plainest statement of fact: no color is present at all. Pallid adds a judgment — the color is missing from something that ought to have it, drained by sickness, fright, or age. Water is simply colorless; a colorless face would be pallid, because a face should have some.", "pale": "Pale can be natural and healthy — fair skin, a light sky; it stops short of pallid, which looks drained of color it ought to have."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show color gone from something that ought to have it — a reader needs both the absence and the wrongness. Try working in a word like <i>drained<\/i>, <i>ought<\/i>, <i>sickly<\/i> or <i>washed-out<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

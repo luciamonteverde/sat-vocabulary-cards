@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="0c36508532f9">
+<meta name="build" content="f005f380c23f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>censure &#8212; SAT Vocabulary, Course 3 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "censure", "gradeUrl": "/api/grade", "taskId": "censure", "minWords": 12, "items": {"s1": {"q": "Which sentence uses censure correctly?", "opts": {"A": "The mayor's censure of the fire crew thanked each member by name and closed with a standing ovation from the gallery.", "B": "The medical board's censure, printed in the state register, followed him to every hospital that considered hiring him.", "C": "The judge's censure included eighteen months in prison and a fine steep enough to bankrupt the entire brokerage firm twice over.", "D": "The editor's censure blacked out three full paragraphs of the report before the presses were allowed to run at dawn."}, "key": "B", "fb": {"correct": "Correct! Censure means severe, formal disapproval — criticism delivered officially and on the record. A board's censure printed in the state register is exactly that: no fine, no sentence, just disapproval made permanent and public enough to follow him from job to job.", "A": "Not quite! Censure means severe, formal disapproval, so a proceeding of thanks and standing ovations is its exact opposite — this scene describes a commendation, with disapproval nowhere in sight.", "C": "Not quite! Censure carries no teeth beyond the disapproval itself — it strips reputation, not money or freedom. Prison time and a ruinous fine are material sentences, which is precisely what a censure is not.", "D": "Not quite! Cutting paragraphs before print is the work of a censor — censure's near-twin in sound. A censure condemns a person on the record; it does not black out text."}}, "s3a": {"q": "As it is used in the passage, 'censure' most nearly means", "opts": {"A": "a vote to remove an official from her post", "B": "formal disapproval placed on the official record", "C": "a private warning delivered by a supervisor", "D": "an angry outburst during a public debate"}, "key": "B", "fb": {"correct": "Yes — the senate's whole aim is 'the record': a motion, a vote, publication in the proceedings, disapproval that outlives the afternoon.", "A": "Removal 'was never on the table' — the dean keeps her office and her title.", "C": "Nothing is private here: the motion is read aloud and published, and no one in a faculty senate is the dean's supervisor.", "D": "The debate ran late, but the censure is not the arguing — it is the drafted, voted, entered motion."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rebuke", "B": "reprimand", "C": "censure", "D": "condemnation"}, "key": "C", "fb": {"correct": "Right. A censure is disapproval made formal and public — voted by a body, entered on the record, meant to be seen — while the offender keeps their place. Every mark is here: <em>representatives of forty nations voted<\/em>, the entry sits in <em>the commission's public register<\/em>, and the state <em>kept its seat, its vote, and its delegation<\/em>.", "A": "A rebuke is a sharp telling-off that anyone can deliver on the spot — a friend in a hallway, no office required. This disapproval was collective and institutional: <em>representatives of forty nations voted<\/em>, producing something <em>graver than any single minister could voice on his own authority<\/em>.", "B": "A reprimand travels down a chain of command — an authority scolding a subordinate — and it can stay between the two of them. Here there is no chain and no privacy: fellow member states acted together, the result sits in <em>the commission's public register<\/em>, and <em>delegations still cite it a decade on<\/em>.", "D": "Condemnation is the strongest denunciation, declaring its object beyond defense entirely. This vote was <em>deliberately short of expulsion<\/em>, and <em>The state kept its seat, its vote, and its delegation<\/em> — the passage goes out of its way to keep the offender inside the institution."}}}, "grid": {"words": ["censure", "rebuke", "reprimand", "condemnation"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The county board voted nine to two to enter a formal ____ of its treasurer into the minutes — grave disapproval now permanently on the record, though she stays in office.", "ks": ["censure"], "fb": {"rebuke": "A rebuke can happen in a hallway between equals and end there — no vote, no minutes, no office behind it. Everything here is institutional: <em>voted nine to two<\/em> and entered on the record.", "reprimand": "That word runs down a chain of command — an officer scolding a subordinate, possibly in private. This is a body formally recording disapproval of a peer, in public minutes.", "condemnation": "The strongest word would declare her beyond defense entirely. This body stops well short: the disapproval is recorded, and <em>she stays in office<\/em>."}}, {"s": "The philatelic society's ____ of its own past president was adopted by vote and printed in the members' bulletin: formal, public, and permanent, though he keeps his membership.", "ks": ["censure"], "fb": {"rebuke": "A sharp word from anyone can be a rebuke — no vote required, and it can end where it happened. This one required a motion, a vote, and the members' bulletin.", "reprimand": "There is no chain of command here: the society is formally disapproving of a <em>peer<\/em>, and doing it in public print rather than between two people.", "condemnation": "Declaring someone beyond defense would end with expulsion or worse. This stops at recorded disapproval — <em>he keeps his membership<\/em>."}}, {"s": "The fire chief called the probationary firefighter in, read out the missed safety check, and placed a written ____ in his file — handled quietly, superior to subordinate.", "ks": ["reprimand"], "fb": {"censure": "That word is a body's disapproval made public — voted on and meant to be seen. This never leaves the chief's office or the personnel file.", "rebuke": "A rebuke needs no authority and no paperwork — a friend can deliver one mid-conversation. This is official, written, and filed <em>by the book<\/em>.", "condemnation": "A missed safety check handled quietly between a chief and a rookie is a world away from publicly declaring someone indefensible."}}, {"s": "For the missed duty rotation, the principal issued the new teacher an official ____ — logged with the district, delivered privately, one link down the chain of command.", "ks": ["reprimand"], "fb": {"censure": "Look for a body placing disapproval on a public record — a vote, minutes, an audience. This is one superior, one subordinate, and a private file.", "rebuke": "Anyone can fire off a rebuke, and it can stay in the hallway where it happened. This one carries the district's authority and its paperwork.", "condemnation": "Thundering denunciation declares a person or act indefensible before everyone. A privately delivered note about a duty rotation does not come close."}}, {"s": "No committee met and nothing was filed: just one colleague's stinging ____ across the lunch table, sharp enough to end the conversation.", "ks": ["rebuke"], "fb": {"censure": "That requires the machinery: a body, a vote, a record meant to be seen. The sentence opens by ruling all of that out — <em>no committee met and nothing was filed<\/em>.", "reprimand": "A colleague has no rank over you — and that word needs authority running downhill, usually with paperwork. This is equal to equal, office-free.", "condemnation": "The heaviest word declares its target indefensible, publicly. One sharp line over lunch stings and stops."}}, {"s": "Historians across every school of thought are united in their ____ of the forged treaty, writing that nothing about it can be defended.", "ks": ["condemnation"], "fb": {"censure": "That word is procedural: a body formally recording disapproval and stopping short of expulsion. Here there is no body and no procedure — only the judgment that <em>nothing about it can be defended<\/em>.", "rebuke": "A rebuke is one sharp, personal sting, delivered and done. A verdict shared by historians of every school is public, collective, and total.", "reprimand": "That runs down a chain of command, often privately. No historian outranks a treaty, and nothing here is private."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs disapproval that is official and on the record, not a private scolding — give it a body and a procedure. Try working in a word like <i>voted<\/i>, <i>formally<\/i>, <i>record<\/i> or <i>board<\/i>."}};
+  var CFG = {"word": "censure", "gradeUrl": "/api/grade", "taskId": "censure", "minWords": 12, "items": {"s1": {"q": "Which sentence uses censure correctly?", "opts": {"A": "The mayor's censure of the fire crew thanked each member by name and closed with a standing ovation from the gallery.", "B": "The medical board's censure, printed in the state register, followed him to every hospital that considered hiring him.", "C": "The judge's censure included eighteen months in prison and a fine steep enough to bankrupt the entire brokerage firm twice over.", "D": "The editor's censure blacked out three full paragraphs of the report before the presses were allowed to run at dawn."}, "key": "B", "fb": {"correct": "Correct! Censure means severe, formal disapproval — criticism delivered officially and on the record. A board's censure printed in the state register is exactly that: no fine, no sentence, just disapproval made permanent and public enough to follow him from job to job.", "A": "Not quite! Censure means severe, formal disapproval, so a proceeding of thanks and standing ovations is its exact opposite — this scene describes a commendation, with disapproval nowhere in sight.", "C": "Not quite! Censure carries no teeth beyond the disapproval itself — it strips reputation, not money or freedom. Prison time and a ruinous fine are material sentences, which is precisely what a censure is not.", "D": "Not quite! Cutting paragraphs before print is the work of a censor — censure's near-twin in sound. A censure condemns a person on the record; it does not black out text."}}, "s3a": {"q": "As it is used in the passage, 'censure' most nearly means", "opts": {"A": "a vote to remove an official from her post", "B": "formal disapproval placed on the official record", "C": "a private warning delivered by a supervisor", "D": "an angry outburst during a public debate"}, "key": "B", "fb": {"correct": "Yes — the senate's whole aim is 'the record': a motion, a vote, publication in the proceedings, disapproval that outlives the afternoon.", "A": "Removal 'was never on the table' — the dean keeps her office and her title.", "C": "Nothing is private here: the motion is read aloud and published, and no one in a faculty senate is the dean's supervisor.", "D": "The debate ran late, but the censure is not the arguing — it is the drafted, voted, entered motion."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rebuke", "B": "reprimand", "C": "censure", "D": "condemnation"}, "key": "C", "fb": {"correct": "Right. A censure is disapproval made formal and public — voted by a body, entered on the record, meant to be seen — while the offender keeps their place. Every mark is here: <em>representatives of forty nations voted<\/em>, the entry sits in <em>the commission's public register<\/em>, and the state <em>kept its seat, its vote, and its delegation<\/em>.", "A": "A rebuke is a sharp telling-off that anyone can deliver on the spot — a friend in a hallway, no office required. This disapproval was collective and institutional: <em>representatives of forty nations voted<\/em>, producing something <em>graver than any single minister could voice on his own authority<\/em>.", "B": "A reprimand travels down a chain of command — an authority scolding a subordinate — and it can stay between the two of them. Here there is no chain and no privacy: fellow member states acted together, the result sits in <em>the commission's public register<\/em>, and <em>delegations still cite it a decade on<\/em>.", "D": "Condemnation is the strongest denunciation, declaring its object beyond defense entirely. This vote was <em>deliberately short of expulsion<\/em>, and <em>The state kept its seat, its vote, and its delegation<\/em> — the passage goes out of its way to keep the offender inside the institution."}}}, "pairwise": {"rows": [{"sentence": "The county board voted nine to two to enter a formal ____ of its treasurer into the minutes — grave disapproval now permanently on the record, though she stays in office.", "options": ["censure", "rebuke"], "key": "censure", "pair": "rebuke", "why_right": "The tell is <em>voted nine to two<\/em> - disapproval made institutional, voted on and written into the minutes; the rival word is a sharp word anyone can deliver, no office behind it.", "why_wrong": "A rebuke can happen in a hallway between equals and end there — no vote, no minutes, no office behind it. Everything here is institutional: <em>voted nine to two<\/em> and entered on the record."}, {"sentence": "No committee met and nothing was filed: just one colleague's stinging ____ across the lunch table, sharp enough to end the conversation.", "options": ["censure", "rebuke"], "key": "rebuke", "pair": "rebuke", "why_right": "The tell is <em>No committee met and nothing was filed<\/em> - sharp disapproval anyone can deliver with no office behind it; the rival word needs a body, a vote, and a record.", "why_wrong": "That requires the machinery: a body, a vote, a record meant to be seen. The sentence opens by ruling all of that out — <em>no committee met and nothing was filed<\/em>."}, {"sentence": "Colleagues had already told the anesthesiologist to his face what they thought of the mix-up — the medical staff then voted a formal ____ onto the record.", "options": ["censure", "rebuke"], "key": "censure", "pair": "rebuke", "why_right": "The tell is <em>onto the record<\/em> - colleagues already spent the sharp personal words to his face; what the staff then does is disapproval made institutional, voted on and written down.", "why_wrong": "That word is a sharp word anyone can fire off with no office behind it — the colleagues did that to his face. A body's vote onto the record is the institutional act."}, {"sentence": "The philatelic society's ____ of its own past president was adopted by vote and printed in the members' bulletin: formal, public, and permanent, though he keeps his membership.", "options": ["censure", "reprimand"], "key": "censure", "pair": "reprimand", "why_right": "The tell is <em>its own past president<\/em> - disapproval of a peer, by vote and in print, meant to be seen; the rival word runs down a chain of command.", "why_wrong": "There is no chain of command here: the society is formally disapproving of a <em>peer<\/em>, and doing it in public print rather than between two people."}, {"sentence": "The fire chief called the probationary firefighter in, read out the missed safety check, and placed a written ____ in his file — handled quietly, superior to subordinate.", "options": ["censure", "reprimand"], "key": "reprimand", "pair": "reprimand", "why_right": "The tell is <em>superior to subordinate<\/em> - an official scolding down the chain of command, kept between the two of them; the rival word is a body's vote, meant to be seen.", "why_wrong": "That word is a body's disapproval made public — voted on and meant to be seen. This never leaves the chief's office or the personnel file."}, {"sentence": "For the missed duty rotation, the principal issued the new teacher an official ____ — logged with the district, delivered privately, one link down the chain of command.", "options": ["censure", "reprimand"], "key": "reprimand", "pair": "reprimand", "why_right": "The tell is <em>delivered privately<\/em> - an official scolding from authority, logged by the book, kept between the two of them; the rival word is a body's vote, meant to be seen.", "why_wrong": "Look for a body placing disapproval on a public record — a vote, minutes, an audience. This is one superior, one subordinate, and a private file."}, {"sentence": "Historians across every school of thought are united in their ____ of the forged treaty, writing that nothing about it can be defended.", "options": ["censure", "condemnation"], "key": "condemnation", "pair": "condemnation", "why_right": "The tell is <em>nothing about it can be defended<\/em> - the strongest public denunciation, declaring an act beyond defense; the rival word is a body's procedural vote entered on a record.", "why_wrong": "That word is procedural: a body formally recording disapproval and stopping short of expulsion. Here there is no body and no procedure — only the judgment that <em>nothing about it can be defended<\/em>."}, {"sentence": "Alumni letters had already declared the provost indefensible — the Faculty Senate itself went only as far as a formal ____, voted on and entered in its files.", "options": ["censure", "condemnation"], "key": "censure", "pair": "condemnation", "why_right": "The tell is <em>went only as far as<\/em> - declaring the provost beyond defense was the letters' work; the Senate's own act stops short of that: narrower, procedural, disapproval placed on record.", "why_wrong": "That word declares a person beyond defense, the strongest public denunciation — and the alumni letters already did exactly that. A voted, filed act that goes only so far stops short of it."}], "display_order": [4, 2, 6, 1, 3, 0, 5, 7], "dimension_order": ["rebuke", "reprimand", "condemnation"], "dimension_feedback": {"rebuke": "A rebuke is sharp — disapproval with an edge, fired straight at its target — and anyone can deliver one: a friend can rebuke a friend mid-conversation, with no office behind it. Censure is disapproval made institutional: voted on, written down, carried out on the record.", "reprimand": "A reprimand is an official scolding from someone in authority — a captain reprimands a lieutenant, by the book and down the chain of command, and it can stay between the two of them. Censure is graver and more public: it can fall on anyone, even a peer or a senator, and it is meant to be seen.", "condemnation": "Condemnation is the strongest public denunciation — it declares a person or act beyond defense, and it can thunder from any pulpit or editorial page. Censure is narrower and more procedural: a body formally placing its disapproval on record, stopping short of casting the offender out."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs disapproval that is official and on the record, not a private scolding — give it a body and a procedure. Try working in a word like <i>voted<\/i>, <i>formally<\/i>, <i>record<\/i> or <i>board<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

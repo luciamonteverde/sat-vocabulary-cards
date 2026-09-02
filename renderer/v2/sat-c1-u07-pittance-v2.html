@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="82475f3fd79a">
+<meta name="build" content="98c208ed3f2a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pittance &#8212; SAT Vocabulary, Course 1 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pittance", "gradeUrl": "/api/grade", "taskId": "pittance", "minWords": 12, "items": {"s1": {"q": "The wildlife research station's seasonal field assistants each receive $150 a month in cash. The station also provides their cabins, three meals a day, and daily training with the resident biologists — terms spelled out in the packet every assistant reads and signs before the season begins. What is the $150 payment?", "opts": {"A": "A stipend", "B": "A pittance", "C": "A salary", "D": "A bonus"}, "key": "A", "fb": {"correct": "Right. A stipend is a small, fixed payment made as one part of a larger package of support — modest but fair. With cabins, meals, and daily training covered, the $150 is exactly that: a fixed monthly sum alongside everything else the station provides.", "B": "A pittance is a payment so meager it reads as an insult to the work behind it — the word accuses the payer of shortchanging the worker. These assistants get their cabins, all their meals, and daily training from the resident biologists on top of the cash, under terms they read and accept in advance. A small fixed sum inside a fair, openly agreed package is a stipend, not a pittance.", "C": "A salary is the regular pay a person lives on — the whole of their compensation. Here the living itself — housing, meals, training — is provided separately, and the $150 is only a modest cash payment beside it. Far too partial to be anyone's salary.", "D": "A bonus is a reward paid on top of wages someone already earns. These assistants have no underlying wages for anything to sit on top of — the $150 is the regular, scheduled payment itself."}}, "s3a": {"q": "In this passage, calling the pay \"a pittance\" means it was", "opts": {"A": "a fair rate that roughly matched the difficulty of the work", "B": "an amount so small it insulted the labor it bought", "C": "a casual tip pickers received on top of their wages", "D": "a bargain price shoppers paid for apples downtown"}, "key": "B", "fb": {"correct": "Right — cents a bushel against shoulders burning by noon: pay far too small for the work it bought.", "A": "The passage measures the pay against brutal work and finds it wanting — a full week barely covered bus fare and boots.", "C": "Nothing describes tips; the cents per bushel WERE the wages.", "D": "The apple's downtown price appears only as a contrast — the word describes what pickers earned, not what shoppers paid."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pittance", "B": "song", "C": "trifle", "D": "peanuts"}, "key": "D", "fb": {"correct": "Right. A one-word answer, <em>flat and scornful<\/em>, about insulting pay is peanuts exactly — the informal, dismissive word the card contrasts with the term reporters would print. That contrast is the whole story here: the producer wanted <em>a more decorous term<\/em>, and the station kept her word.", "A": "Pittance names exactly this kind of unfairly small pay — but it belongs to print. The card has reporters and historians writing it, which makes it just the sort of <em>more decorous term<\/em> the producer proposed for the transcript. The blank holds the worker's own spoken answer, <em>flat and scornful<\/em>, and that is not this word's register.", "C": "A trifle is a small matter you wave away — a knickknack, a scheduling hiccup — not a word for wages. The tape's question is <em>what the cannery's piecework paid<\/em>, and the answer names the pay itself with contempt. Nobody uses trifle to spit about a paycheck.", "B": "Song means a small sum only inside the fixed phrase 'for a song,' and that phrase is about bargain purchase prices — a house, an old car — never wages. This recording is about <em>what the cannery's piecework paid<\/em>; as a lone word about pay, song asserts nothing."}}}, "grid": {"words": ["pittance", "peanuts", "trifle", "song"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The museum's own annual report conceded that its night guards earned a ____ — pay so thin that most of them held second jobs.", "ks": ["pittance"], "fb": {"peanuts": "That word belongs to casual, scornful speech — 'they work for peanuts.' A museum's official report reaches for the formal word instead.", "trifle": "A trifle is a matter too small to care about — a knickknack, a passing worry. Pay that forces second jobs matters a great deal; it is just too little.", "song": "That word lives in the phrase 'for a song,' about snapping up a bargain. Nobody is buying anything here — this is pay for work."}}, {"s": "Historians note that Victorian governesses were paid a ____ for their long days, a fact their letters record in careful, wounded politeness.", "ks": ["pittance"], "fb": {"peanuts": "Casual speech says people 'work for peanuts'; a historian's sentence about governesses wants the formal word for the same unfair pay.", "trifle": "A trifle is something too minor to mention. These letters record the pay as a lasting wound — small in amount, not in importance.", "song": "'For a song' describes buying something at a laughably low price. The governesses weren't selling a thing; they were being underpaid for work."}}, {"s": "'____' was the word the loading crew spat whenever the subject of overtime pay came up.", "ks": ["peanuts"], "fb": {"pittance": "That's the word a reporter or historian would write. A crew spitting a word in the break room reaches for the casual, scornful one.", "trifle": "A trifle is something too small to care about at all. The crew cares intensely — the pay isn't unimportant, it's insulting.", "song": "That word belongs to 'for a song' — a laughably low purchase price. Nobody is buying anything, and it isn't a name for bad wages."}}, {"s": "He waved the scheduling mix-up away as a ____, not worth a single email, and went back to his coffee.", "ks": ["trifle"], "fb": {"pittance": "That word is for pay so small it insults the work. There's no money here at all — just a small matter being shrugged off.", "peanuts": "That's a scornful word for insultingly small pay. Nobody is being paid anything; the mix-up simply doesn't matter much.", "song": "That word prices a lucky bargain — a house bought 'for a song.' A scheduling mix-up has no price tag."}}, {"s": "To the veteran pilot the gusty crosswind was a ____, a routine nuisance she trimmed for without breaking off her checklist.", "ks": ["trifle"], "fb": {"pittance": "That word needs wages — pay too small for the work done. A crosswind isn't money; it's just a matter too routine to worry about.", "peanuts": "That's break-room scorn for tiny pay. No pay is in sight — only a bit of weather the pilot barely ranks as a problem.", "song": "That word prices a bargain purchase. Nothing is for sale in a cockpit; the wind is simply a minor matter."}}, {"s": "At the foreclosure auction the developer picked up the entire block for a ____ — forty thousand for lots that had sold for millions.", "ks": ["song"], "fb": {"pittance": "That word accuses an employer of underpaying real work. Nothing here is wages — a delighted buyer just got a bargain.", "peanuts": "That word is scornful talk about tiny pay. This is a purchase at auction, and the tone isn't scorn — the buyer got lucky.", "trifle": "A trifle is a matter too minor to care about. A whole block matters plenty; what's small is the price it went for."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs money changing hands for real work, and an amount so small it feels unfair to the person who did the work. Try working in words like <i>only<\/i>, <i>hours<\/i>, <i>earned<\/i> or <i>barely<\/i>."}};
+  var CFG = {"word": "pittance", "gradeUrl": "/api/grade", "taskId": "pittance", "minWords": 12, "items": {"s1": {"q": "The wildlife research station's seasonal field assistants each receive $150 a month in cash. The station also provides their cabins, three meals a day, and daily training with the resident biologists — terms spelled out in the packet every assistant reads and signs before the season begins. What is the $150 payment?", "opts": {"A": "A stipend", "B": "A pittance", "C": "A salary", "D": "A bonus"}, "key": "A", "fb": {"correct": "Right. A stipend is a small, fixed payment made as one part of a larger package of support — modest but fair. With cabins, meals, and daily training covered, the $150 is exactly that: a fixed monthly sum alongside everything else the station provides.", "B": "A pittance is a payment so meager it reads as an insult to the work behind it — the word accuses the payer of shortchanging the worker. These assistants get their cabins, all their meals, and daily training from the resident biologists on top of the cash, under terms they read and accept in advance. A small fixed sum inside a fair, openly agreed package is a stipend, not a pittance.", "C": "A salary is the regular pay a person lives on — the whole of their compensation. Here the living itself — housing, meals, training — is provided separately, and the $150 is only a modest cash payment beside it. Far too partial to be anyone's salary.", "D": "A bonus is a reward paid on top of wages someone already earns. These assistants have no underlying wages for anything to sit on top of — the $150 is the regular, scheduled payment itself."}}, "s3a": {"q": "In this passage, calling the pay \"a pittance\" means it was", "opts": {"A": "a fair rate that roughly matched the difficulty of the work", "B": "an amount so small it insulted the labor it bought", "C": "a casual tip pickers received on top of their wages", "D": "a bargain price shoppers paid for apples downtown"}, "key": "B", "fb": {"correct": "Right — cents a bushel against shoulders burning by noon: pay far too small for the work it bought.", "A": "The passage measures the pay against brutal work and finds it wanting — a full week barely covered bus fare and boots.", "C": "Nothing describes tips; the cents per bushel WERE the wages.", "D": "The apple's downtown price appears only as a contrast — the word describes what pickers earned, not what shoppers paid."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pittance", "B": "song", "C": "trifle", "D": "peanuts"}, "key": "D", "fb": {"correct": "Right. A one-word answer, <em>flat and scornful<\/em>, about insulting pay is peanuts exactly — the informal, dismissive word the card contrasts with the term reporters would print. That contrast is the whole story here: the producer wanted <em>a more decorous term<\/em>, and the station kept her word.", "A": "Pittance names exactly this kind of unfairly small pay — but it belongs to print. The card has reporters and historians writing it, which makes it just the sort of <em>more decorous term<\/em> the producer proposed for the transcript. The blank holds the worker's own spoken answer, <em>flat and scornful<\/em>, and that is not this word's register.", "C": "A trifle is a small matter you wave away — a knickknack, a scheduling hiccup — not a word for wages. The tape's question is <em>what the cannery's piecework paid<\/em>, and the answer names the pay itself with contempt. Nobody uses trifle to spit about a paycheck.", "B": "Song means a small sum only inside the fixed phrase 'for a song,' and that phrase is about bargain purchase prices — a house, an old car — never wages. This recording is about <em>what the cannery's piecework paid<\/em>; as a lone word about pay, song asserts nothing."}}}, "pairwise": {"rows": [{"sentence": "The museum's own annual report conceded that its night guards earned a ____ — pay so thin that most of them held second jobs.", "options": ["pittance", "peanuts"], "key": "pittance", "pair": "peanuts", "why_right": "The tell is <em>The museum's own annual report<\/em> - a formal written document, and formal writing gets the formal word for unfairly small pay, while peanuts stays in casual, scornful speech.", "why_wrong": "That word belongs to casual, scornful speech — 'they work for peanuts.' A museum's official report reaches for the formal word instead."}, {"sentence": "The commission's final report noted that the cannery's seasonal workers earned a ____ for twelve-hour shifts, a figure the auditors printed without comment.", "options": ["pittance", "peanuts"], "key": "pittance", "pair": "peanuts", "why_right": "The tell is <em>The commission's final report<\/em> - formal written findings, and reporters and historians write the formal word for insultingly small pay; peanuts belongs to casual, dismissive speech.", "why_wrong": "That word means insultingly small pay in casual, scornful speech - 'they work for peanuts.' A commission writing official findings uses the formal word for the same unfair sum."}, {"sentence": "'____' was the word the loading crew spat whenever the subject of overtime pay came up.", "options": ["pittance", "peanuts"], "key": "peanuts", "pair": "peanuts", "why_right": "The tell is <em>the loading crew spat<\/em> - break-room scorn spoken aloud, the casual register this word owns, while the formal word for unfair pay belongs to reporters and historians writing.", "why_wrong": "That's the word a reporter or historian would write. A crew spitting a word in the break room reaches for the casual, scornful one."}, {"sentence": "Historians note that Victorian governesses were paid a ____ for their long days, a fact their letters record in careful, wounded politeness.", "options": ["pittance", "trifle"], "key": "pittance", "pair": "trifle", "why_right": "The tell is <em>careful, wounded politeness<\/em> - the pay is a real, lasting grievance about money for work, and you resent a pittance, while a trifle is waved away as unimportant.", "why_wrong": "A trifle is something too minor to mention. These letters record the pay as a lasting wound — small in amount, not in importance."}, {"sentence": "He waved the scheduling mix-up away as a ____, not worth a single email, and went back to his coffee.", "options": ["pittance", "trifle"], "key": "trifle", "pair": "trifle", "why_right": "The tell is <em>not worth a single email<\/em> - a minor matter being shrugged off, which is exactly what a trifle names; no pay appears anywhere for the money word to accuse.", "why_wrong": "That word is for pay so small it insults the work. There's no money here at all — just a small matter being shrugged off."}, {"sentence": "To the veteran pilot the gusty crosswind was a ____, a routine nuisance she trimmed for without breaking off her checklist.", "options": ["pittance", "trifle"], "key": "trifle", "pair": "trifle", "why_right": "The tell is <em>a routine nuisance<\/em> - a matter too minor to worry about, exactly a trifle; nothing here is pay, and the other word needs wages that shortchange real work.", "why_wrong": "That word needs wages — pay too small for the work done. A crosswind isn't money; it's just a matter too routine to worry about."}, {"sentence": "The tour's backup dancers rehearsed six days a week and were paid a ____ for it, while the promoters flew home in chartered jets.", "options": ["pittance", "song"], "key": "pittance", "pair": "song", "why_right": "The tell is <em>were paid a ____ for it<\/em> - this is pay for real work, and the word that accuses the payer fits; 'for a song' prices bargain purchases, not wages.", "why_wrong": "That word means a laughably low purchase price and stays inside the phrase 'for a song.' Nobody buys anything in this sentence - the dancers are underpaid for their work."}, {"sentence": "At the foreclosure auction the developer picked up the entire block for a ____ — forty thousand for lots that had sold for millions.", "options": ["pittance", "song"], "key": "song", "pair": "song", "why_right": "The tell is <em>picked up the entire block for a ____<\/em> - a buyer's laughably cheap purchase in the fixed 'for a' frame, while the other word needs wages paid for work.", "why_wrong": "That word accuses an employer of underpaying real work. Nothing here is wages — a delighted buyer just got a bargain."}], "display_order": [0, 5, 6, 3, 1, 7, 4, 2], "dimension_order": ["peanuts", "trifle", "song"], "dimension_feedback": {"peanuts": "Peanuts is the informal, scornful word for an insultingly small payment — 'they work for peanuts.' It belongs to casual speech and always sounds dismissive. Pittance means the same unfairly small sum but fits formal writing: reporters and historians write that laborers earned a pittance, not peanuts.", "trifle": "A trifle is a thing or matter of no importance — a knickknack, a small worry you wave away. Pittance is angrier and specifically about money: pay so small it shortchanges real work. You shrug off a trifle; you resent a pittance.", "song": "A song, in the fixed phrase 'for a song,' means a laughably small price — a house bought or sold for a song. It is about bargain prices, not wages. A pittance is what someone is paid for work, and the word accuses the payer of unfairness."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs money changing hands for real work, and an amount so small it feels unfair to the person who did the work. Try working in words like <i>only<\/i>, <i>hours<\/i>, <i>earned<\/i> or <i>barely<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

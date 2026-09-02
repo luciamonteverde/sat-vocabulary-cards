@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="270a2276b238">
+<meta name="build" content="01b58d884600">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pillage &#8212; SAT Vocabulary, Course 2 Unit 19</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pillage", "gradeUrl": "/api/grade", "taskId": "pillage", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pillage correctly?", "opts": {"A": "The pickpocket pillaged a single subway token from a tourist's coat and vanished into the crowd.", "B": "The mob pillaged the statue to rubble but left every shop window and till on the square untouched.", "C": "The bank pillaged the farm's equipment strictly by court order, deputies checking each serial number off the list.", "D": "Retreating soldiers pillaged the port town, and relief crews found every warehouse stripped bare."}, "key": "D", "fb": {"correct": "Correct. Soldiers robbing a town wholesale by force, down to its stores — violent, large-scale theft is pillage exactly.", "A": "Lifting one token is petty theft. Pillaging strips a place, and does it by force.", "B": "Smashing a statue and taking nothing is vandalism. Pillaging carries the goods away.", "C": "Seizure by court order is lawful repossession. Pillaging is violent and unlawful."}}, "s3a": {"q": "In this passage, saying the army was turned loose \"to pillage\" the town means the soldiers were allowed to", "opts": {"A": "rob the whole town of its goods by force", "B": "search one merchant's shop for hidden weapons", "C": "collect the wages the city owed them at the gates", "D": "take over the town's cloth trade for the winter"}, "key": "A", "fb": {"correct": "Right -- an army stripping a town's goods by force, street by street, is exactly what the word names.", "B": "The taking ran street by street across the whole town -- not a search of any one shop.", "C": "No one paid them anything -- the looting itself stood 'in place of wages.'", "D": "Nothing suggests the soldiers stayed or traded; they took what they could in two days."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "ransack", "B": "swipe", "C": "pillage", "D": "plunder"}, "key": "B", "fb": {"correct": "Right. One small item, taken on the sly while <em>the server's back was turned<\/em>, with no force anywhere — swipe is theft at its smallest, and it is the only word that fits the ledger's careful language.", "C": "Pillage is theft at the scale of a town — an army stripping a place of its goods by open force. The entire loss here is <em>a silver-plated teaspoon from the tea service<\/em>; a single spoon is several sizes too small for this word.", "A": "To ransack is to tear a place apart in a rough, violent search. Nothing of the kind happened here: <em>no drawer opened<\/em>, and <em>nothing else on the cart was so much as moved<\/em>.", "D": "To plunder is to strip a place of its valuables by open force. There is no force in this scene — <em>no lock was forced<\/em> — and no haul of valuables either: the spoon is <em>worth a few dollars<\/em>."}}}, "grid": {"words": ["pillage", "ransack", "plunder", "swipe"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Steppe horsemen crossed the frozen river at dusk to ____ the town, and by morning not a door in the merchants' quarter still hung on its hinges.", "ks": ["pillage"], "fb": {"plunder": "That word leans on the valuables -- the victor's haul, even the goods themselves. This sentence never names a haul; its whole claim is the violent act done to the town.", "ransack": "That is tearing one place apart in a search -- a house, a shop, a desk. A whole quarter wrecked by soldiers is war-scale robbery, not a hunt through one building.", "swipe": "That is theft at its smallest -- one item, palmed quietly. A night of horsemen loose on a town is the opposite end of the scale."}}, {"s": "Weeks after the surrender, deserters continued to ____ the outlying farms, taking grain and stock by force from anyone too weak to resist.", "ks": ["pillage", "plunder"], "fb": {"ransack": "That word is a violent search through one place -- hunting for whatever is worth taking. These deserters aren't searching; they are stripping farm after farm by open force.", "swipe": "That is a single item taken slyly, with no force at all. Armed men emptying farms is robbery at war scale."}}, {"s": "The intruders had time to ____ only the study -- drawers dumped, cushions slit, every book swept from the shelves -- yet they took nothing but a passport.", "ks": ["ransack"], "fb": {"pillage": "That word is an army robbing a whole town by force. This is one room in one house, torn apart in a hunt.", "plunder": "That word means stripping a place of its valuables. Almost nothing was taken here -- the room was searched, not stripped.", "swipe": "That is a quiet, tiny theft. Slit cushions and dumped drawers are the marks of a violent search."}}, {"s": "Rather than wait for the file clerk, he chose to ____ the whole records room for the missing deed, leaving cabinets gaping behind him.", "ks": ["ransack"], "fb": {"pillage": "That word needs a town robbed by force in wartime. One man tearing through a records room is only a frantic search.", "plunder": "That word strips a place of valuables. He isn't stealing anything -- he is hunting for a paper he is entitled to.", "swipe": "That is palming one small thing on the sly. He takes nothing, and he leaves wreckage in plain view."}}, {"s": "With the tomb plans already copied, the grave robbers needed no search at all: season after season they returned to ____ the valley's burial chambers, and the gold came out by the sackful.", "ks": ["plunder"], "fb": {"pillage": "That word is always the violent robbing of a town, in war. Robbers emptying tombs of their gold are measured by the haul.", "ransack": "That word is the rough search itself. These robbers <em>needed no search at all<\/em> -- the plans told them where the gold lay.", "swipe": "That is one small item, taken slyly. Gold by the sackful, season after season, is open stripping at scale."}}, {"s": "No one at the reception saw the intern ____ a pastry from the caterer's tray on his way out.", "ks": ["swipe"], "fb": {"pillage": "That word is war-scale robbery of a whole town. This is one pastry.", "ransack": "That word means tearing a place apart in a search. Nothing here is even disturbed -- the sly taking is the point, not a hunt.", "plunder": "That word strips a place of its valuables by force. One pastry lifted quietly is as far from that as theft gets."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs robbery at the scale of war -- a whole town or village stripped by force, not one sneaky theft. Try working in a word like <i>soldiers<\/i>, <i>village<\/i>, <i>carried off<\/i> or <i>by force<\/i>."}};
+  var CFG = {"word": "pillage", "gradeUrl": "/api/grade", "taskId": "pillage", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pillage correctly?", "opts": {"A": "The pickpocket pillaged a single subway token from a tourist's coat and vanished into the crowd.", "B": "The mob pillaged the statue to rubble but left every shop window and till on the square untouched.", "C": "The bank pillaged the farm's equipment strictly by court order, deputies checking each serial number off the list.", "D": "Retreating soldiers pillaged the port town, and relief crews found every warehouse stripped bare."}, "key": "D", "fb": {"correct": "Correct. Soldiers robbing a town wholesale by force, down to its stores — violent, large-scale theft is pillage exactly.", "A": "Lifting one token is petty theft. Pillaging strips a place, and does it by force.", "B": "Smashing a statue and taking nothing is vandalism. Pillaging carries the goods away.", "C": "Seizure by court order is lawful repossession. Pillaging is violent and unlawful."}}, "s3a": {"q": "In this passage, saying the army was turned loose \"to pillage\" the town means the soldiers were allowed to", "opts": {"A": "rob the whole town of its goods by force", "B": "search one merchant's shop for hidden weapons", "C": "collect the wages the city owed them at the gates", "D": "take over the town's cloth trade for the winter"}, "key": "A", "fb": {"correct": "Right -- an army stripping a town's goods by force, street by street, is exactly what the word names.", "B": "The taking ran street by street across the whole town -- not a search of any one shop.", "C": "No one paid them anything -- the looting itself stood 'in place of wages.'", "D": "Nothing suggests the soldiers stayed or traded; they took what they could in two days."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "ransack", "B": "swipe", "C": "pillage", "D": "plunder"}, "key": "B", "fb": {"correct": "Right. One small item, taken on the sly while <em>the server's back was turned<\/em>, with no force anywhere — swipe is theft at its smallest, and it is the only word that fits the ledger's careful language.", "C": "Pillage is theft at the scale of a town — an army stripping a place of its goods by open force. The entire loss here is <em>a silver-plated teaspoon from the tea service<\/em>; a single spoon is several sizes too small for this word.", "A": "To ransack is to tear a place apart in a rough, violent search. Nothing of the kind happened here: <em>no drawer opened<\/em>, and <em>nothing else on the cart was so much as moved<\/em>.", "D": "To plunder is to strip a place of its valuables by open force. There is no force in this scene — <em>no lock was forced<\/em> — and no haul of valuables either: the spoon is <em>worth a few dollars<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Weeks after the surrender, deserters continued to ____ the outlying farms, taking grain and stock by force from anyone too weak to resist.", "options": ["pillage", "ransack"], "key": "pillage", "pair": "ransack", "why_right": "The tell is <em>the outlying farms<\/em> - farm after farm stripped of grain and stock by open force is war-scale robbery, not one place torn apart in a rough search.", "why_wrong": "That word is a violent search through one place -- hunting for whatever is worth taking. These deserters aren't searching; they are stripping farm after farm by open force."}, {"sentence": "The intruders had time to ____ only the study -- drawers dumped, cushions slit, every book swept from the shelves -- yet they took nothing but a passport.", "options": ["pillage", "ransack"], "key": "ransack", "pair": "ransack", "why_right": "The tell is <em>took nothing but a passport<\/em> - one room torn apart in a rough, violent search for something, with almost nothing taken; no army is stripping any town here.", "why_wrong": "That word is an army robbing a whole town by force. This is one room in one house, torn apart in a hunt."}, {"sentence": "Rather than wait for the file clerk, he chose to ____ the whole records room for the missing deed, leaving cabinets gaping behind him.", "options": ["pillage", "ransack"], "key": "ransack", "pair": "ransack", "why_right": "The tell is <em>the whole records room<\/em> - one impatient man tearing a single place apart hunting for a deed; nothing is stolen, and no army robs any town by force.", "why_wrong": "That word needs a town robbed by force in wartime. One man tearing through a records room is only a frantic search."}, {"sentence": "Steppe horsemen crossed the frozen river at dusk to ____ the town, and by morning not a door in the merchants' quarter still hung on its hinges.", "options": ["pillage", "plunder"], "key": "pillage", "pair": "plunder", "why_right": "The tell is <em>not a door in the merchants' quarter<\/em> - the evidence is the violent act done to a whole town in war; no haul or valuables are ever named.", "why_wrong": "That word leans on the valuables -- the victor's haul, even the goods themselves. This sentence never names a haul; its whole claim is the violent act done to the town."}, {"sentence": "With the tomb plans already copied, the grave robbers needed no search at all: season after season they returned to ____ the valley's burial chambers, and the gold came out by the sackful.", "options": ["pillage", "plunder"], "key": "plunder", "pair": "plunder", "why_right": "The tell is <em>the gold came out by the sackful<\/em> - a place stripped of its valuables, the haul itself named; burial chambers in a valley are no town robbed in war.", "why_wrong": "That word is always the violent robbing of a town, in war. Robbers emptying tombs of their gold are measured by the haul."}, {"sentence": "No one at the reception saw the intern ____ a pastry from the caterer's tray on his way out.", "options": ["pillage", "swipe"], "key": "swipe", "pair": "swipe", "why_right": "The tell is <em>a pastry from the caterer's tray<\/em> - one item palmed on the sly with no force at all, the smallest theft there is; no town, no war, no army.", "why_wrong": "That word is war-scale robbery of a whole town. This is one pastry."}, {"sentence": "The militia had two full days to ____ the river port before the relief force arrived, and used them: warehouses emptied to the walls, quays picked clean.", "options": ["pillage", "swipe"], "key": "pillage", "pair": "swipe", "why_right": "The tell is <em>warehouses emptied to the walls<\/em> - an armed force robbing a whole port of its goods over two open days, theft at the scale of a town.", "why_wrong": "That word is theft at its smallest - one item, palmed on the sly, with no force at all. An armed militia emptying a port's warehouses over two days is open, war-scale robbery."}, {"sentence": "Unpaid for a season, the mercenary company turned on the market town it garrisoned and began to ____ it street by street, loading wagons in the open square.", "options": ["pillage", "swipe"], "key": "pillage", "pair": "swipe", "why_right": "The tell is <em>street by street<\/em> - a whole market town stripped in the open by an armed company, wagons loaded in the square; robbery at the scale of a town.", "why_wrong": "That word means one small thing taken quietly, with no force. Soldiers working a town street by street and loading wagons in the open square are the opposite end of the scale."}], "display_order": [6, 0, 5, 2, 4, 1, 7, 3], "dimension_order": ["ransack", "plunder", "swipe"], "dimension_feedback": {"ransack": "To ransack is to tear one place apart in a rough, violent search — a house, a shop, a single desk — hunting for whatever is worth taking. Pillage is bigger and blunter: an army stripping a whole town of its goods by force, no searching required.", "plunder": "To plunder is to strip a place of its valuables by open force — the victor's haul, the raider's right — and the word can even name the goods themselves. Pillage is its war-zone twin: always the violent act of robbing a town, never the goods.", "swipe": "A swipe is theft at its smallest — one item, palmed on the sly, with no force at all — where pillage is theft at the scale of a town, taken by open force."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs robbery at the scale of war -- a whole town or village stripped by force, not one sneaky theft. Try working in a word like <i>soldiers<\/i>, <i>village<\/i>, <i>carried off<\/i> or <i>by force<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

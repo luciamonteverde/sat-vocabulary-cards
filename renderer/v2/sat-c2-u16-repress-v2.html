@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="468284de809c">
+<meta name="build" content="d0093b8243da">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>repress &#8212; SAT Vocabulary, Course 2 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "repress", "gradeUrl": "/api/grade", "taskId": "repress", "minWords": 12, "items": {"s1": {"q": "Which sentence uses repress correctly?", "opts": {"A": "The tailor carefully repressed the linen jacket until every last travel crease lay flat.", "B": "The bank quietly repressed the bakery's delivery van after the third missed payment in a row.", "C": "For years he repressed all memory of the flood, and whole months of it stayed blank.", "D": "The recruiter repressed the assembled cadets with grand tales of the academy's glory days."}, "key": "C", "fb": {"correct": "Correct. The memory keeps trying to surface and he keeps forcing it down — the mind's own police state, which is repress working exactly as the word says.", "A": "Ironing a jacket 'until every last travel crease lay flat' is simply pressing it again. Repress is force applied to something that keeps struggling to rise — not smoothing fabric on a table.", "B": "A bank seizing a delivery van 'after the third missed payment' has repossessed it, taking property back. Repress is not collection work; it means forcibly keeping something suppressed, like a feeling or an uprising.", "D": "Dazzling cadets 'with grand tales' would impress them, filling them with awe. Repress runs the other way — clamping down on something trying to surface, not building excitement in an audience."}}, "s3a": {"q": "As the passage uses it, to 'repress' the carnival means to", "opts": {"A": "abolish it so completely that no islander remembered it", "B": "discourage it gently with fines that nobody ever collected", "C": "hold it down by force while it stays alive underneath", "D": "replace it with an official festival run by the governors"}, "key": "C", "fb": {"correct": "Right — soldiers, fines, confiscation: real force every spring, and yet the thing survives underneath and returns the moment the weight lifts. That standing pressure on a living thing is the meaning.", "A": "The passage says the opposite — it survived, 'rehearsed in kitchens ... taught to children,' and walked straight back when the weight lifted.", "B": "The fines were paid every March, and fines were the least of it — soldiers and confiscations are force, not gentle discouragement.", "D": "No substitute festival appears anywhere in the passage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "repress", "B": "put down", "C": "stamp out", "D": "curb"}, "key": "B", "fb": {"correct": "Right. A rising broken by force in one decisive stroke, finished and closed — <em>Chroniclers give the whole episode four sentences<\/em> — is exactly what it means to say a revolt was put down.", "A": "That word means holding something under continuous weight while it goes on pushing back beneath. Here the force lifted at once — <em>No garrison stayed behind afterward<\/em> — and the wards <em>kept the peace on their own for a generation<\/em>. Nothing stayed pressed under anything.", "C": "Stamping something out takes force applied again and again until nothing is left of it. This was one short stroke — <em>by the third evening it was done<\/em> — and the rioters' grievance was answered with a cheaper loaf, not erased by force.", "D": "To curb something is to trim its edges and leave the thing itself alive under a lighter rein. This rising was not trimmed; it ended: <em>the crowds dispersed and did not re-form<\/em>."}}}, "grid": {"words": ["repress", "put down", "stamp out", "curb"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "For thirty years the regime chose to ____ the miners' union rather than finish it: meetings broken up each spring, leaders jailed and released, the organization always alive under the weight and always pushing back.", "ks": ["repress"], "fb": {"put down": "That phrase ends the story — the rising broken, the book closed. This story never closes: thirty years on, the union is <em>always alive under the weight and always pushing back<\/em>.", "stamp out": "Total erasure is the one thing the regime never achieves — the organization survives every spring's breakings and jailings. Your phrase means force applied until nothing is left, and something is very much left.", "curb": "A light rein trims edges and leaves a habit running as a habit. Broken meetings and jailed leaders are not trimming — they are weight applied for thirty years."}}, {"s": "Therapists came to suspect she had learned to ____ the memory of the crash entirely — not managed, not softened, but pushed below thought, where it still surfaced in dreams.", "ks": ["repress"], "fb": {"put down": "That phrase belongs to revolts and risings, and it ends them. This memory is not ended — it climbs back nightly in dreams — and nothing about a mind's own weight is final.", "stamp out": "Erased things do not come back. The memory <em>still surfaced in dreams<\/em>, which means it survives under the pressure rather than ceasing to exist.", "curb": "The sentence forbids the gentle reading twice over — <em>not managed, not softened<\/em>. What happened is force: the whole memory pushed below thought, not a habit's edges trimmed."}}, {"s": "It took the garrison one weekend to ____ the prison riot; by Monday the yards were quiet, the ringleaders shipped out, and the affair closed for good.", "ks": ["put down"], "fb": {"repress": "Everything about this ends: quiet yards by Monday, the affair <em>closed for good<\/em>. The word you picked means holding something down that stays alive and keeps pushing — there is nothing left here to push.", "stamp out": "That phrase keeps applying force until a practice or plot ceases to exist anywhere. This was one rising, broken once in a single weekend, and the affair simply closed.", "curb": "Nobody trims a riot's edges with a garrison. The force here is total and the result final, which is the opposite of a light rein that leaves the thing alive."}}, {"s": "The emperor sent two legions to ____ the provincial revolt, and the chronicle spends a single line on it: over in a month, never mentioned again.", "ks": ["put down"], "fb": {"repress": "A month, one line, and silence — nothing survives to strain against a weight. Your word wants an ongoing hold over something still alive underneath, and the chronicle records an ending.", "stamp out": "That phrase is a campaign of repeated force until nothing of a practice remains anywhere. Here a single rising was broken once and the story closes in a line — no long campaign, no practice.", "curb": "Legions do not trim edges. The revolt was met with full force and ended, not lightly reined and left alive."}}, {"s": "Inspectors spent a decade working to ____ the practice of bribes at the border, returning again and again until not one crossing still asked for an envelope.", "ks": ["stamp out"], "fb": {"repress": "Held-down things survive to push back, and nothing survives here — <em>not one crossing still asked<\/em>. The inspectors' goal was extinction, not a standing weight.", "put down": "That phrase breaks a rising in one finished stroke. A habit of bribery is not a rising, and this took a decade of returning — force reapplied until nothing remained.", "curb": "Trimming would have left polite, smaller bribes. The inspectors went the whole way — the practice does not exist anymore, anywhere on the border."}}, {"s": "The new rule did just enough to ____ the analysts' overtime habit — a cap on late hours that shaved off the worst of it and left the habit itself very much alive.", "ks": ["curb"], "fb": {"repress": "A cap that shaves the worst hours is a light rein, not a weight. Your word needs real force holding something down that would otherwise spring back — this habit just runs a little shorter.", "put down": "Nothing rose and nothing was broken — a scheduling rule adjusted a habit. The finished, force-and-silence phrase has no rising to end.", "stamp out": "The habit is <em>very much alive<\/em> — the rule never tried for zero. Your phrase means force applied until nothing is left, and plenty is left every evening at six."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs force pressing something down that stays alive underneath — or a feeling pushed out of mind that keeps trying to return. Show both the weight and the survivor: try working in a word like <i>force<\/i>, <i>underground<\/i>, <i>still<\/i> or <i>beneath<\/i>."}};
+  var CFG = {"word": "repress", "gradeUrl": "/api/grade", "taskId": "repress", "minWords": 12, "items": {"s1": {"q": "Which sentence uses repress correctly?", "opts": {"A": "The tailor carefully repressed the linen jacket until every last travel crease lay flat.", "B": "The bank quietly repressed the bakery's delivery van after the third missed payment in a row.", "C": "For years he repressed all memory of the flood, and whole months of it stayed blank.", "D": "The recruiter repressed the assembled cadets with grand tales of the academy's glory days."}, "key": "C", "fb": {"correct": "Correct. The memory keeps trying to surface and he keeps forcing it down — the mind's own police state, which is repress working exactly as the word says.", "A": "Ironing a jacket 'until every last travel crease lay flat' is simply pressing it again. Repress is force applied to something that keeps struggling to rise — not smoothing fabric on a table.", "B": "A bank seizing a delivery van 'after the third missed payment' has repossessed it, taking property back. Repress is not collection work; it means forcibly keeping something suppressed, like a feeling or an uprising.", "D": "Dazzling cadets 'with grand tales' would impress them, filling them with awe. Repress runs the other way — clamping down on something trying to surface, not building excitement in an audience."}}, "s3a": {"q": "As the passage uses it, to 'repress' the carnival means to", "opts": {"A": "abolish it so completely that no islander remembered it", "B": "discourage it gently with fines that nobody ever collected", "C": "hold it down by force while it stays alive underneath", "D": "replace it with an official festival run by the governors"}, "key": "C", "fb": {"correct": "Right — soldiers, fines, confiscation: real force every spring, and yet the thing survives underneath and returns the moment the weight lifts. That standing pressure on a living thing is the meaning.", "A": "The passage says the opposite — it survived, 'rehearsed in kitchens ... taught to children,' and walked straight back when the weight lifted.", "B": "The fines were paid every March, and fines were the least of it — soldiers and confiscations are force, not gentle discouragement.", "D": "No substitute festival appears anywhere in the passage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "repress", "B": "put down", "C": "stamp out", "D": "curb"}, "key": "B", "fb": {"correct": "Right. A rising broken by force in one decisive stroke, finished and closed — <em>Chroniclers give the whole episode four sentences<\/em> — is exactly what it means to say a revolt was put down.", "A": "That word means holding something under continuous weight while it goes on pushing back beneath. Here the force lifted at once — <em>No garrison stayed behind afterward<\/em> — and the wards <em>kept the peace on their own for a generation<\/em>. Nothing stayed pressed under anything.", "C": "Stamping something out takes force applied again and again until nothing is left of it. This was one short stroke — <em>by the third evening it was done<\/em> — and the rioters' grievance was answered with a cheaper loaf, not erased by force.", "D": "To curb something is to trim its edges and leave the thing itself alive under a lighter rein. This rising was not trimmed; it ended: <em>the crowds dispersed and did not re-form<\/em>."}}}, "pairwise": {"rows": [{"sentence": "It took the garrison one weekend to ____ the prison riot; by Monday the yards were quiet, the ringleaders shipped out, and the affair closed for good.", "options": ["repress", "put down"], "key": "put down", "pair": "put down", "why_right": "The tell is <em>closed for good<\/em> - put down is the finished phrase for breaking a rising by force; the story ended in a weekend, with no continuing weight left.", "why_wrong": "Everything about this ends: quiet yards by Monday, the affair <em>closed for good<\/em>. The word you picked means holding something down that stays alive and keeps pushing — there is nothing left here to push."}, {"sentence": "The emperor sent two legions to ____ the provincial revolt, and the chronicle spends a single line on it: over in a month, never mentioned again.", "options": ["repress", "put down"], "key": "put down", "pair": "put down", "why_right": "The tell is <em>over in a month, never mentioned again<\/em> - put down breaks a rising and the story ends there, while repress would need a weight held on something still alive.", "why_wrong": "A month, one line, and silence — nothing survives to strain against a weight. Your word wants an ongoing hold over something still alive underneath, and the chronicle records an ending."}, {"sentence": "For thirty years the regime chose to ____ the miners' union rather than finish it: meetings broken up each spring, leaders jailed and released, the organization always alive under the weight and always pushing back.", "options": ["repress", "put down"], "key": "repress", "pair": "put down", "why_right": "The tell is <em>always alive under the weight and always pushing back<\/em> - repress is the longer weight, held down continuously while the thing survives, which the finished phrase cannot cover.", "why_wrong": "That phrase ends the story — the rising broken, the book closed. This story never closes: thirty years on, the union is <em>always alive under the weight and always pushing back<\/em>."}, {"sentence": "Inspectors spent a decade working to ____ the practice of bribes at the border, returning again and again until not one crossing still asked for an envelope.", "options": ["repress", "stamp out"], "key": "stamp out", "pair": "stamp out", "why_right": "The tell is <em>not one crossing still asked<\/em> - stamp out keeps applying force until nothing is left standing, and the practice is gone from the border, not held down alive underneath.", "why_wrong": "Held-down things survive to push back, and nothing survives here — <em>not one crossing still asked<\/em>. The inspectors' goal was extinction, not a standing weight."}, {"sentence": "Therapists came to suspect she had learned to ____ the memory of the crash entirely — not managed, not softened, but pushed below thought, where it still surfaced in dreams.", "options": ["repress", "stamp out"], "key": "repress", "pair": "stamp out", "why_right": "The tell is <em>still surfaced in dreams<\/em> - to repress is to hold down something that still exists, and the memory survives to return, where stamp out would leave nothing behind at all.", "why_wrong": "Erased things do not come back. The memory <em>still surfaced in dreams<\/em>, which means it survives under the pressure rather than ceasing to exist."}, {"sentence": "The new rule did just enough to ____ the analysts' overtime habit — a cap on late hours that shaved off the worst of it and left the habit itself very much alive.", "options": ["repress", "curb"], "key": "curb", "pair": "curb", "why_right": "The tell is <em>left the habit itself very much alive<\/em> - curb is the light rein that trims a habit's edges, where repress would put real weight and hold the thing down.", "why_wrong": "A cap that shaves the worst hours is a light rein, not a weight. Your word needs real force holding something down that would otherwise spring back — this habit just runs a little shorter."}, {"sentence": "Each spring the sheriff jailed the ballad singers and burned their sheets, bearing down hard to ____ a protest music the mill towns refused to give up.", "options": ["repress", "curb"], "key": "repress", "pair": "curb", "why_right": "The tell is <em>bearing down hard<\/em> - repressing puts real weight on top and holds the thing down, while curb would be a light rein trimming a habit's edges, not jailings and burnings.", "why_wrong": "That word is a light rein, a rule trimming a habit's edges and leaving it alive. Jailing the singers and burning their sheets is real weight bearing down, not a gentle trim."}, {"sentence": "Month after month the governor moved to ____ the students' paper - presses seized, editors jailed, each issue driven under the same heavy hand - yet a new one always appeared.", "options": ["repress", "curb"], "key": "repress", "pair": "curb", "why_right": "The tell is <em>each issue driven under the same heavy hand<\/em> - curb is far gentler than repress; a light rein trims a habit's edges, and this is real weight on top.", "why_wrong": "That word is a light rein that trims a habit's edges and leaves it running. Seized presses and jailed editors are real weight held down, not a gentle rule nudging a habit."}], "display_order": [7, 0, 6, 3, 1, 5, 2, 4], "dimension_order": ["put down", "stamp out", "curb"], "dimension_feedback": {"put down": "Put down is the plain, finished phrase for breaking a rising by force — the revolt was put down, and the story ends there. Repress names the longer weight: a repressed strike or feeling is held down continuously and may still be pushing back underneath.", "stamp out": "To stamp out is to keep applying force until nothing is left standing — the plot, the practice, the last ember, gone. To repress is to hold down something that still exists: a repressed movement survives under the weight, waiting for it to lift.", "curb": "Curb is far gentler than repress — the light rein, a rule that trims a habit's edges and leaves the habit alive, while repressing puts real weight on top and holds the thing down."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs force pressing something down that stays alive underneath — or a feeling pushed out of mind that keeps trying to return. Show both the weight and the survivor: try working in a word like <i>force<\/i>, <i>underground<\/i>, <i>still<\/i> or <i>beneath<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

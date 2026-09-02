@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="577a5036ffaa">
+<meta name="build" content="945a20e03b83">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>reconstruct &#8212; SAT Vocabulary, Course 1 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "reconstruct", "gradeUrl": "/api/grade", "taskId": "reconstruct", "minWords": 12, "items": {"s1": {"q": "At the dig site, Dr. Imani's team has uncovered postholes, pottery shards, and the blackened traces of old cooking hearths. Using these clues, they hope to reconstruct the ancient village. What is the team trying to do?", "opts": {"A": "Dig deeper and deeper beneath the postholes in the hope of finding gold coins or other treasure.", "B": "Use the buried clues to form a detailed idea of how the village was laid out and how daily life once ran there.", "C": "Clear the site and put up a modern town, with new houses and shops, right on top of the old one.", "D": "Prove to the other archaeologists on the dig that the village never actually existed in the first place."}, "key": "B", "fb": {"correct": "Right. Dr. Imani's team starts from scattered traces — postholes, pottery shards, old hearths — and works out from them how the village was arranged and lived in. Rebuilding an understanding of the past from surviving traces is the evidence sense of reconstruct.", "A": "Treasure hunting is a different goal altogether. Digging 'deeper and deeper' for 'gold coins' chases brand-new finds, while reconstructing starts from what has already been uncovered and asks what it says about the vanished village.", "C": "Putting up 'a modern town' would build something new on top of the site. The re- in reconstruct points backward — the team wants to recover how the ancient settlement was arranged, not replace it with new construction.", "D": "Trying to prove the village 'never actually existed' would argue against the evidence. The team is doing the reverse: treating postholes, pottery, and hearths as proof it existed, and assembling from those traces a picture of the past."}}, "s3a": {"q": "In this passage, to \"reconstruct\" the vessel means to", "opts": {"A": "piece together what the ship had been like from the evidence", "B": "raise the original hull from the seabed and repair it for display", "C": "fit the recovered pieces of the hull back into their old positions", "D": "build an exact copy of the ship using planks saved from the wreck"}, "key": "A", "fb": {"correct": "Right -- 'an argument built from evidence': the team worked the ship out from ballast, fittings, and debris.", "B": "'Nothing original was repaired' -- and there was 'no hull to speak of.'", "C": "The passage says directly that 'nothing was put back together, because almost nothing remained.'", "D": "The model is built from what the fragments imply, not from salvaged planks."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "restore", "B": "reconstruct", "C": "rebuild", "D": "reassemble"}, "key": "B", "fb": {"correct": "Right. Nothing of the original survived — no text, no recording — so the linguists pieced together a picture of the vanished language from indirect evidence. Building an account of the past from clues is exactly this word's extra territory beyond putting up structures.", "C": "Rebuilding is for physical things put up again after damage — a bridge, an engine. What the linguists recovered was <em>much of its vocabulary and grammar<\/em>: an account of a language, not a structure.", "A": "Restoring returns something to its original condition, usually preserving original material. There is nothing here to preserve: <em>the language died out thousands of years before writing reached its descendants<\/em>, so no original text or recording exists to work on.", "D": "Reassembling means fitting existing pieces back together — the parts are all on the table and go back where they belong. These forms are <em>starred, hypothetical<\/em>: nothing survived to be refitted, so every piece had to be worked out from comparison."}}}, "grid": {"words": ["reconstruct", "rebuild", "restore", "reassemble"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "From flight data, scattered wreckage, and one garbled radio call, investigators managed to ____ the airliner's final minutes.", "ks": ["reconstruct"], "fb": {"rebuild": "That word is for building physical things again -- bridges, engines. What the investigators produce is an account of the final minutes, drawn from evidence.", "restore": "That word returns something to its original condition. Nothing here is brought back -- a picture of past events is worked out from clues.", "reassemble": "That word fits existing pieces back together when every part is on hand. Scattered wreckage and one garbled call are fragments, not a complete set."}}, {"s": "Historians used tree rings, tax rolls, and church registers to ____ the famine year, week by week, in a village that left no diaries.", "ks": ["reconstruct"], "fb": {"rebuild": "That word means building a physical thing again -- a bridge, an engine. Tree rings and tax rolls yield a week-by-week account of the past instead.", "restore": "That word brings something back to its original condition. A famine year cannot be brought back -- it is being worked out from records.", "reassemble": "That word needs all the pieces on hand, ready to fit back together. This village left no diaries; the year is inferred from scraps."}}, {"s": "The old tractor's motor smoked and died, so over the winter Dad tore it down and set out to ____ it with new rings and bearings.", "ks": ["rebuild"], "fb": {"reconstruct": "That word leans formal, and its special territory is piecing together past events from evidence. A winter of wrenching on a tractor motor is the plain, hands-on build-it-again job.", "restore": "That word returns a thing to its original condition, often keeping the original material. New rings and bearings replace the old outright.", "reassemble": "That word fits the same parts back together. Dad is putting in new internals, not returning the old pieces to their places."}}, {"s": "Conservators worked for a decade to ____ the water-stained fresco, cleaning and stabilizing the painter's original plaster rather than replacing an inch of it.", "ks": ["restore"], "fb": {"reconstruct": "That word builds a thing again, sometimes wholly from new parts, or pieces the past together from evidence. This fresco survives -- it is being returned to its condition.", "rebuild": "That word means building a structure again after damage or destruction. The fresco still stands; nothing is built anew.", "reassemble": "That word means fitting pieces back together. The fresco never came apart -- its surface is being cleaned and stabilized."}}, {"s": "The movers photographed every joint before packing, so the crew upstairs could ____ the antique wardrobe exactly as it had stood, every peg back in its hole.", "ks": ["reassemble"], "fb": {"reconstruct": "That word starts with less -- the original damaged or gone, or the past known only from evidence. Every piece of this wardrobe is on hand, photographed joint by joint.", "rebuild": "That word builds a thing again, often with new material. Nothing new is made here; the same parts go back where they belong.", "restore": "That word brings back a damaged or faded thing's condition. The wardrobe is fine -- it just needs its pieces fitted back together."}}, {"s": "After each tour, technicians ____ the whale skeleton in the atrium, wiring every numbered bone back into place.", "ks": ["reassemble"], "fb": {"reconstruct": "That word implies gaps -- missing parts or missing knowledge filled in from evidence. These bones are numbered; nothing has to be guessed.", "rebuild": "That word means building again, usually with new material after damage. The crew adds nothing new -- each existing bone is wired back into place.", "restore": "That word returns condition to something worn or damaged. The skeleton is undamaged; its parts simply go back into position."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Either build something again after it was damaged or lost, or piece together past events from clues. Either way, show what was missing or destroyed first -- try working in <i>evidence<\/i>, <i>fragments<\/i>, <i>again<\/i> or <i>clues<\/i>."}};
+  var CFG = {"word": "reconstruct", "gradeUrl": "/api/grade", "taskId": "reconstruct", "minWords": 12, "items": {"s1": {"q": "At the dig site, Dr. Imani's team has uncovered postholes, pottery shards, and the blackened traces of old cooking hearths. Using these clues, they hope to reconstruct the ancient village. What is the team trying to do?", "opts": {"A": "Dig deeper and deeper beneath the postholes in the hope of finding gold coins or other treasure.", "B": "Use the buried clues to form a detailed idea of how the village was laid out and how daily life once ran there.", "C": "Clear the site and put up a modern town, with new houses and shops, right on top of the old one.", "D": "Prove to the other archaeologists on the dig that the village never actually existed in the first place."}, "key": "B", "fb": {"correct": "Right. Dr. Imani's team starts from scattered traces — postholes, pottery shards, old hearths — and works out from them how the village was arranged and lived in. Rebuilding an understanding of the past from surviving traces is the evidence sense of reconstruct.", "A": "Treasure hunting is a different goal altogether. Digging 'deeper and deeper' for 'gold coins' chases brand-new finds, while reconstructing starts from what has already been uncovered and asks what it says about the vanished village.", "C": "Putting up 'a modern town' would build something new on top of the site. The re- in reconstruct points backward — the team wants to recover how the ancient settlement was arranged, not replace it with new construction.", "D": "Trying to prove the village 'never actually existed' would argue against the evidence. The team is doing the reverse: treating postholes, pottery, and hearths as proof it existed, and assembling from those traces a picture of the past."}}, "s3a": {"q": "In this passage, to \"reconstruct\" the vessel means to", "opts": {"A": "piece together what the ship had been like from the evidence", "B": "raise the original hull from the seabed and repair it for display", "C": "fit the recovered pieces of the hull back into their old positions", "D": "build an exact copy of the ship using planks saved from the wreck"}, "key": "A", "fb": {"correct": "Right -- 'an argument built from evidence': the team worked the ship out from ballast, fittings, and debris.", "B": "'Nothing original was repaired' -- and there was 'no hull to speak of.'", "C": "The passage says directly that 'nothing was put back together, because almost nothing remained.'", "D": "The model is built from what the fragments imply, not from salvaged planks."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "restore", "B": "reconstruct", "C": "rebuild", "D": "reassemble"}, "key": "B", "fb": {"correct": "Right. Nothing of the original survived — no text, no recording — so the linguists pieced together a picture of the vanished language from indirect evidence. Building an account of the past from clues is exactly this word's extra territory beyond putting up structures.", "C": "Rebuilding is for physical things put up again after damage — a bridge, an engine. What the linguists recovered was <em>much of its vocabulary and grammar<\/em>: an account of a language, not a structure.", "A": "Restoring returns something to its original condition, usually preserving original material. There is nothing here to preserve: <em>the language died out thousands of years before writing reached its descendants<\/em>, so no original text or recording exists to work on.", "D": "Reassembling means fitting existing pieces back together — the parts are all on the table and go back where they belong. These forms are <em>starred, hypothetical<\/em>: nothing survived to be refitted, so every piece had to be worked out from comparison."}}}, "pairwise": {"rows": [{"sentence": "From flight data, scattered wreckage, and one garbled radio call, investigators managed to ____ the airliner's final minutes.", "options": ["reconstruct", "reassemble"], "key": "reconstruct", "pair": "reassemble", "why_right": "The tell is <em>one garbled radio call<\/em> - the evidence is fragmentary, with gaps to fill by inference, not a complete set of parts waiting to go back into place.", "why_wrong": "That word fits existing pieces back together when every part is on hand. Scattered wreckage and one garbled call are fragments, not a complete set."}, {"sentence": "Historians used tree rings, tax rolls, and church registers to ____ the famine year, week by week, in a village that left no diaries.", "options": ["reconstruct", "rebuild"], "key": "reconstruct", "pair": "rebuild", "why_right": "The tell is <em>a village that left no diaries<\/em> - the famine year is pieced together from scraps of evidence, an account of the past, not a physical thing built again.", "why_wrong": "That word means building a physical thing again -- a bridge, an engine. Tree rings and tax rolls yield a week-by-week account of the past instead."}, {"sentence": "Conservators worked for a decade to ____ the water-stained fresco, cleaning and stabilizing the painter's original plaster rather than replacing an inch of it.", "options": ["reconstruct", "restore"], "key": "restore", "pair": "restore", "why_right": "The tell is <em>rather than replacing an inch of it<\/em> - the original plaster survives and is returned to its condition, so nothing is built again or pieced together from clues.", "why_wrong": "That word builds a thing again, sometimes wholly from new parts, or pieces the past together from evidence. This fresco survives -- it is being returned to its condition."}, {"sentence": "The movers photographed every joint before packing, so the crew upstairs could ____ the antique wardrobe exactly as it had stood, every peg back in its hole.", "options": ["reconstruct", "reassemble"], "key": "reassemble", "pair": "reassemble", "why_right": "The tell is <em>every peg back in its hole<\/em> - all the existing pieces are on hand and simply go back where they belong; nothing is damaged, gone, or guessed from evidence.", "why_wrong": "That word starts with less -- the original damaged or gone, or the past known only from evidence. Every piece of this wardrobe is on hand, photographed joint by joint."}, {"sentence": "After each tour, technicians ____ the whale skeleton in the atrium, wiring every numbered bone back into place.", "options": ["reconstruct", "reassemble"], "key": "reassemble", "pair": "reassemble", "why_right": "The tell is <em>every numbered bone<\/em> - the set is complete and each piece goes back where it belongs, with no gaps to fill in from evidence.", "why_wrong": "That word implies gaps -- missing parts or missing knowledge filled in from evidence. These bones are numbered; nothing has to be guessed."}, {"sentence": "After the fire left only foundations, the town voted to ____ its 1880s opera house from the architect's surviving drawings, every beam and plaster rose cut new.", "options": ["reconstruct", "restore"], "key": "reconstruct", "pair": "restore", "why_right": "The tell is <em>left only foundations<\/em> - with nothing original left to preserve, the opera house is built again from new parts, which restore could never claim.", "why_wrong": "That word returns a surviving thing to its original condition, often keeping the original materials. Only foundations remain here, and every beam is cut new -- nothing original is preserved."}, {"sentence": "From pollen grains and charred seeds packed into the old hearths, archaeologists could ____ the villagers' diet across four centuries, season by season.", "options": ["reconstruct", "rebuild"], "key": "reconstruct", "pair": "rebuild", "why_right": "The tell is <em>the villagers' diet<\/em> - what gets pieced together is an account of past life drawn from evidence, not a bridge, engine, or any physical thing built again.", "why_wrong": "That word builds physical things again -- bridges, engines, houses. A diet four centuries gone is not a structure; it is an account pieced together from pollen and seeds."}, {"sentence": "Grandfather's pocket watch still ticked; the jeweler needed only to ____ it, polishing its original brass case and cleaning the century-old movement it was born with.", "options": ["reconstruct", "restore"], "key": "restore", "pair": "restore", "why_right": "The tell is <em>still ticked<\/em> - the watch survives in working order, so its original parts are simply returned to their best condition rather than built again or inferred from clues.", "why_wrong": "That word starts with less -- something damaged or gone, or a past worked out from evidence. This watch still runs, keeping the movement it was born with."}], "display_order": [5, 4, 1, 0, 2, 6, 3, 7], "dimension_order": ["rebuild", "restore", "reassemble"], "dimension_feedback": {"rebuild": "Rebuild means to build a physical thing again after damage or destruction — you rebuild a bridge or an engine. Reconstruct covers that and one thing more: piecing together an account of past events from evidence, the way detectives reconstruct a timeline. You rebuild structures; you can reconstruct a night.", "restore": "Restore means to return something to its original condition, often keeping the original materials — restorers work on paintings and old houses. Reconstruct means building the thing again, sometimes entirely from new parts, or assembling a picture of past events from clues rather than preserving anything original.", "reassemble": "Reassemble means to fit existing pieces back together — the parts are all on the table and go back where they belong. Reconstruct starts with less: the original is damaged or gone and gets built again, or the past is pieced together from whatever scraps of evidence remain."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Either build something again after it was damaged or lost, or piece together past events from clues. Either way, show what was missing or destroyed first -- try working in <i>evidence<\/i>, <i>fragments<\/i>, <i>again<\/i> or <i>clues<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

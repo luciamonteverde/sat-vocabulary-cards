@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="fe01ceec18c3">
+<meta name="build" content="421e03b732eb">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>inference &#8212; SAT Vocabulary, Course 1 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "inference", "gradeUrl": "/api/grade", "taskId": "inference", "minWords": 12, "items": {"s1": {"q": "An insurance investigator examines a burned garage. The charring is deepest around one electrical outlet, and the melted wiring all traces back to that same spot. In her report, she writes that the fire most likely began at the outlet. What is her statement?", "opts": {"A": "an inference - a conclusion drawn from the clues at the scene", "B": "a direct observation - she watched the fire start herself", "C": "a random guess with nothing to support it", "D": "a rule requiring all outlets to be replaced"}, "key": "A", "fb": {"correct": "Right - she never saw the fire start; she worked her conclusion out from the deep charring and the melted wiring, and a conclusion built from clues is an inference.", "B": "She never 'watched the fire start herself' — her report is written afterward, from charring patterns and melted wiring. What she produced was reasoned out, not seen directly. Name the word for a judgment reached that way.", "C": "Calling it 'a random guess with nothing to support it' ignores the support the passage lists: deepest charring at one outlet, wiring tracing back to that same spot. Her statement follows from evidence — the opposite of random.", "D": "Her report says where the fire most likely began; it never issues 'a rule requiring all outlets to be replaced.' She reasons backward from physical evidence to a cause — pick the word for that move."}}, "s3a": {"q": "As it is used in this passage, \"inference\" most nearly means:", "opts": {"A": "a conclusion forced by strict logic that could not possibly be wrong", "B": "one reading of the data among many equally defensible ones", "C": "a judgment reasoned from evidence about something unseen", "D": "a projection of the orbit's drift into the future"}, "key": "C", "fb": {"correct": "Right. Le Verrier reasons from the wobble — his evidence — to a claim about a planet nobody had seen, and the passage stresses it was 'a judgment, not a certainty.'", "A": "The passage rules that out: his numbers 'rested on assumptions he could not check,' so the conclusion was not forced.", "B": "Le Verrier offered his conclusion as true — a fact to point a telescope at — not as one reading among equals.", "D": "He was not forecasting where Uranus would drift next; he was explaining, from present evidence, what unseen thing was causing the drift."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "extrapolation", "B": "inference", "C": "interpretation", "D": "deduction"}, "key": "A", "fb": {"correct": "Right. The planners <em>carried the familiar curve forward through twenty-five years nobody has yet metered<\/em> — projecting a known trend past the last data point is exactly what extrapolation names.", "B": "An inference is a judgment worked out from the evidence in front of you — what the clues you hold actually mean. But <em>The numbers in hand required no detective work<\/em>; the record's meaning was never the problem.", "D": "A deduction follows so strictly from its premises that, if they hold, it must hold too. This forecast carries no such guarantee: <em>one new factory or a wave of rooftop solar could bend it<\/em>.", "C": "An interpretation explains what something means, and several interpretations can stand side by side. Here <em>the record is plain<\/em> — no one disputed what the counts meant, and no rival reading was on the table."}}}, "grid": {"words": ["inference", "deduction", "extrapolation", "interpretation"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The dew lay undisturbed on every sill but one, and from that clue the detective drew her ____: the intruder came through the study — a judgment the trial might yet prove wrong.", "ks": ["inference"], "fb": {"deduction": "That word means the conclusion must follow if the evidence holds — no room for error. The sentence itself allows that the trial might prove this judgment wrong.", "extrapolation": "That extends a known trend into the unknown — next year from this year's curve. The detective is reading clues about what already happened.", "interpretation": "That explains what something means, and rival readings can coexist. The detective is asserting a fact — which way the intruder came — as true."}}, {"s": "No one ever saw the glacier move, but from scarred bedrock and stranded boulders geologists reasoned their way to the ____ that ice once filled this valley — well supported, still not certain.", "ks": ["inference"], "fb": {"deduction": "That word claims necessity — if the premises hold, the conclusion must. The sentence says 'still not certain,' which is exactly the room that word does not allow.", "extrapolation": "That projects known numbers beyond the data — forward along a trend. Here evidence at hand is being read about the deep past, not a curve stretched onward.", "interpretation": "That is an account of what something means, where several accounts can stand together. This is a factual claim about ice, offered as true."}}, {"s": "With the ledger showing exactly nine keys issued and only eight returned, the auditor's conclusion was pure ____: if the records held, one key simply had to be missing somewhere.", "ks": ["deduction"], "fb": {"inference": "That word covers reasoned judgments that could still turn out wrong. Nine issued minus eight returned leaves no room to be wrong — the conclusion is forced, which earns the stricter word.", "extrapolation": "That stretches a trend into territory the data does not cover. The auditor never leaves the ledger — the answer is inside the records.", "interpretation": "That explains a meaning, and meanings can be read several ways. Nine minus eight can be read exactly one way."}}, {"s": "The colony had doubled every day for a week, so Priya drew the line onward and forecast a billion cells by Friday — plain ____, stretching the trend into days nobody had observed.", "ks": ["extrapolation"], "fb": {"inference": "That word is for judging what the evidence in front of you already points to. Priya's forecast runs past her evidence — into days with no data at all — which is a different move with its own name.", "deduction": "That means the conclusion is forced by the premises. Nothing forces a colony to keep doubling — Friday's billion is a projection, not a necessity.", "interpretation": "That is an account of what something means. Priya is not reading a meaning — she is stretching a growth curve into next week."}}, {"s": "Two critics left the same play with opposite readings — one called the ending mercy, the other called it revenge — and the director smiled and said every honest ____ was welcome.", "ks": ["interpretation"], "fb": {"inference": "That word asserts a fact reasoned from evidence, offered as true. These critics are reading a meaning — and the director happily lets both readings stand.", "deduction": "That means the conclusion is forced — so two opposite ones could never both survive. Here mercy and revenge stand side by side.", "extrapolation": "That extends known data into the unknown, like projecting a curve. Nothing numerical is happening — an ending is being read two ways."}}, {"s": "The clause ran one ambiguous sentence long, and by Friday each of the firm's lawyers had offered a different ____ of what it meant — all three of them defensible, none of them final.", "ks": ["interpretation"], "fb": {"inference": "That word reasons its way to a fact and asserts it. These lawyers are unfolding a meaning, and three rival readings remain standing.", "deduction": "That word forces a single conclusion from premises. An ambiguous clause that supports three answers is the opposite case.", "extrapolation": "That projects known figures beyond the data. There are no figures here — only one ambiguous sentence and what it might mean."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone reasoning from clues to a judgment about something they never directly saw — and leave room for it to be wrong. Try working in words like <i>clues<\/i>, <i>must have<\/i>, <i>evidence<\/i> or <i>probably<\/i>."}};
+  var CFG = {"word": "inference", "gradeUrl": "/api/grade", "taskId": "inference", "minWords": 12, "items": {"s1": {"q": "An insurance investigator examines a burned garage. The charring is deepest around one electrical outlet, and the melted wiring all traces back to that same spot. In her report, she writes that the fire most likely began at the outlet. What is her statement?", "opts": {"A": "an inference - a conclusion drawn from the clues at the scene", "B": "a direct observation - she watched the fire start herself", "C": "a random guess with nothing to support it", "D": "a rule requiring all outlets to be replaced"}, "key": "A", "fb": {"correct": "Right - she never saw the fire start; she worked her conclusion out from the deep charring and the melted wiring, and a conclusion built from clues is an inference.", "B": "She never 'watched the fire start herself' — her report is written afterward, from charring patterns and melted wiring. What she produced was reasoned out, not seen directly. Name the word for a judgment reached that way.", "C": "Calling it 'a random guess with nothing to support it' ignores the support the passage lists: deepest charring at one outlet, wiring tracing back to that same spot. Her statement follows from evidence — the opposite of random.", "D": "Her report says where the fire most likely began; it never issues 'a rule requiring all outlets to be replaced.' She reasons backward from physical evidence to a cause — pick the word for that move."}}, "s3a": {"q": "As it is used in this passage, \"inference\" most nearly means:", "opts": {"A": "a conclusion forced by strict logic that could not possibly be wrong", "B": "one reading of the data among many equally defensible ones", "C": "a judgment reasoned from evidence about something unseen", "D": "a projection of the orbit's drift into the future"}, "key": "C", "fb": {"correct": "Right. Le Verrier reasons from the wobble — his evidence — to a claim about a planet nobody had seen, and the passage stresses it was 'a judgment, not a certainty.'", "A": "The passage rules that out: his numbers 'rested on assumptions he could not check,' so the conclusion was not forced.", "B": "Le Verrier offered his conclusion as true — a fact to point a telescope at — not as one reading among equals.", "D": "He was not forecasting where Uranus would drift next; he was explaining, from present evidence, what unseen thing was causing the drift."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "extrapolation", "B": "inference", "C": "interpretation", "D": "deduction"}, "key": "A", "fb": {"correct": "Right. The planners <em>carried the familiar curve forward through twenty-five years nobody has yet metered<\/em> — projecting a known trend past the last data point is exactly what extrapolation names.", "B": "An inference is a judgment worked out from the evidence in front of you — what the clues you hold actually mean. But <em>The numbers in hand required no detective work<\/em>; the record's meaning was never the problem.", "D": "A deduction follows so strictly from its premises that, if they hold, it must hold too. This forecast carries no such guarantee: <em>one new factory or a wave of rooftop solar could bend it<\/em>.", "C": "An interpretation explains what something means, and several interpretations can stand side by side. Here <em>the record is plain<\/em> — no one disputed what the counts meant, and no rival reading was on the table."}}}, "pairwise": {"rows": [{"sentence": "The dew lay undisturbed on every sill but one, and from that clue the detective drew her ____: the intruder came through the study — a judgment the trial might yet prove wrong.", "options": ["inference", "deduction"], "key": "inference", "pair": "deduction", "why_right": "The tell is <em>might yet prove wrong<\/em> - the judgment leaps beyond what the dew can force and stays fallible, while a strict conclusion must hold whenever its premises hold.", "why_wrong": "That word means the conclusion must follow if the evidence holds — no room for error. The sentence itself allows that the trial might prove this judgment wrong."}, {"sentence": "No one ever saw the glacier move, but from scarred bedrock and stranded boulders geologists reasoned their way to the ____ that ice once filled this valley — well supported, still not certain.", "options": ["inference", "deduction"], "key": "inference", "pair": "deduction", "why_right": "The tell is <em>still not certain<\/em> - the geologists' judgment rests on evidence yet keeps room to be wrong, exactly the fallible reasoning that strict logical necessity never allows.", "why_wrong": "That word claims necessity — if the premises hold, the conclusion must. The sentence says 'still not certain,' which is exactly the room that word does not allow."}, {"sentence": "With the ledger showing exactly nine keys issued and only eight returned, the auditor's conclusion was pure ____: if the records held, one key simply had to be missing somewhere.", "options": ["inference", "deduction"], "key": "deduction", "pair": "deduction", "why_right": "The tell is <em>simply had to be missing<\/em> - the conclusion is forced outright once the records hold, the strict no-leap necessity that earns the logic word over the broader one.", "why_wrong": "That word covers reasoned judgments that could still turn out wrong. Nine issued minus eight returned leaves no room to be wrong — the conclusion is forced, which earns the stricter word."}, {"sentence": "When the pharmacy logged triple its usual cough-syrup sales in a week, health officials drew the obvious ____: a flu wave was already moving through the county unreported.", "options": ["inference", "extrapolation"], "key": "inference", "pair": "extrapolation", "why_right": "The tell is <em>already moving<\/em> - the officials judge what this week's clue points to right now, reading evidence in front of them rather than stretching any trend forward.", "why_wrong": "That word stretches a known trend forward - next year's sales from this year's curve. Nobody here projects the numbers onward; the spike is a clue to what is already happening."}, {"sentence": "The colony had doubled every day for a week, so Priya drew the line onward and forecast a billion cells by Friday — plain ____, stretching the trend into days nobody had observed.", "options": ["inference", "extrapolation"], "key": "extrapolation", "pair": "extrapolation", "why_right": "The tell is <em>stretching the trend into days nobody had observed<\/em> - the forecast projects the curve beyond every observation, the forward stretch the card assigns to trend-projection, not clue-reading.", "why_wrong": "That word is for judging what the evidence in front of you already points to. Priya's forecast runs past her evidence — into days with no data at all — which is a different move with its own name."}, {"sentence": "Noticing the honey jars emptied only on nights the porch light failed, Mara settled on her ____: raccoons, not the neighbors' kids, were raiding the back porch.", "options": ["inference", "interpretation"], "key": "inference", "pair": "interpretation", "why_right": "The tell is <em>raccoons, not the neighbors' kids<\/em> - a fact about an unseen culprit is fixed and offered as true, the evidence-judgment the card separates from readings of meaning.", "why_wrong": "That word explains what something means - a poem, a rule, a glance - and rival readings can coexist. Mara is fixing a fact about her porch and asserting it as true."}, {"sentence": "Two critics left the same play with opposite readings — one called the ending mercy, the other called it revenge — and the director smiled and said every honest ____ was welcome.", "options": ["inference", "interpretation"], "key": "interpretation", "pair": "interpretation", "why_right": "The tell is <em>opposite readings<\/em> - mercy and revenge stand side by side and both are welcomed, which suits accounts of meaning, never facts asserted as true.", "why_wrong": "That word asserts a fact reasoned from evidence, offered as true. These critics are reading a meaning — and the director happily lets both readings stand."}, {"sentence": "The clause ran one ambiguous sentence long, and by Friday each of the firm's lawyers had offered a different ____ of what it meant — all three of them defensible, none of them final.", "options": ["inference", "interpretation"], "key": "interpretation", "pair": "interpretation", "why_right": "The tell is <em>none of them final<\/em> - three defensible readings of one clause stand together, the coexistence the card grants to explanations of meaning, never to asserted facts.", "why_wrong": "That word reasons its way to a fact and asserts it. These lawyers are unfolding a meaning, and three rival readings remain standing."}], "display_order": [6, 2, 7, 3, 1, 5, 4, 0], "dimension_order": ["deduction", "extrapolation", "interpretation"], "dimension_feedback": {"deduction": "A deduction follows strictly from the evidence by logic — if the premises hold, the conclusion must hold too. An inference is broader and more human: a judgment reasoned out from evidence that could still turn out to be wrong. Every strict deduction is an inference, but most inferences involve a leap.", "extrapolation": "An extrapolation extends known facts into the unknown — projecting next year's sales from this year's curve. It stretches a trend forward. An inference works out what the evidence in front of you already points to: a judgment about what the clues mean rather than a projection beyond them.", "interpretation": "An interpretation is an explanation of what something means — a poem, a rule, a glance — and several interpretations can stand side by side. An inference is a specific judgment reasoned out from evidence and offered as true. You interpret meanings; you infer facts you could not directly observe."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone reasoning from clues to a judgment about something they never directly saw — and leave room for it to be wrong. Try working in words like <i>clues<\/i>, <i>must have<\/i>, <i>evidence<\/i> or <i>probably<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

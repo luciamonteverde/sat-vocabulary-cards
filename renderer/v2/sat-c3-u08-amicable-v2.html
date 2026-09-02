@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f7e5559dfa8d">
+<meta name="build" content="e28374cc68c4">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>amicable &#8212; SAT Vocabulary, Course 3 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "amicable", "gradeUrl": "/api/grade", "taskId": "amicable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses amicable correctly?", "opts": {"A": "They all call the new superintendent amicable, quick with a smile and slow to anger.", "B": "The two campaign managers stayed amicable on debate night, trading one clipped nod before retreating to opposite wings.", "C": "Their amicable divorce came down to a coin flip for the piano and a parting handshake.", "D": "The amicable spring weather held through the whole reunion weekend."}, "key": "C", "fb": {"correct": "Right — a divorce is exactly the kind of dealing between potential adversaries that amicable describes, and settling the piano with a coin flip and parting with a handshake shows goodwill where a fight was expected.", "A": "A pleasant individual is amiable. Amicable describes relations between parties, not one person's temper.", "B": "One clipped nod and a retreat is bare civility. Amicable means the relations are genuinely friendly.", "D": "Pleasant weather is agreeable, and weather is party to nothing. Amicable describes relations between people."}}, "s3a": {"q": "In this passage, \"amicable\" most nearly means", "opts": {"A": "legally binding and final", "B": "friendly and free of conflict, despite every reason to quarrel", "C": "quick and efficient", "D": "closely supervised by attorneys"}, "key": "B", "fb": {"correct": "Right — the whole passage sets up an expected fight (the family braced, lawyers hired) and then shows the sisters settling it in genuine friendliness.", "A": "The passage never dwells on legal force; the papers are signed almost as an afterthought, at the kitchen table. The word describes the spirit of the division, not its paperwork.", "C": "Speed isn't the point — walking the rows and trading sections sounds slow. What's remarkable is the friendliness between two sisters everyone expected to fight.", "D": "The opposite: they met \"without their attorneys.\" The word marks how friendly the division stayed, not how supervised it was."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "civil", "B": "amicable", "C": "peaceable", "D": "cooperative"}, "key": "B", "fb": {"correct": "Right. Amicable describes dealings between parties who might have quarreled — and these two <em>had fought over the explorer's papers<\/em> for thirty years — that stay genuinely friendly, down to <em>toasting each other's collections<\/em>.", "C": "Peaceable describes a temperament — a person or nation disposed to avoid a fight in the first place. These societies spent thirty years <em>exchanging lawsuits and dueling press releases<\/em>: the quarrel happened, loudly. What the sentence describes is how the two sides dealt with each other once they finally sat down.", "D": "Cooperative means willing to share a task, and it can describe strangers with no history at all. These negotiators were old enemies whose warmth went far beyond dividing work — they <em>conceded points with jokes<\/em> and closed by <em>toasting each other's collections<\/em> — so the precise word has to carry that healed rivalry, which cooperative does not.", "A": "Civil is bare politeness — curt nods between people who still wish each other ill. Long dinners, jokes, and <em>toasting each other's collections<\/em> go far past civility's minimum, and reporters <em>primed for icy exchanges<\/em> found real warmth instead."}}}, "grid": {"words": ["amicable", "peaceable", "cooperative", "civil"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "After two years of courtroom threats, the partners reached a genuinely ____ settlement, splitting the client list without rancor and wishing each other well.", "ks": ["amicable"], "fb": {"peaceable": "That word describes a temperament that avoids fights before they start — and these two spent <em>two years<\/em> trading <em>courtroom threats<\/em>. What the sentence praises is how the settlement ended: on genuinely warm terms.", "cooperative": "Willingness to divide the work isn't the news here. The remarkable thing is the warmth between two people who had been fighting — they parted <em>wishing each other well<\/em>.", "civil": "Bare politeness would be nods at the door. These two split the list <em>without rancor<\/em> and wished each other well — real goodwill, not just manners."}}, {"s": "Though the two festivals had feuded for years over booking dates, this summer's talks stayed ____ from start to finish, the rival directors trading genuine compliments on closing night.", "ks": ["amicable"], "fb": {"peaceable": "A temperament word for those who steer clear of fights doesn't fit parties who <em>had feuded for years<\/em>. The sentence is about how their dealings went this summer.", "cooperative": "That word would only say they managed to work together. The sentence claims more — <em>genuine compliments<\/em> between rival directors, warmth and not just teamwork.", "civil": "That word stops at politeness — nods, no insults. <em>Genuine compliments<\/em> from one rival director to another is well past the bare minimum."}}, {"s": "The old shepherd was ____ by nature, walking his flock a mile around the hunters' camp rather than risk so much as a sharp word with them.", "ks": ["peaceable"], "fb": {"amicable": "That word describes friendly dealings between two sides — but here there are no dealings at all. He walks a mile around the camp so that nothing between him and the hunters ever starts.", "cooperative": "No shared task, no working together — he is avoiding the hunters, not joining them.", "civil": "Politeness needs an encounter, and he makes sure there isn't one. The sentence is about a nature that steers wide of quarrels before they begin."}}, {"s": "For three centuries the little mountain republic stayed stubbornly ____, refusing every alliance and every pact that might drag it into its neighbors' endless wars.", "ks": ["peaceable"], "fb": {"cooperative": "It can't be that — the republic is <em>refusing every alliance and every pact<\/em>, which is a refusal to work with anyone.", "amicable": "That word needs friendly relations between sides that might have fought. This republic isn't befriending its neighbors; it is keeping out of their wars altogether.", "civil": "Politeness between parties isn't the claim. The claim is a three-century disposition to stay out of the fighting entirely."}}, {"s": "The volunteers had never met before the flood, yet they proved remarkably ____, sorting donations into an assembly line within the hour.", "ks": ["cooperative"], "fb": {"amicable": "That word belongs to rivals, exes, opposing sides — people who might have fought and stayed friendly instead. These volunteers <em>had never met before<\/em>; there was no quarrel to rise above.", "peaceable": "Nobody here is avoiding a conflict. The sentence praises how quickly strangers organized shared work.", "civil": "Politeness isn't the achievement — an assembly line within the hour is. The sentence is about working together, not about manners."}}, {"s": "The two candidates managed to stay ____ through the debate — curt nods, no interruptions — though neither pretended to wish the other anything but defeat.", "ks": ["civil"], "fb": {"amicable": "The sentence rules out warmth in its last clause: <em>neither pretended to wish the other anything but defeat<\/em>. What's left is only the bare minimum of politeness.", "peaceable": "Neither man is avoiding the fight — they are in it, on stage. The sentence is about the minimal courtesy they keep while fighting.", "cooperative": "They aren't working toward anything together; they are opponents. <em>Curt nods, no interruptions<\/em> is manners, not teamwork."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs two sides who could easily have fought — and dealings between them that stay friendly anyway. Try working in a word like <i>rivals<\/i>, <i>settled<\/i>, <i>handshake<\/i> or <i>despite<\/i>."}};
+  var CFG = {"word": "amicable", "gradeUrl": "/api/grade", "taskId": "amicable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses amicable correctly?", "opts": {"A": "They all call the new superintendent amicable, quick with a smile and slow to anger.", "B": "The two campaign managers stayed amicable on debate night, trading one clipped nod before retreating to opposite wings.", "C": "Their amicable divorce came down to a coin flip for the piano and a parting handshake.", "D": "The amicable spring weather held through the whole reunion weekend."}, "key": "C", "fb": {"correct": "Right — a divorce is exactly the kind of dealing between potential adversaries that amicable describes, and settling the piano with a coin flip and parting with a handshake shows goodwill where a fight was expected.", "A": "A pleasant individual is amiable. Amicable describes relations between parties, not one person's temper.", "B": "One clipped nod and a retreat is bare civility. Amicable means the relations are genuinely friendly.", "D": "Pleasant weather is agreeable, and weather is party to nothing. Amicable describes relations between people."}}, "s3a": {"q": "In this passage, \"amicable\" most nearly means", "opts": {"A": "legally binding and final", "B": "friendly and free of conflict, despite every reason to quarrel", "C": "quick and efficient", "D": "closely supervised by attorneys"}, "key": "B", "fb": {"correct": "Right — the whole passage sets up an expected fight (the family braced, lawyers hired) and then shows the sisters settling it in genuine friendliness.", "A": "The passage never dwells on legal force; the papers are signed almost as an afterthought, at the kitchen table. The word describes the spirit of the division, not its paperwork.", "C": "Speed isn't the point — walking the rows and trading sections sounds slow. What's remarkable is the friendliness between two sisters everyone expected to fight.", "D": "The opposite: they met \"without their attorneys.\" The word marks how friendly the division stayed, not how supervised it was."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "civil", "B": "amicable", "C": "peaceable", "D": "cooperative"}, "key": "B", "fb": {"correct": "Right. Amicable describes dealings between parties who might have quarreled — and these two <em>had fought over the explorer's papers<\/em> for thirty years — that stay genuinely friendly, down to <em>toasting each other's collections<\/em>.", "C": "Peaceable describes a temperament — a person or nation disposed to avoid a fight in the first place. These societies spent thirty years <em>exchanging lawsuits and dueling press releases<\/em>: the quarrel happened, loudly. What the sentence describes is how the two sides dealt with each other once they finally sat down.", "D": "Cooperative means willing to share a task, and it can describe strangers with no history at all. These negotiators were old enemies whose warmth went far beyond dividing work — they <em>conceded points with jokes<\/em> and closed by <em>toasting each other's collections<\/em> — so the precise word has to carry that healed rivalry, which cooperative does not.", "A": "Civil is bare politeness — curt nods between people who still wish each other ill. Long dinners, jokes, and <em>toasting each other's collections<\/em> go far past civility's minimum, and reporters <em>primed for icy exchanges<\/em> found real warmth instead."}}}, "pairwise": {"rows": [{"sentence": "After two years of courtroom threats, the partners reached a genuinely ____ settlement, splitting the client list without rancor and wishing each other well.", "options": ["amicable", "civil"], "key": "amicable", "pair": "civil", "why_right": "The tell is <em>wishing each other well<\/em> - genuine goodwill at the end of a real fight, which the card places a full step past bare politeness at the door.", "why_wrong": "Bare politeness would be nods at the door. These two split the list <em>without rancor<\/em> and wished each other well — real goodwill, not just manners."}, {"sentence": "Though the two festivals had feuded for years over booking dates, this summer's talks stayed ____ from start to finish, the rival directors trading genuine compliments on closing night.", "options": ["amicable", "peaceable"], "key": "amicable", "pair": "peaceable", "why_right": "The tell is <em>had feuded for years<\/em> - these are not conflict-avoiders by temperament; the word must describe the friendly state their dealings reached, which is this word's home ground.", "why_wrong": "A temperament word for those who steer clear of fights doesn't fit parties who <em>had feuded for years<\/em>. The sentence is about how their dealings went this summer."}, {"sentence": "The old shepherd was ____ by nature, walking his flock a mile around the hunters' camp rather than risk so much as a sharp word with them.", "options": ["amicable", "peaceable"], "key": "peaceable", "pair": "peaceable", "why_right": "The tell is <em>walking his flock a mile around<\/em> - a temperament that keeps the quarrel from ever starting; no dealings exist for the relations word to describe.", "why_wrong": "That word describes friendly dealings between two sides — but here there are no dealings at all. He walks a mile around the camp so that nothing between him and the hunters ever starts."}, {"sentence": "For three centuries the little mountain republic stayed stubbornly ____, refusing every alliance and every pact that might drag it into its neighbors' endless wars.", "options": ["amicable", "peaceable"], "key": "peaceable", "pair": "peaceable", "why_right": "The tell is <em>refusing every alliance and every pact<\/em> - the card's nation case, a standing disposition to stay out of fights rather than friendly dealings with anyone.", "why_wrong": "That word needs friendly relations between sides that might have fought. This republic isn't befriending its neighbors; it is keeping out of their wars altogether."}, {"sentence": "The volunteers had never met before the flood, yet they proved remarkably ____, sorting donations into an assembly line within the hour.", "options": ["amicable", "cooperative"], "key": "cooperative", "pair": "cooperative", "why_right": "The tell is <em>had never met before the flood<\/em> - strangers with no quarrel to heal, praised for shared work on a task, which is exactly this word's ground.", "why_wrong": "That word belongs to rivals, exes, opposing sides — people who might have fought and stayed friendly instead. These volunteers <em>had never met before<\/em>; there was no quarrel to rise above."}, {"sentence": "The two candidates managed to stay ____ through the debate — curt nods, no interruptions — though neither pretended to wish the other anything but defeat.", "options": ["amicable", "civil"], "key": "civil", "pair": "civil", "why_right": "The tell is <em>curt nods, no interruptions<\/em> - bare politeness held inside a fight, with goodwill denied outright in the closing clause, which is the milder rung exactly.", "why_wrong": "The sentence rules out warmth in its last clause: <em>neither pretended to wish the other anything but defeat<\/em>. What's left is only the bare minimum of politeness."}, {"sentence": "Any two crews can share a harvester, but what surprised the valley was how ____ the feuding orchards' arrangement became — machinery lent freely, each family waving the other's trucks through its gates.", "options": ["amicable", "cooperative"], "key": "amicable", "pair": "cooperative", "why_right": "The tell is <em>what surprised the valley<\/em> - any two crews can manage shared work, so the surprise must be goodwill between feuding families, the healed conflict this word names.", "why_wrong": "That word means willing to work together on a shared task, and it can describe total strangers - nothing any two crews could not manage. The valley's surprise is goodwill between feuding families."}, {"sentence": "After the parking dispute was settled, the two shopkeepers' dealings turned genuinely ____ — not just nods at the door but borrowed ladders and covered lunch shifts.", "options": ["amicable", "civil"], "key": "amicable", "pair": "civil", "why_right": "The tell is <em>not just nods at the door<\/em> - the sentence rules out bare politeness as the whole story; borrowed ladders and covered lunch shifts are genuine goodwill.", "why_wrong": "That word stops at bare politeness - nods at the door would satisfy it, and the sentence says their dealings went past that. Covered shifts and borrowed ladders are real goodwill."}], "display_order": [5, 1, 7, 2, 6, 3, 0, 4], "dimension_order": ["peaceable", "cooperative", "civil"], "dimension_feedback": {"peaceable": "Peaceable describes a temperament — a person or nation disposed to avoid fighting in the first place. Amicable belongs to relations and agreements: it says the dealings between parties who might have quarreled stayed friendly. A peaceable neighbor avoids the dispute; an amicable settlement ends one on good terms.", "cooperative": "Cooperative means willing to work together toward a shared task, and it can describe strangers with no history at all. Amicable implies more: goodwill between parties who could easily have fought — rivals, exes, opposing sides. A cooperative committee divides the work; an amicable split heals the expected conflict.", "civil": "Civil stops short of amicable — civil rivals manage bare politeness at the door, while an amicable pair genuinely wishes each other well."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs two sides who could easily have fought — and dealings between them that stay friendly anyway. Try working in a word like <i>rivals<\/i>, <i>settled<\/i>, <i>handshake<\/i> or <i>despite<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

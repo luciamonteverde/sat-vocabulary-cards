@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9d5238fec7ef">
+<meta name="build" content="1c40c537fc65">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>relish &#8212; SAT Vocabulary, Course 1 Unit 22</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "relish", "gradeUrl": "/api/grade", "taskId": "relish", "minWords": 12, "items": {"s1": {"q": "A mail carrier requests the mountain route everyone else avoids. She loves the switchbacks in the fog, waves to the same three goats every morning, and says the steep climb is 'the best part of the day.' Which statement best describes what she relishes?", "opts": {"A": "She takes deep delight in the mountain route that others treat as a burden.", "B": "She endures the route grudgingly because no other delivery shifts were available.", "C": "She secretly dreads the fog and the steep climb every single morning of the week.", "D": "She is hoping to transfer to a flatter, easier delivery route sometime next year."}, "key": "A", "fb": {"correct": "Requesting the route others avoid and calling the climb 'the best part of the day' shows her savoring it with real appreciation — enjoying something greatly is what relish means.", "B": "Enduring 'grudgingly because no other delivery shifts were available' is tolerating, the opposite of savoring. She requested this route and calls its climb the day's best part — relish means enjoying something greatly.", "C": "Someone who 'secretly dreads the fog' is suffering through the route, not savoring it. Her actual behavior — requesting it, greeting the goats — signals real pleasure; relish points to genuine, appreciative enjoyment.", "D": "'Hoping to transfer' to an easier route would mean this one is a chore she wants escaped. Everything she says points the other way — relish describes savoring what you have, not planning an exit."}}, "s3a": {"q": "In the passage, the word \"relishes\" tells us that Elena —", "opts": {"A": "takes deep, unhurried enjoyment in the hardest jobs", "B": "accepts the mystery rattles because someone on the team has to take them", "C": "prefers quick fixes that keep her bench clear for other work", "D": "studies each car coldly, without any real enjoyment"}, "key": "A", "fb": {"correct": "Right — a blocked-out afternoon, bolt by bolt, 'grinning wider': close attention plus real delight.", "B": "Nothing is grudging — she grins through the slow ones and complains about the easy ones.", "C": "She complains that an easy fix 'is over before the fun starts' — quick is what she does not want.", "D": "The method is there, but so is the joy — she grins wider with each wrong guess crossed off."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "savor", "B": "delight in", "C": "like", "D": "relish"}, "key": "B", "fb": {"correct": "Right. Great pleasure taken in events merely read about — <em>already finished and an ocean away<\/em> — needs no closeness and no slow attention: joy taken at a distance is exactly what this phrase names.", "D": "Relishing is enjoyment taken slowly and up close — you turn the particular thing over and enjoy it in detail. These readers took their pleasure in events <em>already finished and an ocean away<\/em>, with <em>nobody lingering over details<\/em>.", "A": "To savor is to dwell on something attentively, letting each detail register. A reader who would <em>skim the column once<\/em> and <em>pass the paper on<\/em> is doing the opposite of dwelling.", "C": "To like something is mild approval — and nothing about this readership is mild: the expeditions were <em>followed most eagerly<\/em>, readers would <em>cheer<\/em>, and the scene ends with <em>everybody beaming<\/em>."}}}, "grid": {"words": ["relish", "savor", "delight in", "like"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The old pit master seems to ____ every stage of the long smoke, humming as he checks the coals and grinning at the first taste.", "ks": ["relish"], "fb": {"savor": "He is humming and grinning — the sentence insists on felt delight, and the word you chose can be pure, joyless attention: a technique of noticing.", "delight in": "The pleasure here is hands-on and step by step — coals checked, first taste grinned at — not enjoyment taken from a distance.", "like": "Humming and grinning through every stage of a long smoke is deep enjoyment, far past mild approval."}}, {"s": "Competition judges are trained to ____ each spoonful for a long half-minute, noting salt, heat, and finish — enjoying it is not part of the job.", "ks": ["savor"], "fb": {"relish": "'Enjoying it is not part of the job' — this is attention without delight, and the word you chose adds hearty, felt enjoyment on top.", "delight in": "No pleasure of any kind is described — only careful noticing, detail by detail.", "like": "The judges are not said to approve of the dish at all; they are only studying it closely."}}, {"s": "Some editors genuinely ____ a tangled manuscript, working through the worst pages twice and enjoying every knot they untie.", "ks": ["relish"], "fb": {"savor": "'Enjoying every knot' — the sentence names real delight, where the word you chose can be nothing more than careful, joyless attention.", "delight in": "The enjoyment comes from working the pages up close, twice over — not from pleasure taken at a distance.", "like": "Choosing to reread the worst pages for the fun of it is hearty enjoyment, not mild approval."}}, {"s": "Sommeliers learn to ____ a wine before scoring it: hold it, name each layer, let the details register one at a time.", "ks": ["savor"], "fb": {"relish": "Nothing in the sentence says the wine makes anyone happy — this is a trained procedure of noticing, and the word you chose adds felt delight.", "delight in": "No pleasure is described at all — just a method: hold, name, register.", "like": "The sentence never says they approve of the wine; it says they attend to it, layer by layer."}}, {"s": "Grandma seemed to ____ every rumor of the grandchildren's mischief, laughing down the phone though she lived three states away and saw none of it.", "ks": ["delight in"], "fb": {"relish": "She is 'three states away and saw none of it' — the enjoyment arrives secondhand, with nothing held close or turned over slowly.", "savor": "No detail is being dwelt on — the fun lands in one laugh per phone call.", "like": "Laughing down the phone at every single report is strong pleasure, well past mild approval."}}, {"s": "Most of the staff ____ the new schedule well enough, though nobody would call it more than an improvement.", "ks": ["like"], "fb": {"relish": "'Well enough' is as warm as it gets — nothing here is deep, close enjoyment.", "savor": "Nobody is lingering over the schedule's details; they just approve of it mildly.", "delight in": "No one is taking great pleasure — the warmest word offered is 'improvement.'"}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show enjoyment taken slowly and up close — the reader should see the pleasure in the details. Try working in <i>every<\/i>, <i>slowly<\/i>, or <i>grinned<\/i>."}};
+  var CFG = {"word": "relish", "gradeUrl": "/api/grade", "taskId": "relish", "minWords": 12, "items": {"s1": {"q": "A mail carrier requests the mountain route everyone else avoids. She loves the switchbacks in the fog, waves to the same three goats every morning, and says the steep climb is 'the best part of the day.' Which statement best describes what she relishes?", "opts": {"A": "She takes deep delight in the mountain route that others treat as a burden.", "B": "She endures the route grudgingly because no other delivery shifts were available.", "C": "She secretly dreads the fog and the steep climb every single morning of the week.", "D": "She is hoping to transfer to a flatter, easier delivery route sometime next year."}, "key": "A", "fb": {"correct": "Requesting the route others avoid and calling the climb 'the best part of the day' shows her savoring it with real appreciation — enjoying something greatly is what relish means.", "B": "Enduring 'grudgingly because no other delivery shifts were available' is tolerating, the opposite of savoring. She requested this route and calls its climb the day's best part — relish means enjoying something greatly.", "C": "Someone who 'secretly dreads the fog' is suffering through the route, not savoring it. Her actual behavior — requesting it, greeting the goats — signals real pleasure; relish points to genuine, appreciative enjoyment.", "D": "'Hoping to transfer' to an easier route would mean this one is a chore she wants escaped. Everything she says points the other way — relish describes savoring what you have, not planning an exit."}}, "s3a": {"q": "In the passage, the word \"relishes\" tells us that Elena —", "opts": {"A": "takes deep, unhurried enjoyment in the hardest jobs", "B": "accepts the mystery rattles because someone on the team has to take them", "C": "prefers quick fixes that keep her bench clear for other work", "D": "studies each car coldly, without any real enjoyment"}, "key": "A", "fb": {"correct": "Right — a blocked-out afternoon, bolt by bolt, 'grinning wider': close attention plus real delight.", "B": "Nothing is grudging — she grins through the slow ones and complains about the easy ones.", "C": "She complains that an easy fix 'is over before the fun starts' — quick is what she does not want.", "D": "The method is there, but so is the joy — she grins wider with each wrong guess crossed off."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "savor", "B": "delight in", "C": "like", "D": "relish"}, "key": "B", "fb": {"correct": "Right. Great pleasure taken in events merely read about — <em>already finished and an ocean away<\/em> — needs no closeness and no slow attention: joy taken at a distance is exactly what this phrase names.", "D": "Relishing is enjoyment taken slowly and up close — you turn the particular thing over and enjoy it in detail. These readers took their pleasure in events <em>already finished and an ocean away<\/em>, with <em>nobody lingering over details<\/em>.", "A": "To savor is to dwell on something attentively, letting each detail register. A reader who would <em>skim the column once<\/em> and <em>pass the paper on<\/em> is doing the opposite of dwelling.", "C": "To like something is mild approval — and nothing about this readership is mild: the expeditions were <em>followed most eagerly<\/em>, readers would <em>cheer<\/em>, and the scene ends with <em>everybody beaming<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The old pit master seems to ____ every stage of the long smoke, humming as he checks the coals and grinning at the first taste.", "options": ["relish", "savor"], "key": "relish", "pair": "savor", "why_right": "The tell is <em>humming as he checks the coals and grinning<\/em> - real, felt delight rides on top of the slow attention, which is exactly what the card says relish adds.", "why_wrong": "He is humming and grinning — the sentence insists on felt delight, and the word you chose can be pure, joyless attention: a technique of noticing."}, {"sentence": "Competition judges are trained to ____ each spoonful for a long half-minute, noting salt, heat, and finish — enjoying it is not part of the job.", "options": ["relish", "savor"], "key": "savor", "pair": "savor", "why_right": "The tell is <em>enjoying it is not part of the job<\/em> - what remains is slow, deliberate noticing, detail by detail, and the card calls that attention-without-delight savoring.", "why_wrong": "'Enjoying it is not part of the job' — this is attention without delight, and the word you chose adds hearty, felt enjoyment on top."}, {"sentence": "Sommeliers learn to ____ a wine before scoring it: hold it, name each layer, let the details register one at a time.", "options": ["relish", "savor"], "key": "savor", "pair": "savor", "why_right": "The tell is <em>hold it, name each layer<\/em> - a deliberate technique of slow, detailed noticing with no delight claimed anywhere, which is the card's savoring rather than hearty enjoyment.", "why_wrong": "Nothing in the sentence says the wine makes anyone happy — this is a trained procedure of noticing, and the word you chose adds felt delight."}, {"sentence": "Some editors genuinely ____ a tangled manuscript, working through the worst pages twice and enjoying every knot they untie.", "options": ["relish", "delight in"], "key": "relish", "pair": "delight in", "why_right": "The tell is <em>working through the worst pages twice<\/em> - the pleasure is taken up close and slowly, turned over knot by knot, which the card assigns to relish, not to delight.", "why_wrong": "The enjoyment comes from working the pages up close, twice over — not from pleasure taken at a distance."}, {"sentence": "Grandma seemed to ____ every rumor of the grandchildren's mischief, laughing down the phone though she lived three states away and saw none of it.", "options": ["relish", "delight in"], "key": "delight in", "pair": "delight in", "why_right": "The tell is <em>three states away and saw none of it<\/em> - the pleasure arrives secondhand, in news merely heard about, which the card names as delight rather than close, slow relishing.", "why_wrong": "She is 'three states away and saw none of it' — the enjoyment arrives secondhand, with nothing held close or turned over slowly."}, {"sentence": "Harvest photos leave the allotment's old-timers cold; what they ____ is the slow middle of the season — thinning seedlings, staking tomatoes, walking the rows.", "options": ["relish", "delight in"], "key": "relish", "pair": "delight in", "why_right": "The tell is <em>the slow middle of the season<\/em> - the pleasure lives in slow, up-close, detail-by-detail work rather than in results admired from a distance, which the card calls relishing.", "why_wrong": "That word names the pleasure itself, at home even at a distance — but these gardeners shrug at the finished results and prize the slow, hands-on middle, pleasure taken up close."}, {"sentence": "Most of the staff ____ the new schedule well enough, though nobody would call it more than an improvement.", "options": ["relish", "like"], "key": "like", "pair": "like", "why_right": "The tell is <em>well enough<\/em> - approval capped at mild, with the sentence expressly refusing anything warmer, which is exactly the card's ground for like over deep enjoyment.", "why_wrong": "'Well enough' is as warm as it gets — nothing here is deep, close enjoyment."}, {"sentence": "Every March the stockroom veterans ____ inventory week, beaming through the recounts and swapping aisle tallies the way other people trade vacation stories.", "options": ["relish", "like"], "key": "relish", "pair": "like", "why_right": "The tell is <em>beaming through the recounts<\/em> - deep, felt enjoyment of every part of a tedious week, which the card places well past mild approval.", "why_wrong": "That word means mild approval and nothing more — beaming through recounts and swapping tallies for fun is deep enjoyment, savored part by part."}], "display_order": [3, 1, 6, 0, 4, 2, 5, 7], "dimension_order": ["savor", "delight in", "like"], "dimension_feedback": {"savor": "To savor something is to take it in slowly and attentively, dwelling on every detail — a technique of noticing more than a feeling. To relish it adds hearty delight: real, felt enjoyment on top of the attention. You can savor a broth while merely studying it; you relish it when it makes you happy.", "delight in": "To delight in something is simply to take great pleasure in it — even at a distance, in news you merely heard about. Relishing is closer and slower: you turn the particular thing over and enjoy it in detail. Delight is the pleasure itself; relish is pleasure taken slowly, up close.", "like": "To like something is mild approval; to relish it is to enjoy it deeply, savoring every part."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show enjoyment taken slowly and up close — the reader should see the pleasure in the details. Try working in <i>every<\/i>, <i>slowly<\/i>, or <i>grinned<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

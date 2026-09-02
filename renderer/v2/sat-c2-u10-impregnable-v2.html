@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="715a94ee96f6">
+<meta name="build" content="ec28f60054a0">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>impregnable &#8212; SAT Vocabulary, Course 2 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "impregnable", "gradeUrl": "/api/grade", "taskId": "impregnable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses impregnable correctly?", "opts": {"A": "The valedictorian's impregnable graduation speech left half of the audience in tears and the other half standing on its feet cheering.", "B": "Raiders found the little border fort impregnable, strolling straight in through its unlocked kitchen gate an hour before the dawn watch.", "C": "Her brand-new raincoat proved entirely impregnable, shedding a full hour of hard spring storm without soaking through anywhere at all.", "D": "Every burglar in the county had a story about the jeweler's impregnable vault, and every story ended with the box still shut."}, "key": "D", "fb": {"correct": "Correct. Generations of burglars, one unbroken vault — a strongbox that cannot be broken into is impregnable.", "A": "A speech that left listeners \"in tears\" and cheering is stirring, unforgettable — but speeches are not fortresses. Impregnable describes a place or defense that cannot be captured or broken into, not applause-winning words.", "B": "Raiders went \"strolling straight in through its unlocked kitchen gate\" — the fort fell without a fight. That is the exact opposite of impregnable, which means no attacker can get in at all.", "C": "A raincoat \"shedding a full hour of hard spring storm\" is waterproof — impermeable, perhaps. Impregnable belongs to fortresses, strongholds, and defenses under attack, not to clothing keeping out rain."}}, "s3a": {"q": "In this passage, calling the vault \"impregnable\" most nearly means that", "opts": {"A": "it has never suffered damage of any kind from weather, water, or human interference", "B": "nothing has ever gotten past its defenses to the seeds inside", "C": "it is watched constantly by guards and cameras", "D": "no one has ever attempted to reach the seed chamber"}, "key": "B", "fb": {"correct": "Right — the passage concedes damage (the flooded tunnel) but insists on the one outcome that matters: the chamber has never once been breached.", "A": "The 2017 flood rules this out — the entrance tunnel was damaged and the doors reinforced. The claim is narrower than 'no damage.'", "C": "Guards and cameras never appear in the passage; the protection described is rock, ice, and doors — and above all the record of never being breached.", "D": "Floodwater reached the entrance tunnel, and the designers plan for storms and intruders; the point is that nothing has ever gotten through."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "guarded", "B": "invulnerable", "C": "unassailable", "D": "impregnable"}, "key": "D", "fb": {"correct": "Right. Enemy listeners worked on the code around the clock for three years, the effort drew real blood — <em>radio sets were seized at the front<\/em> — and still they <em>never once turned them into a readable order<\/em>. Attacked for years, dented at the edges, never entered: that is precisely what impregnable claims.", "C": "Unassailable means no attack can even be mounted — the position offers nothing to grab hold of. This code was attacked constantly: <em>Three years of round-the-clock attack<\/em> is the passage's opening fact, so the word for what cannot be attacked at all does not fit.", "B": "Invulnerable means nothing can harm it anywhere. The passage records real harm: <em>radio sets were seized at the front, and operators were lost with them<\/em> — damage that invulnerable rules out entirely.", "A": "Guarded promises only that someone is watching. Nobody was: <em>the signals were broadcast, unprotected, for anyone to take<\/em>. Whatever protected this code, it was not a watchman."}}}, "grid": {"words": ["impregnable", "unassailable", "invulnerable", "guarded"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Nine sieges in two centuries scorched the citadel's gates and chipped its towers, and nine times the attackers withdrew empty-handed; the rock above the harbor was simply ____.", "ks": ["impregnable"], "fb": {"unassailable": "That word means no attack can even be mounted — the position offers nothing to grab. This citadel was besieged <em>nine times<\/em>; attacks were mounted constantly. The claim is that all of them failed.", "invulnerable": "That word promises no harm at all, anywhere — yet the gates are scorched and the towers chipped. The promise this sentence makes is narrower: damaged or not, it is never taken.", "guarded": "That only says someone is watching, and promises nothing about the outcome. The sentence stakes its claim on two centuries of failed assaults, not on a sentry."}}, {"s": "Burglars have drilled, torched, and tunneled at the old bank's vault since 1911, denting and smoke-staining the steel — and not one has ever gotten inside; by any test that matters, it is ____.", "ks": ["impregnable"], "fb": {"unassailable": "That word describes what cannot even be attacked — offering no purchase at all. This vault has been attacked for over a century; the point is that every attempt failed to get <em>inside<\/em>.", "invulnerable": "The steel is dented and smoke-stained, so 'cannot be harmed anywhere' is off the table. The narrower promise — nobody gets in — is the one the sentence proves.", "guarded": "A watchman merely watches. Nothing in the sentence posts one; it counts a hundred years of failed entries, which is a claim about results."}}, {"s": "After four thousand operations without one complaint on file, the surgeon's record was ____ — when a rival whispered doubts, no journal or board could find a single thing to seize on.", "ks": ["unassailable"], "fb": {"impregnable": "That is the fortress word — for defenses that are attacked, sometimes for years, and never taken. Nothing here is stormed and survived; the doubts <em>never found a place to start<\/em>, a different kind of safety.", "invulnerable": "That word says a thing cannot be wounded at all. The sentence is not about harm; it is about a challenge that could not even be mounted — no purchase, no starting point.", "guarded": "No one is watching over this record, and watching would not be the point. Its protection is that a rival's doubts could find nothing whatever to grip."}}, {"s": "By the last bend of the regatta the leaders were half the course ahead, a margin the announcers called ____: the crews behind had nothing left even to begin a challenge with.", "ks": ["unassailable"], "fb": {"impregnable": "That word belongs to fortresses and vaults — things assaulted and never taken. A race lead is not entered or captured, and here no assault even begins: the crews behind are spent.", "invulnerable": "That says no harm can be done anywhere. The sentence's claim is smaller and sharper: the trailing crews cannot even <em>begin a challenge<\/em>.", "guarded": "Watching a lead does not preserve it, and nobody here stands watch. The margin is safe because nothing is left in the other boats to attack it with."}}, {"s": "Curled inside its overlapping plates, the pangolin gave the young lion ten frustrated minutes and came away without so much as a scratch anywhere on it — for every practical purpose, ____.", "ks": ["invulnerable"], "fb": {"impregnable": "That word makes a narrow promise — nobody gets in — and tolerates scorch marks and dents along the way. This sentence claims something broader: <em>not so much as a scratch anywhere<\/em>.", "unassailable": "The lion attacked for ten straight minutes, so an attack could certainly be mounted. The claim is about what the attack managed to do: nothing at all.", "guarded": "Nothing stands watch over the animal. The safety here is in the armor itself — no weak point for teeth or claws to find."}}, {"s": "The depot gate is ____ around the clock — a sentry in the booth, cameras along the fence — yet two teenagers still slipped in last spring through a drainage culvert.", "ks": ["guarded"], "fb": {"impregnable": "That word is a verdict on results: nobody ever gets in. The teenagers <em>did<\/em> get in, through the culvert — the sentence promises only a watchman, not an outcome.", "unassailable": "That would mean no attempt could even be made. An attempt was made and it worked; all the sentence guarantees is a sentry and some cameras.", "invulnerable": "The culvert is a weak point, found and used. This gap describes watchfulness — someone posted — not a thing that cannot be harmed."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something that gets attacked — maybe more than once — and still never falls and never lets anyone in; damage is allowed, capture is not. Try working in a word like <i>siege<\/i>, <i>attempt<\/i>, <i>never<\/i> or <i>held<\/i>."}};
+  var CFG = {"word": "impregnable", "gradeUrl": "/api/grade", "taskId": "impregnable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses impregnable correctly?", "opts": {"A": "The valedictorian's impregnable graduation speech left half of the audience in tears and the other half standing on its feet cheering.", "B": "Raiders found the little border fort impregnable, strolling straight in through its unlocked kitchen gate an hour before the dawn watch.", "C": "Her brand-new raincoat proved entirely impregnable, shedding a full hour of hard spring storm without soaking through anywhere at all.", "D": "Every burglar in the county had a story about the jeweler's impregnable vault, and every story ended with the box still shut."}, "key": "D", "fb": {"correct": "Correct. Generations of burglars, one unbroken vault — a strongbox that cannot be broken into is impregnable.", "A": "A speech that left listeners \"in tears\" and cheering is stirring, unforgettable — but speeches are not fortresses. Impregnable describes a place or defense that cannot be captured or broken into, not applause-winning words.", "B": "Raiders went \"strolling straight in through its unlocked kitchen gate\" — the fort fell without a fight. That is the exact opposite of impregnable, which means no attacker can get in at all.", "C": "A raincoat \"shedding a full hour of hard spring storm\" is waterproof — impermeable, perhaps. Impregnable belongs to fortresses, strongholds, and defenses under attack, not to clothing keeping out rain."}}, "s3a": {"q": "In this passage, calling the vault \"impregnable\" most nearly means that", "opts": {"A": "it has never suffered damage of any kind from weather, water, or human interference", "B": "nothing has ever gotten past its defenses to the seeds inside", "C": "it is watched constantly by guards and cameras", "D": "no one has ever attempted to reach the seed chamber"}, "key": "B", "fb": {"correct": "Right — the passage concedes damage (the flooded tunnel) but insists on the one outcome that matters: the chamber has never once been breached.", "A": "The 2017 flood rules this out — the entrance tunnel was damaged and the doors reinforced. The claim is narrower than 'no damage.'", "C": "Guards and cameras never appear in the passage; the protection described is rock, ice, and doors — and above all the record of never being breached.", "D": "Floodwater reached the entrance tunnel, and the designers plan for storms and intruders; the point is that nothing has ever gotten through."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "guarded", "B": "invulnerable", "C": "unassailable", "D": "impregnable"}, "key": "D", "fb": {"correct": "Right. Enemy listeners worked on the code around the clock for three years, the effort drew real blood — <em>radio sets were seized at the front<\/em> — and still they <em>never once turned them into a readable order<\/em>. Attacked for years, dented at the edges, never entered: that is precisely what impregnable claims.", "C": "Unassailable means no attack can even be mounted — the position offers nothing to grab hold of. This code was attacked constantly: <em>Three years of round-the-clock attack<\/em> is the passage's opening fact, so the word for what cannot be attacked at all does not fit.", "B": "Invulnerable means nothing can harm it anywhere. The passage records real harm: <em>radio sets were seized at the front, and operators were lost with them<\/em> — damage that invulnerable rules out entirely.", "A": "Guarded promises only that someone is watching. Nobody was: <em>the signals were broadcast, unprotected, for anyone to take<\/em>. Whatever protected this code, it was not a watchman."}}}, "pairwise": {"rows": [{"sentence": "Nine sieges in two centuries scorched the citadel's gates and chipped its towers, and nine times the attackers withdrew empty-handed; the rock above the harbor was simply ____.", "options": ["impregnable", "unassailable"], "key": "impregnable", "pair": "unassailable", "why_right": "The tell is <em>nine sieges in two centuries<\/em> - assaults were mounted over and over and every one failed; that is the fortress word's home: attacked for years and never once taken.", "why_wrong": "That word means no attack can even be mounted — the position offers nothing to grab. This citadel was besieged <em>nine times<\/em>; attacks were mounted constantly. The claim is that all of them failed."}, {"sentence": "After four thousand operations without one complaint on file, the surgeon's record was ____ — when a rival whispered doubts, no journal or board could find a single thing to seize on.", "options": ["impregnable", "unassailable"], "key": "unassailable", "pair": "unassailable", "why_right": "The tell is <em>a single thing to seize on<\/em> - the record offers nothing to grab, so a challenge cannot even be mounted; reputations are this word's home, not fortresses that weather assaults.", "why_wrong": "That is the fortress word — for defenses that are attacked, sometimes for years, and never taken. Nothing here is stormed and survived; the doubts <em>never found a place to start<\/em>, a different kind of safety."}, {"sentence": "By the last bend of the regatta the leaders were half the course ahead, a margin the announcers called ____: the crews behind had nothing left even to begin a challenge with.", "options": ["impregnable", "unassailable"], "key": "unassailable", "pair": "unassailable", "why_right": "The tell is <em>nothing left even to begin a challenge with<\/em> - no attack on the margin can even be mounted, and a lead is this word's territory, not a stronghold anyone storms.", "why_wrong": "That word belongs to fortresses and vaults — things assaulted and never taken. A race lead is not entered or captured, and here no assault even begins: the crews behind are spent."}, {"sentence": "Burglars have drilled, torched, and tunneled at the old bank's vault since 1911, denting and smoke-staining the steel — and not one has ever gotten inside; by any test that matters, it is ____.", "options": ["impregnable", "invulnerable"], "key": "impregnable", "pair": "invulnerable", "why_right": "The tell is <em>denting and smoke-staining the steel<\/em> - the vault takes real damage and still holds; its promise is narrow, nobody gets in, not that no harm can be done anywhere.", "why_wrong": "The steel is dented and smoke-stained, so 'cannot be harmed anywhere' is off the table. The narrower promise — nobody gets in — is the one the sentence proves."}, {"sentence": "Rioters have burned its shutters and gouged its sills, yet in thirty years no one has forced a way into the records annex; the archivists shrug and call it ____.", "options": ["impregnable", "invulnerable"], "key": "impregnable", "pair": "invulnerable", "why_right": "The tell is <em>burned its shutters and gouged its sills<\/em> - the building is visibly harmed, which the no-harm word cannot survive; the only promise kept is that nobody forces a way in.", "why_wrong": "That word says nothing can wound it at all - yet the shutters are burned and the sills gouged. The narrower promise is the one the annex keeps: no one gets inside."}, {"sentence": "The refuge hut's door opens to any climber who pushes it, yet eighty winters of avalanche and rockfall have never cracked a wall; the guides call the little hut ____.", "options": ["impregnable", "invulnerable"], "key": "invulnerable", "pair": "invulnerable", "why_right": "The tell is <em>never cracked a wall<\/em> - eighty winters of battering have done no harm anywhere, and the door stands open to everyone, so the only claim left is the no-wound one.", "why_wrong": "That word makes one promise - nobody gets in, nobody takes it - and this door opens to anyone who pushes. The hut's claim is about harm: eighty winters, not one crack."}, {"sentence": "The mountain seed store lost its last watchman a decade ago, yet two well-equipped break-in crews have since failed to force its doors; the trustees still call it ____.", "options": ["impregnable", "guarded"], "key": "impregnable", "pair": "guarded", "why_right": "The tell is <em>lost its last watchman a decade ago<\/em> - nobody is watching at all, yet the break-ins still fail; the claim is the result itself, nobody ever gets in.", "why_wrong": "That word promises only that someone stands watch, and this store has had no watchman for ten years. What protects it is the outcome: two crews tried, and neither forced the doors."}, {"sentence": "The depot gate is ____ around the clock — a sentry in the booth, cameras along the fence — yet two teenagers still slipped in last spring through a drainage culvert.", "options": ["impregnable", "guarded"], "key": "guarded", "pair": "guarded", "why_right": "The tell is <em>two teenagers still slipped in<\/em> - somebody got inside, so the strong result is off the table; all this gate can claim is a sentry and cameras, someone watching.", "why_wrong": "That word is a verdict on results: nobody ever gets in. The teenagers <em>did<\/em> get in, through the culvert — the sentence promises only a watchman, not an outcome."}], "display_order": [3, 0, 6, 5, 2, 7, 1, 4], "dimension_order": ["unassailable", "invulnerable", "guarded"], "dimension_feedback": {"unassailable": "Unassailable says no attack can even be mounted — the position offers nothing to grab, which is why it usually describes arguments, reputations, and leads. Impregnable welcomes the assault and shrugs it off: the fortress word for defenses that are attacked, sometimes for years, and never once taken.", "invulnerable": "Invulnerable means the thing cannot be wounded or harmed at all, attacked or not — no weak point exists anywhere on it. Impregnable makes a narrower promise about one outcome: nobody gets in, nobody takes it. An impregnable vault might come away scratched, dented, and scorched; it still holds.", "guarded": "A guarded gate has someone watching it, and that is all it promises; impregnable skips the watchman and promises the result — nothing gets in, ever."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something that gets attacked — maybe more than once — and still never falls and never lets anyone in; damage is allowed, capture is not. Try working in a word like <i>siege<\/i>, <i>attempt<\/i>, <i>never<\/i> or <i>held<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

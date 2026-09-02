@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="186a959050db">
+<meta name="build" content="2bc31d35d8c9">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>treatise &#8212; SAT Vocabulary, Course 1 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "treatise", "gradeUrl": "/api/grade", "taskId": "treatise", "minWords": 12, "items": {"s1": {"q": "Which of these would count as a treatise?", "opts": {"A": "a 500-page volume that sets out, chapter by chapter, a complete theory of how democracies decline", "B": "a three-paragraph letter to the editor objecting to the city's newly installed parking meters downtown", "C": "a private diary recording a sailor's moods and meals across a year at sea", "D": "a pocket phrasebook listing useful Italian expressions for traveling tourists in alphabetical order"}, "key": "A", "fb": {"correct": "Correct! A treatise is a long, formal work that treats one subject systematically — and a 500-page volume building a complete theory chapter by chapter is that shape exactly: one subject, full length, organized argument.", "B": "Not quite! Three paragraphs objecting to parking meters is a letter — an opinion fired off at one small target. It is far too short and informal to treat any subject systematically.", "C": "Not quite! A diary records one person's days as they pass, with no argument to build and no plan beyond the calendar. Private, unsystematic records are nearly the opposite of a formal treatment of a subject.", "D": "Not quite! A phrasebook is a reference list — useful expressions in alphabetical order. It organizes entries for quick lookup, but it argues nothing and treats no subject; it is a tool, not a treatment."}}, "s3a": {"q": "In the passage, calling the work a \"treatise\" means it is", "opts": {"A": "an informal private diary of the harbor master's thirty years of service", "B": "a long, systematic treatment of one whole subject", "C": "a short pamphlet urging reform of the port", "D": "a thesis submitted for a degree"}, "key": "B", "fb": {"correct": "Right — six hundred pages treating 'its one subject so systematically' that sailors used it for a century.", "A": "The measurements are organized into definitions, rules, and answered objections — a built system, not private jottings.", "C": "It urges nothing and runs six hundred pages; a pamphlet it is not.", "D": "'He never submitted it to a university' — no degree was ever in play."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "monograph", "B": "tract", "C": "dissertation", "D": "treatise"}, "key": "B", "fb": {"correct": "Right. Short, cheap, urgent, and out to convert — <em>six pages<\/em>, one penny, <em>one demand only<\/em>, handed out <em>on corners<\/em>. That is a tract doing what tracts do: campaigning in a few pages until people act.", "D": "A treatise sets a whole subject in order — principles, evidence, and conclusions built across hundreds of pages. This piece runs <em>six pages<\/em>, was written <em>in a single week<\/em>, and exists to <em>make one demand only<\/em>.", "A": "A monograph is a scholar's careful study of one narrow topic, written by a specialist for the handful of specialists who share it. This penny sheet was for anyone passing: <em>boys handed it out on corners<\/em>.", "C": "A dissertation is the long formal work a candidate writes to earn a degree, and its first audience is a committee. There is no university in sight — <em>a printer named Ellis<\/em> wrote this <em>in a single week<\/em> for the streets of Soho."}}}, "grid": {"words": ["treatise", "monograph", "dissertation", "tract"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Eight hundred pages, one subject: the volume lays out the whole art of navigation from first principles to worked conclusions, a ____ that pilots' schools built their courses on.", "ks": ["treatise"], "fb": {"monograph": "That word studies one narrow corner — one species of beetle. This book sets an entire subject in order.", "dissertation": "That word is written to earn a degree, judged first by a committee. Nothing here answers to examiners.", "tract": "That word campaigns in a few urgent pages, out to convert. Eight hundred ordered pages are building, not campaigning."}}, {"s": "She spent a decade on a single ____ meant to give the young field its foundations: every principle stated, every objection met, the whole subject set out in order.", "ks": ["treatise"], "fb": {"monograph": "That word would take one corner of the field and go deep. This book wants the field's entire foundation.", "dissertation": "That word exists to win its author a title before a committee. This book exists to set a subject in order.", "tract": "That word is short, urgent, and out to convert. This is decade-long system-building."}}, {"s": "The entomologist's proudest work is a slim ____ on one species of cave cricket, written by a specialist for the handful of specialists who study the same walls.", "ks": ["monograph"], "fb": {"treatise": "That word lays out a whole subject's principles at foundational scale. One cave cricket is a corner, lovingly studied.", "dissertation": "That word is the degree-earning work a candidate defends before a committee. This author is long past examiners.", "tract": "That word presses one urgent public argument in a few pages. Nothing here campaigns; it documents, for peers."}}, {"s": "Three chapters in five years, every one shaped to satisfy her committee: the ____ must be defended next spring before the university will grant the doctorate.", "ks": ["dissertation"], "fb": {"treatise": "That word answers to nothing but its subject. Every page here is aimed at a committee and a degree.", "monograph": "That word is a specialist's finished study for fellow specialists. This work isn't finished until examiners say so — its first audience is a committee.", "tract": "That word converts in a few urgent pages. Five years of chapters and a defense date are academia, not a campaign."}}, {"s": "Handed out at the factory gates, the eight-page ____ hammers one urgent claim — shorter hours now — and exists for no reason but to win converts.", "ks": ["tract"], "fb": {"treatise": "That word builds an entire subject across hundreds of ordered pages. Eight pages with one demand is a campaign.", "monograph": "That word is a specialist's careful study for other specialists. This is printed for whoever passes the gates.", "dissertation": "That word is written for a committee and a degree. This wants converts by the next shift change."}}, {"s": "The reformer's pocket-sized ____ went through nine printings in a year, each copy pressing the same fiery religious argument on anyone who would take one.", "ks": ["tract"], "fb": {"treatise": "That word sets out a whole subject's principles across a long, ordered book. A pocket pamphlet pressing one fiery argument is doing a different job.", "monograph": "That word is scholarship on one narrow topic for peers. This is persuasion for the street.", "dissertation": "That word earns a degree before a committee. Nine cheap printings for passers-by earn only converts."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Make the work long, formal, and devoted to one whole subject, laid out in order — let the scale show. Try working in words like <i>systematic<\/i>, <i>principles<\/i>, <i>volume<\/i> or <i>chapters<\/i>."}};
+  var CFG = {"word": "treatise", "gradeUrl": "/api/grade", "taskId": "treatise", "minWords": 12, "items": {"s1": {"q": "Which of these would count as a treatise?", "opts": {"A": "a 500-page volume that sets out, chapter by chapter, a complete theory of how democracies decline", "B": "a three-paragraph letter to the editor objecting to the city's newly installed parking meters downtown", "C": "a private diary recording a sailor's moods and meals across a year at sea", "D": "a pocket phrasebook listing useful Italian expressions for traveling tourists in alphabetical order"}, "key": "A", "fb": {"correct": "Correct! A treatise is a long, formal work that treats one subject systematically — and a 500-page volume building a complete theory chapter by chapter is that shape exactly: one subject, full length, organized argument.", "B": "Not quite! Three paragraphs objecting to parking meters is a letter — an opinion fired off at one small target. It is far too short and informal to treat any subject systematically.", "C": "Not quite! A diary records one person's days as they pass, with no argument to build and no plan beyond the calendar. Private, unsystematic records are nearly the opposite of a formal treatment of a subject.", "D": "Not quite! A phrasebook is a reference list — useful expressions in alphabetical order. It organizes entries for quick lookup, but it argues nothing and treats no subject; it is a tool, not a treatment."}}, "s3a": {"q": "In the passage, calling the work a \"treatise\" means it is", "opts": {"A": "an informal private diary of the harbor master's thirty years of service", "B": "a long, systematic treatment of one whole subject", "C": "a short pamphlet urging reform of the port", "D": "a thesis submitted for a degree"}, "key": "B", "fb": {"correct": "Right — six hundred pages treating 'its one subject so systematically' that sailors used it for a century.", "A": "The measurements are organized into definitions, rules, and answered objections — a built system, not private jottings.", "C": "It urges nothing and runs six hundred pages; a pamphlet it is not.", "D": "'He never submitted it to a university' — no degree was ever in play."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "monograph", "B": "tract", "C": "dissertation", "D": "treatise"}, "key": "B", "fb": {"correct": "Right. Short, cheap, urgent, and out to convert — <em>six pages<\/em>, one penny, <em>one demand only<\/em>, handed out <em>on corners<\/em>. That is a tract doing what tracts do: campaigning in a few pages until people act.", "D": "A treatise sets a whole subject in order — principles, evidence, and conclusions built across hundreds of pages. This piece runs <em>six pages<\/em>, was written <em>in a single week<\/em>, and exists to <em>make one demand only<\/em>.", "A": "A monograph is a scholar's careful study of one narrow topic, written by a specialist for the handful of specialists who share it. This penny sheet was for anyone passing: <em>boys handed it out on corners<\/em>.", "C": "A dissertation is the long formal work a candidate writes to earn a degree, and its first audience is a committee. There is no university in sight — <em>a printer named Ellis<\/em> wrote this <em>in a single week<\/em> for the streets of Soho."}}}, "pairwise": {"rows": [{"sentence": "Eight hundred pages, one subject: the volume lays out the whole art of navigation from first principles to worked conclusions, a ____ that pilots' schools built their courses on.", "options": ["treatise", "monograph"], "key": "treatise", "pair": "monograph", "why_right": "The tell is <em>the whole art of navigation from first principles<\/em> - a treatise lays out an entire subject's foundations, not one narrow corner studied for specialists.", "why_wrong": "That word studies one narrow corner — one species of beetle. This book sets an entire subject in order."}, {"sentence": "She spent a decade on a single ____ meant to give the young field its foundations: every principle stated, every objection met, the whole subject set out in order.", "options": ["treatise", "dissertation"], "key": "treatise", "pair": "dissertation", "why_right": "The tell is <em>meant to give the young field its foundations<\/em> - the work answers to its subject alone, setting it in order, with no committee and no title anywhere in its purpose.", "why_wrong": "That word exists to win its author a title before a committee. This book exists to set a subject in order."}, {"sentence": "The entomologist's proudest work is a slim ____ on one species of cave cricket, written by a specialist for the handful of specialists who study the same walls.", "options": ["treatise", "monograph"], "key": "monograph", "pair": "monograph", "why_right": "The tell is <em>one species of cave cricket<\/em> - a specialist's study of one narrow topic for fellow specialists, not a whole subject's principles laid out at foundational scale.", "why_wrong": "That word lays out a whole subject's principles at foundational scale. One cave cricket is a corner, lovingly studied."}, {"sentence": "Three chapters in five years, every one shaped to satisfy her committee: the ____ must be defended next spring before the university will grant the doctorate.", "options": ["treatise", "dissertation"], "key": "dissertation", "pair": "dissertation", "why_right": "The tell is <em>shaped to satisfy her committee<\/em> - the long formal work a candidate writes to earn a degree, its first audience a committee rather than the subject itself.", "why_wrong": "That word answers to nothing but its subject. Every page here is aimed at a committee and a degree."}, {"sentence": "Handed out at the factory gates, the eight-page ____ hammers one urgent claim — shorter hours now — and exists for no reason but to win converts.", "options": ["treatise", "tract"], "key": "tract", "pair": "tract", "why_right": "The tell is <em>exists for no reason but to win converts<\/em> - a short pamphlet pressing one urgent claim, campaigning in eight pages where a treatise would build a subject across hundreds.", "why_wrong": "That word builds an entire subject across hundreds of ordered pages. Eight pages with one demand is a campaign."}, {"sentence": "The reformer's pocket-sized ____ went through nine printings in a year, each copy pressing the same fiery religious argument on anyone who would take one.", "options": ["treatise", "tract"], "key": "tract", "pair": "tract", "why_right": "The tell is <em>pressing the same fiery religious argument<\/em> - a short, urgent pamphlet out to convert whoever takes one, not a long ordered building of a whole subject.", "why_wrong": "That word sets out a whole subject's principles across a long, ordered book. A pocket pamphlet pressing one fiery argument is doing a different job."}, {"sentence": "Her four-volume ____ on weather sets the entire subject in order, cloud physics to storm forecasting, in steps a reader new to the science can follow and build on.", "options": ["treatise", "monograph"], "key": "treatise", "pair": "monograph", "why_right": "The tell is <em>a reader new to the science<\/em> - a treatise is broad and foundational, laying out the whole subject's principles rather than one corner written for specialists.", "why_wrong": "That word is a specialist's study of one narrow topic, written for fellow specialists. This work sets the entire subject in order for a reader starting from nothing."}, {"sentence": "The linguist spent thirty unhurried years on a three-volume ____ of the island's grammar, working from its sounds up through its sentence patterns and pressing no cause on anyone.", "options": ["treatise", "tract"], "key": "treatise", "pair": "tract", "why_right": "The tell is <em>thirty unhurried years<\/em> - a long, patient building of a whole subject in order, where a tract campaigns urgently in a few pages, always out to convert.", "why_wrong": "That word is a short pamphlet pressing one urgent argument, always out to convert. Three unhurried volumes that press no cause are building a subject, not campaigning."}], "display_order": [2, 4, 1, 6, 5, 3, 0, 7], "dimension_order": ["monograph", "dissertation", "tract"], "dimension_feedback": {"monograph": "Monograph means a scholarly study of one narrow topic, written by a specialist for specialists — a monograph on one species of beetle. A treatise is usually broader and more foundational: it lays out a whole subject's principles rather than one corner of it.", "dissertation": "Dissertation means the long formal work a candidate writes to earn an academic degree — its first audience is a committee. A treatise answers to nothing but its subject: it exists to set the subject in order, not to win its author a title.", "tract": "Tract means a short pamphlet pressing one urgent argument, often political or religious, always out to convert. It is in fact the treatise's little cousin — both grew from Latin tractare — but a tract campaigns in a few pages where a treatise builds a subject across hundreds."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Make the work long, formal, and devoted to one whole subject, laid out in order — let the scale show. Try working in words like <i>systematic<\/i>, <i>principles<\/i>, <i>volume<\/i> or <i>chapters<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

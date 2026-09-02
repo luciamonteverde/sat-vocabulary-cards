@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="5b49e7baaf79">
+<meta name="build" content="6a502c45db07">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>submissive &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "submissive", "gradeUrl": "/api/grade", "taskId": "submissive", "minWords": 12, "items": {"s1": {"q": "A vice-president presents a plainly flawed rollout plan to her team. Which response is submissive?", "opts": {"A": "Marcus praises the plan's boldness, then lays out two firm conditions his design group will need met before it signs on.", "B": "Farah, won over by the new market data, changes her mind and backs the plan on its actual merits.", "C": "Devon thinks the timeline is impossible, but under the VP's gaze he deletes his objections from the shared doc and nods along.", "D": "Lena shrugs and skips the meeting's second half; rollout schedules have never interested her either way."}, "key": "C", "fb": {"correct": "Correct! Submissive means letting your own judgment give way to another's authority, and that is Devon exactly: he still believes the timeline is impossible, yet one look from the VP is enough to make him erase his objections and nod.", "A": "Not quite! Marcus is courteous, but courtesy is not surrender — he attaches firm conditions and keeps his group's position intact. A submissive response would let those conditions dissolve under the VP's authority.", "B": "Not quite! Farah changes her mind because the data persuaded her, not because rank pressed her. Being convinced on the merits keeps your judgment working; submission sets it aside.", "D": "Not quite! Lena yields nothing because she wants nothing — she simply doesn't care. Indifference walks away from the contest of wills; submission loses it."}}, "s3a": {"q": "As it is used in the passage, 'submissive' most nearly means:", "opts": {"A": "genuinely persuaded that the maestro's musical readings were right", "B": "too lazy to keep arguing about small details of technique", "C": "obeying with his own judgment set aside", "D": "politely respectful while still keeping his own opinions in play"}, "key": "C", "fb": {"correct": "Right -- Brandt says it was not agreement: his judgment 'went silent in the hall' while he obeyed.", "A": "The passage rules this out directly -- 'it was not agreement'; he still mocked the dynamics at dinner.", "B": "Brandt says plainly 'It was not laziness' -- the yielding was something else.", "D": "He raised no objection at all and accepted what he privately called backwards -- his opinions were not in play in the hall."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "compliant", "B": "deferential", "C": "docile", "D": "submissive"}, "key": "D", "fb": {"correct": "Right. A fierce, opinionated cook whose own judgment gives way completely before one man — cooking a menu she believed was worse, with no rule behind it and nothing even asked — is exactly the yielding this word names.", "A": "Compliant means going along with rules, requests, and procedures — forms, deadlines, orders. But here <em>No rule requires any of this. Nothing is even asked.<\/em> What gives way in this kitchen is not procedure at all.", "C": "Docile means mild by nature, with no fight in the first place. This cook <em>runs the pass like a general<\/em> and <em>argues with anyone in the building<\/em> — the fight is there; she sets it aside for exactly one man.", "B": "A deferential junior yields politely out of respect while keeping a will of her own on record. Here <em>her own judgment quietly folds<\/em>: <em>she cooked his version that night<\/em>, even though <em>she had told the staff that morning it was worse<\/em>, pressing nothing."}}}, "grid": {"words": ["submissive", "compliant", "docile", "deferential"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "A defense lawyer famous for interrupting judges went ____ before Judge Okafor, dropping every motion at the first flick of her eyebrow.", "ks": ["submissive"], "fb": {"compliant": "That word is for going along with rules, requests, and procedures. Nothing has been requested here -- he folds at <em>the first flick of her eyebrow<\/em>, a person's authority alone.", "docile": "A naturally mild person has no fight to lose. A lawyer <em>famous for interrupting judges<\/em> plainly does -- the sentence shows fight collapsing, not absent.", "deferential": "Polite respect keeps a will of its own. <em>Dropping every motion<\/em> at an eyebrow is a will giving way altogether."}}, {"s": "Though privately sure the dosage was wrong, the young resident turned ____ under the surgeon's stare and entered the order exactly as dictated.", "ks": ["submissive"], "fb": {"compliant": "Going along with procedures doesn't require abandoning your own judgment. She yields to a person -- <em>under the surgeon's stare<\/em> -- against what she privately knows.", "docile": "That word means naturally mild, with no fight to begin with. She is <em>privately sure the dosage was wrong<\/em> -- her will exists; it gives way under a stare.", "deferential": "A politely respectful junior keeps a will of her own. Entering the order <em>exactly as dictated<\/em>, against her own certainty, means that will gave way altogether."}}, {"s": "New hires at the plant, even the argumentative ones, are ____ with the paperwork, filling out every safety form and following the lockout checklist to the letter.", "ks": ["compliant"], "fb": {"submissive": "That word describes a will bowing to a person's authority. Here the going-along is with <em>every safety form<\/em> and a checklist -- procedure, not a person.", "docile": "That word names a naturally mild temperament with no fight in it. The sentence includes <em>even the argumentative ones<\/em>, so temperament isn't what's being described.", "deferential": "That word is polite respect shown to a person. Nobody senior appears here -- only forms and <em>the lockout checklist<\/em>."}}, {"s": "Patients discharged after the surgery are usually ____ for the first week, taking each pill on schedule and keeping every follow-up appointment.", "ks": ["compliant"], "fb": {"submissive": "No authority is staring anyone down and no judgment is being surrendered -- patients are following a regimen, <em>taking each pill on schedule<\/em>.", "docile": "That word describes a permanent, naturally mild nature. This behavior lasts <em>for the first week<\/em> -- it tracks the regimen, not a temperament.", "deferential": "That word is about politely yielding to a person out of respect. There's no person here -- just schedules and <em>every follow-up appointment<\/em>."}}, {"s": "Volunteers walk the shelter's ____ older dogs first, animals so mild by nature that a first-time visitor can lead them anywhere.", "ks": ["docile"], "fb": {"submissive": "That word describes yielding in the moment, under someone's authority. These animals are simply <em>mild by nature<\/em> -- there is no moment of surrender.", "compliant": "That word is for going along with rules and procedures. No rule appears here -- just a temperament <em>a first-time visitor can lead anywhere<\/em>.", "deferential": "Polite, respectful yielding is a chosen manner. Dogs <em>so mild by nature<\/em> aren't choosing courtesy -- they have no fight to set aside."}}, {"s": "The new associate is ____ toward the senior partners -- she lets them speak first and softens her wording -- yet she still presses her own recommendation every time.", "ks": ["deferential"], "fb": {"submissive": "That word means the will gives way altogether. Hers doesn't -- she <em>still presses her own recommendation every time<\/em>.", "compliant": "There's no rule or form to go along with -- her manner is aimed at people, <em>the senior partners<\/em>.", "docile": "A naturally mild person has no recommendation to press. She presses hers <em>every time<\/em> -- the gentleness is courtesy, not temperament."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a person's own will giving way to someone else's authority -- best if they yield against their own judgment. Try working in a word like <i>boss<\/i>, <i>obeyed<\/i>, <i>gave in<\/i> or <i>without protest<\/i>."}};
+  var CFG = {"word": "submissive", "gradeUrl": "/api/grade", "taskId": "submissive", "minWords": 12, "items": {"s1": {"q": "A vice-president presents a plainly flawed rollout plan to her team. Which response is submissive?", "opts": {"A": "Marcus praises the plan's boldness, then lays out two firm conditions his design group will need met before it signs on.", "B": "Farah, won over by the new market data, changes her mind and backs the plan on its actual merits.", "C": "Devon thinks the timeline is impossible, but under the VP's gaze he deletes his objections from the shared doc and nods along.", "D": "Lena shrugs and skips the meeting's second half; rollout schedules have never interested her either way."}, "key": "C", "fb": {"correct": "Correct! Submissive means letting your own judgment give way to another's authority, and that is Devon exactly: he still believes the timeline is impossible, yet one look from the VP is enough to make him erase his objections and nod.", "A": "Not quite! Marcus is courteous, but courtesy is not surrender — he attaches firm conditions and keeps his group's position intact. A submissive response would let those conditions dissolve under the VP's authority.", "B": "Not quite! Farah changes her mind because the data persuaded her, not because rank pressed her. Being convinced on the merits keeps your judgment working; submission sets it aside.", "D": "Not quite! Lena yields nothing because she wants nothing — she simply doesn't care. Indifference walks away from the contest of wills; submission loses it."}}, "s3a": {"q": "As it is used in the passage, 'submissive' most nearly means:", "opts": {"A": "genuinely persuaded that the maestro's musical readings were right", "B": "too lazy to keep arguing about small details of technique", "C": "obeying with his own judgment set aside", "D": "politely respectful while still keeping his own opinions in play"}, "key": "C", "fb": {"correct": "Right -- Brandt says it was not agreement: his judgment 'went silent in the hall' while he obeyed.", "A": "The passage rules this out directly -- 'it was not agreement'; he still mocked the dynamics at dinner.", "B": "Brandt says plainly 'It was not laziness' -- the yielding was something else.", "D": "He raised no objection at all and accepted what he privately called backwards -- his opinions were not in play in the hall."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "compliant", "B": "deferential", "C": "docile", "D": "submissive"}, "key": "D", "fb": {"correct": "Right. A fierce, opinionated cook whose own judgment gives way completely before one man — cooking a menu she believed was worse, with no rule behind it and nothing even asked — is exactly the yielding this word names.", "A": "Compliant means going along with rules, requests, and procedures — forms, deadlines, orders. But here <em>No rule requires any of this. Nothing is even asked.<\/em> What gives way in this kitchen is not procedure at all.", "C": "Docile means mild by nature, with no fight in the first place. This cook <em>runs the pass like a general<\/em> and <em>argues with anyone in the building<\/em> — the fight is there; she sets it aside for exactly one man.", "B": "A deferential junior yields politely out of respect while keeping a will of her own on record. Here <em>her own judgment quietly folds<\/em>: <em>she cooked his version that night<\/em>, even though <em>she had told the staff that morning it was worse<\/em>, pressing nothing."}}}, "pairwise": {"rows": [{"sentence": "A defense lawyer famous for interrupting judges went ____ before Judge Okafor, dropping every motion at the first flick of her eyebrow.", "options": ["submissive", "docile"], "key": "submissive", "pair": "docile", "why_right": "The tell is <em>famous for interrupting judges<\/em> - a will with plenty of fight collapsing in the moment, not a naturally mild temperament with no fight to lose.", "why_wrong": "A naturally mild person has no fight to lose. A lawyer <em>famous for interrupting judges<\/em> plainly does -- the sentence shows fight collapsing, not absent."}, {"sentence": "Though privately sure the dosage was wrong, the young resident turned ____ under the surgeon's stare and entered the order exactly as dictated.", "options": ["submissive", "deferential"], "key": "submissive", "pair": "deferential", "why_right": "The tell is <em>entered the order exactly as dictated<\/em> - against her own certainty, her judgment gives way altogether, where polite deference would have kept a will of its own.", "why_wrong": "A politely respectful junior keeps a will of her own. Entering the order <em>exactly as dictated<\/em>, against her own certainty, means that will gave way altogether."}, {"sentence": "New hires at the plant, even the argumentative ones, are ____ with the paperwork, filling out every safety form and following the lockout checklist to the letter.", "options": ["submissive", "compliant"], "key": "compliant", "pair": "compliant", "why_right": "The tell is <em>filling out every safety form<\/em> - going along with rules and procedures, paperwork rather than a person, with nobody's will bowing to anyone.", "why_wrong": "That word describes a will bowing to a person's authority. Here the going-along is with <em>every safety form<\/em> and a checklist -- procedure, not a person."}, {"sentence": "Patients discharged after the surgery are usually ____ for the first week, taking each pill on schedule and keeping every follow-up appointment.", "options": ["submissive", "compliant"], "key": "compliant", "pair": "compliant", "why_right": "The tell is <em>taking each pill on schedule<\/em> - patients going along with orders and appointments, a regimen rather than a person, with no judgment surrendered to anyone's stare.", "why_wrong": "No authority is staring anyone down and no judgment is being surrendered -- patients are following a regimen, <em>taking each pill on schedule<\/em>."}, {"sentence": "Volunteers walk the shelter's ____ older dogs first, animals so mild by nature that a first-time visitor can lead them anywhere.", "options": ["submissive", "docile"], "key": "docile", "pair": "docile", "why_right": "The tell is <em>so mild by nature<\/em> - a temperament with no fight in it to begin with, not a will giving way under some authority in the moment.", "why_wrong": "That word describes yielding in the moment, under someone's authority. These animals are simply <em>mild by nature<\/em> -- there is no moment of surrender."}, {"sentence": "The new associate is ____ toward the senior partners -- she lets them speak first and softens her wording -- yet she still presses her own recommendation every time.", "options": ["submissive", "deferential"], "key": "deferential", "pair": "deferential", "why_right": "The tell is <em>still presses her own recommendation every time<\/em> - polite yielding that keeps a will of its own, never a will that has given way altogether.", "why_wrong": "That word means the will gives way altogether. Hers doesn't -- she <em>still presses her own recommendation every time<\/em>."}, {"sentence": "Nothing in the handbook requires it and the manager never asks, yet the veteran cashiers turn ____ whenever he appears, surrendering breaks they are entitled to keep.", "options": ["submissive", "compliant"], "key": "submissive", "pair": "compliant", "why_right": "The tell is <em>the manager never asks<\/em> - nothing has actually been asked, so this is a will bowing to a person's authority, not going along with any rule or request.", "why_wrong": "That word means going along with rules, requests, and procedures. The sentence removes them all - nothing in the handbook requires this and the manager never asks - leaving only a person's authority."}, {"sentence": "By the third meeting with the celebrated editor, the poet had gone wholly ____, striking every stanza he questioned and adopting his titles wholesale, her own preferences never voiced again.", "options": ["submissive", "deferential"], "key": "submissive", "pair": "deferential", "why_right": "The tell is <em>her own preferences never voiced again<\/em> - the will has given way altogether, where mere polite respect for a senior would keep a will of its own.", "why_wrong": "That word is polite yielding that keeps a will of its own. Hers is gone: every questioned stanza struck, his titles adopted wholesale, her own preferences never voiced again."}], "display_order": [2, 5, 4, 1, 3, 7, 6, 0], "dimension_order": ["compliant", "docile", "deferential"], "dimension_feedback": {"compliant": "Compliant means going along with rules, requests, and procedures — you comply with a policy, a deadline, a doctor's orders. Submissive is about persons, not paperwork: it describes a will bowing to someone's authority, often against the yielder's own judgment, even when nothing has actually been asked.", "docile": "Docile means naturally mild and easily led — a docile temperament simply has no fight in it to begin with. Submissive describes the yielding itself, in the moment: a strong-willed person with plenty of fight can still turn submissive when authority stares them down.", "deferential": "Deferential is milder than submissive: a deferential junior yields politely out of respect while keeping a will of her own, but a submissive one lets that will give way altogether."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a person's own will giving way to someone else's authority -- best if they yield against their own judgment. Try working in a word like <i>boss<\/i>, <i>obeyed<\/i>, <i>gave in<\/i> or <i>without protest<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

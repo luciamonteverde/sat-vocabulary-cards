@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="7f38dca39157">
+<meta name="build" content="77d4242c7d75">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>elusive &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "elusive", "gradeUrl": "/api/grade", "taskId": "elusive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses elusive correctly?", "opts": {"A": "The famously elusive lighthouse blinked cheerily from every postcard rack in every shop in town.", "B": "Ten years into the dig, the tomb's entrance remained elusive, teasing the crew with false doorways every season.", "C": "Elusive as always, the neighborhood mail carrier arrived at exactly 2:15 on the dot, five days every single week.", "D": "His elusive singing carried up the stairwells and through the whole apartment building at all hours of the night."}, "key": "B", "fb": {"correct": "Correct. Elusive means hard to find, catch, or pin down. The entrance is really there, yet it keeps escaping the searchers year after year — that combination is the word's core.", "A": "Anything displayed on 'every postcard rack in every shop' could hardly be easier to locate. Elusive means hard to find or pin down — town-wide visibility argues the exact opposite.", "C": "Arriving 'at exactly 2:15 on the dot' five days a week is clockwork predictability. An elusive person is precisely the one you can never manage to catch or pin down.", "D": "Singing that carries 'through the whole apartment building at all hours' is impossible to escape, let alone hard to find. Elusive fits what keeps slipping out of reach instead."}}, "s3a": {"q": "In this passage, calling the crate \"the most elusive prize in early cinema\" means that it", "opts": {"A": "was far too fragile to have survived a full century of storage and handling", "B": "kept escaping every attempt to find it, though it plainly existed", "C": "was hidden away on purpose by the very studio that first shipped it", "D": "mattered only to a small circle of film specialists"}, "key": "B", "fb": {"correct": "Right. The crate is real -- the paperwork proves it -- and a century of pursuit has never reached it. Escaping every attempt while plainly existing is exactly what the word claims.", "A": "The passage never says the reels decayed; it says the search for them keeps failing. The word describes the failed pursuit, not the film stock.", "C": "No one in the passage hides anything -- leads simply go cold. Deliberate concealment is a different claim from defeating every search.", "D": "How many people care is not the point; the point is that every lead went cold. The word measures the escape, not the audience."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "shy", "B": "shadowy", "C": "elusive", "D": "slippery"}, "key": "D", "fb": {"correct": "Right. Reaching her was never the problem — the failure came at the moment of holding on, when <em>she poured herself out of their gloved hands<\/em>.", "C": "Elusive describes what stays beyond reach — sought and never caught. This animal was caught constantly: <em>keepers lifted her easily from the tank<\/em>. The trouble began only after the catching.", "B": "Shadowy means glimpsed only dimly at the edges, never seen plainly. She was the opposite of hidden: <em>she drifted at the front glass in full view all day<\/em>.", "A": "A shy animal hangs back and must be coaxed out. This one <em>reached for the divers before they reached for her<\/em> — nothing about her holds back."}}}, "grid": {"words": ["elusive", "slippery", "shadowy", "shy"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "After four summers of fieldwork the snow leopard stayed ____ : camera traps caught it in crisp detail, yet every stakeout ended with fresh prints and no cat.", "ks": ["elusive"], "fb": {"slippery": "That's the plain-talk word for a thing that wriggles free just as your hand closes on it. This cat was never in anyone's grip at all -- it stayed beyond reach for four summers.", "shadowy": "That word means glimpsed only at the edges, never seen plainly. The camera traps caught this cat <em>in crisp detail<\/em> -- the failure is of reach, not of view.", "shy": "A shy creature merely hangs back and can be coaxed out. Four summers of stakeouts ending in fresh prints and no cat is active escape, not timidity."}}, {"s": "Consensus on the rail route proved ____ : after nine public hearings, the council stood no nearer agreement than on the night the plan was announced.", "ks": ["elusive"], "fb": {"slippery": "That word wants something wriggling out of a grip at the last instant -- and it's casual talk besides. Nine hearings never got this council near an agreement to lose.", "shadowy": "That word is for dim, half-seen things. A plan argued through <em>nine public hearings<\/em> is in full view; what stays out of reach is the agreement.", "shy": "Shy describes a person or creature that hangs back until coaxed. An agreement has no temperament -- the sentence just says the council never gets near one."}}, {"s": "The bar of soap turned ____ in the dog's bathwater, shooting out of Priya's fist every single time she managed to close her fingers around it.", "ks": ["slippery"], "fb": {"elusive": "That word suits what stays beyond reach altogether -- a cure, a culprit -- and it wears formal dress. This soap is in her fist over and over; the trouble starts the instant she closes it.", "shadowy": "That word means half-seen, glimpsed at the edges of view. The soap sits in plain sight in the tub -- seeing it was never the problem.", "shy": "Shy means hanging back until coaxed out. The soap isn't holding back -- it's in her hand and gone again in the same second."}}, {"s": "Her account of the missing homework got ____ whenever the teacher reached for a specific date, sliding into 'around then, more or less' at every try.", "ks": ["slippery"], "fb": {"elusive": "That's the formal word for what stays beyond reach altogether. This story is offered freely and in full -- it gets away only at the exact moment a date closes on it.", "shadowy": "That word is for things half-seen at the edge of view. The account is told out loud from start to finish; nothing about it is dim.", "shy": "Shy people hang back until coaxed. She isn't holding back at all -- she talks readily and dodges only when a specific date comes near."}}, {"s": "Witnesses agreed the figure at the fence stayed ____ : back boldly night after night, yet only ever a shape at the floodlight's edge, never once in plain view.", "ks": ["shadowy"], "fb": {"elusive": "That word is for what defeats the reach or the search. Nobody here is chasing anything -- the figure shows up nightly; it just can't be seen plainly.", "slippery": "That word needs a grip for something to wriggle out of. No one lays a hand on this figure -- the whole problem is the view.", "shy": "Shy means timidly hanging back until coaxed. Coming <em>back boldly night after night<\/em> is not timid -- the only failure here is of plain view."}}, {"s": "The transfer student stayed ____ through September, hovering in full view at the edge of every group until two lunch invitations finally drew him out.", "ks": ["shy"], "fb": {"elusive": "That word marks what actively slips every attempt to reach it. Two lunch invitations were enough here -- he was reachable all along, just holding back.", "slippery": "That's the word for a thing that wriggles out of your grip as it closes -- an eel, an excuse. A student lingering in full view is escaping nobody's grasp.", "shadowy": "That word means glimpsed only dimly, at the edges of view. He stood <em>in full view<\/em> all month; he simply hung back until two invitations drew him out."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something that keeps escaping pursuit -- not merely hidden, but hunted and still out of reach. Give the chase a track record with a word like <i>despite<\/i>, <i>every<\/i>, <i>still<\/i> or <i>years<\/i>."}};
+  var CFG = {"word": "elusive", "gradeUrl": "/api/grade", "taskId": "elusive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses elusive correctly?", "opts": {"A": "The famously elusive lighthouse blinked cheerily from every postcard rack in every shop in town.", "B": "Ten years into the dig, the tomb's entrance remained elusive, teasing the crew with false doorways every season.", "C": "Elusive as always, the neighborhood mail carrier arrived at exactly 2:15 on the dot, five days every single week.", "D": "His elusive singing carried up the stairwells and through the whole apartment building at all hours of the night."}, "key": "B", "fb": {"correct": "Correct. Elusive means hard to find, catch, or pin down. The entrance is really there, yet it keeps escaping the searchers year after year — that combination is the word's core.", "A": "Anything displayed on 'every postcard rack in every shop' could hardly be easier to locate. Elusive means hard to find or pin down — town-wide visibility argues the exact opposite.", "C": "Arriving 'at exactly 2:15 on the dot' five days a week is clockwork predictability. An elusive person is precisely the one you can never manage to catch or pin down.", "D": "Singing that carries 'through the whole apartment building at all hours' is impossible to escape, let alone hard to find. Elusive fits what keeps slipping out of reach instead."}}, "s3a": {"q": "In this passage, calling the crate \"the most elusive prize in early cinema\" means that it", "opts": {"A": "was far too fragile to have survived a full century of storage and handling", "B": "kept escaping every attempt to find it, though it plainly existed", "C": "was hidden away on purpose by the very studio that first shipped it", "D": "mattered only to a small circle of film specialists"}, "key": "B", "fb": {"correct": "Right. The crate is real -- the paperwork proves it -- and a century of pursuit has never reached it. Escaping every attempt while plainly existing is exactly what the word claims.", "A": "The passage never says the reels decayed; it says the search for them keeps failing. The word describes the failed pursuit, not the film stock.", "C": "No one in the passage hides anything -- leads simply go cold. Deliberate concealment is a different claim from defeating every search.", "D": "How many people care is not the point; the point is that every lead went cold. The word measures the escape, not the audience."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "shy", "B": "shadowy", "C": "elusive", "D": "slippery"}, "key": "D", "fb": {"correct": "Right. Reaching her was never the problem — the failure came at the moment of holding on, when <em>she poured herself out of their gloved hands<\/em>.", "C": "Elusive describes what stays beyond reach — sought and never caught. This animal was caught constantly: <em>keepers lifted her easily from the tank<\/em>. The trouble began only after the catching.", "B": "Shadowy means glimpsed only dimly at the edges, never seen plainly. She was the opposite of hidden: <em>she drifted at the front glass in full view all day<\/em>.", "A": "A shy animal hangs back and must be coaxed out. This one <em>reached for the divers before they reached for her<\/em> — nothing about her holds back."}}}, "pairwise": {"rows": [{"sentence": "Consensus on the rail route proved ____ : after nine public hearings, the council stood no nearer agreement than on the night the plan was announced.", "options": ["elusive", "slippery"], "key": "elusive", "pair": "slippery", "why_right": "The tell is <em>no nearer agreement<\/em> - nothing was ever in the council's hands to wriggle free at the last instant; the goal stayed beyond reach, the formal word's own territory.", "why_wrong": "That word wants something wriggling out of a grip at the last instant -- and it's casual talk besides. Nine hearings never got this council near an agreement to lose."}, {"sentence": "The bar of soap turned ____ in the dog's bathwater, shooting out of Priya's fist every single time she managed to close her fingers around it.", "options": ["elusive", "slippery"], "key": "slippery", "pair": "slippery", "why_right": "The tell is <em>every single time she managed to close her fingers<\/em> - the soap is repeatedly in the grip and escapes at the instant of closing, the plain physical word's exact home.", "why_wrong": "That word suits what stays beyond reach altogether -- a cure, a culprit -- and it wears formal dress. This soap is in her fist over and over; the trouble starts the instant she closes it."}, {"sentence": "Her account of the missing homework got ____ whenever the teacher reached for a specific date, sliding into 'around then, more or less' at every try.", "options": ["elusive", "slippery"], "key": "slippery", "pair": "slippery", "why_right": "The tell is <em>sliding into 'around then, more or less'<\/em> - an excuse offered freely that wriggles away just as the teacher's grip closes; the card files excuses with eels.", "why_wrong": "That's the formal word for what stays beyond reach altogether. This story is offered freely and in full -- it gets away only at the exact moment a date closes on it."}, {"sentence": "Witnesses agreed the figure at the fence stayed ____ : back boldly night after night, yet only ever a shape at the floodlight's edge, never once in plain view.", "options": ["elusive", "shadowy"], "key": "shadowy", "pair": "shadowy", "why_right": "The tell is <em>never once in plain view<\/em> - only a shape at the floodlight's edge, a failure of view; nobody's reach or grab is ever defeated here.", "why_wrong": "That word is for what defeats the reach or the search. Nobody here is chasing anything -- the figure shows up nightly; it just can't be seen plainly."}, {"sentence": "The pickpocket worked the festival in broad daylight, caught grinning on a dozen phones, and stayed ____ all weekend, twisting through the crowd ahead of every officer sent to grab him.", "options": ["elusive", "shadowy"], "key": "elusive", "pair": "shadowy", "why_right": "The tell is <em>caught grinning on a dozen phones<\/em> - vivid and unmistakable in broad daylight, yet never where the officers reach; the failure is the grab, never the view.", "why_wrong": "That word means glimpsed only at the edges, never seen plainly. This thief grins from a dozen phones in broad daylight - the view is perfect; only the grab keeps failing."}, {"sentence": "The transfer student stayed ____ through September, hovering in full view at the edge of every group until two lunch invitations finally drew him out.", "options": ["elusive", "shy"], "key": "shy", "pair": "shy", "why_right": "The tell is <em>two lunch invitations finally drew him out<\/em> - he merely hung back and could be coaxed; nothing actively slipped anyone's attempt to reach him.", "why_wrong": "That word marks what actively slips every attempt to reach it. Two lunch invitations were enough here -- he was reachable all along, just holding back."}, {"sentence": "After four summers of fieldwork the snow leopard stayed ____ : camera traps caught it in crisp detail, yet every stakeout ended with fresh prints and no cat.", "options": ["elusive", "shy"], "key": "elusive", "pair": "shy", "why_right": "The tell is <em>every stakeout ended with fresh prints and no cat<\/em> - four summers of active escape right under the watchers' noses; a merely timid creature could have been coaxed out.", "why_wrong": "A shy creature merely hangs back and can be coaxed out. Four summers of stakeouts ending in fresh prints and no cat is active escape, not timidity."}, {"sentence": "The prize-winning poet stayed ____ for a decade: journalists who flew out found the cabin empty, letters came back unopened, and even her own publisher met only her lawyer.", "options": ["elusive", "shy"], "key": "elusive", "pair": "shy", "why_right": "The tell is <em>found the cabin empty<\/em> - she is never where anyone reaches, actively slipping every approach for a decade; hanging back to be coaxed looks nothing like this.", "why_wrong": "That word means merely hanging back, coaxable with patience. A decade of emptied cabins, unopened letters, and a lawyer at the door is active escape from every attempt."}], "display_order": [7, 0, 6, 1, 4, 2, 5, 3], "dimension_order": ["slippery", "shadowy", "shy"], "dimension_feedback": {"slippery": "Slippery is the plain-talk version: the thing wriggles out of your grip just as you close it - an eel, an excuse, a definition. Elusive covers the same escape in more formal dress and stretches further, to anything that stays beyond reach: a cure, a culprit, a full night's sleep.", "shadowy": "Shadowy means glimpsed only at the edges and never seen plainly - a shadowy figure, a shadowy backer. Elusive is about escape, not dimness: an elusive thing can be vivid and unmistakable yet never where you reach. Shadowy blurs the view; elusive defeats the grab.", "shy": "A shy cat merely hangs back and can be coaxed out; elusive goes further - the thing actively slips every attempt to catch it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something that keeps escaping pursuit -- not merely hidden, but hunted and still out of reach. Give the chase a track record with a word like <i>despite<\/i>, <i>every<\/i>, <i>still<\/i> or <i>years<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

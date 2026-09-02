@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="2313742d2c5b">
+<meta name="build" content="624b96ceafee">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>colonization &#8212; SAT Vocabulary, Course 2 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "colonization", "gradeUrl": "/api/grade", "taskId": "colonization", "minWords": 12, "items": {"s1": {"q": "Which sentence uses colonization correctly?", "opts": {"A": "Colonization changed the valley's grammar: settlers' courts heard cases only in their own tongue, and land deeds required a home-country surname.", "B": "The family's colonization of the seaside cottage lasted two weeks every August and ended, as always, with the last ferry home.", "C": "The two republics signed a treaty of colonization, opening their markets to each other's merchants on precisely equal terms.", "D": "The general's swift colonization of the enemy capital ended within the week: his troops stripped the treasury, burned the archives, and marched home without leaving a garrison."}, "key": "A", "fb": {"correct": "Correct! Colonization means settling your own people in another territory and ruling it for the home country — and courts in the settlers' tongue plus deeds requiring a home-country surname show exactly that: outsiders rooted in the land and running it.", "B": "Not quite! Colonization means settling your own people in a territory and ruling it for the home country, so it's not the correct choice here because a two-week vacation that ends with the ferry home involves no settling and no ruling — nobody stays and nobody governs.", "C": "Not quite! Colonization means settling your own people in a territory and ruling it for the home country, so it's not the correct choice here because two republics trading on precisely equal terms are partners — where both sides keep their own government, nobody is being colonized.", "D": "Not quite! Colonization means settling your own people in a territory and ruling it for the home country, so it's not the correct choice here because troops who loot and march home without leaving a garrison are raiders — outsiders who come to stay are the missing half of the word."}}, "s3a": {"q": "In this passage, what turns the trading post into colonization?", "opts": {"A": "Families from the home country settle the delta permanently and the place is run for the home country's benefit.", "B": "The merchants begin returning every monsoon to buy and sell.", "C": "The delta is legally absorbed as a province of the home country.", "D": "Foreign troops seize the old fort and garrison it."}, "key": "A", "fb": {"correct": "Right — the gallery turns on the decree that plants settler families permanently, with the governor and the rice trade showing the delta run for the home country.", "B": "The monsoon trade is the museum's picture of what came before — merchants who bought, sold, and left. The question over the door asks when the post became something more than that.", "C": "The last case rules that out: the schoolbook's maps still label the delta an overseas possession, not part of any homeland.", "D": "No conquest appears in the gallery. The turn the exhibit marks is a decree recruiting farming families, not a military seizure."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "annexation", "B": "occupation", "C": "colonization"}, "key": "B", "fb": {"correct": "Right. An army held the valley for three years without taking root: no settlers came, no border moved, and almost nothing outlasted the garrison. Holding a territory without planting anything in it — and leaving barely a trace — is an occupation.", "C": "Colonization plants the outsiders' own people on the land to stay and runs the place for their home country. The passage rules that out directly: <em>no settlers ever followed the soldiers<\/em>, and once the garrison left, <em>a few ledgers kept in a foreign hand<\/em> were nearly all that spoke of those years.", "A": "Annexation is a stroke of the pen that redraws the border and makes the land legally part of the taker's own state. That paperwork never happened here: <em>no border moved on any map<\/em>, and <em>on paper the valley stayed what it had been<\/em>. Territory never absorbed was never annexed."}}}, "grid": {"words": ["colonization", "occupation", "annexation"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Within a generation, the ____ of the highlands was complete: farm families shipped in from the ruling country had come to stay, the tea profits sailed home each season, and the territory stayed on the books as an overseas possession, never a new province.", "ks": ["colonization"], "fb": {"occupation": "That word is a hold without roots — troops in place and little left when they go. These are farm families who <em>had come to stay<\/em>, with the profits running home for a generation.", "annexation": "That word is a stroke-of-pen absorption: the border moves and the land becomes legally part of the taker itself. This territory stays <em>an overseas possession, never a new province<\/em>."}}, {"s": "The charter's aim from the outset was ____: land grants to draw ten thousand households across the sea to put down roots, under a governor who answered to a distant capital — though the territory itself was never folded inside the home country's borders.", "ks": ["colonization"], "fb": {"occupation": "That word holds a place without planting anyone — when the soldiers leave, little remains. A charter recruiting <em>ten thousand households<\/em> to put down roots is building the opposite.", "annexation": "That word erases the line on the map and makes the land part of the taker's own state. This territory is <em>never folded inside the home country's borders<\/em> — it is ruled from outside instead."}}, {"s": "Historians date the island's ____ not from the admiral's landing but from the first arriving families — fields fenced, schools opened in the newcomers' language — while the ledgers still carried the place as an overseas holding, never as soil of the realm itself.", "ks": ["colonization"], "fb": {"occupation": "That word would date everything from the admiral and his troops — a hold that leaves little behind. The sentence starts the clock at <em>the first arriving families<\/em>, fields fenced and rooted.", "annexation": "That word redraws the border and makes the island legally part of the taker. These ledgers carry it as <em>an overseas holding, never as soil of the realm itself<\/em>."}}, {"s": "The two-year ____ of the border town was all checkpoints and requisitioned hotels — the soldiers censored the mail but brought no families, the town's own flag still hung in the courthouse, and the spring they withdrew hardly a trace of them remained.", "ks": ["occupation"], "fb": {"colonization": "That word means digging in — planting the outsiders' own people to stay and running the place for their home country. These soldiers <em>brought no families<\/em>, and their withdrawal left <em>hardly a trace<\/em>.", "annexation": "That word absorbs the town into the taker's own state with a stroke of the pen. Here <em>the town's own flag still hung in the courthouse<\/em> — its legal status never moved."}}, {"s": "Under the ____, foreign soldiers ran the rail junction and billeted in the grain exchange for three winters, yet the maps never changed — and after the withdrawal, almost nothing of the intruders remained.", "ks": ["occupation"], "fb": {"colonization": "That word plants people, not just soldiers — families who stay and run the place for the home country. Here, after the withdrawal, <em>almost nothing of the intruders remained<\/em>.", "annexation": "That word works by law: the border moves and the land becomes the taker's own. <em>The maps never changed<\/em> — this was boots, not borders."}}, {"s": "What the treaty called protection was, by its final clause, outright ____: the frontier was redrawn overnight, and the valley woke as the newest county of its powerful neighbor, its people taxed as citizens rather than ruled as subjects abroad.", "ks": ["annexation"], "fb": {"colonization": "That word keeps the land foreign — a possession settled by outsiders and governed from abroad. This valley becomes <em>the newest county of its powerful neighbor<\/em>, its people citizens, not subjects.", "occupation": "That word is a hold by troops that ends at their withdrawal, changing no borders. Here <em>the frontier was redrawn overnight<\/em> — a permanent act of law, not a garrison."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show outsiders settling in to stay and the place being run for their home country's gain — not just soldiers passing through. Try working in a word like <i>settlers<\/i>, <i>stay<\/i>, <i>governed<\/i> or <i>homeland<\/i>."}};
+  var CFG = {"word": "colonization", "gradeUrl": "/api/grade", "taskId": "colonization", "minWords": 12, "items": {"s1": {"q": "Which sentence uses colonization correctly?", "opts": {"A": "Colonization changed the valley's grammar: settlers' courts heard cases only in their own tongue, and land deeds required a home-country surname.", "B": "The family's colonization of the seaside cottage lasted two weeks every August and ended, as always, with the last ferry home.", "C": "The two republics signed a treaty of colonization, opening their markets to each other's merchants on precisely equal terms.", "D": "The general's swift colonization of the enemy capital ended within the week: his troops stripped the treasury, burned the archives, and marched home without leaving a garrison."}, "key": "A", "fb": {"correct": "Correct! Colonization means settling your own people in another territory and ruling it for the home country — and courts in the settlers' tongue plus deeds requiring a home-country surname show exactly that: outsiders rooted in the land and running it.", "B": "Not quite! Colonization means settling your own people in a territory and ruling it for the home country, so it's not the correct choice here because a two-week vacation that ends with the ferry home involves no settling and no ruling — nobody stays and nobody governs.", "C": "Not quite! Colonization means settling your own people in a territory and ruling it for the home country, so it's not the correct choice here because two republics trading on precisely equal terms are partners — where both sides keep their own government, nobody is being colonized.", "D": "Not quite! Colonization means settling your own people in a territory and ruling it for the home country, so it's not the correct choice here because troops who loot and march home without leaving a garrison are raiders — outsiders who come to stay are the missing half of the word."}}, "s3a": {"q": "In this passage, what turns the trading post into colonization?", "opts": {"A": "Families from the home country settle the delta permanently and the place is run for the home country's benefit.", "B": "The merchants begin returning every monsoon to buy and sell.", "C": "The delta is legally absorbed as a province of the home country.", "D": "Foreign troops seize the old fort and garrison it."}, "key": "A", "fb": {"correct": "Right — the gallery turns on the decree that plants settler families permanently, with the governor and the rice trade showing the delta run for the home country.", "B": "The monsoon trade is the museum's picture of what came before — merchants who bought, sold, and left. The question over the door asks when the post became something more than that.", "C": "The last case rules that out: the schoolbook's maps still label the delta an overseas possession, not part of any homeland.", "D": "No conquest appears in the gallery. The turn the exhibit marks is a decree recruiting farming families, not a military seizure."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "annexation", "B": "occupation", "C": "colonization"}, "key": "B", "fb": {"correct": "Right. An army held the valley for three years without taking root: no settlers came, no border moved, and almost nothing outlasted the garrison. Holding a territory without planting anything in it — and leaving barely a trace — is an occupation.", "C": "Colonization plants the outsiders' own people on the land to stay and runs the place for their home country. The passage rules that out directly: <em>no settlers ever followed the soldiers<\/em>, and once the garrison left, <em>a few ledgers kept in a foreign hand<\/em> were nearly all that spoke of those years.", "A": "Annexation is a stroke of the pen that redraws the border and makes the land legally part of the taker's own state. That paperwork never happened here: <em>no border moved on any map<\/em>, and <em>on paper the valley stayed what it had been<\/em>. Territory never absorbed was never annexed."}}}, "pairwise": {"rows": [{"sentence": "Historians date the island's ____ not from the admiral's landing but from the first arriving families — fields fenced, schools opened in the newcomers' language — while the ledgers still carried the place as an overseas holding, never as soil of the realm itself.", "options": ["colonization", "annexation"], "key": "colonization", "pair": "annexation", "why_right": "The tell is <em>never as soil of the realm itself<\/em> - the island stays a foreign holding, settled and governed from outside, where the rival word legally absorbs the territory into the taker's own state.", "why_wrong": "That word redraws the border and makes the island legally part of the taker. These ledgers carry it as <em>an overseas holding, never as soil of the realm itself<\/em>."}, {"sentence": "Two centuries of ____ shaped the delta — planters' descendants speak the mother country's tongue and the harvest sails to its mills — yet it stayed a dependency, never granted a seat in the home parliament or a place inside its border.", "options": ["colonization", "annexation"], "key": "colonization", "pair": "annexation", "why_right": "The tell is <em>stayed a dependency<\/em> - settlers' descendants on the land for generations and the harvest sailing to the mother country, yet the delta is kept a foreign possession, never absorbed into home.", "why_wrong": "That word is a stroke-of-pen absorption — the border moves and the land becomes part of the taker's own state. This delta is kept a dependency, outside the home border and ruled from abroad."}, {"sentence": "What the treaty called protection was, by its final clause, outright ____: the frontier was redrawn overnight, and the valley woke as the newest county of its powerful neighbor, its people taxed as citizens rather than ruled as subjects abroad.", "options": ["colonization", "annexation"], "key": "annexation", "pair": "annexation", "why_right": "The tell is <em>the newest county of its powerful neighbor<\/em> - the border is redrawn and the valley legally absorbed into the taker's own state; the rival word would have kept it a foreign possession.", "why_wrong": "That word keeps the land foreign — a possession settled by outsiders and governed from abroad. This valley becomes <em>the newest county of its powerful neighbor<\/em>, its people citizens, not subjects."}, {"sentence": "The ____ of the coastal strip took a single afternoon once the plebiscite passed: the assembly voted, the strip's mayors were sworn into the national legislature, and not one settler crossed the old line, since everyone there was inside the national border by nightfall.", "options": ["colonization", "annexation"], "key": "annexation", "pair": "annexation", "why_right": "The tell is <em>inside the national border by nightfall<\/em> - a vote, a redrawn line and the strip legally absorbed into the taker's own state, with not one settler planted on it.", "why_wrong": "That word plants the taker's own people on the land to stay and rules it as a foreign possession. Here not one settler crossed the line, and the strip became part of the state itself."}, {"sentence": "Within a generation, the ____ of the highlands was complete: farm families shipped in from the ruling country had come to stay, the tea profits sailed home each season, and the territory stayed on the books as an overseas possession, never a new province.", "options": ["colonization", "occupation"], "key": "colonization", "pair": "occupation", "why_right": "The tell is <em>had come to stay<\/em> - farm families planted on the land for good, with the profits sailing home each season; the rival word holds a territory without taking root in it.", "why_wrong": "That word is a hold without roots — troops in place and little left when they go. These are farm families who <em>had come to stay<\/em>, with the profits running home for a generation."}, {"sentence": "The two-year ____ of the border town was all checkpoints and requisitioned hotels — the soldiers censored the mail but brought no families, the town's own flag still hung in the courthouse, and the spring they withdrew hardly a trace of them remained.", "options": ["colonization", "occupation"], "key": "occupation", "pair": "occupation", "why_right": "The tell is <em>brought no families<\/em> - soldiers, checkpoints and censored mail, but nobody planted on the land to stay, and when the army leaves, little remains; that is this word exactly.", "why_wrong": "That word means digging in — planting the outsiders' own people to stay and running the place for their home country. These soldiers <em>brought no families<\/em>, and their withdrawal left <em>hardly a trace<\/em>."}], "display_order": [1, 4, 3, 5, 2, 0], "dimension_order": ["annexation", "occupation"], "dimension_feedback": {"annexation": "Annexation is a stroke-of-pen act: the border is redrawn and the territory legally absorbed into the taker's own state. Colonization keeps the land foreign — a possession settled and governed from outside, not a new province of home.", "occupation": "An occupation holds a territory without taking root in it: troops in the citadel, a curfew at dusk, and no settlers behind them — when the army leaves, little remains. Colonization digs in, planting the outsiders' own people on the land to stay and running the place for their home country."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show outsiders settling in to stay and the place being run for their home country's gain — not just soldiers passing through. Try working in a word like <i>settlers<\/i>, <i>stay<\/i>, <i>governed<\/i> or <i>homeland<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

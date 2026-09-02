@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="78bf3d9658ef">
+<meta name="build" content="fd8f2bc7367a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>effusive &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "effusive", "gradeUrl": "/api/grade", "taskId": "effusive", "minWords": 12, "items": {"s1": {"q": "Four online reviews of the same small bakery appear in one week. Which review is effusive?", "opts": {"A": "One runs on for a full screen, calls the croissants 'life-changing,' and thanks the baker's whole family by name.", "B": "One neatly lists the shop's opening hours, its prices, and the parking outside, and notes that the bread is fresh.", "C": "One is a single word — 'good' — posted beside a four-star rating.", "D": "One is only a photo of the storefront, uploaded with no caption at all."}, "key": "A", "fb": {"correct": "Right — a screen-filling rave that declares croissants 'life-changing' and thanks the baker's entire family is feeling spilling out far past ordinary limits: effusive.", "B": "A tidy rundown of hours, prices, and parking is useful and deliberately restrained. Effusive praise gushes past all restraint — look for the review where feeling pours out far beyond ordinary moderation.", "C": "A one-word 'good' keeps feeling nearly invisible — understatement, the opposite of gushing. Effusive emotion overflows in words; find the reviewer who cannot stop expressing delight.", "D": "A captionless photo expresses nothing at all — you cannot gush praise you never put into words. Effusive describes feeling spilling out in an unrestrained flood; look for the overflowing rave."}}, "s3a": {"q": "In this passage, saying the bookstore owner was effusive means she was", "opts": {"A": "sincerely friendly but well within ordinary bounds", "B": "hostile to the novelist beneath a polite surface", "C": "performing enthusiasm she did not actually feel", "D": "pouring out feeling far past normal restraint"}, "key": "D", "fb": {"correct": "Right — ten minutes of clasping, dabbing, and triple superlatives is feeling overflowing its container, in gestures as much as words.", "A": "Friendly within bounds would be a short introduction and a handshake. Ten minutes of tears and superlatives has left ordinary bounds well behind.", "B": "Nothing suggests hostility; the display was praise from start to finish.", "C": "The passage never doubts her sincerity — some attendees even found the enthusiasm contagious. The word describes the overflow, not fakery."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "warm", "B": "gushing", "C": "unrestrained", "D": "effusive"}, "key": "D", "fb": {"correct": "Right. Her delight overflowed in every channel at once — words (<em>a small miracle<\/em>), gestures (<em>carried the model to the window<\/em>), and expression (<em>glowing the entire time<\/em>). Feeling that spills past normal restraint through a person's whole manner is exactly what effusive means.", "B": "Gushing names the torrent of talk — praise pouring out faster than anyone asked for. Words were only part of this display: she <em>waved colleagues over from three departments<\/em>, <em>carried the model to the window for better light<\/em>, and stayed <em>glowing the entire time<\/em>. The stem asks for the word that covers the whole performance, not just the flood of praise.", "C": "Unrestrained can describe almost anything let off the leash — spending, criticism, applause, a debate. What broke loose here was feeling: she called the roof line <em>a small miracle<\/em> and beamed her delight in front of the whole office. The stem asks for the most precise word for that, and unrestrained is the broadest word on the list.", "A": "Warm friendliness stays within normal bounds — a kind word, and business as usual. A partner <em>famous for two-word verdicts<\/em> narrating a model's virtues <em>desk by desk<\/em> was <em>enough to stop the whole floor<\/em>; that is far past normal bounds."}}}, "grid": {"words": ["effusive", "gushing", "unrestrained", "warm"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The retiring principal's farewell turned ____ in every direction: two-handed handshakes, teary hugs, and speeches that would not end.", "ks": ["effusive"], "fb": {"gushing": "That word names the flood of poured-out words — thanks and praise in a torrent. Here the overflow is a whole manner: hugs and handshakes as much as speeches.", "unrestrained": "That word can describe anything let off the leash — spending, criticism, applause. This sentence is about feeling itself overflowing, and there is a more specific word for that.", "warm": "Friendliness within normal bounds looks like a handshake and kind words. Teary hugs and unending speeches have left the bounds behind."}}, {"s": "Their aunt is ____ by nature, greeting even the mail carrier with cries of delight, waved arms, and a full accounting of her joy.", "ks": ["effusive"], "fb": {"gushing": "That word covers the flood of words. Her arms and face are doing half the overflowing — this is an entire manner, not just talk.", "unrestrained": "That word fits laughter, spending, criticism — anything without brakes. The sentence is specifically about feeling spilling over, and there is a narrower word for that.", "warm": "A friendly hello stays inside everyday bounds. Cries of delight and waved arms for the mail carrier do not."}}, {"s": "The fan letter ran six pages of ____ thanks — praise arriving in a flood nobody had asked for — until the ink itself seemed breathless.", "ks": ["gushing"], "fb": {"effusive": "That word names a whole overflowing manner — expression, gestures, and words together. A letter has only words, and what these words do is flood.", "unrestrained": "That word would fit spending or criticism equally well. This is specifically thanks and praise pouring out faster than anyone asked for.", "warm": "A friendly note fits on one page. Six breathless pages of praise is a torrent."}}, {"s": "Her acceptance speech turned ____ halfway through, thanks tumbling out so fast that the orchestra twice tried to play her off.", "ks": ["gushing"], "fb": {"effusive": "That word describes a whole manner running past restraint — gestures and bearing included. Here only the words are flooding: thanks, faster and faster.", "unrestrained": "That word covers any lack of brakes at all. The sentence names a particular flood — thanks pouring out — and there is a word made for that torrent.", "warm": "Genuine friendliness fits inside the time allotted. Thanks that outrun the orchestra do not."}}, {"s": "The editorial was ____ in its criticism, sparing neither the budget office nor the committee that had approved the overrun.", "ks": ["unrestrained"], "fb": {"effusive": "That word is for feeling that overflows — gratitude, delight, enthusiasm. A scathing editorial pours out criticism, which sits outside its territory.", "gushing": "That word floods with praise or thanks. This piece floods with blame.", "warm": "Nothing here is friendly at all — the piece spares no one."}}, {"s": "The innkeeper's greeting was ____ and easy: a smile, first names remembered, coffee already poured, and nothing beyond friendly.", "ks": ["warm"], "fb": {"effusive": "That word overflows normal bounds — tears, torrents, too much. This greeting stays comfortably inside them: a smile and a remembered name.", "gushing": "That word pours out praise and delight in a flood. Nothing here floods; it is quiet, easy friendliness.", "unrestrained": "That word means no limits observed. The sentence itself sets the limit: nothing beyond friendly."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Let the feeling overflow its container — more thanks, praise, or delight than the moment calls for, spilling into gestures too. Try working in words like <i>hugs<\/i>, <i>tears<\/i>, <i>superlatives<\/i> or <i>overboard<\/i>."}};
+  var CFG = {"word": "effusive", "gradeUrl": "/api/grade", "taskId": "effusive", "minWords": 12, "items": {"s1": {"q": "Four online reviews of the same small bakery appear in one week. Which review is effusive?", "opts": {"A": "One runs on for a full screen, calls the croissants 'life-changing,' and thanks the baker's whole family by name.", "B": "One neatly lists the shop's opening hours, its prices, and the parking outside, and notes that the bread is fresh.", "C": "One is a single word — 'good' — posted beside a four-star rating.", "D": "One is only a photo of the storefront, uploaded with no caption at all."}, "key": "A", "fb": {"correct": "Right — a screen-filling rave that declares croissants 'life-changing' and thanks the baker's entire family is feeling spilling out far past ordinary limits: effusive.", "B": "A tidy rundown of hours, prices, and parking is useful and deliberately restrained. Effusive praise gushes past all restraint — look for the review where feeling pours out far beyond ordinary moderation.", "C": "A one-word 'good' keeps feeling nearly invisible — understatement, the opposite of gushing. Effusive emotion overflows in words; find the reviewer who cannot stop expressing delight.", "D": "A captionless photo expresses nothing at all — you cannot gush praise you never put into words. Effusive describes feeling spilling out in an unrestrained flood; look for the overflowing rave."}}, "s3a": {"q": "In this passage, saying the bookstore owner was effusive means she was", "opts": {"A": "sincerely friendly but well within ordinary bounds", "B": "hostile to the novelist beneath a polite surface", "C": "performing enthusiasm she did not actually feel", "D": "pouring out feeling far past normal restraint"}, "key": "D", "fb": {"correct": "Right — ten minutes of clasping, dabbing, and triple superlatives is feeling overflowing its container, in gestures as much as words.", "A": "Friendly within bounds would be a short introduction and a handshake. Ten minutes of tears and superlatives has left ordinary bounds well behind.", "B": "Nothing suggests hostility; the display was praise from start to finish.", "C": "The passage never doubts her sincerity — some attendees even found the enthusiasm contagious. The word describes the overflow, not fakery."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "warm", "B": "gushing", "C": "unrestrained", "D": "effusive"}, "key": "D", "fb": {"correct": "Right. Her delight overflowed in every channel at once — words (<em>a small miracle<\/em>), gestures (<em>carried the model to the window<\/em>), and expression (<em>glowing the entire time<\/em>). Feeling that spills past normal restraint through a person's whole manner is exactly what effusive means.", "B": "Gushing names the torrent of talk — praise pouring out faster than anyone asked for. Words were only part of this display: she <em>waved colleagues over from three departments<\/em>, <em>carried the model to the window for better light<\/em>, and stayed <em>glowing the entire time<\/em>. The stem asks for the word that covers the whole performance, not just the flood of praise.", "C": "Unrestrained can describe almost anything let off the leash — spending, criticism, applause, a debate. What broke loose here was feeling: she called the roof line <em>a small miracle<\/em> and beamed her delight in front of the whole office. The stem asks for the most precise word for that, and unrestrained is the broadest word on the list.", "A": "Warm friendliness stays within normal bounds — a kind word, and business as usual. A partner <em>famous for two-word verdicts<\/em> narrating a model's virtues <em>desk by desk<\/em> was <em>enough to stop the whole floor<\/em>; that is far past normal bounds."}}}, "pairwise": {"rows": [{"sentence": "The retiring principal's farewell turned ____ in every direction: two-handed handshakes, teary hugs, and speeches that would not end.", "options": ["effusive", "gushing"], "key": "effusive", "pair": "gushing", "why_right": "The tell is <em>two-handed handshakes, teary hugs<\/em> - the overflow runs through gestures and bearing, a whole manner past restraint, while gushing names only the torrent of poured-out words.", "why_wrong": "That word names the flood of poured-out words — thanks and praise in a torrent. Here the overflow is a whole manner: hugs and handshakes as much as speeches."}, {"sentence": "Their aunt is ____ by nature, greeting even the mail carrier with cries of delight, waved arms, and a full accounting of her joy.", "options": ["effusive", "unrestrained"], "key": "effusive", "pair": "unrestrained", "why_right": "The tell is <em>a full accounting of her joy<\/em> - what spills over is delight and affection, feeling in particular, the specific overflow effusive names; unrestrained fits anything at all without brakes.", "why_wrong": "That word fits laughter, spending, criticism — anything without brakes. The sentence is specifically about feeling spilling over, and there is a narrower word for that."}, {"sentence": "The fan letter ran six pages of ____ thanks — praise arriving in a flood nobody had asked for — until the ink itself seemed breathless.", "options": ["effusive", "gushing"], "key": "gushing", "pair": "gushing", "why_right": "The tell is <em>praise arriving in a flood<\/em> - a letter is words alone, and these words pour; that torrent of talk is gushing, where effusive covers a whole manner, gestures included.", "why_wrong": "That word names a whole overflowing manner — expression, gestures, and words together. A letter has only words, and what these words do is flood."}, {"sentence": "Her acceptance speech turned ____ halfway through, thanks tumbling out so fast that the orchestra twice tried to play her off.", "options": ["effusive", "gushing"], "key": "gushing", "pair": "gushing", "why_right": "The tell is <em>thanks tumbling out so fast<\/em> - what floods is the stream of talk itself, a torrent of thanks, which is gushing; effusive is a whole manner overflowing, gestures included.", "why_wrong": "That word describes a whole manner running past restraint — gestures and bearing included. Here only the words are flooding: thanks, faster and faster."}, {"sentence": "The editorial was ____ in its criticism, sparing neither the budget office nor the committee that had approved the overrun.", "options": ["effusive", "unrestrained"], "key": "unrestrained", "pair": "unrestrained", "why_right": "The tell is <em>sparing neither the budget office nor the committee<\/em> - what runs without brakes is criticism, not an outpouring of feeling, so the broad word applies and effusive does not.", "why_wrong": "That word is for feeling that overflows — gratitude, delight, enthusiasm. A scathing editorial pours out criticism, which sits outside its territory."}, {"sentence": "The innkeeper's greeting was ____ and easy: a smile, first names remembered, coffee already poured, and nothing beyond friendly.", "options": ["effusive", "warm"], "key": "warm", "pair": "warm", "why_right": "The tell is <em>nothing beyond friendly<\/em> - the greeting shows real friendliness kept within normal bounds, which is warm; effusive would overflow those bounds with tears, torrents, and too much.", "why_wrong": "That word overflows normal bounds — tears, torrents, too much. This greeting stays comfortably inside them: a smile and a remembered name."}, {"sentence": "The captain's congratulations turned ____ this season: not a pat on the shoulder but lifted teammates, happy shouting, and a speech after even routine wins.", "options": ["effusive", "warm"], "key": "effusive", "pair": "warm", "why_right": "The tell is <em>a speech after even routine wins<\/em> - celebration overflowing the normal bounds of friendliness entirely, which is effusive; warm stays inside those bounds with a pat and a smile.", "why_wrong": "That word means real friendliness kept within normal bounds - a smile, a kind word. Lifting teammates and making speeches over routine wins has left those bounds far behind."}, {"sentence": "When the rescue dog found the hiker alive, its handler turned ____, kissing the dog's ears, hugging every ranger in reach, and thanking the mountain itself.", "options": ["effusive", "unrestrained"], "key": "effusive", "pair": "unrestrained", "why_right": "The tell is <em>hugging every ranger in reach<\/em> - the overflow is joy and gratitude, feeling in particular, which effusive names precisely; unrestrained covers anything let off the leash.", "why_wrong": "That word can describe anything without brakes - spending, criticism, applause. What pours out here is feeling itself, joy and thanks overflowing, and the precise word for that is effusive."}], "display_order": [1, 2, 7, 5, 3, 4, 6, 0], "dimension_order": ["gushing", "unrestrained", "warm"], "dimension_feedback": {"gushing": "Gushing means pouring out emotion in an open flood — thanks, praise, or delight spilling out faster than anyone asked for. Effusive names the same overflow as a whole manner: an effusive person's expression, gestures, and words all run past normal restraint, not just the torrent of talk.", "unrestrained": "Unrestrained means without any holding back, and it can describe almost anything — laughter, spending, criticism, applause. Effusive is unrestrained feeling in particular, expressed in a gushing, overflowing way. A debate can be unrestrained; only an outpouring of emotion is effusive.", "warm": "Warm is weaker than effusive: a warm greeting shows real friendliness within normal bounds, while an effusive one overflows them entirely."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Let the feeling overflow its container — more thanks, praise, or delight than the moment calls for, spilling into gestures too. Try working in words like <i>hugs<\/i>, <i>tears<\/i>, <i>superlatives<\/i> or <i>overboard<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="0985397f2db2">
+<meta name="build" content="2aeef90c9660">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>furtive &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "furtive", "gradeUrl": "/api/grade", "taskId": "furtive", "minWords": 12, "items": {"s1": {"q": "Four students move through the hallway between classes. Whose behavior is furtive?", "opts": {"A": "Ana raises her hand in full view of everyone to ask the hall monitor a question about the schedule.", "B": "Bruno checks the hallway twice, then slips a folded note into a locker vent and walks quickly away.", "C": "Carmen announces loudly to the whole corridor that she is heading straight to band practice.", "D": "Deion walks briskly down the middle of the hall, waving to friends, to catch the early bus."}, "key": "B", "fb": {"correct": "Right — checking the hallway twice, secretly slipping a note into a locker vent, and hurrying away is stealthy behavior that hints at hidden intent: furtive.", "A": "Ana 'raises her hand in full view of everyone' — behavior this public hides nothing. Furtive actions are stealthy and concealed; look for the student who does not want to be seen.", "C": "Carmen 'announces loudly to the whole corridor' where she is going — broadcasting is the reverse of stealth. Furtive behavior stays hidden; find the person acting as though being watched would ruin everything.", "D": "Deion walks 'briskly down the middle of the hall,' waving to friends — fast, but completely open. Hurrying is not hiding; furtive requires concealment and a hint of guilty purpose."}}, "s3a": {"q": "In this passage, calling Theo's behavior furtive means it", "opts": {"A": "was quiet enough to escape all notice", "B": "proved he was cheating on the final", "C": "looked secretive in a guilty way", "D": "showed tactful respect for the others"}, "key": "C", "fb": {"correct": "Right — the darting glance and the guilty speed of the hand suggested something hidden, even though the something turned out to be a gift.", "A": "It escaped nothing — the manner is what caught Mr. Okafor's eye in the first place.", "B": "The manner only looked like cheating; the hidden thing was a portrait. The word describes the guilty appearance, not the crime.", "D": "Nothing about hunching and hiding reads as courtesy; it reads as fear of being caught."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "stealthy", "B": "furtive", "C": "discreet", "D": "sneaky"}, "key": "C", "fb": {"correct": "Right. She kept a customer's confidence openly and calmly — no guilt, no concealment, no deception, just quiet professional tact with nothing to hide. That is exactly what discreet means.", "B": "Furtive secrecy looks guilty: darting eyes, dropped voices, movements that expect to be caught. The jeweler answered questions <em>without once lowering her voice or glancing at the door<\/em> — there is no guilty tell in her manner at all.", "A": "Stealthy names a technique — silent, careful movement that escapes notice. Nothing here moves silently: all four visits happened <em>in plain view of her open shop<\/em>, ordinary business conducted <em>from behind her counter<\/em>.", "D": "Sneaky is sly deception used to get away with something. Asked directly, the jeweler <em>steered the talk to the shop's clocks<\/em> rather than telling a lie — and the only thing she was guarding was a gift, not a misdeed."}}}, "grid": {"words": ["furtive", "stealthy", "sneaky", "discreet"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "At the customs desk she went ____, eyes darting to each officer and one hand twitching toward the zipped pocket she had sworn was empty.", "ks": ["furtive"], "fb": {"stealthy": "That word is a technique — silent, careful movement that escapes notice. Her darting eyes and twitching hand are being noticed by everyone, including the officers.", "sneaky": "That word judges the behavior — the sly scheme itself. What the sentence gives us is the outward look: the darting, guilty manner that betrays something.", "discreet": "That word keeps things quiet out of tact, with nothing to hide. Someone flinching toward a pocket she swore was empty is not being tactful."}}, {"s": "The intern's ____ manner gave him away: a half-hidden phone, glances over the shoulder, a browser window snapped shut at every footstep.", "ks": ["furtive"], "fb": {"stealthy": "That word means moving quietly enough to escape notice. His manner did the opposite of escaping notice — it announced him.", "sneaky": "That word is the scheme; the manner is what betrays it. The sentence is entirely about the manner: the glances, the snapping window.", "discreet": "That word is tact with nothing to hide. Glances over the shoulder and a hidden phone are the look of something hidden."}}, {"s": "The wildlife photographer's approach was ____ — slow, silent, downwind — and entirely innocent, since the permit sat folded in her vest.", "ks": ["stealthy"], "fb": {"furtive": "That word carries the look of guilt — the shifty glance of someone afraid of being caught. She has a permit and nothing to hide; hers is pure technique.", "sneaky": "That word means sly and deceptive, out to get away with something. Nothing is being gotten away with — the approach is quiet craft, fully permitted.", "discreet": "That word is about tact — keeping matters quiet for others' comfort. This is about footfalls and wind direction: silent movement as a skill."}}, {"s": "Cats are built for ____ movement: padded feet, folded joints, and a gait that spends no sound at all.", "ks": ["stealthy"], "fb": {"furtive": "That word adds the look of guilt — darting eyes, fear of being caught. Padded feet carry no guilt; they are simply quiet.", "sneaky": "That word means slyly getting away with something. The sentence describes equipment, not intent.", "discreet": "That word belongs to tact — what you choose not to mention. This is about paws and joints, the machinery of silence."}}, {"s": "The retweet campaign was ____ by design: fake accounts posed as local parents to push the ordinance while hiding who was paying them.", "ks": ["sneaky"], "fb": {"furtive": "That word is the guilty look on a person — the darting glance, the flinch. A campaign has no face; what is wrong here is the deception itself.", "stealthy": "That word is about moving quietly. This operation's fault is not silence but disguise — pretending to be people it was not.", "discreet": "That word withholds politely, with nothing shameful underneath. Hiding who paid for fake voices is deception through and through."}}, {"s": "The concierge was ____ about the singer's stay, confirming nothing to reporters while breaking no rule and hiding no wrongdoing.", "ks": ["discreet"], "fb": {"furtive": "That word looks guilty — the manner of someone caught mid-act. The concierge has nothing to hide; he is simply being professional.", "sneaky": "That word deceives to get away with something. Declining to confirm a guest's room number deceives no one.", "stealthy": "That word is quiet movement escaping notice. Nothing moves here — he is just keeping a confidence."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Make the secrecy visible and guilty-looking — someone checking whether they are watched while they do it. Try working in words like <i>glance<\/i>, <i>over the shoulder<\/i>, <i>slipped<\/i> or <i>hid<\/i>."}};
+  var CFG = {"word": "furtive", "gradeUrl": "/api/grade", "taskId": "furtive", "minWords": 12, "items": {"s1": {"q": "Four students move through the hallway between classes. Whose behavior is furtive?", "opts": {"A": "Ana raises her hand in full view of everyone to ask the hall monitor a question about the schedule.", "B": "Bruno checks the hallway twice, then slips a folded note into a locker vent and walks quickly away.", "C": "Carmen announces loudly to the whole corridor that she is heading straight to band practice.", "D": "Deion walks briskly down the middle of the hall, waving to friends, to catch the early bus."}, "key": "B", "fb": {"correct": "Right — checking the hallway twice, secretly slipping a note into a locker vent, and hurrying away is stealthy behavior that hints at hidden intent: furtive.", "A": "Ana 'raises her hand in full view of everyone' — behavior this public hides nothing. Furtive actions are stealthy and concealed; look for the student who does not want to be seen.", "C": "Carmen 'announces loudly to the whole corridor' where she is going — broadcasting is the reverse of stealth. Furtive behavior stays hidden; find the person acting as though being watched would ruin everything.", "D": "Deion walks 'briskly down the middle of the hall,' waving to friends — fast, but completely open. Hurrying is not hiding; furtive requires concealment and a hint of guilty purpose."}}, "s3a": {"q": "In this passage, calling Theo's behavior furtive means it", "opts": {"A": "was quiet enough to escape all notice", "B": "proved he was cheating on the final", "C": "looked secretive in a guilty way", "D": "showed tactful respect for the others"}, "key": "C", "fb": {"correct": "Right — the darting glance and the guilty speed of the hand suggested something hidden, even though the something turned out to be a gift.", "A": "It escaped nothing — the manner is what caught Mr. Okafor's eye in the first place.", "B": "The manner only looked like cheating; the hidden thing was a portrait. The word describes the guilty appearance, not the crime.", "D": "Nothing about hunching and hiding reads as courtesy; it reads as fear of being caught."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "stealthy", "B": "furtive", "C": "discreet", "D": "sneaky"}, "key": "C", "fb": {"correct": "Right. She kept a customer's confidence openly and calmly — no guilt, no concealment, no deception, just quiet professional tact with nothing to hide. That is exactly what discreet means.", "B": "Furtive secrecy looks guilty: darting eyes, dropped voices, movements that expect to be caught. The jeweler answered questions <em>without once lowering her voice or glancing at the door<\/em> — there is no guilty tell in her manner at all.", "A": "Stealthy names a technique — silent, careful movement that escapes notice. Nothing here moves silently: all four visits happened <em>in plain view of her open shop<\/em>, ordinary business conducted <em>from behind her counter<\/em>.", "D": "Sneaky is sly deception used to get away with something. Asked directly, the jeweler <em>steered the talk to the shop's clocks<\/em> rather than telling a lie — and the only thing she was guarding was a gift, not a misdeed."}}}, "pairwise": {"rows": [{"sentence": "At the customs desk she went ____, eyes darting to each officer and one hand twitching toward the zipped pocket she had sworn was empty.", "options": ["furtive", "stealthy"], "key": "furtive", "pair": "stealthy", "why_right": "The tell is <em>eyes darting to each officer<\/em> - her secrecy is conspicuously nervous and being noticed, the guilty look furtive names; stealthy is a quiet technique that escapes notice entirely.", "why_wrong": "That word is a technique — silent, careful movement that escapes notice. Her darting eyes and twitching hand are being noticed by everyone, including the officers."}, {"sentence": "The intern's ____ manner gave him away: a half-hidden phone, glances over the shoulder, a browser window snapped shut at every footstep.", "options": ["furtive", "sneaky"], "key": "furtive", "pair": "sneaky", "why_right": "The tell is <em>gave him away<\/em> - everything here is outward manner, glances and snapped windows betraying secrecy, which is furtive; sneaky names the sly scheme, not the look of it.", "why_wrong": "That word is the scheme; the manner is what betrays it. The sentence is entirely about the manner: the glances, the snapping window."}, {"sentence": "The wildlife photographer's approach was ____ — slow, silent, downwind — and entirely innocent, since the permit sat folded in her vest.", "options": ["furtive", "stealthy"], "key": "stealthy", "pair": "stealthy", "why_right": "The tell is <em>entirely innocent<\/em> - with a permit in her vest there is no guilt to betray, so this is pure technique, quiet movement escaping notice, which is stealthy rather than furtive.", "why_wrong": "That word carries the look of guilt — the shifty glance of someone afraid of being caught. She has a permit and nothing to hide; hers is pure technique."}, {"sentence": "Cats are built for ____ movement: padded feet, folded joints, and a gait that spends no sound at all.", "options": ["furtive", "stealthy"], "key": "stealthy", "pair": "stealthy", "why_right": "The tell is <em>padded feet, folded joints<\/em> - this is anatomy for silent movement, technique with no purpose implied, which is stealthy; furtive would need a guilty manner, and paws fear nothing.", "why_wrong": "That word adds the look of guilt — darting eyes, fear of being caught. Padded feet carry no guilt; they are simply quiet."}, {"sentence": "The retweet campaign was ____ by design: fake accounts posed as local parents to push the ordinance while hiding who was paying them.", "options": ["furtive", "sneaky"], "key": "sneaky", "pair": "sneaky", "why_right": "The tell is <em>fake accounts posed as local parents<\/em> - the fault is the deceptive scheme itself, which is sneaky; furtive is the guilty look on a person; a campaign has no face.", "why_wrong": "That word is the guilty look on a person — the darting glance, the flinch. A campaign has no face; what is wrong here is the deception itself."}, {"sentence": "The concierge was ____ about the singer's stay, confirming nothing to reporters while breaking no rule and hiding no wrongdoing.", "options": ["furtive", "discreet"], "key": "discreet", "pair": "discreet", "why_right": "The tell is <em>breaking no rule and hiding no wrongdoing<\/em> - he keeps a guest's business quiet out of professional tact, which is discreet; furtive needs guilt to betray, and there is none.", "why_wrong": "That word looks guilty — the manner of someone caught mid-act. The concierge has nothing to hide; he is simply being professional."}, {"sentence": "Halfway through the diet, he grew ____ around the cookie jar, easing the lid off in stages and freezing, hand in jar, at every creak from the stairs.", "options": ["furtive", "discreet"], "key": "furtive", "pair": "discreet", "why_right": "The tell is <em>freezing, hand in jar, at every creak<\/em> - the manner of someone afraid of being caught mid-act, which is furtive; discreet is quiet tact with nothing to hide.", "why_wrong": "That word keeps a matter quiet out of tact, with nothing to hide. Freezing at every creak with a hand in the jar is the look of someone hiding something."}, {"sentence": "Something ____ in the courier's bearing made the guard look twice: quick sideways glances, a package held just out of sight, steps that hurried past every camera.", "options": ["furtive", "sneaky"], "key": "furtive", "pair": "sneaky", "why_right": "The tell is <em>a package held just out of sight<\/em> - half-hidden movement and darting glances are how secrecy looks from outside, which is furtive; sneaky judges the scheme, and none is shown.", "why_wrong": "That word judges the behavior - a sly scheme carried out to get away with something. The sentence never shows a scheme, only the look of one: glances, hurry, and a half-hidden package."}], "display_order": [1, 2, 7, 0, 5, 3, 6, 4], "dimension_order": ["stealthy", "sneaky", "discreet"], "dimension_feedback": {"stealthy": "Stealthy means quiet and careful to escape notice — a technique of silent movement, whatever the purpose. Furtive adds the look of guilt: a furtive glance is not just quiet but shifty, as if its owner fears being caught at something. Stealth is a method; a furtive manner is a tell.", "sneaky": "Sneaky means acting slyly and deceptively in secret, usually to get away with something — it judges the behavior. Furtive describes how that secrecy looks from the outside: the darting glance or half-hidden movement that suggests guilty intent. A sneaky plan is the scheme; the furtive manner is what betrays it.", "discreet": "Discreet is weaker than furtive: a discreet person keeps things quiet out of tact, with nothing to hide, while a furtive one moves as if caught halfway through a guilty act."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Make the secrecy visible and guilty-looking — someone checking whether they are watched while they do it. Try working in words like <i>glance<\/i>, <i>over the shoulder<\/i>, <i>slipped<\/i> or <i>hid<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

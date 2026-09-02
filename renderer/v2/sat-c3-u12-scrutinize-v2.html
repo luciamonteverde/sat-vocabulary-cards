@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="105d5e730597">
+<meta name="build" content="9d8656e31457">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>scrutinize &#8212; SAT Vocabulary, Course 3 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "scrutinize", "gradeUrl": "/api/grade", "taskId": "scrutinize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses scrutinize correctly?", "opts": {"A": "Tourists scrutinized the sunset from the pier, sighing happily at the colors.", "B": "Reception scrutinized my ID with half a glance and waved me straight through.", "C": "The crew scrutinized the deck with brushes and buckets until it shone.", "D": "An inspector scrutinizes the balloon's seams and valves inch by inch."}, "key": "D", "fb": {"correct": "Correct! The inspector works through the seams and valves inch by inch, hunting for any flaw — close, critical examination is exactly scrutinize.", "A": "Tourists 'sighing happily at the colors' are admiring a sunset, not studying it. Scrutinize means to examine something closely and critically, alert for flaws — pleasure-gazing is nearly the opposite.", "B": "'Half a glance' before waving someone through is the barest of looks — the reverse of close examination. Scrutinizing means examining slowly, critically, and carefully, missing nothing along the way.", "C": "A crew working 'with brushes and buckets' is scrubbing the deck clean, not studying it. To scrutinize is to examine closely and critically, searching for problems rather than polishing surfaces."}}, "s3a": {"q": "As used in this passage, what does it mean to scrutinize the canvas?", "opts": {"A": "to admire its most striking features and then move along to the next picture", "B": "to inspect it closely and distrustfully, pressing every detail for something wrong", "C": "to restore its damaged paint layers", "D": "to certify it for coverage without inspection"}, "key": "B", "fb": {"correct": "Right -- three days, raking light, and distrust of every detail from signature to pigment: a close, critical hunt for something wrong.", "A": "That is what the passage says a tourist might do -- admire the waves and move on. Vann does the opposite, pressing every detail.", "C": "She never repairs anything; she tests the paint for its age. The passage is about looking, not restoring.", "D": "The whole point is that nothing gets covered without the closest possible look -- her way of looking is the opposite of skipping inspection."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "examine", "B": "glance", "C": "vet", "D": "scrutinize"}, "key": "B", "fb": {"correct": "Right. A look finished in <em>under a second<\/em>, taking in <em>a color, a shape<\/em> and little else, is the weakest look there is — a glance, exactly the word the trade designs for.", "D": "To scrutinize is to question every detail, hunting for something wrong, and that kind of look needs time to dwell. This one is over at walking speed, and the display offers <em>nothing that asks the eye to stay<\/em>.", "A": "To examine is to look something over with thorough care. Whatever happens <em>at the glass<\/em> is finished in <em>under a second<\/em> and catches <em>perhaps one price tag<\/em> — far too fast for care or thoroughness.", "C": "To vet is to check something for hidden problems and end with a yes or a no. The passerby <em>neither stops nor reads<\/em>; nothing here is checked, approved, or turned away."}}}, "grid": {"words": ["scrutinize", "examine", "vet", "glance"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Certain the caterer's invoice hid a padded charge, the auditor chose to ____ every line item until the overcharge finally surfaced.", "ks": ["scrutinize"], "fb": {"examine": "That word is neutral, careful looking -- a doctor with a knee -- with no suspicion in it. This auditor is certain something is wrong and hunts it line by line.", "vet": "That word checks a person or plan for hidden problems before an approval, ending in a yes or a no. No door is being guarded here -- a flaw is being hunted.", "glance": "A half-second sweep registers almost nothing. Working through <em>every line item<\/em> until an overcharge surfaces is the opposite of that."}}, {"s": "The physician took ten unhurried minutes to ____ the swollen ankle, pressing each tender spot and suspecting nothing beyond a routine sprain.", "ks": ["examine"], "fb": {"scrutinize": "That word means the looker is hunting for something wrong and pressing every detail until it gives. This doctor <em>suspects nothing beyond a routine sprain<\/em> -- it is careful, neutral looking.", "vet": "That word checks someone or something for hidden problems before an approval -- the look ends in a yes or a no. A sprained ankle is not waiting to be approved.", "glance": "That is the weakest look there is, a half-second sweep. Ten unhurried minutes of pressing each tender spot is thorough care."}}, {"s": "Before any name reaches the ballot, the committee must ____ each nominee for hidden conflicts and hand down a plain yes or no.", "ks": ["vet"], "fb": {"scrutinize": "That word is a flaw hunt with no gate to pass -- you can do it to anything, at any point. This check exists to clear or reject a nominee before the ballot.", "examine": "That word is a neutral, careful look with no verdict attached. This committee is screening for hidden conflicts and must end with a yes or a no.", "glance": "A half-second sweep registers almost nothing -- it could never surface a hidden conflict of interest."}}, {"s": "Video judges now ____ each frame of a photo finish, distrusting every shadow that might hide an early start.", "ks": ["scrutinize"], "fb": {"examine": "Neutral, thorough looking has no distrust in it. These judges presume a hidden fault and press every frame until it shows.", "vet": "That word guards a door -- a check that ends in approving or rejecting someone. A photo finish is being combed for a fault, not cleared for entry.", "glance": "A half-second sweep would miss exactly what these judges are hunting for. Frame-by-frame distrust is slow, pressing work."}}, {"s": "Each spring the beekeeper would ____ the wintered hives, checking comb and queen with patient care and expecting nothing amiss.", "ks": ["examine"], "fb": {"scrutinize": "That word means hunting for something wrong and questioning each detail. This keeper <em>expects nothing amiss<\/em> -- it is patient, neutral care.", "vet": "That word screens a person or plan for hidden problems before an approval. No gate, no verdict -- just a spring check-up.", "glance": "That is a half-second sweep that registers almost nothing -- not patient work through comb and queen."}}, {"s": "With the doors already closing, she had barely half a second to ____ -- just long enough to catch the platform number and nothing else.", "ks": ["glance"], "fb": {"scrutinize": "That word means pressing every detail with suspicion -- work that takes real time. Half a second catches a platform number and nothing more.", "examine": "Careful, thorough looking needs more than half a second. This is the briefest sweep there is.", "vet": "That word is a pre-approval check ending in a yes or a no. Nothing here is being cleared -- she is snatching one fact on the run."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a close look driven by suspicion -- someone hunting for a flaw, not just looking carefully. Give the reader the reason for the distrust: try working in a word like <i>every<\/i>, <i>suspected<\/i>, <i>flaw<\/i> or <i>convinced<\/i>."}};
+  var CFG = {"word": "scrutinize", "gradeUrl": "/api/grade", "taskId": "scrutinize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses scrutinize correctly?", "opts": {"A": "Tourists scrutinized the sunset from the pier, sighing happily at the colors.", "B": "Reception scrutinized my ID with half a glance and waved me straight through.", "C": "The crew scrutinized the deck with brushes and buckets until it shone.", "D": "An inspector scrutinizes the balloon's seams and valves inch by inch."}, "key": "D", "fb": {"correct": "Correct! The inspector works through the seams and valves inch by inch, hunting for any flaw — close, critical examination is exactly scrutinize.", "A": "Tourists 'sighing happily at the colors' are admiring a sunset, not studying it. Scrutinize means to examine something closely and critically, alert for flaws — pleasure-gazing is nearly the opposite.", "B": "'Half a glance' before waving someone through is the barest of looks — the reverse of close examination. Scrutinizing means examining slowly, critically, and carefully, missing nothing along the way.", "C": "A crew working 'with brushes and buckets' is scrubbing the deck clean, not studying it. To scrutinize is to examine closely and critically, searching for problems rather than polishing surfaces."}}, "s3a": {"q": "As used in this passage, what does it mean to scrutinize the canvas?", "opts": {"A": "to admire its most striking features and then move along to the next picture", "B": "to inspect it closely and distrustfully, pressing every detail for something wrong", "C": "to restore its damaged paint layers", "D": "to certify it for coverage without inspection"}, "key": "B", "fb": {"correct": "Right -- three days, raking light, and distrust of every detail from signature to pigment: a close, critical hunt for something wrong.", "A": "That is what the passage says a tourist might do -- admire the waves and move on. Vann does the opposite, pressing every detail.", "C": "She never repairs anything; she tests the paint for its age. The passage is about looking, not restoring.", "D": "The whole point is that nothing gets covered without the closest possible look -- her way of looking is the opposite of skipping inspection."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "examine", "B": "glance", "C": "vet", "D": "scrutinize"}, "key": "B", "fb": {"correct": "Right. A look finished in <em>under a second<\/em>, taking in <em>a color, a shape<\/em> and little else, is the weakest look there is — a glance, exactly the word the trade designs for.", "D": "To scrutinize is to question every detail, hunting for something wrong, and that kind of look needs time to dwell. This one is over at walking speed, and the display offers <em>nothing that asks the eye to stay<\/em>.", "A": "To examine is to look something over with thorough care. Whatever happens <em>at the glass<\/em> is finished in <em>under a second<\/em> and catches <em>perhaps one price tag<\/em> — far too fast for care or thoroughness.", "C": "To vet is to check something for hidden problems and end with a yes or a no. The passerby <em>neither stops nor reads<\/em>; nothing here is checked, approved, or turned away."}}}, "pairwise": {"rows": [{"sentence": "Certain the caterer's invoice hid a padded charge, the auditor chose to ____ every line item until the overcharge finally surfaced.", "options": ["scrutinize", "examine"], "key": "scrutinize", "pair": "examine", "why_right": "The tell is <em>Certain the caterer's invoice hid a padded charge<\/em> - the auditor is hunting for something wrong and presses each detail, where examine is neutral care with no suspicion in it.", "why_wrong": "That word is neutral, careful looking -- a doctor with a knee -- with no suspicion in it. This auditor is certain something is wrong and hunts it line by line."}, {"sentence": "Video judges now ____ each frame of a photo finish, distrusting every shadow that might hide an early start.", "options": ["scrutinize", "examine"], "key": "scrutinize", "pair": "examine", "why_right": "The tell is <em>distrusting every shadow<\/em> - the judges presume a hidden fault and press every frame, which is the suspicion examine has none of.", "why_wrong": "Neutral, thorough looking has no distrust in it. These judges presume a hidden fault and press every frame until it shows."}, {"sentence": "The physician took ten unhurried minutes to ____ the swollen ankle, pressing each tender spot and suspecting nothing beyond a routine sprain.", "options": ["scrutinize", "examine"], "key": "examine", "pair": "examine", "why_right": "The tell is <em>suspecting nothing beyond a routine sprain<\/em> - neutral, careful looking with no suspicion behind it; scrutinize needs a hunt for something wrong.", "why_wrong": "That word means the looker is hunting for something wrong and pressing every detail until it gives. This doctor <em>suspects nothing beyond a routine sprain<\/em> -- it is careful, neutral looking."}, {"sentence": "Each spring the beekeeper would ____ the wintered hives, checking comb and queen with patient care and expecting nothing amiss.", "options": ["scrutinize", "examine"], "key": "examine", "pair": "examine", "why_right": "The tell is <em>expecting nothing amiss<\/em> - patient, neutral care with no suspicion in it, where scrutinize would be hunting for a flaw.", "why_wrong": "That word means hunting for something wrong and questioning each detail. This keeper <em>expects nothing amiss<\/em> -- it is patient, neutral care."}, {"sentence": "Before any name reaches the ballot, the committee must ____ each nominee for hidden conflicts and hand down a plain yes or no.", "options": ["scrutinize", "vet"], "key": "vet", "pair": "vet", "why_right": "The tell is <em>hand down a plain yes or no<\/em> - the check exists to clear or reject a nominee, a verdict-gate scrutinize never carries.", "why_wrong": "That word is a flaw hunt with no gate to pass -- you can do it to anything, at any point. This check exists to clear or reject a nominee before the ballot."}, {"sentence": "Long after her confirmation, an anonymous tip sent the inspector back to ____ the treasurer, hunting the one transfer he was sure the vote had missed.", "options": ["scrutinize", "vet"], "key": "scrutinize", "pair": "vet", "why_right": "The tell is <em>Long after her confirmation<\/em> - the approval is already over, so no yes-or-no gate remains; a flaw hunt with no door to guard is scrutinize, not vet.", "why_wrong": "That word is a pre-approval check that ends in a yes or a no, guarding a door. Here the door is already open -- she was confirmed long ago -- and the inspector is only hunting one buried transfer."}, {"sentence": "With the doors already closing, she had barely half a second to ____ -- just long enough to catch the platform number and nothing else.", "options": ["scrutinize", "glance"], "key": "glance", "pair": "glance", "why_right": "The tell is <em>barely half a second<\/em> - the weakest look there is, long enough only to catch a platform number; scrutinize is slow, pressing work.", "why_wrong": "That word means pressing every detail with suspicion -- work that takes real time. Half a second catches a platform number and nothing more."}, {"sentence": "With the deadline behind them, the proofreaders settled in to ____, working down the page line by line, letting no digit hide.", "options": ["scrutinize", "glance"], "key": "scrutinize", "pair": "glance", "why_right": "The tell is <em>line by line<\/em> - a slow, exhaustive going-over that leaves no flaw hiding, where a glance is a half-second sweep that registers almost nothing.", "why_wrong": "That word is the weakest look there is, a half-second sweep that registers almost nothing. Working down the page line by line until nothing can hide is its exact opposite."}], "display_order": [2, 5, 3, 6, 0, 4, 7, 1], "dimension_order": ["examine", "vet", "glance"], "dimension_feedback": {"examine": "Examine is the neutral word for a careful look — a doctor examines a knee, a teacher examines an essay — thorough, but with no suspicion in it. Scrutinize sharpens the same act: the looker is hunting for something wrong and questions every detail until it gives.", "vet": "To vet is to check a person or plan for hidden problems before approval — the look ends in a yes or a no. Scrutinize carries no gate to pass: you can scrutinize anything, at any point, whenever suspicion demands it. Vetting guards a door; scrutiny hunts a flaw.", "glance": "A glance is the weakest look there is — a half-second sweep that registers almost nothing, far milder than scrutinize."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a close look driven by suspicion -- someone hunting for a flaw, not just looking carefully. Give the reader the reason for the distrust: try working in a word like <i>every<\/i>, <i>suspected<\/i>, <i>flaw<\/i> or <i>convinced<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

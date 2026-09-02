@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="3399002d9833">
+<meta name="build" content="cc3d3f608ddb">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>prescient &#8212; SAT Vocabulary, Course 1 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "prescient", "gradeUrl": "/api/grade", "taskId": "prescient", "minWords": 12, "items": {"s1": {"q": "In 1998, a small-town librarian insisted on scanning the library's rare documents, though colleagues called it a waste of money. In 2003, a burst pipe destroyed the originals — but every page survived as a digital copy. What makes the librarian's decision prescient?", "opts": {"A": "It saved the library money on plumbing repairs", "B": "It was approved unanimously by her colleagues", "C": "It anticipated a disaster that no one else saw coming", "D": "It happened many years before the pipe burst"}, "key": "C", "fb": {"correct": "Exactly. Scanning the documents was prescient because it foresaw the danger years ahead — when the flood came, her foresight was what saved every page.", "A": "'Saved the library money' misses the point — the scanning itself cost money, which is exactly what her colleagues grumbled about. The decision looked wasteful until the pipe burst. What made it wise was foresight, not thrift.", "B": "'Approved unanimously' contradicts the story — her colleagues called the scanning a waste of money, and approval never came. Prescience does not need agreement; she was right precisely when those around her were sure she was wrong.", "D": "'Many years before' is timing alone, and mere earliness proves nothing — plenty of early moves turn out useless. What set her apart was that she foresaw the danger itself. Ask what she understood about the future."}}, "s3a": {"q": "In the passage, when the trustees call the project prescient, they mean it—", "opts": {"A": "was finished far more quickly than anyone on the library board had originally expected", "B": "showed an uncanny grasp of what was going to happen, confirmed by later events", "C": "relied on secret information about the river's historical flood patterns that she never shared", "D": "was a bold plan to modernize the library's entire collection"}, "key": "B", "fb": {"correct": "Right. The compliment arrives only after the flood -- the same trustees who trimmed her budget hand out the word once events prove the project right. It is a verdict passed in hindsight.", "A": "Speed is never mentioned -- she worked lunch hours for years. The trustees' compliment is about what the project anticipated, not how fast it went.", "C": "The passage closes by ruling this out: she had not known the flood was coming. There was no inside information, only a general conviction about disaster.", "D": "The project was narrow -- old land deeds, one vault. The trustees are not praising ambition; they are marveling that it anticipated what happened."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "shrewd", "B": "prescient", "C": "clairvoyant", "D": "visionary"}, "key": "B", "fb": {"correct": "Right. The scout turned out to know what was coming: he named skills <em>that would dominate the professional game a decade later<\/em>, and <em>events kept confirming the file long after his retirement<\/em>. A verdict passed in hindsight, once events prove someone right, is exactly this word's ground.", "D": "A visionary imagines a bold possible future and works to bring it about — founders, architects, campaigners. This scout <em>campaigned for no new style and ran no team<\/em>; he assessed one player and set out to build nothing.", "C": "Clairvoyant claims an outright supernatural power to see what cannot be seen — the word of psychics and crystal balls. Nothing occult happens in this file: the scout watched a teenager play and <em>described the range, patience, and passing instincts<\/em> he could see.", "A": "Shrewd means sharp and practical about the situation in front of you — reading the room, the market, the moment. This file is famous for reaching past its moment entirely: <em>events kept confirming the file long after his retirement<\/em>, decades into a future no one was reading it for."}}}, "grid": {"words": ["prescient", "visionary", "clairvoyant", "shrewd"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Grandmother watched the tide creep higher for years and sold the cottage in April; after September's flood the family called her ____ rather than lucky.", "ks": ["prescient"], "fb": {"visionary": "That word is for people who dream up bold futures and work to build them. She built nothing -- she read where things were heading, and events proved her right.", "clairvoyant": "No crystal ball: she <em>watched the tide creep higher for years<\/em>. Insight earned by observation, confirmed later, has its own word.", "shrewd": "That word praises sharpness about the here and now -- reading the room, the market, the moment. Her call was about a September that had not happened yet."}}, {"s": "The ____ stallholder sized up each browser within seconds, quietly quoting higher prices to the ones who handled the silver longest.", "ks": ["shrewd"], "fb": {"prescient": "That word gets awarded after events prove someone right about what was coming. Nothing is coming here -- she is reading the customer in front of her.", "visionary": "No bold future is being imagined at this stall. The skill on display is practical sharpness about people, in the moment.", "clairvoyant": "Nothing supernatural: the tell is right there in plain sight -- who handles the silver longest. That is observation, not second sight."}}, {"s": "Investors dismissed the ____ engineer's plan for a citywide bicycle network in 1970, though she spent the next decade lobbying to build it.", "ks": ["visionary"], "fb": {"prescient": "That word is a verdict handed out after events prove a person right, and this sentence never says the network was built or the plan vindicated. What it shows is imagination and a decade of work.", "clairvoyant": "Nobody claims she could see the future by magic. She imagined one -- and then spent ten years lobbying to build it.", "shrewd": "Sharp-and-practical-about-today is exactly what this is not. She bet a decade on a future no investor could yet see."}}, {"s": "The carnival tent promised a fully ____ reading: for five dollars, Madame Zora would see the stranger and the fortune waiting in your future.", "ks": ["clairvoyant"], "fb": {"prescient": "That word credits natural insight, usually after events prove it out. A five-dollar tent promising to see your future is claiming something supernatural.", "visionary": "That word is for founders and architects of imagined futures. Madame Zora is not building anything -- she is performing second sight.", "shrewd": "Practical sharpness reads what is in front of it. The tent's promise runs the other way: seeing what cannot be seen at all."}}, {"s": "Colleagues laughed when she pointed at her own 1985 measurements and predicted an ozone treaty within five years; the Montreal Protocol made her look ____.", "ks": ["prescient"], "fb": {"visionary": "That word would make her the architect of the treaty. She was not -- she said what was coming, and when it came, her prediction earned a different word.", "clairvoyant": "She was pointing at <em>her own measurements<\/em> -- data, not divination. Foresight from evidence, confirmed later, is not a psychic power.", "shrewd": "That word reads the present -- the room, the market, the moment. A treaty five years away was not in the room in 1985."}}, {"s": "Veterans at the card table rated her the most ____ player they knew: she folded the instant the bluffer's smile tightened over his cards.", "ks": ["shrewd"], "fb": {"prescient": "That word needs the future -- a call proven right when events arrive. Folding on a tell is reading the present: this hand, this face.", "visionary": "Bold imagined futures have nothing to do with a poker hand. The compliment here is for practical sharpness in the moment.", "clairvoyant": "She is not reading minds -- she is reading a <em>smile<\/em>, in plain view. Observation that quick has its own word."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should hand out the verdict only after events prove someone right -- try working in a word like <i>later<\/i>, <i>turned out<\/i>, <i>years<\/i> or <i>proved<\/i>."}};
+  var CFG = {"word": "prescient", "gradeUrl": "/api/grade", "taskId": "prescient", "minWords": 12, "items": {"s1": {"q": "In 1998, a small-town librarian insisted on scanning the library's rare documents, though colleagues called it a waste of money. In 2003, a burst pipe destroyed the originals — but every page survived as a digital copy. What makes the librarian's decision prescient?", "opts": {"A": "It saved the library money on plumbing repairs", "B": "It was approved unanimously by her colleagues", "C": "It anticipated a disaster that no one else saw coming", "D": "It happened many years before the pipe burst"}, "key": "C", "fb": {"correct": "Exactly. Scanning the documents was prescient because it foresaw the danger years ahead — when the flood came, her foresight was what saved every page.", "A": "'Saved the library money' misses the point — the scanning itself cost money, which is exactly what her colleagues grumbled about. The decision looked wasteful until the pipe burst. What made it wise was foresight, not thrift.", "B": "'Approved unanimously' contradicts the story — her colleagues called the scanning a waste of money, and approval never came. Prescience does not need agreement; she was right precisely when those around her were sure she was wrong.", "D": "'Many years before' is timing alone, and mere earliness proves nothing — plenty of early moves turn out useless. What set her apart was that she foresaw the danger itself. Ask what she understood about the future."}}, "s3a": {"q": "In the passage, when the trustees call the project prescient, they mean it—", "opts": {"A": "was finished far more quickly than anyone on the library board had originally expected", "B": "showed an uncanny grasp of what was going to happen, confirmed by later events", "C": "relied on secret information about the river's historical flood patterns that she never shared", "D": "was a bold plan to modernize the library's entire collection"}, "key": "B", "fb": {"correct": "Right. The compliment arrives only after the flood -- the same trustees who trimmed her budget hand out the word once events prove the project right. It is a verdict passed in hindsight.", "A": "Speed is never mentioned -- she worked lunch hours for years. The trustees' compliment is about what the project anticipated, not how fast it went.", "C": "The passage closes by ruling this out: she had not known the flood was coming. There was no inside information, only a general conviction about disaster.", "D": "The project was narrow -- old land deeds, one vault. The trustees are not praising ambition; they are marveling that it anticipated what happened."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "shrewd", "B": "prescient", "C": "clairvoyant", "D": "visionary"}, "key": "B", "fb": {"correct": "Right. The scout turned out to know what was coming: he named skills <em>that would dominate the professional game a decade later<\/em>, and <em>events kept confirming the file long after his retirement<\/em>. A verdict passed in hindsight, once events prove someone right, is exactly this word's ground.", "D": "A visionary imagines a bold possible future and works to bring it about — founders, architects, campaigners. This scout <em>campaigned for no new style and ran no team<\/em>; he assessed one player and set out to build nothing.", "C": "Clairvoyant claims an outright supernatural power to see what cannot be seen — the word of psychics and crystal balls. Nothing occult happens in this file: the scout watched a teenager play and <em>described the range, patience, and passing instincts<\/em> he could see.", "A": "Shrewd means sharp and practical about the situation in front of you — reading the room, the market, the moment. This file is famous for reaching past its moment entirely: <em>events kept confirming the file long after his retirement<\/em>, decades into a future no one was reading it for."}}}, "pairwise": {"rows": [{"sentence": "Grandmother watched the tide creep higher for years and sold the cottage in April; after September's flood the family called her ____ rather than lucky.", "options": ["prescient", "clairvoyant"], "key": "prescient", "pair": "clairvoyant", "why_right": "The tell is <em>watched the tide creep higher for years<\/em> - her knowledge came from patient observation, confirmed when the flood arrived, natural insight rather than any claim of second sight.", "why_wrong": "No crystal ball: she <em>watched the tide creep higher for years<\/em>. Insight earned by observation, confirmed later, has its own word."}, {"sentence": "The ____ stallholder sized up each browser within seconds, quietly quoting higher prices to the ones who handled the silver longest.", "options": ["prescient", "shrewd"], "key": "shrewd", "pair": "shrewd", "why_right": "The tell is <em>sized up each browser within seconds<\/em> - practical sharpness about the people in front of her right now, with no future event and no hindsight verdict anywhere.", "why_wrong": "That word gets awarded after events prove someone right about what was coming. Nothing is coming here -- she is reading the customer in front of her."}, {"sentence": "Investors dismissed the ____ engineer's plan for a citywide bicycle network in 1970, though she spent the next decade lobbying to build it.", "options": ["prescient", "visionary"], "key": "visionary", "pair": "visionary", "why_right": "The tell is <em>spent the next decade lobbying to build it<\/em> - she imagines a bold future and works to bring it about, and no outcome ever arrives to prove her right.", "why_wrong": "That word is a verdict handed out after events prove a person right, and this sentence never says the network was built or the plan vindicated. What it shows is imagination and a decade of work."}, {"sentence": "The carnival tent promised a fully ____ reading: for five dollars, Madame Zora would see the stranger and the fortune waiting in your future.", "options": ["prescient", "clairvoyant"], "key": "clairvoyant", "pair": "clairvoyant", "why_right": "The tell is <em>would see the stranger and the fortune waiting in your future<\/em> - an outright claim of supernatural sight, sold by the crystal ball, not natural insight proved by events.", "why_wrong": "That word credits natural insight, usually after events prove it out. A five-dollar tent promising to see your future is claiming something supernatural."}, {"sentence": "Colleagues laughed when she pointed at her own 1985 measurements and predicted an ozone treaty within five years; the Montreal Protocol made her look ____.", "options": ["prescient", "visionary"], "key": "prescient", "pair": "visionary", "why_right": "The tell is <em>the Montreal Protocol made her look<\/em> - the verdict arrives in hindsight, once events prove the prediction right; she built no movement, she turned out to have known.", "why_wrong": "That word would make her the architect of the treaty. She was not -- she said what was coming, and when it came, her prediction earned a different word."}, {"sentence": "Veterans at the card table rated her the most ____ player they knew: she folded the instant the bluffer's smile tightened over his cards.", "options": ["prescient", "shrewd"], "key": "shrewd", "pair": "shrewd", "why_right": "The tell is <em>folded the instant the bluffer's smile tightened<\/em> - sharp, practical reading of this hand and this face, the present moment rather than any event still to come.", "why_wrong": "That word needs the future -- a call proven right when events arrive. Folding on a tell is reading the present: this hand, this face."}, {"sentence": "Rivals who passed on the shortstop now admit the old scout was ____: her notebooks on his swing predicted the batting title three seasons before he won it.", "options": ["prescient", "clairvoyant"], "key": "prescient", "pair": "clairvoyant", "why_right": "The tell is <em>her notebooks on his swing<\/em> - insight built from patient observation and proved right three seasons later stays inside the natural world, needing no claim of supernatural sight.", "why_wrong": "That word claims outright supernatural sight - psychics and crystal balls. The scout's call came from notebooks on a swing, observation proved right by events, which earns the natural-insight word."}, {"sentence": "Board members grumbled when she shifted the catalog business online in 1996, but a decade of shuttered print retailers made that early bet look ____.", "options": ["prescient", "shrewd"], "key": "prescient", "pair": "shrewd", "why_right": "The tell is <em>a decade of shuttered print retailers<\/em> - the credit arrives only after events prove the call right, reaching past the 1996 moment entirely rather than reading it sharply.", "why_wrong": "That word praises sharpness about the present - reading the room, the market, the moment. In 1996 the room grumbled; the bet was vindicated only by a decade that had not yet happened."}], "display_order": [6, 5, 3, 4, 1, 0, 2, 7], "dimension_order": ["clairvoyant", "visionary", "shrewd"], "dimension_feedback": {"clairvoyant": "Clairvoyant claims an outright supernatural power to see what cannot be seen — the word of psychics and crystal balls. Prescient stays inside the natural world: it credits insight so sharp that someone seemed to know what was coming, and we usually award it after events prove them right.", "visionary": "A visionary imagines bold possible futures and works to bring them about — visionary founders, visionary architects. The claim is about imagination and ambition. Prescient is a verdict passed in hindsight: events proved the person right. A visionary dreams what could come; a prescient person turns out to have known what did.", "shrewd": "Shrewd means sharp and practical about the situation in front of you — a shrewd negotiator reads the room, the market, the moment. It is sharpness about the present. Prescient reaches past the present entirely: it credits someone with apparent knowledge of events that had not yet happened."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should hand out the verdict only after events prove someone right -- try working in a word like <i>later<\/i>, <i>turned out<\/i>, <i>years<\/i> or <i>proved<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

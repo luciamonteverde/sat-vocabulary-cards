@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="20d7d56fad08">
+<meta name="build" content="0c12cfcc6833">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cavort &#8212; SAT Vocabulary, Course 3 Unit 19</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "cavort", "gradeUrl": "/api/grade", "taskId": "cavort", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cavort correctly?", "opts": {"A": "Cavorting gently, the sloth crossed from one branch to the next over the space of an entire afternoon.", "B": "When the snow day was announced, the seniors cavorted in the quad, pelting one another with snowballs.", "C": "The actuaries cavorted line by line through the year-end spreadsheet, checking every last sum twice.", "D": "The pallbearers cavorted slowly and solemnly up the cathedral steps behind the bishop's procession."}, "key": "B", "fb": {"correct": "Correct! Seniors leaping through the snow and pelting one another are cavorting — joyful, showy, whole-body play.", "A": "A sloth taking 'an entire afternoon' to reach the next branch moves as slowly as anything alive — cavorting requires energetic leaping and romping, quick bursts of playful motion.", "C": "Checking 'every last sum twice' is painstaking desk labor performed sitting still. Cavort names rowdy physical play — jumping, romping, clowning around — nothing a careful audit ever involves.", "D": "Moving 'slowly and solemnly' behind a funeral procession is the strictest opposite of cavorting, which means frisking about with noisy, playful energy. Grave ceremony rules the word out entirely."}}, "s3a": {"q": "In this passage, to 'cavort' means to:", "opts": {"A": "hunt in coordinated groups near the pier", "B": "leap, spin, and show off with wild energy", "C": "float quietly while resting between swims", "D": "fight over territory at the water's edge"}, "key": "B", "fb": {"correct": "Right — hurling, corkscrewing, and slapping the water for the boats is boisterous, showy play.", "A": "The biologists rule this out: the display involves 'no hunting, no courtship, nothing but commotion.'", "C": "Quiet floating is the opposite of what the passage describes — the water is all noise and motion.", "D": "No rivals appear anywhere; the commotion is aimed at tourists, not at other sea lions."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cavort", "B": "gambol", "C": "frolic", "D": "skip"}, "key": "C", "fb": {"correct": "Right. Frolicking is light, happy play with nobody in mind but the players — <em>running the bases backward, flopping into the grass<\/em>, with <em>the grandstand empty behind them<\/em>.", "A": "Cavorting is rowdier and showier — big leaps, wheeling, and a distinct pleasure in being watched. Here the watchers have been removed on purpose: <em>gates locked, floodlights dark<\/em>, <em>the grandstand empty behind them<\/em> — and the play stays <em>at their gentlest<\/em>, not wild.", "B": "Gambol is said mostly of lambs, foals, and small children — light-footed, innocent springing. These players are <em>grown men and women<\/em>, exactly the register gambol does not fit.", "D": "A skip is one small happy bounce folded into an ordinary walk. What happens here is sustained play — <em>running the bases backward, flopping into the grass, laughing at nothing in particular<\/em> — far more than a bounce in a stride."}}}, "grid": {"words": ["cavort", "frolic", "gambol", "skip"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "For his finale the plaza juggler will ____ around the statue — leaping, wheeling, and taking exaggerated bows at every phone pointed his way.", "ks": ["cavort"], "fb": {"frolic": "That word is gentle play for its own sake, with nobody watching in mind. This performer bows to every camera — the audience is the point.", "gambol": "That word belongs to lambs, foals, and small children springing lightly about. A juggler wheeling and mugging for phones is rowdier and far more theatrical.", "skip": "That is one small happy bounce folded into a walk — the tamest move on this card. A finale of leaps, wheels, and bows is several sizes bigger."}}, {"s": "The moment filming wrapped, the extras began to ____ across the set in their alien costumes, tumbling and wheeling for anyone still holding a camera.", "ks": ["cavort"], "fb": {"frolic": "Gentle, self-contained play doesn't court cameras. These extras are performing their celebration, which calls for the showier word.", "gambol": "Light-footed springing by lambs or little children is that word's home. Costumed adults tumbling for the cameras have outgrown it.", "skip": "One happy bounce in a walk is the smallest move here. Tumbling and wheeling across a set is a full-body show."}}, {"s": "With the whole beach to themselves and not a soul watching, the two aunts would ____ in the shallows until lunch, gentle as the tide.", "ks": ["frolic"], "fb": {"cavort": "That word turns the volume up — wilder wheeling and half an eye on the audience. Here there is no audience at all, and the play is gentle.", "gambol": "That word is for light-footed young things — lambs, foals, small children — springing on land. Two grown aunts playing gently in the shallows sit outside it.", "skip": "That names one small happy bounce while walking along. A whole gentle morning of play in the water is something larger and looser."}}, {"s": "The otters ____ in the shallow creek behind the mill all afternoon, sliding and rolling for nobody's benefit but their own.", "ks": ["frolic"], "fb": {"cavort": "That word carries showmanship — wheeling and mugging for whoever is watching. These otters play entirely for themselves.", "gambol": "That word names springy, leaping play, mostly by lambs, foals, and small children. Otters sliding and rolling in water are playing a different way.", "skip": "That is a single light bounce in a walk. Sliding and rolling all afternoon is sustained play, not a step."}}, {"s": "New to grass, the twin goat kids ____ around the petting pen — quick, light-footed springs off all four hooves, whether or not anyone stops to look.", "ks": ["gambol"], "fb": {"cavort": "That word is rowdier and plays to a crowd — tumbling, wheeling, mugging. These kids spring lightly and couldn't care less who is looking.", "frolic": "Close — this is certainly happy play — but the sentence is about the springing gait itself, and the card gives that light-footed leaping its own word for young animals.", "skip": "One small bounce in a walk is that word's whole territory. Springing clean off all four hooves, over and over, is a bigger, bouncier thing."}}, {"s": "Halfway home with the good report card, Theo starts to ____ — one small happy bounce folded into every third stride, still mostly just walking.", "ks": ["skip"], "fb": {"cavort": "That word means wild, showy capering — leaps, wheels, an audience. One small bounce inside an ordinary walk is far below it.", "frolic": "That word names a stretch of light, happy play. Theo isn't playing — he is walking home with a spring sneaking into it.", "gambol": "That word is all springing leaps, all four feet off the ground. Theo's feet barely leave the pavement — the sentence says he is still mostly just walking."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs big, playful, show-offy movement — more than a bounce, wilder than gentle play. Give the body something to do and someone to see it: try working in a word like <i>leaping<\/i>, <i>tumbling<\/i>, <i>onlookers<\/i> or <i>wildly<\/i>."}};
+  var CFG = {"word": "cavort", "gradeUrl": "/api/grade", "taskId": "cavort", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cavort correctly?", "opts": {"A": "Cavorting gently, the sloth crossed from one branch to the next over the space of an entire afternoon.", "B": "When the snow day was announced, the seniors cavorted in the quad, pelting one another with snowballs.", "C": "The actuaries cavorted line by line through the year-end spreadsheet, checking every last sum twice.", "D": "The pallbearers cavorted slowly and solemnly up the cathedral steps behind the bishop's procession."}, "key": "B", "fb": {"correct": "Correct! Seniors leaping through the snow and pelting one another are cavorting — joyful, showy, whole-body play.", "A": "A sloth taking 'an entire afternoon' to reach the next branch moves as slowly as anything alive — cavorting requires energetic leaping and romping, quick bursts of playful motion.", "C": "Checking 'every last sum twice' is painstaking desk labor performed sitting still. Cavort names rowdy physical play — jumping, romping, clowning around — nothing a careful audit ever involves.", "D": "Moving 'slowly and solemnly' behind a funeral procession is the strictest opposite of cavorting, which means frisking about with noisy, playful energy. Grave ceremony rules the word out entirely."}}, "s3a": {"q": "In this passage, to 'cavort' means to:", "opts": {"A": "hunt in coordinated groups near the pier", "B": "leap, spin, and show off with wild energy", "C": "float quietly while resting between swims", "D": "fight over territory at the water's edge"}, "key": "B", "fb": {"correct": "Right — hurling, corkscrewing, and slapping the water for the boats is boisterous, showy play.", "A": "The biologists rule this out: the display involves 'no hunting, no courtship, nothing but commotion.'", "C": "Quiet floating is the opposite of what the passage describes — the water is all noise and motion.", "D": "No rivals appear anywhere; the commotion is aimed at tourists, not at other sea lions."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cavort", "B": "gambol", "C": "frolic", "D": "skip"}, "key": "C", "fb": {"correct": "Right. Frolicking is light, happy play with nobody in mind but the players — <em>running the bases backward, flopping into the grass<\/em>, with <em>the grandstand empty behind them<\/em>.", "A": "Cavorting is rowdier and showier — big leaps, wheeling, and a distinct pleasure in being watched. Here the watchers have been removed on purpose: <em>gates locked, floodlights dark<\/em>, <em>the grandstand empty behind them<\/em> — and the play stays <em>at their gentlest<\/em>, not wild.", "B": "Gambol is said mostly of lambs, foals, and small children — light-footed, innocent springing. These players are <em>grown men and women<\/em>, exactly the register gambol does not fit.", "D": "A skip is one small happy bounce folded into an ordinary walk. What happens here is sustained play — <em>running the bases backward, flopping into the grass, laughing at nothing in particular<\/em> — far more than a bounce in a stride."}}}, "pairwise": {"rows": [{"sentence": "With the whole beach to themselves and not a soul watching, the two aunts would ____ in the shallows until lunch, gentle as the tide.", "options": ["cavort", "frolic"], "key": "frolic", "pair": "frolic", "why_right": "The tell is <em>not a soul watching<\/em> - light, happy play for its own sake, gentle fun with no audience in mind; the wilder word wants bigger leaps and a pleasure in being watched.", "why_wrong": "That word turns the volume up — wilder wheeling and half an eye on the audience. Here there is no audience at all, and the play is gentle."}, {"sentence": "The otters ____ in the shallow creek behind the mill all afternoon, sliding and rolling for nobody's benefit but their own.", "options": ["cavort", "frolic"], "key": "frolic", "pair": "frolic", "why_right": "The tell is <em>for nobody's benefit but their own<\/em> - gentle play that amuses only the players; the showier word half expects applause and turns the volume up with bigger leaps and wilder wheeling.", "why_wrong": "That word carries showmanship — wheeling and mugging for whoever is watching. These otters play entirely for themselves."}, {"sentence": "For his finale the plaza juggler will ____ around the statue — leaping, wheeling, and taking exaggerated bows at every phone pointed his way.", "options": ["cavort", "frolic"], "key": "cavort", "pair": "frolic", "why_right": "The tell is <em>exaggerated bows at every phone pointed his way<\/em> - big leaps and wheeling performed for an audience, the distinct pleasure in being watched; the gentler word plays with no audience in mind.", "why_wrong": "That word is gentle play for its own sake, with nobody watching in mind. This performer bows to every camera — the audience is the point."}, {"sentence": "New to grass, the twin goat kids ____ around the petting pen — quick, light-footed springs off all four hooves, whether or not anyone stops to look.", "options": ["cavort", "gambol"], "key": "gambol", "pair": "gambol", "why_right": "The tell is <em>quick, light-footed springs off all four hooves<\/em> - the light, innocent springing the card gives to young animals; the rowdier word adds tumbling, wheeling and mugging for a crowd, none of which is here.", "why_wrong": "That word is rowdier and plays to a crowd — tumbling, wheeling, mugging. These kids spring lightly and couldn't care less who is looking."}, {"sentence": "The moment filming wrapped, the extras began to ____ across the set in their alien costumes, tumbling and wheeling for anyone still holding a camera.", "options": ["cavort", "gambol"], "key": "cavort", "pair": "gambol", "why_right": "The tell is <em>tumbling and wheeling for anyone still holding a camera<\/em> - rowdy, showy tumbling played to the cameras; the other word is the light, innocent springing of lambs and small children.", "why_wrong": "Light-footed springing by lambs or little children is that word's home. Costumed adults tumbling for the cameras have outgrown it."}, {"sentence": "Once the ribbon was cut, the mayor's grown sons ____ down the pier — somersaults off benches, tumbling arm in arm, mugging at every camera.", "options": ["cavort", "gambol"], "key": "cavort", "pair": "gambol", "why_right": "The tell is <em>somersaults off benches, tumbling arm in arm<\/em> - grown men tumbling and mugging for the cameras, the rowdier, showier word; the other word is light-footed, innocent springing by lambs, foals and small children.", "why_wrong": "That word means light-footed, innocent springing, said mostly of lambs, foals and small children. Grown men doing somersaults off benches and mugging at every camera are rowdier and showier than any lamb."}, {"sentence": "Halfway home with the good report card, Theo starts to ____ — one small happy bounce folded into every third stride, still mostly just walking.", "options": ["cavort", "skip"], "key": "skip", "pair": "skip", "why_right": "The tell is <em>still mostly just walking<\/em> - one happy bounce inside an ordinary walk, the smallest, tamest move on the card; the other word is whole-body leaping and wheeling about.", "why_wrong": "That word means wild, showy capering — leaps, wheels, an audience. One small bounce inside an ordinary walk is far below it."}, {"sentence": "Told school was cancelled, the two brothers ____ across the snowy yard — vaulting the fence, wheeling like windmills, flopping backward into every drift.", "options": ["cavort", "skip"], "key": "cavort", "pair": "skip", "why_right": "The tell is <em>wheeling like windmills<\/em> - whole-body leaping, wheeling and flopping about, several sizes bigger than the other word, which the card caps at one happy bounce in a walk.", "why_wrong": "That word means one small happy bounce folded into a walk, the tamest move on the card. Vaulting a fence, wheeling like windmills and flopping into drifts is whole-body leaping about, nothing like a walk."}], "display_order": [5, 1, 4, 2, 7, 3, 6, 0], "dimension_order": ["frolic", "gambol", "skip"], "dimension_feedback": {"frolic": "Frolic is light, happy play — children splashing in a fountain, a puppy loose in the leaves — gentle fun with no audience in mind. Cavort turns the volume up: bigger leaps, wilder wheeling, and a distinct pleasure in being watched. Frolickers amuse themselves; cavorters half expect applause.", "gambol": "Gambol means to skip and leap playfully, and it is said mostly of lambs, foals, and small children — light-footed, innocent springing. Cavorting is rowdier and showier: not just leaps but tumbling, wheeling, and mugging for the crowd. A lamb gambols in a meadow; a mascot cavorts down a parade.", "skip": "A skip is one happy bounce in a walk — the smallest, tamest cousin of a cavort."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs big, playful, show-offy movement — more than a bounce, wilder than gentle play. Give the body something to do and someone to see it: try working in a word like <i>leaping<\/i>, <i>tumbling<\/i>, <i>onlookers<\/i> or <i>wildly<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

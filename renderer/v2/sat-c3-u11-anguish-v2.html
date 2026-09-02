@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="da8cbc187136">
+<meta name="build" content="4940f73e6ba3">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>anguish &#8212; SAT Vocabulary, Course 3 Unit 11</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "anguish", "gradeUrl": "/api/grade", "taskId": "anguish", "minWords": 12, "items": {"s1": {"q": "Which sentence uses anguish correctly?", "opts": {"A": "Her anguish over the missed connection lasted an hour, until the airline rebooked her on the evening flight.", "B": "A soft anguish still visits him whenever the old song plays, though he always ends up smiling through it.", "C": "Her anguish in the weeks after the avalanche took her climbing partner left her unable to look at the mountains.", "D": "The marathoner's anguish was purely muscular, cramping calves that eased with salt tablets and a stretch."}, "key": "C", "fb": {"correct": "Right — losing a climbing partner to an avalanche, then being unable even to look at the mountains: this is suffering that grips and torments, which is exactly the extreme register anguish is reserved for.", "A": "An hour's frustration ended by a rebooking is inconvenience. Anguish is torment, and it does not lift on cue.", "B": "A soft pang that ends in a smile is wistfulness. Anguish is severe suffering of the mind.", "D": "Cramping calves are physical pain. Anguish is torment of the mind and heart."}}, "s3a": {"q": "In this passage, 'anguish' most nearly means", "opts": {"A": "overwhelming grief and helpless dread", "B": "anger at the lifeboat crews' slowness", "C": "steady professional concern for the light", "D": "guilt over having caused the wreck"}, "key": "A", "fb": {"correct": "Right — 'Cannot reach them' and handwriting that collapses as the lights go out is grief and dread gripping the whole man.", "B": "No blame is aimed at anyone; the entry begs forgiveness of the sea, not of a crew.", "C": "The routine entries show that steadier register — the final page is precisely where routine breaks.", "D": "Nothing suggests the keeper caused anything; his agony is watching what he cannot reach."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "heartache", "B": "torment", "C": "distress", "D": "anguish"}, "key": "B", "fb": {"correct": "Right. This suffering <em>had an author and a publication schedule<\/em> — inflicted on purpose, renewed weekly, drawn out for six years, <em>a slow mechanism, wound once a week<\/em>. Torment is exactly that: pain that feels administered, as if someone kept turning the screw.", "D": "Anguish is the crushing state itself — extreme grief or dread seizing the whole person, with no one needed to inflict it. This suffering had someone behind it and a timetable: it was <em>not a single blow but a slow mechanism, wound once a week<\/em>.", "A": "Heartache is a gentle, lasting ache of loss or longing, carried while life goes on. Nothing here is gentle, and his life did not go on — <em>He stopped reading the sheet, then stopped writing altogether<\/em> — while each fresh attack was timed to land <em>just as the last one faded<\/em>.", "C": "Distress is real trouble that stays bearable, with the sufferer still thinking straight. This went far beyond that: by the end <em>he could not hear a printer's cart in the street without flinching<\/em>. Six years of engineered misery outgrows distress."}}}, "grid": {"words": ["anguish", "torment", "heartache", "distress"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "News that the trawler was missing brought pure ____ to the quay: women dropped to their knees, and one man had to be held upright.", "ks": ["anguish"], "fb": {"torment": "That word wants an inflictor turning the screw over time; this grief needed no one's hand — it broke over the quay in a single wave.", "heartache": "The gentle, carried-for-years ache lets life go on; this drops people to their knees where they stand.", "distress": "Bearable worry keeps you thinking straight; a man who must be held upright is far beyond that rung."}}, {"s": "The verdict's reading was drowned out by the mother's ____ — a single cry so raw that the bailiff, twenty years on the job, looked away.", "ks": ["anguish"], "fb": {"torment": "No one is turning a screw over days; this is a single, crushing instant.", "heartache": "That quieter ache lingers for years underneath life; this cry stops a courtroom cold.", "distress": "That rung is bearable and still thinking straight; a cry that makes a twenty-year bailiff look away is beyond it."}}, {"s": "For the ship's boy, the crossing became slow ____: the bosun invented a new humiliation each dawn and made sure the day was built around it.", "ks": ["torment"], "fb": {"anguish": "That word is the crushing state itself and needs no author; this suffering has an author on deck, working daily.", "heartache": "The quiet ache of losing or missing someone is absent; this is cruelty scheduled into every day.", "distress": "Bearable worry does not describe a voyage built around a fresh humiliation each dawn."}}, {"s": "Chronic tinnitus turned quiet rooms into ____ for the composer — a thin whine that returned each night as if something were twisting it tighter.", "ks": ["torment"], "fb": {"anguish": "That is grief or dread breaking over a person all at once; a whine that returns nightly, tightening, is suffering stretched out over time.", "heartache": "Nothing is lost or longed for; the suffering here is an affliction that keeps being wound tighter.", "distress": "Bearable and thinking straight does not fit nights stretched on a tightening whine."}}, {"s": "Selling the family bakery left her with quiet ____ for years — a smell of cardamom, a pause, and then she would go on kneading.", "ks": ["heartache"], "fb": {"anguish": "That word overwhelms the whole person; this ache pauses her for a breath and lets the kneading go on.", "torment": "No one and nothing keeps turning a screw; a scent stirs the feeling and it settles again.", "distress": "There is no trouble to manage or worry to solve — only the soft ache of missing something loved."}}, {"s": "The delayed wire transfer put the tour manager in visible ____, checking his phone between songs, though he kept the show running on schedule.", "ks": ["distress"], "fb": {"anguish": "The crushing word would flatten him; this man runs a full show while he worries, which is the milder rung.", "torment": "No inflictor is drawing this out for cruelty's sake; it is one solvable worry with a timeline.", "heartache": "Nothing beloved has been lost; a stuck payment is trouble, not longing."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show suffering that overwhelms — grief or dread too big to function through, not just sadness. Try working in <i>unbearable<\/i>, <i>gripped<\/i>, <i>wept<\/i> or <i>helpless<\/i>."}};
+  var CFG = {"word": "anguish", "gradeUrl": "/api/grade", "taskId": "anguish", "minWords": 12, "items": {"s1": {"q": "Which sentence uses anguish correctly?", "opts": {"A": "Her anguish over the missed connection lasted an hour, until the airline rebooked her on the evening flight.", "B": "A soft anguish still visits him whenever the old song plays, though he always ends up smiling through it.", "C": "Her anguish in the weeks after the avalanche took her climbing partner left her unable to look at the mountains.", "D": "The marathoner's anguish was purely muscular, cramping calves that eased with salt tablets and a stretch."}, "key": "C", "fb": {"correct": "Right — losing a climbing partner to an avalanche, then being unable even to look at the mountains: this is suffering that grips and torments, which is exactly the extreme register anguish is reserved for.", "A": "An hour's frustration ended by a rebooking is inconvenience. Anguish is torment, and it does not lift on cue.", "B": "A soft pang that ends in a smile is wistfulness. Anguish is severe suffering of the mind.", "D": "Cramping calves are physical pain. Anguish is torment of the mind and heart."}}, "s3a": {"q": "In this passage, 'anguish' most nearly means", "opts": {"A": "overwhelming grief and helpless dread", "B": "anger at the lifeboat crews' slowness", "C": "steady professional concern for the light", "D": "guilt over having caused the wreck"}, "key": "A", "fb": {"correct": "Right — 'Cannot reach them' and handwriting that collapses as the lights go out is grief and dread gripping the whole man.", "B": "No blame is aimed at anyone; the entry begs forgiveness of the sea, not of a crew.", "C": "The routine entries show that steadier register — the final page is precisely where routine breaks.", "D": "Nothing suggests the keeper caused anything; his agony is watching what he cannot reach."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "heartache", "B": "torment", "C": "distress", "D": "anguish"}, "key": "B", "fb": {"correct": "Right. This suffering <em>had an author and a publication schedule<\/em> — inflicted on purpose, renewed weekly, drawn out for six years, <em>a slow mechanism, wound once a week<\/em>. Torment is exactly that: pain that feels administered, as if someone kept turning the screw.", "D": "Anguish is the crushing state itself — extreme grief or dread seizing the whole person, with no one needed to inflict it. This suffering had someone behind it and a timetable: it was <em>not a single blow but a slow mechanism, wound once a week<\/em>.", "A": "Heartache is a gentle, lasting ache of loss or longing, carried while life goes on. Nothing here is gentle, and his life did not go on — <em>He stopped reading the sheet, then stopped writing altogether<\/em> — while each fresh attack was timed to land <em>just as the last one faded<\/em>.", "C": "Distress is real trouble that stays bearable, with the sufferer still thinking straight. This went far beyond that: by the end <em>he could not hear a printer's cart in the street without flinching<\/em>. Six years of engineered misery outgrows distress."}}}, "pairwise": {"rows": [{"sentence": "For the ship's boy, the crossing became slow ____: the bosun invented a new humiliation each dawn and made sure the day was built around it.", "options": ["anguish", "torment"], "key": "torment", "pair": "torment", "why_right": "The tell is <em>invented a new humiliation each dawn<\/em> - the suffering has an author who draws it out morning after morning, as if a tormentor kept turning the screw.", "why_wrong": "That word is the crushing state itself and needs no author; this suffering has an author on deck, working daily."}, {"sentence": "Chronic tinnitus turned quiet rooms into ____ for the composer — a thin whine that returned each night as if something were twisting it tighter.", "options": ["anguish", "torment"], "key": "torment", "pair": "torment", "why_right": "The tell is <em>as if something were twisting it tighter<\/em> - drawn-out suffering that feels inflicted, returning night after night, rather than one crushing wave of grief or dread.", "why_wrong": "That is grief or dread breaking over a person all at once; a whine that returns nightly, tightening, is suffering stretched out over time."}, {"sentence": "News that the trawler was missing brought pure ____ to the quay: women dropped to their knees, and one man had to be held upright.", "options": ["anguish", "torment"], "key": "anguish", "pair": "torment", "why_right": "The tell is <em>dropped to their knees<\/em> - crushing grief grips the whole person in one blow, with no one anywhere inflicting it or drawing it out.", "why_wrong": "That word wants an inflictor turning the screw over time; this grief needed no one's hand — it broke over the quay in a single wave."}, {"sentence": "Selling the family bakery left her with quiet ____ for years — a smell of cardamom, a pause, and then she would go on kneading.", "options": ["anguish", "heartache"], "key": "heartache", "pair": "heartache", "why_right": "The tell is <em>she would go on kneading<\/em> - a gentle, lasting ache of loss that surfaces and settles while life goes on, carried quietly for years.", "why_wrong": "That word overwhelms the whole person; this ache pauses her for a breath and lets the kneading go on."}, {"sentence": "The verdict's reading was drowned out by the mother's ____ — a single cry so raw that the bailiff, twenty years on the job, looked away.", "options": ["anguish", "heartache"], "key": "anguish", "pair": "heartache", "why_right": "The tell is <em>a single cry so raw<\/em> - grief that overwhelms the whole person and stops a courtroom is violent, not a quiet ache carried while life goes on.", "why_wrong": "That quieter ache lingers for years underneath life; this cry stops a courtroom cold."}, {"sentence": "The week the adoption fell through, ____ kept her from work, and she could not even pass the nursery door until her sister moved in.", "options": ["anguish", "heartache"], "key": "anguish", "pair": "heartache", "why_right": "The tell is <em>kept her from work<\/em> - this grief overwhelms and will not be ignored; the gentler ache lets life go on around it, and life here has stopped.", "why_wrong": "That word is the gentler, lasting ache a person carries for years while life goes on; a loss that stops work and bars the nursery door has overwhelmed her entirely."}, {"sentence": "The delayed wire transfer put the tour manager in visible ____, checking his phone between songs, though he kept the show running on schedule.", "options": ["anguish", "distress"], "key": "distress", "pair": "distress", "why_right": "The tell is <em>kept the show running on schedule<\/em> - real trouble and real worry that stays bearable, with the sufferer still thinking straight and still functioning.", "why_wrong": "The crushing word would flatten him; this man runs a full show while he worries, which is the milder rung."}, {"sentence": "In the crush at the checkpoint she lost her son's hand, and stood gripped by ____ — beyond speech, beyond questions — until a guard carried him back.", "options": ["anguish", "distress"], "key": "anguish", "pair": "distress", "why_right": "The tell is <em>beyond speech, beyond questions<\/em> - dread has gripped the whole person past bearing and past thinking straight, which the milder rung never reaches.", "why_wrong": "That word is real trouble and real worry that stays bearable, with the sufferer still thinking straight; a mother who cannot speak or field a question is far past that rung."}], "display_order": [5, 1, 4, 7, 2, 6, 3, 0], "dimension_order": ["torment", "heartache", "distress"], "dimension_feedback": {"torment": "Torment is suffering that feels inflicted and drawn out, as if a tormentor kept turning the screw. Anguish is the crushing state itself — extreme grief or dread gripping the whole person — and it needs no tormentor. A hostage endures torment; a parent outside the operating room feels anguish.", "heartache": "Heartache is the gentler, lasting ache of loss or longing — an ache a person can carry for years while life goes on. Anguish is violent by comparison: torment of the mind and heart that will not be ignored. Heartache lingers quietly; anguish overwhelms.", "distress": "Distress is milder than anguish — real trouble and real worry, but still bearable and still thinking straight."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show suffering that overwhelms — grief or dread too big to function through, not just sadness. Try working in <i>unbearable<\/i>, <i>gripped<\/i>, <i>wept<\/i> or <i>helpless<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

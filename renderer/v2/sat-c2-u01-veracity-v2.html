@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="a96bda3a602c">
+<meta name="build" content="e6f1c34fda35">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>veracity &#8212; SAT Vocabulary, Course 2 Unit 1</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "veracity", "gradeUrl": "/api/grade", "taskId": "veracity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses veracity correctly?", "opts": {"A": "The bridge's veracity let it carry twice its rated load for fifty years without a single crack.", "B": "Her veracity with a paintbrush amazed all three judges at the spring exhibition downtown.", "C": "The jury weighed the veracity of the timeline against the tollbooth photos that contradicted it.", "D": "We admired the veracity of the fireworks, which lasted a full forty minutes over the bay."}, "key": "C", "fb": {"correct": "Right. The jury is testing whether the timeline matches the facts—the photos say it does not. Conformity of a statement to fact is exactly what veracity means.", "A": "Carrying 'twice its rated load' describes a bridge's strength, and strength is not truthfulness. Veracity applies to statements and accounts — things that can match the facts or fail to.", "B": "Amazing the judges 'with a paintbrush' is a matter of artistic skill. Veracity has nothing to do with talent; it measures whether what someone says lines up with the facts.", "D": "Fireworks that 'lasted a full forty minutes' have impressive duration, not honesty. Veracity belongs to claims and reports, describing how truthful they are — a light show cannot be true or false."}}, "s3a": {"q": "In this passage, questioning \"the veracity of her account\" means questioning", "opts": {"A": "whether she sincerely believed she had reached the summit herself", "B": "whether her account matched what had actually happened", "C": "whether her prose style was polished enough for the alpine journals", "D": "whether her instrument readings contained small errors of arithmetic"}, "key": "B", "fb": {"correct": "Right -- the whole dispute is settled by checking the account against evidence, and it ends when the account agrees 'point by point, with the facts.'", "A": "Her belief was never the issue; the rivals doubted the claim itself, and belief cannot be settled by negatives and registers.", "C": "No one in the passage cares about her writing; the journals printed her rivals' doubts, not style reviews.", "D": "Small arithmetic slips would not need two winters of shadows, registers, and routes -- the panel was testing whether the ascent happened."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sincerity", "B": "accuracy", "C": "veracity", "D": "truthfulness"}, "key": "C", "fb": {"correct": "Right. What the students were sent to test is whether the account holds up against the record — <em>whether the night he described had unfolded at all<\/em> — the formal, checkable standard courts and editors invoke. His honesty, his belief, and his details were never the open question.", "D": "Truthfulness is the everyday virtue of meaning to tell the truth, and it lives in a person's intentions — which the passage takes off the table: <em>No one had ever called the foreman a liar<\/em>. His intentions were never what the students were sent to check.", "B": "Accuracy is correctness of detail, and it needs no teller behind it — a map can be accurate. The detail work here finished early: <em>His names and dates checked out almost at once<\/em>. Whatever kept the students busy for the rest of the project, it was not detail.", "A": "Sincerity claims only that a speaker believes his own words, and the passage already grants that — <em>he plainly believed the story to his last day<\/em> — so it cannot be the thing the society still needed a centennial project to test."}}}, "grid": {"words": ["veracity", "truthfulness", "accuracy", "sincerity"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Having granted that the explorer believed his journals, the panel checked their ____ -- the question was not a mismeasured depth but whether the voyage happened as told.", "ks": ["veracity"], "fb": {"sincerity": "His belief is granted in the first clause, and it settles nothing. The panel's question is the higher bar: whether the account matches the facts.", "truthfulness": "That everyday virtue lives in a person's intentions, and his were conceded. What the panel checks is the formal, testable thing -- whether the entries hold up.", "accuracy": "That word is correctness of detail, and needs no one behind it. The sentence waves details off -- 'not a mismeasured depth' -- and puts the teller's whole claim on trial."}}, {"s": "Before running the memoir excerpt, the checkers spent a month on its ____ -- not hunting slips of date, but asking whether the events had occurred at all.", "ks": ["veracity"], "fb": {"sincerity": "An author can believe every line of a false memoir. Belief is not what a fact-checker can test -- only whether the events occurred.", "truthfulness": "That virtue lives in the writer's intentions, and no month of checking can see into those. What is being measured is the account against the record.", "accuracy": "That word grades details, and details are set aside here -- 'not hunting slips of date.' The stake is whether the story is true at all."}}, {"s": "Even with bad news, the nurse's ____ never wavered: she told families the whole of what she knew to be so, softening and omitting nothing.", "ks": ["truthfulness"], "fb": {"veracity": "That formal word is what courts and editors test -- an account measured against records. Nothing here is being checked; a person's everyday virtue is being praised.", "accuracy": "That word is correctness of detail and needs no one behind it -- a map can have it. Families trust the nurse for her honest habit, not her error rate.", "sincerity": "Believing what you say is not enough for this sentence -- she also tells the whole of it, 'omitting nothing.' The virtue praised is the honest telling itself."}}, {"s": "Marcus prizes ____ in his little brother above obedience: the boy may break a rule, but he has never once lied about what he did.", "ks": ["truthfulness"], "fb": {"veracity": "That is the formal, testable word courts invoke for accounts checked against facts. Nobody is auditing a child here; a plain habit of honesty is being praised.", "accuracy": "That word grades details and needs no one behind it. The sentence praises a person -- a boy who owns up -- not the correctness of any measurement.", "sincerity": "A boy could believe every word he says and still be wrong or evasive. What Marcus prizes is the record: his brother reports what he did, even against himself."}}, {"s": "Surveyors praised the 1890 map's ____: rerun with lasers, its elevations were off by less than a meter across the whole valley.", "ks": ["accuracy"], "fb": {"veracity": "That word belongs to tellers and their accounts -- it can be doubted only where someone is making a claim. A map has no teller standing behind it.", "truthfulness": "That everyday virtue lives in a person's intentions, and paper has none. What is being praised is correctness of detail.", "sincerity": "Believing what you say requires a someone -- a map says nothing and believes nothing. Its merit is that the measurements check out."}}, {"s": "No one doubted the ____ of his apology -- the regret was plainly felt -- though the version of events he apologized for turned out to be garbled.", "ks": ["sincerity"], "fb": {"veracity": "That word demands that what is said match the facts, and the sentence tells you the facts were garbled. What survives is only that he meant it.", "truthfulness": "That virtue requires truth actually told, and here the account was wrong. All the sentence credits him with is genuinely feeling the regret.", "accuracy": "That word grades correctness of detail, and the details failed -- the version of events was garbled. The question the sentence answers is whether the feeling was real."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Put a teller's account on one side and the checkable record on the other, and let your sentence say whether they match. Try working in a word like <i>account<\/i>, <i>records<\/i>, <i>checked<\/i> or <i>held up<\/i>."}};
+  var CFG = {"word": "veracity", "gradeUrl": "/api/grade", "taskId": "veracity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses veracity correctly?", "opts": {"A": "The bridge's veracity let it carry twice its rated load for fifty years without a single crack.", "B": "Her veracity with a paintbrush amazed all three judges at the spring exhibition downtown.", "C": "The jury weighed the veracity of the timeline against the tollbooth photos that contradicted it.", "D": "We admired the veracity of the fireworks, which lasted a full forty minutes over the bay."}, "key": "C", "fb": {"correct": "Right. The jury is testing whether the timeline matches the facts—the photos say it does not. Conformity of a statement to fact is exactly what veracity means.", "A": "Carrying 'twice its rated load' describes a bridge's strength, and strength is not truthfulness. Veracity applies to statements and accounts — things that can match the facts or fail to.", "B": "Amazing the judges 'with a paintbrush' is a matter of artistic skill. Veracity has nothing to do with talent; it measures whether what someone says lines up with the facts.", "D": "Fireworks that 'lasted a full forty minutes' have impressive duration, not honesty. Veracity belongs to claims and reports, describing how truthful they are — a light show cannot be true or false."}}, "s3a": {"q": "In this passage, questioning \"the veracity of her account\" means questioning", "opts": {"A": "whether she sincerely believed she had reached the summit herself", "B": "whether her account matched what had actually happened", "C": "whether her prose style was polished enough for the alpine journals", "D": "whether her instrument readings contained small errors of arithmetic"}, "key": "B", "fb": {"correct": "Right -- the whole dispute is settled by checking the account against evidence, and it ends when the account agrees 'point by point, with the facts.'", "A": "Her belief was never the issue; the rivals doubted the claim itself, and belief cannot be settled by negatives and registers.", "C": "No one in the passage cares about her writing; the journals printed her rivals' doubts, not style reviews.", "D": "Small arithmetic slips would not need two winters of shadows, registers, and routes -- the panel was testing whether the ascent happened."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sincerity", "B": "accuracy", "C": "veracity", "D": "truthfulness"}, "key": "C", "fb": {"correct": "Right. What the students were sent to test is whether the account holds up against the record — <em>whether the night he described had unfolded at all<\/em> — the formal, checkable standard courts and editors invoke. His honesty, his belief, and his details were never the open question.", "D": "Truthfulness is the everyday virtue of meaning to tell the truth, and it lives in a person's intentions — which the passage takes off the table: <em>No one had ever called the foreman a liar<\/em>. His intentions were never what the students were sent to check.", "B": "Accuracy is correctness of detail, and it needs no teller behind it — a map can be accurate. The detail work here finished early: <em>His names and dates checked out almost at once<\/em>. Whatever kept the students busy for the rest of the project, it was not detail.", "A": "Sincerity claims only that a speaker believes his own words, and the passage already grants that — <em>he plainly believed the story to his last day<\/em> — so it cannot be the thing the society still needed a centennial project to test."}}}, "pairwise": {"rows": [{"sentence": "Having granted that the explorer believed his journals, the panel checked their ____ -- the question was not a mismeasured depth but whether the voyage happened as told.", "options": ["veracity", "accuracy"], "key": "veracity", "pair": "accuracy", "why_right": "The tell is <em>not a mismeasured depth but whether the voyage happened as told<\/em> - detail-slips are waved off, and the account itself is weighed against the facts.", "why_wrong": "That word is correctness of detail, and needs no one behind it. The sentence waves details off -- 'not a mismeasured depth' -- and puts the teller's whole claim on trial."}, {"sentence": "Every checkable detail in the witness's story held up, yet the detectives kept questioning its ____ -- whether she had seen the crash at all or only heard of it.", "options": ["veracity", "accuracy"], "key": "veracity", "pair": "accuracy", "why_right": "The tell is <em>every checkable detail in the witness's story held up<\/em> - detail-correctness is conceded, yet the teller's claim itself stays on trial: did she see it at all.", "why_wrong": "That word grades correctness of detail and needs no one behind it -- and every checkable detail here held up. What the detectives still doubt is the teller's whole claim."}, {"sentence": "Surveyors praised the 1890 map's ____: rerun with lasers, its elevations were off by less than a meter across the whole valley.", "options": ["veracity", "accuracy"], "key": "accuracy", "pair": "accuracy", "why_right": "The tell is <em>rerun with lasers, its elevations were off by less than a meter<\/em> - pure correctness of detail, with no teller or claim standing behind the sheet.", "why_wrong": "That word belongs to tellers and their accounts -- it can be doubted only where someone is making a claim. A map has no teller standing behind it."}, {"sentence": "No one thought the guide was lying -- he retold the avalanche exactly as he remembered it -- but the inquiry still tested the ____ of his account against the weather station's records.", "options": ["veracity", "truthfulness"], "key": "veracity", "pair": "truthfulness", "why_right": "The tell is <em>exactly as he remembered it<\/em> - the teller's honest intentions are granted, and what the inquiry measures is whether the account matches the facts once checked.", "why_wrong": "That word is the everyday virtue of telling the truth, living in a person's intentions -- and his were never in doubt. What the inquiry tests is his account against the record."}, {"sentence": "Even with bad news, the nurse's ____ never wavered: she told families the whole of what she knew to be so, softening and omitting nothing.", "options": ["veracity", "truthfulness"], "key": "truthfulness", "pair": "truthfulness", "why_right": "The tell is <em>softening and omitting nothing<\/em> - what never wavers is a person's everyday virtue of telling the truth, not any account under formal checking.", "why_wrong": "That formal word is what courts and editors test -- an account measured against records. Nothing here is being checked; a person's everyday virtue is being praised."}, {"sentence": "Marcus prizes ____ in his little brother above obedience: the boy may break a rule, but he has never once lied about what he did.", "options": ["veracity", "truthfulness"], "key": "truthfulness", "pair": "truthfulness", "why_right": "The tell is <em>he has never once lied about what he did<\/em> - the praise attaches to a boy's everyday habit of telling the truth, with no court or checker weighing an account.", "why_wrong": "That is the formal, testable word courts invoke for accounts checked against facts. Nobody is auditing a child here; a plain habit of honesty is being praised."}, {"sentence": "Before running the memoir excerpt, the checkers spent a month on its ____ -- not hunting slips of date, but asking whether the events had occurred at all.", "options": ["veracity", "sincerity"], "key": "veracity", "pair": "sincerity", "why_right": "The tell is <em>asking whether the events had occurred at all<\/em> - the checkers apply the higher bar: not what the writer believes, but whether the account matches the facts.", "why_wrong": "An author can believe every line of a false memoir. Belief is not what a fact-checker can test -- only whether the events occurred."}, {"sentence": "No one doubted the ____ of his apology -- the regret was plainly felt -- though the version of events he apologized for turned out to be garbled.", "options": ["veracity", "sincerity"], "key": "sincerity", "pair": "sincerity", "why_right": "The tell is <em>the regret was plainly felt<\/em> - what is being credited is believing and meaning what you say, while the facts themselves expressly failed.", "why_wrong": "That word demands that what is said match the facts, and the sentence tells you the facts were garbled. What survives is only that he meant it."}], "display_order": [1, 5, 7, 0, 3, 6, 4, 2], "dimension_order": ["truthfulness", "accuracy", "sincerity"], "dimension_feedback": {"truthfulness": "Truthfulness is the everyday virtue of telling the truth, and it lives in a person's intentions. Veracity is the formal, testable version that courts and editors invoke: whether an account actually matches the facts once checked. A truthful narrator means every word; veracity asks whether the entries hold up.", "accuracy": "Accuracy is correctness of detail, and it needs no one behind it — a map can be accurate, and so can a guess. Veracity belongs to tellers and their accounts: it is truthfulness measured against fact, so it can be doubted only where someone is making a claim.", "sincerity": "Sincerity means you believe what you say; veracity sets the higher bar—what you say must also match the facts."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Put a teller's account on one side and the checkable record on the other, and let your sentence say whether they match. Try working in a word like <i>account<\/i>, <i>records<\/i>, <i>checked<\/i> or <i>held up<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4aef70615372">
+<meta name="build" content="18f0a46173dc">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>expound &#8212; SAT Vocabulary, Course 3 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "expound", "gradeUrl": "/api/grade", "taskId": "expound", "minWords": 12, "items": {"s1": {"q": "Which sentence uses expound correctly?", "opts": {"A": "Invited to say a brief word about the new curriculum, the principal expounded on it for forty minutes, tracing each course change back to its rationale.", "B": "The spokesman expounded on the merger in one clipped sentence, then waved off every follow-up question and left the podium by the side stairs.", "C": "The bakery expounded into the empty storefront next door over the summer, doubling its ovens and hiring three new decorators for the season.", "D": "The freshmen expounded quietly in the back row of the lecture hall, filling their notebooks without once raising a hand to speak."}, "key": "A", "fb": {"correct": "Correct! Expound means to lay a subject out thoroughly and at length, and forty minutes tracing every course change back to its rationale is exactly that — a full-dress explanation where one brief word was invited.", "B": "Not quite! One clipped sentence and a refusal of questions is the opposite of expounding, which means laying the subject out thoroughly and at length. This spokesman is stonewalling, not explaining.", "C": "Not quite! The bakery is growing into the next storefront — that's expand, the look-alike. Expound has nothing to do with physical size; it means to explain a subject fully and at length.", "D": "Not quite! Expound names the speaker's act of setting a subject out, and these students are silently taking notes — absorbing a lecture, not delivering one."}}, "s3a": {"q": "As it is used in this passage, \"expound\" most nearly means:", "opts": {"A": "to lay out a whole subject thoroughly and at length", "B": "to give a brief, practical answer to a simple question", "C": "to defend an unpopular scientific theory against skeptics at a public event", "D": "to change the subject to avoid answering"}, "key": "A", "fb": {"correct": "Right. She delivers the entire underground economy of a garden, chapter by chapter, for an hour -- the whole subject at full length.", "B": "That would be 'add compost' -- the answer the passage says she never gives.", "C": "Nobody attacks her ideas, and she defends nothing; she simply lays the whole system out.", "D": "She answers the question exactly -- at enormous length. The subject never changes; it expands."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "expound", "B": "outline", "C": "elaborate", "D": "explain"}, "key": "C", "fb": {"correct": "Right. To elaborate is the follow-up move: the cable spoke first, and the letter's whole job was <em>supplying the street names, the hours, and the witnesses the wire had no room for<\/em>.", "A": "To expound is the full performance from the start — a whole subject laid out at length, unprompted. Here <em>The cable made the claim<\/em> before the letter ever sailed; the subject was already broached, so the from-scratch performance is the wrong verb.", "D": "To explain is to make something understandable, and a good explanation can take one sentence. Nothing here is obscure: <em>city fallen, garrison fled<\/em> is perfectly plain. The wire lacked room, not clarity.", "B": "To outline is to hand over the skeleton, and the skeleton already existed: <em>the opening dispatch was bare bones<\/em>. Outlining the cable again would merely <em>repeat it<\/em>."}}}, "grid": {"words": ["expound", "elaborate", "explain", "outline"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Give the curator ten minutes and, unprompted, she will ____ her whole theory of the forger's career -- origins, methods, collapse -- to anyone stalled beside the display case.", "ks": ["expound"], "fb": {"elaborate": "That verb is a follow-up move -- adding detail to something already said. Nobody said anything first; she launches the whole subject cold.", "explain": "Making one point understandable might take a sentence. Ten unprompted minutes covering the whole career is the long-form, full-dress performance.", "outline": "A skeleton in bullet points is exactly what this is not -- she builds the whole subject, part by part, at length."}}, {"s": "Invite the beekeeper, cold, to ____ the politics of the hive and he will still be going strong when the smoker burns out.", "ks": ["expound"], "fb": {"elaborate": "Adding detail presupposes something already said. He starts from nothing and delivers the whole subject.", "explain": "One clear sentence could make a single point understandable. This is the marathon version: the entire subject, laid out at length.", "outline": "An outline is the five-minute skeleton. A talk that outlasts the smoker is the whole body of the subject."}}, {"s": "The board liked the one-page summary but wanted specifics, so on Monday the architect came back to ____ -- materials, costs, and a week-by-week schedule.", "ks": ["elaborate"], "fb": {"expound": "The full from-the-start performance already happened in miniature -- the summary. Monday's job is the follow-up: filling in detail on something already said.", "explain": "Nothing confused the board; they liked the summary. They asked for specifics, which is a detail job, not an understanding job.", "outline": "The skeleton was already on the table. Coming back with materials, costs and a schedule adds flesh, not more bones."}}, {"s": "Reviewers set one condition for the paper: before print, the authors must go back and ____ , because the sampling section, at two sentences, tells far too little.", "ks": ["elaborate"], "fb": {"expound": "Launching a whole subject from a standing start is a different job. This is a return trip to something already written, to fill it in.", "explain": "The reviewers did not call the section confusing -- they called it thin. It needs more detail, not a clearer version of the same two sentences.", "outline": "The section is already all skeleton. What the reviewers want is substance on the bones, not a sixth bullet point."}}, {"s": "It took the mechanic one sentence to ____ the rattle: a loose heat shield, nothing more.", "ks": ["explain"], "fb": {"expound": "The long-form, whole-subject performance would be comic here -- the answer fit in one sentence.", "elaborate": "Adding detail needs a first pass to add it to. This was the first and only pass, one sentence long.", "outline": "There is no structure to sketch in bullet form -- just one cause, named and done."}}, {"s": "Ten minutes before the pitch, she could only ____ the rescue plan on the whiteboard -- five bullet points, with no time to say why each step mattered.", "ks": ["outline"], "fb": {"expound": "The whole-subject, at-length performance is what ten minutes forbids. What fits on a whiteboard in bullets is the skeleton.", "elaborate": "There is no earlier version to fill in, and filling in is precisely what she must skip.", "explain": "The reasons -- the part that would make the plan understandable -- are what she has no time for. Only the bare steps go up."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a whole subject laid out at length and in order -- not one quick answer. Give it a duration or a structure: try working in words like <i>hour<\/i>, <i>entire<\/i>, <i>part<\/i> or <i>lecture<\/i>."}};
+  var CFG = {"word": "expound", "gradeUrl": "/api/grade", "taskId": "expound", "minWords": 12, "items": {"s1": {"q": "Which sentence uses expound correctly?", "opts": {"A": "Invited to say a brief word about the new curriculum, the principal expounded on it for forty minutes, tracing each course change back to its rationale.", "B": "The spokesman expounded on the merger in one clipped sentence, then waved off every follow-up question and left the podium by the side stairs.", "C": "The bakery expounded into the empty storefront next door over the summer, doubling its ovens and hiring three new decorators for the season.", "D": "The freshmen expounded quietly in the back row of the lecture hall, filling their notebooks without once raising a hand to speak."}, "key": "A", "fb": {"correct": "Correct! Expound means to lay a subject out thoroughly and at length, and forty minutes tracing every course change back to its rationale is exactly that — a full-dress explanation where one brief word was invited.", "B": "Not quite! One clipped sentence and a refusal of questions is the opposite of expounding, which means laying the subject out thoroughly and at length. This spokesman is stonewalling, not explaining.", "C": "Not quite! The bakery is growing into the next storefront — that's expand, the look-alike. Expound has nothing to do with physical size; it means to explain a subject fully and at length.", "D": "Not quite! Expound names the speaker's act of setting a subject out, and these students are silently taking notes — absorbing a lecture, not delivering one."}}, "s3a": {"q": "As it is used in this passage, \"expound\" most nearly means:", "opts": {"A": "to lay out a whole subject thoroughly and at length", "B": "to give a brief, practical answer to a simple question", "C": "to defend an unpopular scientific theory against skeptics at a public event", "D": "to change the subject to avoid answering"}, "key": "A", "fb": {"correct": "Right. She delivers the entire underground economy of a garden, chapter by chapter, for an hour -- the whole subject at full length.", "B": "That would be 'add compost' -- the answer the passage says she never gives.", "C": "Nobody attacks her ideas, and she defends nothing; she simply lays the whole system out.", "D": "She answers the question exactly -- at enormous length. The subject never changes; it expands."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "expound", "B": "outline", "C": "elaborate", "D": "explain"}, "key": "C", "fb": {"correct": "Right. To elaborate is the follow-up move: the cable spoke first, and the letter's whole job was <em>supplying the street names, the hours, and the witnesses the wire had no room for<\/em>.", "A": "To expound is the full performance from the start — a whole subject laid out at length, unprompted. Here <em>The cable made the claim<\/em> before the letter ever sailed; the subject was already broached, so the from-scratch performance is the wrong verb.", "D": "To explain is to make something understandable, and a good explanation can take one sentence. Nothing here is obscure: <em>city fallen, garrison fled<\/em> is perfectly plain. The wire lacked room, not clarity.", "B": "To outline is to hand over the skeleton, and the skeleton already existed: <em>the opening dispatch was bare bones<\/em>. Outlining the cable again would merely <em>repeat it<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Give the curator ten minutes and, unprompted, she will ____ her whole theory of the forger's career -- origins, methods, collapse -- to anyone stalled beside the display case.", "options": ["expound", "elaborate"], "key": "expound", "pair": "elaborate", "why_right": "The tell is <em>unprompted<\/em> - nobody said anything first, so there is nothing already said to add detail to; launching the whole career from a standing start is the full performance from the start.", "why_wrong": "That verb is a follow-up move -- adding detail to something already said. Nobody said anything first; she launches the whole subject cold."}, {"sentence": "No one had said a word about film stock, but as the lights dimmed the projectionist set out to ____ on nitrate, reel by reel, until the feature was nearly over.", "options": ["expound", "elaborate"], "key": "expound", "pair": "elaborate", "why_right": "The tell is <em>no one had said a word<\/em> - nothing already said means no picture for a follow-up to fill in; the whole subject set out reel by reel from nothing is the full performance.", "why_wrong": "That word adds detail to something already said, filling in a picture the audience has seen. Nobody had said a word about film stock -- he launches the whole subject from nothing."}, {"sentence": "The board liked the one-page summary but wanted specifics, so on Monday the architect came back to ____ -- materials, costs, and a week-by-week schedule.", "options": ["expound", "elaborate"], "key": "elaborate", "pair": "elaborate", "why_right": "The tell is <em>came back to<\/em> - the board had already seen the summary and asked for specifics, so Monday's job is adding detail to something already said, the follow-up move, not launching the subject afresh.", "why_wrong": "The full from-the-start performance already happened in miniature -- the summary. Monday's job is the follow-up: filling in detail on something already said."}, {"sentence": "Reviewers set one condition for the paper: before print, the authors must go back and ____ , because the sampling section, at two sentences, tells far too little.", "options": ["expound", "elaborate"], "key": "elaborate", "pair": "elaborate", "why_right": "The tell is <em>go back and<\/em> - the sampling section already exists and is merely thin, so the fix is adding detail to something already said; nothing here is set out from the start.", "why_wrong": "Launching a whole subject from a standing start is a different job. This is a return trip to something already written, to fill it in."}, {"sentence": "It took the mechanic one sentence to ____ the rattle: a loose heat shield, nothing more.", "options": ["expound", "explain"], "key": "explain", "pair": "explain", "why_right": "The tell is <em>one sentence<\/em> - making the rattle understandable takes a single sentence and the card allows exactly that; the long-form, thorough, ordered performance has no room to happen in one line.", "why_wrong": "The long-form, whole-subject performance would be comic here -- the answer fit in one sentence."}, {"sentence": "Invite the beekeeper, cold, to ____ the politics of the hive and he will still be going strong when the smoker burns out.", "options": ["expound", "outline"], "key": "expound", "pair": "outline", "why_right": "The tell is <em>still be going strong when the smoker burns out<\/em> - a talk that outlasts the smoker is the whole body of the subject built in front of you, far past a five-point skeleton.", "why_wrong": "An outline is the five-minute skeleton. A talk that outlasts the smoker is the whole body of the subject."}, {"sentence": "Asked why the opening fell from fashion, the club's oldest member chose to ____ , and three hours later every game since 1920 sat on the demonstration board, each move played out.", "options": ["expound", "outline"], "key": "expound", "pair": "outline", "why_right": "The tell is <em>every game since 1920<\/em> - three hours and each move played out is the whole body of the subject built in front of the audience, not the skeleton in a few bullet points.", "why_wrong": "That word hands the audience a skeleton -- a handful of bullet points. Three hours of every game since 1920, each move played out, is the whole body of the subject."}, {"sentence": "The grant portal allows two hundred words, so the director could only ____ the project there, three headings with a sentence apiece and every reason and cost held back for the interview.", "options": ["expound", "outline"], "key": "outline", "pair": "outline", "why_right": "The tell is <em>every reason and cost held back<\/em> - three headings with the body withheld is the skeleton; two hundred words forbid building the whole subject in front of the reader.", "why_wrong": "That word builds the whole body of a subject in front of the audience. Three headings with every reason and cost held back is the skeleton -- the bones without the body."}], "display_order": [0, 7, 2, 6, 3, 5, 1, 4], "dimension_order": ["elaborate", "explain", "outline"], "dimension_feedback": {"elaborate": "Elaborate (on) means to add more detail to something already said — a follow-up move that fills in a picture the audience has seen. Expound is the full performance from the start: setting out the whole subject, part by part, at length.", "explain": "Explain simply makes something understandable, and a good explanation can take one sentence. Expound is explanation gone long-form — thorough, ordered, and usually delivered by someone with a whole theory to lay out.", "outline": "Outlining is weaker than expounding: an outline hands you the skeleton in five bullet points, while to expound is to build the whole body of the subject in front of the audience."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a whole subject laid out at length and in order -- not one quick answer. Give it a duration or a structure: try working in words like <i>hour<\/i>, <i>entire<\/i>, <i>part<\/i> or <i>lecture<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

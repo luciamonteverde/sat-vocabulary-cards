@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="ec2b74cbc358">
+<meta name="build" content="fde4b744adcd">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>impute &#8212; SAT Vocabulary, Course 3 Unit 5</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "impute", "gradeUrl": "/api/grade", "taskId": "impute", "minWords": 12, "items": {"s1": {"q": "Which sentence uses impute correctly?", "opts": {"A": "The village tailor imputed the new hem to fall just a half inch above the ankle.", "B": "We imputed all forty seedlings to the warm greenhouse before the first hard frost.", "C": "She imputed a fresh coat of spar varnish to the picnic table every single spring.", "D": "It was easy to impute the leak to the interns despite the director's receipts."}, "key": "D", "fb": {"correct": "Correct! The leak is booked to the interns — blame formally assigned to named people, on suspiciously thin grounds: impute in its natural habitat.", "A": "Setting where a hem should fall — 'a half inch above the ankle' — is measurement, a tailoring decision. Impute assigns blame or credit for something to a person; nothing here points a finger at anyone.", "B": "Carrying 'seedlings to the warm greenhouse' is relocation. The 'to' looks like impute's frame, but the word charges something against a person — you impute a fault to someone, and plants bear no blame.", "C": "Brushing on 'a fresh coat of spar varnish' is springtime maintenance. Impute is not a word for applying substances; it pins responsibility for an act on a person, fairly or otherwise."}}, "s3a": {"q": "In this passage, saying the report \"imputed the failure to\" Rosa means the report", "opts": {"A": "openly accused her to her face at a public council meeting so everyone could hear", "B": "neutrally listed every worker who had touched the fountain that autumn", "C": "laid the blame for the failure on her, on thin proof", "D": "asked her to explain her side"}, "key": "C", "fb": {"correct": "Right — blame booked to her name at a distance, resting mostly on a signature in a log.", "A": "The opposite of what happened — she never met the consultant, and the claim reached her thirdhand.", "B": "The report wasn't neutral — it supplied one name because the council wanted one.", "D": "She 'was never asked to answer' the paragraph — no one sought her side."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "assign", "B": "charge", "C": "impute", "D": "pin"}, "key": "A", "fb": {"correct": "Right. Assign is the plain, neutral verb for allotting responsibility and moving on: the two causes <em>each receive a documented share<\/em>, and the file closes with no villain and no fuss.", "C": "Impute books blame to someone on suspicion, often on thin proof. This report is the opposite of a hunch: it rests on <em>packing lists, loading-dock footage, and climate logs<\/em>, and <em>nobody is treated as a suspect<\/em>.", "D": "To pin blame is quick, casual, and informal. A registrar who <em>spent a month over packing lists<\/em> before <em>writing up her findings<\/em> is doing the slow, formal opposite of pinning something on someone.", "B": "To charge someone is to accuse them openly — out loud, on the record, to their face. Nothing here is said to anyone in person: the findings are written, and <em>copies went out to both parties the same quiet afternoon<\/em>."}}}, "grid": {"words": ["impute", "assign", "pin", "charge"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Centuries on, most textbooks still ____ the library fire to a single careless watchman, though no document from the period names him at all.", "ks": ["impute"], "fb": {"assign": "That word is the plain, even-handed bookkeeping of fault. A centuries-old accusation resting on no document at all is anything but even-handed.", "pin": "That word is quick, casual, spoken blame. A claim carried in textbooks for centuries is formal and written — the wrong register entirely.", "charge": "That word makes the accusation openly, to the person's face and on the record. The watchman has been dead for centuries; nobody is being confronted."}}, {"s": "The insurer's memo would quietly ____ the collapse to the site engineer — on nothing firmer than a hunch, at a distance, with the man never once told to his face.", "ks": ["impute"], "fb": {"assign": "That word is neutral bookkeeping — fault allotted, report closed. This memo runs on a hunch and suspicion, which is not neutral at all.", "pin": "That word belongs to quick, casual talk — roommates and locker rooms. A formal memo circulating at a distance is the opposite register.", "charge": "That word declares fault aloud, on the record, to the person. This memo moves quietly, and the engineer never hears a word of it."}}, {"s": "When the group project took first prize, the rubric made it simple to ____ credit fairly among all four members — plain accounting, with no fault in question and no one under suspicion.", "ks": ["assign"], "fb": {"impute": "That word is built for blame — suspicious, often on thin proof. This sentence hands out credit, with nobody suspected of anything.", "pin": "That word puts blame on somebody, quick and casual. A rubric distributing credit has no blame in it and nothing casual about it.", "charge": "That word declares a person at fault, openly and on the record. Here there is no fault at all — only credit to share out."}}, {"s": "The crash report's final chapter would ____ responsibility to three separate systems in equal measure — naming no villain, implying no bad faith, and closing the file.", "ks": ["assign"], "fb": {"impute": "That word is heavier and more suspicious — blame booked to somebody, often on thin proof. This chapter is even-handed, aims at machinery, and suspects no one.", "pin": "That word wants one target and a casual register. Responsibility split evenly among three systems, in a formal report, is neither.", "charge": "That word accuses a person openly, to their face and on the record. The report names no person and confronts no one."}}, {"s": "Quick to dodge, the roommates spent breakfast trying to ____ the mess on whoever had left last night, laughing as the story grew wilder.", "ks": ["pin"], "fb": {"impute": "That word wears formal dress — courts and historians use it, in writing and at a distance. Roommates laughing over breakfast are the opposite scene.", "assign": "That word allots fault the way a report does — neutral and official. Laughing blame-shoving over breakfast is neither neutral nor official.", "charge": "That word makes a formal, open accusation, on the record. This is joking talk over toast, with nothing declared in earnest."}}, {"s": "Rising in open court, the prosecutor chose to ____ the foreman with negligence — saying it aloud, on the record, straight to the man's face.", "ks": ["charge"], "fb": {"impute": "That word can do its work quietly, at a distance, with the person never told at all. This accusation is made aloud, to the man's face.", "assign": "That word files fault neutrally in a report and moves on. A prosecutor declaring negligence in open court is confrontation, not filing.", "pin": "That word is casual, spoken blame — quick and offhand. Open court, on the record, is the most formal register there is."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should book blame for something to a named person — formally, at a distance, with the proof looking thin. Remember the frame: you do it <i>to<\/i> someone. Try working in a word like <i>report<\/i>, <i>rumor<\/i>, <i>records<\/i> or <i>suspicion<\/i>."}};
+  var CFG = {"word": "impute", "gradeUrl": "/api/grade", "taskId": "impute", "minWords": 12, "items": {"s1": {"q": "Which sentence uses impute correctly?", "opts": {"A": "The village tailor imputed the new hem to fall just a half inch above the ankle.", "B": "We imputed all forty seedlings to the warm greenhouse before the first hard frost.", "C": "She imputed a fresh coat of spar varnish to the picnic table every single spring.", "D": "It was easy to impute the leak to the interns despite the director's receipts."}, "key": "D", "fb": {"correct": "Correct! The leak is booked to the interns — blame formally assigned to named people, on suspiciously thin grounds: impute in its natural habitat.", "A": "Setting where a hem should fall — 'a half inch above the ankle' — is measurement, a tailoring decision. Impute assigns blame or credit for something to a person; nothing here points a finger at anyone.", "B": "Carrying 'seedlings to the warm greenhouse' is relocation. The 'to' looks like impute's frame, but the word charges something against a person — you impute a fault to someone, and plants bear no blame.", "C": "Brushing on 'a fresh coat of spar varnish' is springtime maintenance. Impute is not a word for applying substances; it pins responsibility for an act on a person, fairly or otherwise."}}, "s3a": {"q": "In this passage, saying the report \"imputed the failure to\" Rosa means the report", "opts": {"A": "openly accused her to her face at a public council meeting so everyone could hear", "B": "neutrally listed every worker who had touched the fountain that autumn", "C": "laid the blame for the failure on her, on thin proof", "D": "asked her to explain her side"}, "key": "C", "fb": {"correct": "Right — blame booked to her name at a distance, resting mostly on a signature in a log.", "A": "The opposite of what happened — she never met the consultant, and the claim reached her thirdhand.", "B": "The report wasn't neutral — it supplied one name because the council wanted one.", "D": "She 'was never asked to answer' the paragraph — no one sought her side."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "assign", "B": "charge", "C": "impute", "D": "pin"}, "key": "A", "fb": {"correct": "Right. Assign is the plain, neutral verb for allotting responsibility and moving on: the two causes <em>each receive a documented share<\/em>, and the file closes with no villain and no fuss.", "C": "Impute books blame to someone on suspicion, often on thin proof. This report is the opposite of a hunch: it rests on <em>packing lists, loading-dock footage, and climate logs<\/em>, and <em>nobody is treated as a suspect<\/em>.", "D": "To pin blame is quick, casual, and informal. A registrar who <em>spent a month over packing lists<\/em> before <em>writing up her findings<\/em> is doing the slow, formal opposite of pinning something on someone.", "B": "To charge someone is to accuse them openly — out loud, on the record, to their face. Nothing here is said to anyone in person: the findings are written, and <em>copies went out to both parties the same quiet afternoon<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Centuries on, most textbooks still ____ the library fire to a single careless watchman, though no document from the period names him at all.", "options": ["impute", "assign"], "key": "impute", "pair": "assign", "why_right": "The tell is <em>no document from the period names him<\/em> - blame booked to one man on visibly thin proof, the heavier, more suspicious attribution rather than plain, neutral bookkeeping of fault.", "why_wrong": "That word is the plain, even-handed bookkeeping of fault. A centuries-old accusation resting on no document at all is anything but even-handed."}, {"sentence": "The insurer's memo would quietly ____ the collapse to the site engineer — on nothing firmer than a hunch, at a distance, with the man never once told to his face.", "options": ["impute", "charge"], "key": "impute", "pair": "charge", "why_right": "The tell is <em>never once told to his face<\/em> - the blame moves quietly, in writing and at a distance, never declared aloud or on the record to the person at all.", "why_wrong": "That word declares fault aloud, on the record, to the person. This memo moves quietly, and the engineer never hears a word of it."}, {"sentence": "When the group project took first prize, the rubric made it simple to ____ credit fairly among all four members — plain accounting, with no fault in question and no one under suspicion.", "options": ["impute", "assign"], "key": "assign", "pair": "assign", "why_right": "The tell is <em>no fault in question and no one under suspicion<\/em> - plain, neutral allotting of credit through a rubric, with nothing suspicious for the heavier blame-booking word to do.", "why_wrong": "That word is built for blame — suspicious, often on thin proof. This sentence hands out credit, with nobody suspected of anything."}, {"sentence": "Quick to dodge, the roommates spent breakfast trying to ____ the mess on whoever had left last night, laughing as the story grew wilder.", "options": ["impute", "pin"], "key": "pin", "pair": "pin", "why_right": "The tell is <em>laughing as the story grew wilder<\/em> - quick, casual, spoken blame-shoving among roommates, nothing like formal blame booked in writing, in earnest, on thin proof.", "why_wrong": "That word wears formal dress — courts and historians use it, in writing and at a distance. Roommates laughing over breakfast are the opposite scene."}, {"sentence": "Rising in open court, the prosecutor chose to ____ the foreman with negligence — saying it aloud, on the record, straight to the man's face.", "options": ["impute", "charge"], "key": "charge", "pair": "charge", "why_right": "The tell is <em>aloud, on the record, straight to the man's face<\/em> - an open accusation declared to the person, where the quieter word works at a distance in reports and rumors.", "why_wrong": "That word can do its work quietly, at a distance, with the person never told at all. This accusation is made aloud, to the man's face."}, {"sentence": "The audit's appendix would ____ the missing deposits to a teller who left the branch years ago, offering nothing beyond a duty roster that shows she once held keys.", "options": ["impute", "pin"], "key": "impute", "pair": "pin", "why_right": "The tell is <em>nothing beyond a duty roster<\/em> - formal written blame booked at a distance, on the thinnest of proof, not quick casual talk that slaps blame on somebody.", "why_wrong": "That word is quick, casual, spoken blame. A formal appendix that books fault to a long-departed employee, in writing and at a distance, is the wrong register entirely."}, {"sentence": "In the break room the drivers cheerfully blamed the new dispatcher for the missed routes; the quarterly review, when it came, would ____ the failures to her in colder, more lasting ink.", "options": ["impute", "pin"], "key": "impute", "pair": "pin", "why_right": "The tell is <em>colder, more lasting ink<\/em> - the blame moves from break-room talk into a formal written review, the formal dress this word wears and quick casual blame never does.", "why_wrong": "That word is the drivers' own register - quick, casual, spoken blame. A quarterly review setting fault down in cold, lasting ink is formal paper, where that word never lives."}, {"sentence": "Both partners were caught on the bench camera knocking the flask together, so the instructor could ____ the fault evenly — half to each, nothing suspected, nothing guessed.", "options": ["impute", "assign"], "key": "assign", "pair": "assign", "why_right": "The tell is <em>nothing suspected, nothing guessed<\/em> - fault split plainly on full camera proof is neutral bookkeeping, with none of the suspicion or thin proof the heavier verb carries.", "why_wrong": "That word books blame to someone's account, heavier and more suspicious, often on thin proof. With both partners on camera and the fault split evenly, nothing is suspected at all."}], "display_order": [2, 3, 4, 5, 7, 6, 1, 0], "dimension_order": ["assign", "pin", "charge"], "dimension_feedback": {"assign": "Assign is the plain, neutral verb for allotting fault or credit — a report assigns responsibility and moves on. Impute is heavier and more suspicious: it books blame to someone's account, often on thin proof, always in the frame impute something to someone.", "pin": "To pin the blame on somebody is the informal version — quick and casual, and it always takes on. Impute does the same job in formal dress: courts and historians impute a failure to a person, and the word hints the proof may be thin.", "charge": "To charge someone is to declare them at fault out loud and on the record — an open accusation made to their face. Impute can work quietly, at a distance, in reports and rumors; the blame may never be spoken to the person at all."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should book blame for something to a named person — formally, at a distance, with the proof looking thin. Remember the frame: you do it <i>to<\/i> someone. Try working in a word like <i>report<\/i>, <i>rumor<\/i>, <i>records<\/i> or <i>suspicion<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

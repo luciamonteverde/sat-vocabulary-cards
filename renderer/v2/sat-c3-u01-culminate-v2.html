@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="2d3887495579">
+<meta name="build" content="3bdb59038a6b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>culminate &#8212; SAT Vocabulary, Course 3 Unit 1</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "culminate", "gradeUrl": "/api/grade", "taskId": "culminate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses culminate correctly?", "opts": {"A": "The mountain trail culminates gently downhill for its last easy mile into the village square.", "B": "The probe's nine-year cruise culminates in one ninety-minute flyby, after which it simply drifts.", "C": "Their long-running argument culminated at breakfast on Monday and then grew steadily worse all week.", "D": "Each of the book's chapters culminates quietly in its middle pages and coasts to a gentle close."}, "key": "B", "fb": {"correct": "Correct. Nine years of cruising arrive at one ninety-minute flyby and nothing follows — the process reaches its final and highest point at the end, which is what culminate promises.", "A": "Easing off is not culminating: a trail whose last stretch runs 'gently downhill' finishes at its lowest, easiest point. To culminate, the route's peak must arrive together with its end.", "C": "If the fight 'grew steadily worse all week' after Monday, then breakfast was not its high point at all — a culmination is final. Whatever keeps escalating afterward has not yet reached the top of its arc.", "D": "Placement is the issue: this chapter peaks 'in its middle pages' and then 'coasts to a gentle close,' separating the high point from the ending. Culminate demands they coincide — climax and finish in the same place."}}, "s3a": {"q": "As it is used in the passage, \"culminated\" most nearly means:", "opts": {"A": "ended in failure after four years of preparation and effort", "B": "reached its highest point exactly at its end", "C": "grew more dangerous with every stage", "D": "was celebrated with a public ceremony at the summit"}, "key": "B", "fb": {"correct": "Right -- the partner's \"simple geometry\" is the definition at work: the highest point, reached last.", "A": "The failed attempt came earlier and taught her; the expedition itself ends on the summit with \"nothing left undone.\"", "C": "Danger never enters the passage. The word is about where the high point falls, not about risk.", "D": "No ceremony appears -- she stands there twenty minutes and starts down. The word marks position in the story, not celebration."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "crest", "B": "culminate", "C": "build", "D": "climax"}, "key": "A", "fb": {"correct": "Right. The mileage tops out five weeks before the program ends and eases off afterward — <em>a number the runner never touches again<\/em>, <em>then shrink steadily<\/em> — the high point reached partway along, with the process still running to its real finish at the race.", "B": "Culminate would put the highest point exactly where the whole process ends — and this program's end is elsewhere: the schedule <em>keeps the race itself — the whole point of the program — at the very end<\/em>, while the mileage top comes <em>five weeks out<\/em>. A height reached with five weeks still to run is not a culmination.", "D": "Climax belongs to drama and feeling — a thriller, a symphony, a shouting match — and names the moment of greatest intensity. This passage is a coach's arithmetic about <em>weekly mileage<\/em> and <em>a number the runner never touches again<\/em>; nothing here surges emotionally.", "C": "Build names the rise itself and promises nothing about a top — pressure can build for hours and come to nothing. This plan names the top outright: <em>a number the runner never touches again<\/em>."}}}, "grid": {"words": ["culminate", "climax", "crest", "build"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The planners shaped the festival to ____ on the last night: the biggest acts go on final, and every stage goes dark right after.", "ks": ["culminate"], "fb": {"climax": "That word hits the moment of greatest intensity and lives among feelings and drama. This sentence makes a cooler claim about shape: the height sits exactly where the schedule ends.", "crest": "That word reaches a top and eases off while things keep moving. Here nothing keeps moving -- <em>every stage goes dark right after<\/em>.", "build": "That word is the rise itself -- excitement or pressure mounting, with no promise about the end. This sentence is about the height landing at the finish."}}, {"s": "By design, the negotiations ____ exactly where they end, the treaty signing set as both the summit and the final session.", "ks": ["culminate"], "fb": {"climax": "That word belongs to intensity -- a thriller, a symphony, a shouting match. A signing scheduled as the last session is a claim about shape, not heat.", "crest": "A top reached and eased past, with things still moving after -- that is that word's picture. Here the top IS the final session; nothing follows.", "build": "That word covers the rise and promises nothing about the end. The sentence places the high point exactly at the finish."}}, {"s": "Forecasters expect the river to ____ Tuesday night and then fall slowly, staying open to barge traffic through the week.", "ks": ["crest"], "fb": {"culminate": "That word requires the height to land exactly where the process ends. This top arrives Tuesday and the river keeps flowing -- and falling -- all week.", "climax": "Greatest intensity, in drama and feeling -- that is that word's home. A gauge reading reaching its top and easing back is shape, not emotion.", "build": "That word describes the rise on the way up. The forecast is about the top itself and the slow fall after it."}}, {"s": "Analysts think the hiring boom will ____ this quarter and taper into next year, with the industry still growing, only slower.", "ks": ["crest"], "fb": {"culminate": "Height exactly at the end is that word's strict claim. This boom tops out and then keeps going -- slower, but going -- into next year.", "climax": "That word belongs to intensity -- a thriller, a shouting match. A hiring curve topping out and tapering is a shape on a chart.", "build": "That word is the rise itself and promises nothing about a top. The sentence announces the top and the slowdown after it."}}, {"s": "Reviewers agree the trilogy's tensions ____ midway through the second film, in the bridge duel, and nothing later matches that heat.", "ks": ["climax"], "fb": {"culminate": "That word puts the high point exactly at the end of the whole process. This peak lands <em>midway through the second film<\/em>, with a whole film to spare.", "crest": "That word suits waves, fevers and hiring curves -- a top reached and eased past. The sentence is about dramatic heat at its fiercest, which is feeling, not a gauge.", "build": "The rise, not the peak -- that is that word's territory. The sentence names the moment of greatest heat, not the mounting toward it."}}, {"s": "On the trading floor you could feel the pressure ____ hour by hour, though no one could say when -- or whether -- it would come to anything.", "ks": ["build"], "fb": {"culminate": "That word marks a height arriving exactly at the end. Here nothing has arrived at all -- the sentence doubts anything ever will.", "climax": "The moment of greatest intensity never comes in this sentence; there is only the mounting, hour by hour.", "crest": "A top reached and eased past -- that is the claim that word makes. This has no top yet, only the climb."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a process whose highest point lands exactly where it ends -- not a peak in the middle. Try working in a word like <i>finally<\/i>, <i>years<\/i>, <i>ended<\/i> or <i>last<\/i>."}};
+  var CFG = {"word": "culminate", "gradeUrl": "/api/grade", "taskId": "culminate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses culminate correctly?", "opts": {"A": "The mountain trail culminates gently downhill for its last easy mile into the village square.", "B": "The probe's nine-year cruise culminates in one ninety-minute flyby, after which it simply drifts.", "C": "Their long-running argument culminated at breakfast on Monday and then grew steadily worse all week.", "D": "Each of the book's chapters culminates quietly in its middle pages and coasts to a gentle close."}, "key": "B", "fb": {"correct": "Correct. Nine years of cruising arrive at one ninety-minute flyby and nothing follows — the process reaches its final and highest point at the end, which is what culminate promises.", "A": "Easing off is not culminating: a trail whose last stretch runs 'gently downhill' finishes at its lowest, easiest point. To culminate, the route's peak must arrive together with its end.", "C": "If the fight 'grew steadily worse all week' after Monday, then breakfast was not its high point at all — a culmination is final. Whatever keeps escalating afterward has not yet reached the top of its arc.", "D": "Placement is the issue: this chapter peaks 'in its middle pages' and then 'coasts to a gentle close,' separating the high point from the ending. Culminate demands they coincide — climax and finish in the same place."}}, "s3a": {"q": "As it is used in the passage, \"culminated\" most nearly means:", "opts": {"A": "ended in failure after four years of preparation and effort", "B": "reached its highest point exactly at its end", "C": "grew more dangerous with every stage", "D": "was celebrated with a public ceremony at the summit"}, "key": "B", "fb": {"correct": "Right -- the partner's \"simple geometry\" is the definition at work: the highest point, reached last.", "A": "The failed attempt came earlier and taught her; the expedition itself ends on the summit with \"nothing left undone.\"", "C": "Danger never enters the passage. The word is about where the high point falls, not about risk.", "D": "No ceremony appears -- she stands there twenty minutes and starts down. The word marks position in the story, not celebration."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "crest", "B": "culminate", "C": "build", "D": "climax"}, "key": "A", "fb": {"correct": "Right. The mileage tops out five weeks before the program ends and eases off afterward — <em>a number the runner never touches again<\/em>, <em>then shrink steadily<\/em> — the high point reached partway along, with the process still running to its real finish at the race.", "B": "Culminate would put the highest point exactly where the whole process ends — and this program's end is elsewhere: the schedule <em>keeps the race itself — the whole point of the program — at the very end<\/em>, while the mileage top comes <em>five weeks out<\/em>. A height reached with five weeks still to run is not a culmination.", "D": "Climax belongs to drama and feeling — a thriller, a symphony, a shouting match — and names the moment of greatest intensity. This passage is a coach's arithmetic about <em>weekly mileage<\/em> and <em>a number the runner never touches again<\/em>; nothing here surges emotionally.", "C": "Build names the rise itself and promises nothing about a top — pressure can build for hours and come to nothing. This plan names the top outright: <em>a number the runner never touches again<\/em>."}}}, "pairwise": {"rows": [{"sentence": "By design, the negotiations ____ exactly where they end, the treaty signing set as both the summit and the final session.", "options": ["culminate", "climax"], "key": "culminate", "pair": "climax", "why_right": "The tell is <em>both the summit and the final session<\/em> - the high point placed exactly where the process ends, a claim about shape rather than intensity.", "why_wrong": "That word belongs to intensity -- a thriller, a symphony, a shouting match. A signing scheduled as the last session is a claim about shape, not heat."}, {"sentence": "Reviewers agree the trilogy's tensions ____ midway through the second film, in the bridge duel, and nothing later matches that heat.", "options": ["culminate", "climax"], "key": "climax", "pair": "climax", "why_right": "The tell is <em>midway through the second film<\/em> - the moment of greatest intensity lands mid-course, a whole film from the end, drama at its hottest rather than a height at the finish.", "why_wrong": "That word puts the high point exactly at the end of the whole process. This peak lands <em>midway through the second film<\/em>, with a whole film to spare."}, {"sentence": "The planners shaped the festival to ____ on the last night: the biggest acts go on final, and every stage goes dark right after.", "options": ["culminate", "crest"], "key": "culminate", "pair": "crest", "why_right": "The tell is <em>every stage goes dark right after<\/em> - nothing keeps moving past the top; the height lands exactly where the festival ends, which is culminate's strict claim.", "why_wrong": "That word reaches a top and eases off while things keep moving. Here nothing keeps moving -- <em>every stage goes dark right after<\/em>."}, {"sentence": "Forecasters expect the river to ____ Tuesday night and then fall slowly, staying open to barge traffic through the week.", "options": ["culminate", "crest"], "key": "crest", "pair": "crest", "why_right": "The tell is <em>and then fall slowly<\/em> - the top comes mid-course and the river keeps moving afterward; cresting can happen anywhere along the way, easing off with more still to come.", "why_wrong": "That word requires the height to land exactly where the process ends. This top arrives Tuesday and the river keeps flowing -- and falling -- all week."}, {"sentence": "Analysts think the hiring boom will ____ this quarter and taper into next year, with the industry still growing, only slower.", "options": ["culminate", "crest"], "key": "crest", "pair": "crest", "why_right": "The tell is <em>still growing, only slower<\/em> - the process runs on past its top, easing rather than ending, and a top reached with more to come is a crest, not a finish.", "why_wrong": "Height exactly at the end is that word's strict claim. This boom tops out and then keeps going -- slower, but going -- into next year."}, {"sentence": "After a summer of heats, the regatta will ____ on its final afternoon, the whole series settled in the day's last race.", "options": ["culminate", "build"], "key": "culminate", "pair": "build", "why_right": "The tell is <em>the whole series settled in the day's last race<\/em> - the summer's rise is behind it, and the height arrives exactly where everything ends.", "why_wrong": "That word is the rise itself - mounting long before anything arrives. The summer of heats was the rise; the final afternoon is the arrival, the series settled at its very end."}, {"sentence": "Six years of archival digging will ____ tomorrow, when the dissertation, her finest pages, goes to the binder and the fellowship behind it closes.", "options": ["culminate", "build"], "key": "culminate", "pair": "build", "why_right": "The tell is <em>the fellowship behind it closes<\/em> - the process reaches its highest point, her finest pages, exactly where it stops; the six years of rising are already done.", "why_wrong": "That word covers the climb and promises nothing about where the rise ends. Six years of climbing are already done; tomorrow the best of it arrives and the whole project closes."}, {"sentence": "All afternoon you could watch the thunderheads ____ over the valley, stacking gray on gray, yet by supper no rain had fallen.", "options": ["culminate", "build"], "key": "build", "pair": "build", "why_right": "The tell is <em>stacking gray on gray<\/em> - the rise itself, still mounting all afternoon, with nothing arrived and no promise of where it ends.", "why_wrong": "That word puts a final and highest point exactly at the end of a process. Nothing arrives here at all - <em>no rain had fallen<\/em> - only the stacking climb."}], "display_order": [2, 7, 3, 6, 1, 5, 0, 4], "dimension_order": ["climax", "crest", "build"], "dimension_feedback": {"climax": "To climax is to hit the moment of greatest intensity, and the word belongs to drama and feeling — a thriller, a symphony, a shouting match. Culminate makes a cooler, structural claim: a process reaches its highest point exactly where it ends. Intensity is climax's business; shape is culminate's.", "crest": "To crest is to reach the top and begin easing off — a wave crests, a fever crests, and things keep moving afterward. To culminate is stricter: the height must arrive exactly where the process ends. Cresting can happen anywhere along the way; culminating happens only at the finish.", "build": "Build is milder than culminate — excitement or pressure builds long before anything arrives, and building promises nothing about where the rise ends; to culminate is to reach the top at the very end."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a process whose highest point lands exactly where it ends -- not a peak in the middle. Try working in a word like <i>finally<\/i>, <i>years<\/i>, <i>ended<\/i> or <i>last<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

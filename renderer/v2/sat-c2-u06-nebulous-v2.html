@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="da53c5219fc2">
+<meta name="build" content="cceb834e43b5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>nebulous &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "nebulous", "gradeUrl": "/api/grade", "taskId": "nebulous", "minWords": 12, "items": {"s1": {"q": "Which sentence uses nebulous correctly?", "opts": {"A": "The bridge drawings were nebulous down to the very last bolt, washer, brace, and millimeter.", "B": "The treaty's clause stayed nebulous: 'suitable measures' that no signatory could define.", "C": "Her nebulous signature was so crisp and legible that the bank framed a copy for the lobby wall.", "D": "The nebulous oak staircase creaked and shifted under our boots all the way up to the attic door."}, "key": "B", "fb": {"correct": "Correct. 'Suitable measures' that no signatory could define gives the clause no graspable shape - vaguely defined and cloudy is precisely nebulous.", "A": "Drawings exact 'down to the very last bolt, washer, brace, and millimeter' are the opposite of cloudy. Nebulous describes the hazy and formless — the reverse of engineering precision.", "C": "Handwriting 'so crisp and legible' that a bank framed it has perfectly clear form. Nebulous means cloudy and vague; a signature this readable earns a different adjective entirely.", "D": "Solid oak that 'creaked and shifted under our boots' is emphatically physical — wobbly, perhaps, but not vague. Nebulous belongs to fuzzy ideas, plans, or outlines, not sturdy carpentry."}}, "s3a": {"q": "In this passage, saying the film \"remained nebulous\" means that it", "opts": {"A": "was kept deliberately and carefully secret from every studio that asked", "B": "never took any settled form or outline, even for its maker", "C": "was too expensive for anyone to finance", "D": "was described clearly but constantly misheard by listeners"}, "key": "B", "fb": {"correct": "Right. Moods instead of plot, weather instead of outline, and notebooks with not one scene -- the project never had a shape anyone, including Voss, could state.", "A": "Secrecy would mean a real plan withheld. Her own notebooks show there was no plan to withhold.", "C": "Money never comes up. Studios weren't refusing to pay -- they couldn't get an outline to pay for.", "D": "Everyone heard her perfectly well. What she said simply never added up to a shape."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "vague", "B": "nebulous", "C": "fuzzy", "D": "indistinct"}, "key": "B", "fb": {"correct": "Right. The scheme was all cloud and no outline: <em>its engineers had surveyed no ground and its directors had fixed no route<\/em>, and in the end there was <em>no course at all to draw<\/em>. That total absence of form is exactly this word's territory.", "A": "Vague fits an answer that dodges or a promise without a date — something exists, it just isn't pinned down. What the investor describes goes further: <em>there was simply no course at all to draw<\/em>. The question asks for the most precise word, and this one undersells the case.", "C": "A fuzzy plan has real edges that blur here and there. The investor rules that out in so many words: the plan was <em>not a rough course with a few doubtful stretches<\/em> — there were no edges anywhere to blur.", "D": "Indistinct belongs to perception: something real is out there, but the eye cannot quite make out its edges. This route was not dimly seen — <em>nothing about it had been smudged or half-glimpsed<\/em>, because no route existed to glimpse."}}}, "grid": {"words": ["nebulous", "vague", "indistinct", "fuzzy"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Asked for specifics, the founders' vision stayed ____ : 'a platform for connection,' with no product, no user, and no first step anyone could name.", "ks": ["nebulous"], "fb": {"vague": "That's the everyday word for the loosely pinned, and it undersells this. A plan with <em>no product, no user, and no first step<\/em> has no outline at all -- pure cloud.", "indistinct": "That word belongs to perception -- a real thing whose edges the eye or ear can't make out. Nothing here exists to be half-seen; the plan itself never took form.", "fuzzy": "That word suits a plan with real edges that blur here and there. This vision never had edges to blur -- nothing about it can even be sketched."}}, {"s": "Two hours in, the committee's definition of 'community impact' remained ____ -- every boundary someone proposed dissolved on contact, leaving nothing to measure or even sketch.", "ks": ["nebulous"], "fb": {"vague": "The everyday word covers a loose answer or promise. This is further gone: two hours of work left <em>nothing to measure or even sketch<\/em> -- no outline exists.", "indistinct": "That word describes a real thing seen or heard poorly -- a shape in mist. Here nothing stands behind the term at all; the failure is in the idea, not the viewing.", "fuzzy": "That word wants mostly-set edges with soft patches. Every proposed boundary <em>dissolved on contact<\/em> -- there are no set edges anywhere."}}, {"s": "From the ferry rail the harbor lights were ____ , plainly real but so smeared by rain on the glass that no lamp could be told from its neighbor.", "ks": ["indistinct"], "fb": {"nebulous": "That word says the thing itself never took settled form. These lamps are <em>plainly real<\/em> and fully formed -- only the rain-smeared view fails.", "vague": "That's the everyday word for loose answers, promises, and plans -- things said or intended. Lamps seen through wet glass are a failure of the eye, not of a statement.", "fuzzy": "That word suits edges that blur here and there while the rest stays sharp. Here nothing stays sharp -- <em>no lamp can be told from its neighbor<\/em>."}}, {"s": "The stadium announcement reached the cheap seats ____ , a voice plainly speaking yet so melted into echo that not one word survived the distance.", "ks": ["indistinct"], "fb": {"nebulous": "That word means the thing itself never took form. This announcement was scripted and <em>plainly spoken<\/em> -- it lost its edges on the way to the seats.", "vague": "That word faults loose content -- an unpinned answer or promise. This speech was specific; the echo, not the wording, destroyed it.", "fuzzy": "That word suits partial blur -- soft in spots, clear elsewhere. Here <em>not one word survived<\/em>; the loss is total."}}, {"s": "His promise to 'help out sometime this spring' was ____ enough to commit him to nothing in particular, though everyone heard the offer clearly.", "ks": ["vague"], "fb": {"nebulous": "That word means all cloud, no outline anywhere. This promise has a rough shape -- help, sometime, this spring -- it just pins none of it down.", "indistinct": "That word belongs to perception -- a coastline in mist, edges the eye can't recover. <em>Everyone heard the offer clearly<\/em>; the softness is in what it commits.", "fuzzy": "That word suits a plan mostly set, blurring in patches. This promise sets nothing -- there are no fixed parts for the soft spots to sit between."}}, {"s": "The renovation plan is ____ only around the money: rooms, dates, and colors are all fixed, while two budget lines still blur whenever anyone asks for figures.", "ks": ["fuzzy"], "fb": {"nebulous": "That word means all cloud and no outline. This plan has <em>rooms, dates, and colors all fixed<\/em> -- only two budget lines soften.", "vague": "That's the word for a plan unpinned through and through. This one is pinned nearly everywhere; the softness lives in exactly two places.", "indistinct": "That word belongs to a real thing seen or heard poorly. The plan is printed and perfectly legible -- what softens is what two lines say, not how they look."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show an idea or plan with no outline at all -- not one that is merely loose. Show the missing shape with a word like <i>no<\/i>, <i>outline<\/i>, <i>shapeless<\/i> or <i>nothing<\/i>."}};
+  var CFG = {"word": "nebulous", "gradeUrl": "/api/grade", "taskId": "nebulous", "minWords": 12, "items": {"s1": {"q": "Which sentence uses nebulous correctly?", "opts": {"A": "The bridge drawings were nebulous down to the very last bolt, washer, brace, and millimeter.", "B": "The treaty's clause stayed nebulous: 'suitable measures' that no signatory could define.", "C": "Her nebulous signature was so crisp and legible that the bank framed a copy for the lobby wall.", "D": "The nebulous oak staircase creaked and shifted under our boots all the way up to the attic door."}, "key": "B", "fb": {"correct": "Correct. 'Suitable measures' that no signatory could define gives the clause no graspable shape - vaguely defined and cloudy is precisely nebulous.", "A": "Drawings exact 'down to the very last bolt, washer, brace, and millimeter' are the opposite of cloudy. Nebulous describes the hazy and formless — the reverse of engineering precision.", "C": "Handwriting 'so crisp and legible' that a bank framed it has perfectly clear form. Nebulous means cloudy and vague; a signature this readable earns a different adjective entirely.", "D": "Solid oak that 'creaked and shifted under our boots' is emphatically physical — wobbly, perhaps, but not vague. Nebulous belongs to fuzzy ideas, plans, or outlines, not sturdy carpentry."}}, "s3a": {"q": "In this passage, saying the film \"remained nebulous\" means that it", "opts": {"A": "was kept deliberately and carefully secret from every studio that asked", "B": "never took any settled form or outline, even for its maker", "C": "was too expensive for anyone to finance", "D": "was described clearly but constantly misheard by listeners"}, "key": "B", "fb": {"correct": "Right. Moods instead of plot, weather instead of outline, and notebooks with not one scene -- the project never had a shape anyone, including Voss, could state.", "A": "Secrecy would mean a real plan withheld. Her own notebooks show there was no plan to withhold.", "C": "Money never comes up. Studios weren't refusing to pay -- they couldn't get an outline to pay for.", "D": "Everyone heard her perfectly well. What she said simply never added up to a shape."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "vague", "B": "nebulous", "C": "fuzzy", "D": "indistinct"}, "key": "B", "fb": {"correct": "Right. The scheme was all cloud and no outline: <em>its engineers had surveyed no ground and its directors had fixed no route<\/em>, and in the end there was <em>no course at all to draw<\/em>. That total absence of form is exactly this word's territory.", "A": "Vague fits an answer that dodges or a promise without a date — something exists, it just isn't pinned down. What the investor describes goes further: <em>there was simply no course at all to draw<\/em>. The question asks for the most precise word, and this one undersells the case.", "C": "A fuzzy plan has real edges that blur here and there. The investor rules that out in so many words: the plan was <em>not a rough course with a few doubtful stretches<\/em> — there were no edges anywhere to blur.", "D": "Indistinct belongs to perception: something real is out there, but the eye cannot quite make out its edges. This route was not dimly seen — <em>nothing about it had been smudged or half-glimpsed<\/em>, because no route existed to glimpse."}}}, "pairwise": {"rows": [{"sentence": "Asked for specifics, the founders' vision stayed ____ : 'a platform for connection,' with no product, no user, and no first step anyone could name.", "options": ["nebulous", "vague"], "key": "nebulous", "pair": "vague", "why_right": "The tell is <em>no product, no user, and no first step anyone could name<\/em> - this vision is not merely loosely pinned; it has no outline at all for anyone to grab.", "why_wrong": "That's the everyday word for the loosely pinned, and it undersells this. A plan with <em>no product, no user, and no first step<\/em> has no outline at all -- pure cloud."}, {"sentence": "Two hours in, the committee's definition of 'community impact' remained ____ -- every boundary someone proposed dissolved on contact, leaving nothing to measure or even sketch.", "options": ["nebulous", "vague"], "key": "nebulous", "pair": "vague", "why_right": "The tell is <em>nothing to measure or even sketch<\/em> - two hours of proposals left no outline at all, which outruns the everyday word for the merely loosely pinned.", "why_wrong": "The everyday word covers a loose answer or promise. This is further gone: two hours of work left <em>nothing to measure or even sketch<\/em> -- no outline exists."}, {"sentence": "His promise to 'help out sometime this spring' was ____ enough to commit him to nothing in particular, though everyone heard the offer clearly.", "options": ["nebulous", "vague"], "key": "vague", "pair": "vague", "why_right": "The tell is <em>sometime this spring<\/em> - the promise has a rough outline, an action and a season, pinned down nowhere; that is the everyday word's territory, not all cloud.", "why_wrong": "That word means all cloud, no outline anywhere. This promise has a rough shape -- help, sometime, this spring -- it just pins none of it down."}, {"sentence": "From the ferry rail the harbor lights were ____ , plainly real but so smeared by rain on the glass that no lamp could be told from its neighbor.", "options": ["nebulous", "indistinct"], "key": "indistinct", "pair": "indistinct", "why_right": "The tell is <em>plainly real<\/em> - the lamps exist in fully settled form and only the rain-smeared viewing fails, which is perception's word, not a thing that never took shape.", "why_wrong": "That word says the thing itself never took settled form. These lamps are <em>plainly real<\/em> and fully formed -- only the rain-smeared view fails."}, {"sentence": "The stadium announcement reached the cheap seats ____ , a voice plainly speaking yet so melted into echo that not one word survived the distance.", "options": ["nebulous", "indistinct"], "key": "indistinct", "pair": "indistinct", "why_right": "The tell is <em>a voice plainly speaking<\/em> - the announcement was settled and scripted; its edges died in the air on the way out, a failure of hearing, not of the thing.", "why_wrong": "That word means the thing itself never took form. This announcement was scripted and <em>plainly spoken<\/em> -- it lost its edges on the way to the seats."}, {"sentence": "No script pages exist for anyone to hold up to the light; the sequel itself remains ____ , 'something about forgiveness' that has never gathered a plot, a setting, or a decade.", "options": ["nebulous", "indistinct"], "key": "nebulous", "pair": "indistinct", "why_right": "The tell is <em>No script pages exist<\/em> - nothing real is out there being seen poorly; the idea itself has never taken a settled form, all cloud and no outline.", "why_wrong": "That word belongs to perception - a real thing whose edges the eye or ear cannot recover. Nothing here exists to be seen at all; the failure is in the idea itself."}, {"sentence": "The renovation plan is ____ only around the money: rooms, dates, and colors are all fixed, while two budget lines still blur whenever anyone asks for figures.", "options": ["nebulous", "fuzzy"], "key": "fuzzy", "pair": "fuzzy", "why_right": "The tell is <em>rooms, dates, and colors are all fixed<\/em> - the plan keeps real, set edges that soften in just two spots, nothing like a plan that never took outline.", "why_wrong": "That word means all cloud and no outline. This plan has <em>rooms, dates, and colors all fixed<\/em> -- only two budget lines soften."}, {"sentence": "'A greener downtown' is all the mayor's plan amounts to - which street, whose money, what year, all still open - so the council calls it ____ and tables it again.", "options": ["nebulous", "fuzzy"], "key": "nebulous", "pair": "fuzzy", "why_right": "The tell is <em>all the mayor's plan amounts to<\/em> - a slogan with every particular still open has no set edges anywhere, and fuzzy needs real edges that blur only in spots.", "why_wrong": "That word suits a plan mostly settled, soft in patches. Nothing here is settled - street, money, and year all still open - so no set edges exist for soft spots to sit between."}], "display_order": [3, 2, 7, 5, 0, 6, 1, 4], "dimension_order": ["vague", "indistinct", "fuzzy"], "dimension_feedback": {"vague": "Vague is the everyday, all-purpose word for anything not pinned down — a vague answer, a vague promise, a vague sense of direction. Nebulous is stronger and more pointed: it says a plan or idea is all cloud, with no outline at all for anyone to grab.", "indistinct": "Indistinct belongs to perception: something real is there, but the eye or ear cannot quite make out its edges — a coastline in fog, a voice through a wall. Nebulous points at the thing itself, saying the idea or plan has never taken a settled form.", "fuzzy": "A fuzzy plan has real edges that blur here and there; nebulous goes further - the plan is all cloud and no outline."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show an idea or plan with no outline at all -- not one that is merely loose. Show the missing shape with a word like <i>no<\/i>, <i>outline<\/i>, <i>shapeless<\/i> or <i>nothing<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

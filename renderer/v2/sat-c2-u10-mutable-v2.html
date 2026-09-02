@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="790e79d7d14d">
+<meta name="build" content="eb7926513c03">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mutable &#8212; SAT Vocabulary, Course 2 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "mutable", "gradeUrl": "/api/grade", "taskId": "mutable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mutable correctly?", "opts": {"A": "The museum keeps its one mutable exhibit sealed under glass so that nothing about it can ever change.", "B": "Don't mind the mutable doorman; he growls the same growl at everyone until his second coffee.", "C": "Engineers built the dam mutable so that it would hold its exact shape through a century of floods.", "D": "Districts here are drawn in pencil for a reason: the boundaries are mutable, redrawn after every census."}, "key": "D", "fb": {"correct": "Correct. Boundaries drawn in pencil, rewritten each census — open to change is mutable.", "A": "Read the whole sentence: the museum seals this exhibit precisely \"so that nothing about it can ever change\" — a guarantee of permanence. That contradicts mutable outright, which insists change is to be expected.", "B": "A doorman who \"growls the same growl at everyone\" every morning is dependably grumpy — his behavior never varies. This sentence wants a temper word like surly; mutable would require him to keep changing.", "C": "A dam built to \"hold its exact shape through a century of floods\" is designed never to change — the engineers wanted immutable, the word's own opposite. Mutable would make the dam shift, exactly what they feared."}}, "s3a": {"q": "In the passage, calling the handbook mutable most nearly means that it…", "opts": {"A": "is rewritten so often that no rule in it lasts long", "B": "is open to revision, even after years unchanged", "C": "expires automatically unless the student council renews it every year", "D": "was never meant to be read by the students"}, "key": "B", "fb": {"correct": "Right. Rule 14 stood for decades and could still be revised by a vote -- openness to change, with or without change underway, is exactly the claim.", "A": "The passage says the opposite -- the handbook 'did not change often,' and Rule 14 had outlasted six principals before a single revision passed.", "C": "Nothing expires on its own. Changing a rule takes a deliberate two-thirds vote, and until one passes, a rule simply stands.", "D": "Priya finds the revision clause by reading the handbook herself, on a page anyone could turn to. It was quoted by nobody, not hidden from everybody."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fluid", "B": "mutable", "C": "adjustable", "D": "changeable"}, "key": "A", "fb": {"correct": "Right. This production has no settled shape at all — <em>entire scenes vanished overnight<\/em>, <em>a new opening number arrived with four days' notice<\/em>, and <em>the second act ended three different ways in a single week<\/em>. Fluid is the word for a state of affairs whose lines are redrawn while you watch.", "B": "Mutable makes the quieter claim: open to revision, whether or not any revision is underway — a mutable rulebook can sit untouched for a decade. This show is not sitting anywhere: <em>the second act ended three different ways in a single week<\/em>. The blank has to report upheaval in progress, not a standing capacity for it.", "D": "Changeable describes a thing that keeps switching among its states — weather turning, moods swinging. But <em>nothing yet was final<\/em>: there was no settled version of the show to switch from. Only at opening night would it <em>at last have a shape to judge<\/em>.", "C": "Adjustable would mean the production could be altered deliberately, one setting at a time. What previews brought was nothing so contained: <em>entire scenes vanished overnight<\/em>, and <em>a new opening number arrived with four days' notice<\/em>. Those are wholesale upheavals, not adjustments."}}}, "grid": {"words": ["mutable", "changeable", "fluid", "adjustable"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Committee members treat the seating chart as ____: it has not moved in three years, yet a single vote could redraw it tomorrow.", "ks": ["mutable"], "fb": {"changeable": "That word reports a thing that keeps changing -- flighty, never sitting still. <em>Has not moved in three years<\/em> says the opposite: the chart only could move.", "fluid": "A situation earns that word while its lines are being redrawn in front of you. This chart has sat still for three years -- nothing here is in motion.", "adjustable": "That word suits a setting one person changes on purpose -- a dial, a strap. The chart is not a mechanism; if it changes at all, it changes by a vote."}}, {"s": "Linguists remind their students that spelling is ____: no rule of English is fixed beyond revision, even one that has held for centuries.", "ks": ["mutable"], "fb": {"changeable": "That word says the thing keeps changing -- weather that never sits. A rule that has <em>held for centuries<\/em> is not doing that; it is merely not fixed forever.", "fluid": "That word describes a situation with no settled shape yet. A centuries-old rule is about as settled as shapes get; the claim here is only that it could someday shift.", "adjustable": "That word wants a knob and a hand -- something a person resets on purpose. Nobody resets English spelling from a control panel; it shifts by itself, slowly."}}, {"s": "Her taste in music proved ____ all semester -- devoted to jazz in September, done with it by October, and on to film scores by Halloween.", "ks": ["changeable"], "fb": {"mutable": "That word claims only a capacity -- the door is open whether or not anyone walks through. Three enthusiasms in three months is far past capacity; her taste never sits still.", "fluid": "That word fits a situation with no settled shape at all. Her taste has shapes -- jazz, then film scores -- it just trades one for the next.", "adjustable": "That word needs someone changing a setting on purpose. Nobody dialed her from jazz over to film scores; the swings were all her own."}}, {"s": "The attic wifi is ____ -- full strength one minute, gone the next, back again before the page finishes loading.", "ks": ["changeable"], "fb": {"mutable": "That word would be true of a rock-steady signal too -- it claims only that the door is open. This one is swinging while you watch; the sentence needs a word that reports the swinging itself.", "fluid": "That word describes something with no settled shape. The signal has exactly two shapes -- full and gone -- and keeps trading them.", "adjustable": "Nothing here is being set on purpose. That word wants a hand on a dial, and this signal swings all by itself."}}, {"s": "In the hour after the earthquake the rescue plan stayed ____, its route redrawn faster than the map office could print it.", "ks": ["fluid"], "fb": {"mutable": "That word claims only that a thing could change -- it may sit untouched for a decade. A plan <em>redrawn faster than the map office could print it<\/em> is well past 'could.'", "changeable": "That word fits a thing that swaps one settled state for another -- weather turning, moods swinging. This plan never settled into any state to swap from.", "adjustable": "That word wants deliberate hands -- a person changing a setting on purpose. Here the earthquake is doing the redrawing, one road closure at a time."}}, {"s": "The lamp's arm is ____: loosen one small knob and it will hold any angle you choose to set.", "ks": ["adjustable"], "fb": {"mutable": "That word makes a deeper claim -- the thing itself open to change through and through, like a law anyone may amend. This arm changes only when a hand loosens the knob.", "changeable": "That word describes what keeps changing on its own -- and this arm <em>holds any angle you choose<\/em> until someone moves it again.", "fluid": "That word fits a situation with no settled shape. The arm's whole point is settling: one knob, one angle, locked."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show something open to change even if it has not changed -- capacity, not activity. Try working in a word like <i>could<\/i>, <i>someday<\/i>, <i>untouched<\/i> or <i>amend<\/i>."}};
+  var CFG = {"word": "mutable", "gradeUrl": "/api/grade", "taskId": "mutable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mutable correctly?", "opts": {"A": "The museum keeps its one mutable exhibit sealed under glass so that nothing about it can ever change.", "B": "Don't mind the mutable doorman; he growls the same growl at everyone until his second coffee.", "C": "Engineers built the dam mutable so that it would hold its exact shape through a century of floods.", "D": "Districts here are drawn in pencil for a reason: the boundaries are mutable, redrawn after every census."}, "key": "D", "fb": {"correct": "Correct. Boundaries drawn in pencil, rewritten each census — open to change is mutable.", "A": "Read the whole sentence: the museum seals this exhibit precisely \"so that nothing about it can ever change\" — a guarantee of permanence. That contradicts mutable outright, which insists change is to be expected.", "B": "A doorman who \"growls the same growl at everyone\" every morning is dependably grumpy — his behavior never varies. This sentence wants a temper word like surly; mutable would require him to keep changing.", "C": "A dam built to \"hold its exact shape through a century of floods\" is designed never to change — the engineers wanted immutable, the word's own opposite. Mutable would make the dam shift, exactly what they feared."}}, "s3a": {"q": "In the passage, calling the handbook mutable most nearly means that it…", "opts": {"A": "is rewritten so often that no rule in it lasts long", "B": "is open to revision, even after years unchanged", "C": "expires automatically unless the student council renews it every year", "D": "was never meant to be read by the students"}, "key": "B", "fb": {"correct": "Right. Rule 14 stood for decades and could still be revised by a vote -- openness to change, with or without change underway, is exactly the claim.", "A": "The passage says the opposite -- the handbook 'did not change often,' and Rule 14 had outlasted six principals before a single revision passed.", "C": "Nothing expires on its own. Changing a rule takes a deliberate two-thirds vote, and until one passes, a rule simply stands.", "D": "Priya finds the revision clause by reading the handbook herself, on a page anyone could turn to. It was quoted by nobody, not hidden from everybody."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fluid", "B": "mutable", "C": "adjustable", "D": "changeable"}, "key": "A", "fb": {"correct": "Right. This production has no settled shape at all — <em>entire scenes vanished overnight<\/em>, <em>a new opening number arrived with four days' notice<\/em>, and <em>the second act ended three different ways in a single week<\/em>. Fluid is the word for a state of affairs whose lines are redrawn while you watch.", "B": "Mutable makes the quieter claim: open to revision, whether or not any revision is underway — a mutable rulebook can sit untouched for a decade. This show is not sitting anywhere: <em>the second act ended three different ways in a single week<\/em>. The blank has to report upheaval in progress, not a standing capacity for it.", "D": "Changeable describes a thing that keeps switching among its states — weather turning, moods swinging. But <em>nothing yet was final<\/em>: there was no settled version of the show to switch from. Only at opening night would it <em>at last have a shape to judge<\/em>.", "C": "Adjustable would mean the production could be altered deliberately, one setting at a time. What previews brought was nothing so contained: <em>entire scenes vanished overnight<\/em>, and <em>a new opening number arrived with four days' notice<\/em>. Those are wholesale upheavals, not adjustments."}}}, "pairwise": {"rows": [{"sentence": "Her taste in music proved ____ all semester -- devoted to jazz in September, done with it by October, and on to film scores by Halloween.", "options": ["mutable", "changeable"], "key": "changeable", "pair": "changeable", "why_right": "The tell is <em>done with it by October<\/em> - three enthusiasms in three months is change actively underway, the flighty word's report; a mere capacity for change never swings like this.", "why_wrong": "That word claims only a capacity -- the door is open whether or not anyone walks through. Three enthusiasms in three months is far past capacity; her taste never sits still."}, {"sentence": "The attic wifi is ____ -- full strength one minute, gone the next, back again before the page finishes loading.", "options": ["mutable", "changeable"], "key": "changeable", "pair": "changeable", "why_right": "The tell is <em>full strength one minute, gone the next<\/em> - constant swinging between states while you watch: the word that reports the changing itself, not the mere open door.", "why_wrong": "That word would be true of a rock-steady signal too -- it claims only that the door is open. This one is swinging while you watch; the sentence needs a word that reports the swinging itself."}, {"sentence": "Committee members treat the seating chart as ____: it has not moved in three years, yet a single vote could redraw it tomorrow.", "options": ["mutable", "changeable"], "key": "mutable", "pair": "changeable", "why_right": "The tell is <em>a single vote could redraw it tomorrow<\/em> - open to change while sitting still for years: the calm claim of capacity, with no change underway at all.", "why_wrong": "That word reports a thing that keeps changing -- flighty, never sitting still. <em>Has not moved in three years<\/em> says the opposite: the chart only could move."}, {"sentence": "In the hour after the earthquake the rescue plan stayed ____, its route redrawn faster than the map office could print it.", "options": ["mutable", "fluid"], "key": "fluid", "pair": "fluid", "why_right": "The tell is <em>redrawn faster than the map office could print it<\/em> - a situation with no settled shape, its lines redrawn while you watch, well past merely being open to change.", "why_wrong": "That word claims only that a thing could change -- it may sit untouched for a decade. A plan <em>redrawn faster than the map office could print it<\/em> is well past 'could.'"}, {"sentence": "Linguists remind their students that spelling is ____: no rule of English is fixed beyond revision, even one that has held for centuries.", "options": ["mutable", "fluid"], "key": "mutable", "pair": "fluid", "why_right": "The tell is <em>even one that has held for centuries<\/em> - a rule long settled yet not fixed beyond revision: quiet capacity for change, with nothing being redrawn now.", "why_wrong": "That word describes a situation with no settled shape yet. A centuries-old rule is about as settled as shapes get; the claim here is only that it could someday shift."}, {"sentence": "The treaty's fishing quotas are ____: any signatory may call a revision conference, though none has in twenty years and the numbers stand as first inked.", "options": ["mutable", "fluid"], "key": "mutable", "pair": "fluid", "why_right": "The tell is <em>stand as first inked<\/em> - twenty settled years with the door merely open: capable of being rewritten at any conference, not being rewritten now.", "why_wrong": "That word fits a situation with no settled shape, its lines redrawn while you watch -- a merger's first week. Quotas standing untouched for twenty years are as settled as numbers get."}, {"sentence": "The lamp's arm is ____: loosen one small knob and it will hold any angle you choose to set.", "options": ["mutable", "adjustable"], "key": "adjustable", "pair": "adjustable", "why_right": "The tell is <em>loosen one small knob<\/em> - a setting a person changes on purpose, one dial at a time, then locks in place: a mechanism's word, nothing open through and through.", "why_wrong": "That word makes a deeper claim -- the thing itself open to change through and through, like a law anyone may amend. This arm changes only when a hand loosens the knob."}, {"sentence": "The district lines, older residents remind newcomers, are ____: a two-thirds council vote could redraw them, and in 1968 one did.", "options": ["mutable", "adjustable"], "key": "mutable", "pair": "adjustable", "why_right": "The tell is <em>could redraw them<\/em> - the lines are open to change through and through, by vote rather than by any hand at a dial, however long they have held.", "why_wrong": "That word wants a hand at a setting, changed on purpose one dial at a time. District lines have no dial; they change by vote, when they change at all."}], "display_order": [3, 2, 5, 7, 0, 4, 6, 1], "dimension_order": ["changeable", "fluid", "adjustable"], "dimension_feedback": {"changeable": "Changeable reports that a thing keeps changing, and it can sound flighty — changeable weather, changeable moods. Mutable makes a calmer, deeper claim: the thing is open to change, whether or not any change is underway. A mutable law may sit untouched for a decade; changeable weather never sits at all.", "fluid": "Fluid lies further along the same road: a fluid situation has no settled shape, its lines redrawn while you watch. Mutable is quieter — capable of being rewritten, not necessarily being rewritten now. A merger's first week is fluid; the club constitution is merely mutable.", "adjustable": "Adjustable means a person can change it on purpose, one dial at a time; mutable runs deeper — the thing itself is open to change through and through."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show something open to change even if it has not changed -- capacity, not activity. Try working in a word like <i>could<\/i>, <i>someday<\/i>, <i>untouched<\/i> or <i>amend<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

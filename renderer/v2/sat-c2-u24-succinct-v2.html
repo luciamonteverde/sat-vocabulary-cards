@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="0187ed60f78d">
+<meta name="build" content="27721c1aaef2">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>succinct &#8212; SAT Vocabulary, Course 2 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "succinct", "gradeUrl": "/api/grade", "taskId": "succinct", "minWords": 12, "items": {"s1": {"q": "Which sentence uses succinct correctly?", "opts": {"A": "The peaches were so succinct that the juice ran down our wrists at the stand.", "B": "His succinct apology lasted the whole ferry crossing and toured his entire childhood.", "C": "Keep the guy-rope succinct or the tent will sag the moment the wind rises.", "D": "Her wedding toast was succinct: under a minute, nothing worth saying left out."}, "key": "D", "fb": {"correct": "Correct. A toast under a minute that leaves nothing worth saying unsaid — everything needed in almost no words is compact precision, which is what succinct means.", "A": "Peaches whose 'juice ran down our wrists' are succulent — ripe and juicy. Succinct describes speech or writing squeezed to its essentials, with no padding; fruit cannot be succinct.", "B": "An apology that 'lasted the whole ferry crossing' and 'toured his entire childhood' is anything but compact. Succinct speech is trimmed to the essentials — this one sprawls in the opposite direction.", "C": "Keeping a 'guy-rope' tight so the tent will not 'sag' makes it taut. Rope has tension, not phrasing — succinct applies to expression that packs its message into very few words."}}, "s3a": {"q": "As used in this passage, 'succinct' most nearly means:", "opts": {"A": "delivered as quickly as possible no matter what", "B": "covering everything needed in very few words", "C": "spoken from memory without the chart", "D": "shortened by leaving minor details out"}, "key": "B", "fb": {"correct": "Right — 'nothing could be cut and nothing needs to be added': few words carrying everything needed.", "A": "'That means more than fast talking' — speed alone fails if the allergy list gets dropped.", "C": "Reciting without the chart is how the standard is tested, not what the word means.", "D": "A summary 'that saves time by dropping the allergy list' fails — leaving needed details out is exactly what the standard forbids."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "succinct", "B": "compact", "C": "crisp", "D": "brief"}, "key": "A", "fb": {"correct": "Right. Sixty words carrying everything a hiker needs, with the style deliberately flat — the achievement is the ratio of coverage to words, and succinct is the word that promises both halves: nothing extra, nothing missing.", "B": "Compact means much packed into little space — of a folding chair as easily as of prose — and it makes no promise about what got in. But <em>the boards themselves never changed size<\/em>, and the point of the rewrite is the promise: <em>nothing a hiker needs left to the visitor center<\/em>.", "C": "Crisp praises the feel of the delivery — brisk, clean, a snap of energy in every line. These sentences are <em>plain to the point of flatness, without a spark of wit anywhere<\/em>; the passage says outright that nobody praises their style.", "D": "Brief only counts the words, and <em>all inside sixty words<\/em> makes it true — but brief makes no promise that anything important survived the cut. These signs guarantee it: <em>nothing a hiker needs left to the visitor center<\/em>."}}}, "grid": {"words": ["succinct", "compact", "crisp", "brief"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The incident report ran nine lines, yet the chief called it ____: every fact the inquiry needed was on the page, and not a syllable wasted.", "ks": ["succinct"], "fb": {"brief": "Short, yes — but the chief's point is that <em>every fact the inquiry needed was on the page<\/em>. Counting words alone earns no such praise.", "compact": "That word saves space and is as happy with folding chairs as with prose. The chief is certifying coverage: all that mattered survived the nine lines.", "crisp": "That word praises the feel of the delivery — a snap of energy. The chief is praising the ratio: everything needed, nothing wasted."}}, {"s": "Her thirty-second summary of the merger proved ____ — the lawyers combed the transcript afterward and found nothing essential missing.", "ks": ["succinct"], "fb": {"brief": "Thirty seconds is short — but what the lawyers certified is that <em>nothing essential<\/em> was <em>missing<\/em>. That word counts the clock and promises nothing more.", "compact": "That word is about much-in-little-space, true of cars and chairs alike. The finding here is about wording that kept everything needed.", "crisp": "That word would praise the snap of her delivery. The lawyers' comb-through tested something else: whether all that mattered was in."}}, {"s": "The ceasefire held for a ____ eleven minutes — long enough for the stretcher parties, not long enough to repair the wells — before the shelling resumed.", "ks": ["brief"], "fb": {"succinct": "That word praises wording that covers everything needed. Eleven minutes of quiet isn't wording at all — it's a span on the clock.", "compact": "That word means much fitted into little space. Nothing is fitted here; time simply ran out.", "crisp": "That word praises quick, clean delivery. A pause in shelling delivers nothing — it only lasts, and not for long."}}, {"s": "His reply was ____ — two flat lines that answered the deadline question and ignored the other four.", "ks": ["brief"], "fb": {"succinct": "That word guarantees everything needed made the cut. This reply <em>ignored the other four<\/em> questions — coverage failed.", "crisp": "That word carries a snap of energy in the delivery. These lines were <em>flat<\/em> — short without the shine.", "compact": "That word means much packed into little. Two lines answering one question out of five pack in almost nothing."}}, {"s": "The whole darkroom folds into a ____ kit the size of a lunchbox — tanks, reels and thermometer included.", "ks": ["compact"], "fb": {"succinct": "That word praises wording — full coverage in few words. A box of tanks and reels has no words to cover anything.", "crisp": "That word praises the clean snap of a delivery or a reply. This is hardware fitting into a lunchbox.", "brief": "That word counts words or minutes. The claim here is spatial: a whole darkroom in one small case."}}, {"s": "Her orders came out ____ — short, clean, with a snap that woke the whole galley — though she'd forgotten to mention the tide change.", "ks": ["crisp"], "fb": {"succinct": "That word promises everything needed made it in. She <em>forgot to mention the tide change<\/em> — the guarantee fails.", "brief": "The sentence already grants that the orders were short; the gap adds how they sounded — <em>clean, with a snap<\/em>. That word stops at the count.", "compact": "That word measures how much fits in little space. What's praised here is the sound and energy of the delivery."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must prove two things at once: the wording was short, and nothing important was lost. Show a checker verifying it — words like <i>every<\/i>, <i>nothing<\/i>, <i>missing<\/i> or <i>covered<\/i> help make both halves visible."}};
+  var CFG = {"word": "succinct", "gradeUrl": "/api/grade", "taskId": "succinct", "minWords": 12, "items": {"s1": {"q": "Which sentence uses succinct correctly?", "opts": {"A": "The peaches were so succinct that the juice ran down our wrists at the stand.", "B": "His succinct apology lasted the whole ferry crossing and toured his entire childhood.", "C": "Keep the guy-rope succinct or the tent will sag the moment the wind rises.", "D": "Her wedding toast was succinct: under a minute, nothing worth saying left out."}, "key": "D", "fb": {"correct": "Correct. A toast under a minute that leaves nothing worth saying unsaid — everything needed in almost no words is compact precision, which is what succinct means.", "A": "Peaches whose 'juice ran down our wrists' are succulent — ripe and juicy. Succinct describes speech or writing squeezed to its essentials, with no padding; fruit cannot be succinct.", "B": "An apology that 'lasted the whole ferry crossing' and 'toured his entire childhood' is anything but compact. Succinct speech is trimmed to the essentials — this one sprawls in the opposite direction.", "C": "Keeping a 'guy-rope' tight so the tent will not 'sag' makes it taut. Rope has tension, not phrasing — succinct applies to expression that packs its message into very few words."}}, "s3a": {"q": "As used in this passage, 'succinct' most nearly means:", "opts": {"A": "delivered as quickly as possible no matter what", "B": "covering everything needed in very few words", "C": "spoken from memory without the chart", "D": "shortened by leaving minor details out"}, "key": "B", "fb": {"correct": "Right — 'nothing could be cut and nothing needs to be added': few words carrying everything needed.", "A": "'That means more than fast talking' — speed alone fails if the allergy list gets dropped.", "C": "Reciting without the chart is how the standard is tested, not what the word means.", "D": "A summary 'that saves time by dropping the allergy list' fails — leaving needed details out is exactly what the standard forbids."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "succinct", "B": "compact", "C": "crisp", "D": "brief"}, "key": "A", "fb": {"correct": "Right. Sixty words carrying everything a hiker needs, with the style deliberately flat — the achievement is the ratio of coverage to words, and succinct is the word that promises both halves: nothing extra, nothing missing.", "B": "Compact means much packed into little space — of a folding chair as easily as of prose — and it makes no promise about what got in. But <em>the boards themselves never changed size<\/em>, and the point of the rewrite is the promise: <em>nothing a hiker needs left to the visitor center<\/em>.", "C": "Crisp praises the feel of the delivery — brisk, clean, a snap of energy in every line. These sentences are <em>plain to the point of flatness, without a spark of wit anywhere<\/em>; the passage says outright that nobody praises their style.", "D": "Brief only counts the words, and <em>all inside sixty words<\/em> makes it true — but brief makes no promise that anything important survived the cut. These signs guarantee it: <em>nothing a hiker needs left to the visitor center<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The whole darkroom folds into a ____ kit the size of a lunchbox — tanks, reels and thermometer included.", "options": ["succinct", "compact"], "key": "compact", "pair": "compact", "why_right": "The tell is <em>the size of a lunchbox<\/em> - compact is much packed into little physical space, true of hardware, where there is no wording at all for succinct to praise.", "why_wrong": "That word praises wording — full coverage in few words. A box of tanks and reels has no words to cover anything."}, {"sentence": "Both drafts ran a half-page, but the panel kept the second: the first dropped the risk section, the second stayed ____ — every needed part still in.", "options": ["succinct", "compact"], "key": "succinct", "pair": "compact", "why_right": "The tell is <em>every needed part still in<\/em> - both drafts were a half-page, so smallness cannot be the point; the second wins by keeping all the content while staying tight, which is succinct.", "why_wrong": "That word only means much packed into little space, and both drafts already fit a half-page. It cannot say why the second was kept: that the first had dropped the risk section while the second kept every part."}, {"sentence": "The incident report ran nine lines, yet the chief called it ____: every fact the inquiry needed was on the page, and not a syllable wasted.", "options": ["succinct", "brief"], "key": "succinct", "pair": "brief", "why_right": "The tell is <em>every fact the inquiry needed was on the page<\/em> - the praise certifies full coverage, not just shortness; brief counts words and promises nothing about what survived.", "why_wrong": "Short, yes — but the chief's point is that <em>every fact the inquiry needed was on the page<\/em>. Counting words alone earns no such praise."}, {"sentence": "The ceasefire held for a ____ eleven minutes — long enough for the stretcher parties, not long enough to repair the wells — before the shelling resumed.", "options": ["succinct", "brief"], "key": "brief", "pair": "brief", "why_right": "The tell is <em>eleven minutes<\/em> - brief just counts the span on the clock, and there is no wording here for succinct's completeness guarantee to attach to.", "why_wrong": "That word praises wording that covers everything needed. Eleven minutes of quiet isn't wording at all — it's a span on the clock."}, {"sentence": "His reply was ____ — two flat lines that answered the deadline question and ignored the other four.", "options": ["succinct", "brief"], "key": "brief", "pair": "brief", "why_right": "The tell is <em>ignored the other four<\/em> - four of five questions went unanswered, so nothing here covers all that matters; only the bare stopwatch word fits.", "why_wrong": "That word guarantees everything needed made the cut. This reply <em>ignored the other four<\/em> questions — coverage failed."}, {"sentence": "Read in a flat monotone that woke nobody, the pre-flight checklist still got instant sign-off: the ____ page named every hazard and wasted no line.", "options": ["succinct", "crisp"], "key": "succinct", "pair": "crisp", "why_right": "The tell is <em>named every hazard<\/em> - full coverage in few words is the succinct ratio, earned even though the flat delivery had none of the snap crisp needs.", "why_wrong": "That word praises a brisk, clean snap in the delivery. This checklist was read in a flat monotone that woke nobody -- no snap at all; the merit is full coverage in few words."}, {"sentence": "There was no snap to her closing argument — she spoke almost drably — yet the ____ summary the jury got covered every charge and padded nothing.", "options": ["succinct", "crisp"], "key": "succinct", "pair": "crisp", "why_right": "The tell is <em>covered every charge and padded nothing<\/em> - every count covered without a wasted word is the succinct ratio, present even though the drab delivery carried none of crisp's snap.", "why_wrong": "That word praises the brisk snap of a delivery. She spoke almost drably, with no snap at all; what earns the praise is covering every charge without padding."}, {"sentence": "Her orders came out ____ — short, clean, with a snap that woke the whole galley — though she'd forgotten to mention the tide change.", "options": ["succinct", "crisp"], "key": "crisp", "pair": "crisp", "why_right": "The tell is <em>a snap that woke the whole galley<\/em> - crisp praises the brisk, clean energy of the delivery, and the missed tide change rules out the full coverage succinct would need.", "why_wrong": "That word promises everything needed made it in. She <em>forgot to mention the tide change<\/em> — the guarantee fails."}], "display_order": [4, 5, 3, 1, 6, 2, 0, 7], "dimension_order": ["compact", "crisp", "brief"], "dimension_feedback": {"compact": "Compact means much packed into little space, and it is as true of cars and folding chairs as of prose. Succinct is compact applied to wording, with a guarantee attached: everything needed is present, nothing extra. A compact thing saves space; succinct writing saves words without losing content.", "crisp": "Crisp praises the feel of the delivery — brisk, clean, a snap of energy in every line. Succinct praises the ratio instead: full coverage in few words. A crisp reply can still leave something out; a succinct one, by its nature, covers all that matters.", "brief": "Brief is the bare stopwatch fact — milder than succinct, because brief only counts the words and makes no promise that anything important survived the cut."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must prove two things at once: the wording was short, and nothing important was lost. Show a checker verifying it — words like <i>every<\/i>, <i>nothing<\/i>, <i>missing<\/i> or <i>covered<\/i> help make both halves visible."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

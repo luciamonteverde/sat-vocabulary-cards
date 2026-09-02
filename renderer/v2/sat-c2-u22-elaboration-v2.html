@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="18b3a65191d9">
+<meta name="build" content="b08472338895">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>elaboration &#8212; SAT Vocabulary, Course 2 Unit 22</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "elaboration", "gradeUrl": "/api/grade", "taskId": "elaboration", "minWords": 12, "items": {"s1": {"q": "Which sentence uses elaboration correctly?", "opts": {"A": "Her elaboration of the annual report cut its nine dense chapters down to a single crisp page for the shareholders.", "B": "Under oath, she finally admitted the treasure map was pure elaboration, invented dune by dune at her kitchen table.", "C": "The wedding cake's elaboration collapsed in slow motion when the caterer let the oven door slam at the worst moment.", "D": "The syllabus promises elaboration of week one's rough map: each lecture returns to it and fills in another region."}, "key": "D", "fb": {"correct": "Correct! Lectures that keep returning to the same skeleton and filling in regions are developing it with fuller detail — elaboration in the exact sense.", "A": "Cutting 'nine dense chapters down to a single crisp page' moves in the wrong direction: that is condensing. Elaboration expands — it takes something spare and develops it outward, adding rather than trimming.", "B": "Calling the invented treasure map 'pure elaboration' reaches for fabrication — making something up from nothing. Elaboration is not invention; it starts from something real and works it out more fully.", "C": "The cake that 'collapsed in slow motion' needs a word for its built structure — tiers and ornament. Elaboration names the process of developing an idea or account in greater detail, not frosting."}}, "s3a": {"q": "In this passage, the committee's request for \"elaboration\" asks Rosa to provide", "opts": {"A": "a defense of the recipe against the committee's doubts", "B": "a replacement recipe with her grandmother's version discarded entirely", "C": "the same instructions developed with fuller, more exact detail", "D": "a shorter version that would fit the printed column"}, "key": "C", "fb": {"correct": "Right -- the letter itself lists the missing specifics: how much, how many minutes, what size, what heat. The original stays; detail grows onto it.", "A": "Nobody doubts the recipe -- the committee loved it. What they rejected was the card's thinness.", "B": "The printed page keeps a line of the original card at the top -- nothing is discarded.", "D": "The recipe got longer, not shorter -- half a column grown from two phrases."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "clarification", "B": "elaboration", "C": "fleshing-out", "D": "amplification"}, "key": "B", "fb": {"correct": "Right. The office wants every vague phrase developed in fuller detail — <em>a count by species<\/em>, <em>months and depths<\/em> — while <em>its conclusions were left standing<\/em>. A formal, written request for fuller detail is exactly what elaboration names.", "C": "That is the working writer's shop word for this kind of growth, and nothing here is shop talk: the requirement comes from a state office, <em>in writing, before any permit could issue<\/em>. A formal demand on official paper reaches for the formal term.", "D": "Amplification gives a point more room, force, and volume — longer and louder. The office is not asking for volume: it <em>wanted months and depths<\/em> where the draft said 'seasonal flooding,' and <em>a count by species<\/em> where it said 'several bird species.' The demand is for specifics, not size.", "A": "A clarification restates what was already said so it cannot be misread — nothing new is added. This office wants the draft to <em>grow the specifics it had only gestured at<\/em>: counts, months, and depths the survey never contained. That is new material, not a restatement."}}}, "grid": {"words": ["elaboration", "fleshing-out", "amplification", "clarification"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The journal accepted the method section only after a round of ____ demanded by reviewer two: name the solvent, the temperature, and the timing of each wash.", "ks": ["elaboration"], "fb": {"fleshing-out": "That is the workshop word a writer uses at the desk. A journal reviewer's formal demand arrives under the formal name.", "amplification": "That kind of growth adds room and force -- a point made bigger and louder. Reviewer two wants it more SPECIFIC: solvent, temperature, timing.", "clarification": "That lighter request asks you to restate what is already there so it cannot be misread. This demand requires new details the section never contained."}}, {"s": "Committee minutes record a single motion: the safety plan returns to staff for ____, with the evacuation step to be developed in fuller detail before the next session.", "ks": ["elaboration"], "fb": {"fleshing-out": "That is what the staff writer might mutter at the keyboard. In the minutes of a committee, the request goes by its formal name.", "amplification": "That would let the plan simply grow longer and louder. The motion wants the evacuation step made more exact, which is a different growth.", "clarification": "That asks for the same content restated more plainly. This motion sends the plan back so that NEW detail can be built into it."}}, {"s": "The professor's reply asked for no new material at all -- just one ____ of the second claim, the same point said again in words that admit only one reading.", "ks": ["clarification"], "fb": {"elaboration": "That word asks the writer to develop the claim with fuller detail. The professor forbids exactly that -- no new material at all.", "fleshing-out": "That means growing a sketch into a full account. Nothing is to grow here; the same point is only to be said again, unmistakably.", "amplification": "That gives a point more room and volume. This request wants the point exactly the size it was -- just impossible to misread."}}, {"s": "Air traffic control wanted only ____ from the pilot tonight: the altitude readback repeated in unambiguous words, with nothing added to it.", "ks": ["clarification"], "fb": {"elaboration": "That would mean the pilot develops the readback with fuller detail. The tower wants nothing added -- only the same numbers, unmistakably said.", "fleshing-out": "That grows a thin account into a full one. A readback repeated with nothing added has grown by exactly nothing.", "amplification": "That adds room and volume to a point. The tower wants the same short readback -- just impossible to mishear."}}, {"s": "In the writers' room the showrunner never says anything fancier than 'this scene needs ____' -- the sketch has to grow real detail before Friday's table read.", "ks": ["fleshing-out"], "fb": {"elaboration": "That is the formal name -- what a committee writes in minutes or an editor in a letter. A showrunner talking shop reaches for the plainer workshop word.", "amplification": "That growth makes a point bigger and louder. A thin scene needs particulars -- who moves, what is said -- not volume.", "clarification": "That asks for the same content restated. A sketch restated is still a sketch; this scene needs new detail grown onto it."}}, {"s": "What the keynote draft got in revision was pure ____: the middle argument now runs three pages instead of one, louder and roomier, yet not a single new particular appears.", "ks": ["amplification"], "fb": {"elaboration": "That word requires the argument to get more specific about what is already there. Three pages with no new particulars got bigger, not more specific.", "fleshing-out": "That means adding the concrete detail a sketch lacks. This revision added length and volume while the particulars stayed exactly as thin.", "clarification": "That is a restatement made to prevent misreading -- nothing grows. This argument tripled in size."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show something short being developed with fuller detail -- and the original still standing when the detail arrives. Try working in a word like <i>spell out<\/i>, <i>fuller<\/i>, <i>request<\/i> or <i>details<\/i>."}};
+  var CFG = {"word": "elaboration", "gradeUrl": "/api/grade", "taskId": "elaboration", "minWords": 12, "items": {"s1": {"q": "Which sentence uses elaboration correctly?", "opts": {"A": "Her elaboration of the annual report cut its nine dense chapters down to a single crisp page for the shareholders.", "B": "Under oath, she finally admitted the treasure map was pure elaboration, invented dune by dune at her kitchen table.", "C": "The wedding cake's elaboration collapsed in slow motion when the caterer let the oven door slam at the worst moment.", "D": "The syllabus promises elaboration of week one's rough map: each lecture returns to it and fills in another region."}, "key": "D", "fb": {"correct": "Correct! Lectures that keep returning to the same skeleton and filling in regions are developing it with fuller detail — elaboration in the exact sense.", "A": "Cutting 'nine dense chapters down to a single crisp page' moves in the wrong direction: that is condensing. Elaboration expands — it takes something spare and develops it outward, adding rather than trimming.", "B": "Calling the invented treasure map 'pure elaboration' reaches for fabrication — making something up from nothing. Elaboration is not invention; it starts from something real and works it out more fully.", "C": "The cake that 'collapsed in slow motion' needs a word for its built structure — tiers and ornament. Elaboration names the process of developing an idea or account in greater detail, not frosting."}}, "s3a": {"q": "In this passage, the committee's request for \"elaboration\" asks Rosa to provide", "opts": {"A": "a defense of the recipe against the committee's doubts", "B": "a replacement recipe with her grandmother's version discarded entirely", "C": "the same instructions developed with fuller, more exact detail", "D": "a shorter version that would fit the printed column"}, "key": "C", "fb": {"correct": "Right -- the letter itself lists the missing specifics: how much, how many minutes, what size, what heat. The original stays; detail grows onto it.", "A": "Nobody doubts the recipe -- the committee loved it. What they rejected was the card's thinness.", "B": "The printed page keeps a line of the original card at the top -- nothing is discarded.", "D": "The recipe got longer, not shorter -- half a column grown from two phrases."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "clarification", "B": "elaboration", "C": "fleshing-out", "D": "amplification"}, "key": "B", "fb": {"correct": "Right. The office wants every vague phrase developed in fuller detail — <em>a count by species<\/em>, <em>months and depths<\/em> — while <em>its conclusions were left standing<\/em>. A formal, written request for fuller detail is exactly what elaboration names.", "C": "That is the working writer's shop word for this kind of growth, and nothing here is shop talk: the requirement comes from a state office, <em>in writing, before any permit could issue<\/em>. A formal demand on official paper reaches for the formal term.", "D": "Amplification gives a point more room, force, and volume — longer and louder. The office is not asking for volume: it <em>wanted months and depths<\/em> where the draft said 'seasonal flooding,' and <em>a count by species<\/em> where it said 'several bird species.' The demand is for specifics, not size.", "A": "A clarification restates what was already said so it cannot be misread — nothing new is added. This office wants the draft to <em>grow the specifics it had only gestured at<\/em>: counts, months, and depths the survey never contained. That is new material, not a restatement."}}}, "pairwise": {"rows": [{"sentence": "The journal accepted the method section only after a round of ____ demanded by reviewer two: name the solvent, the temperature, and the timing of each wash.", "options": ["elaboration", "amplification"], "key": "elaboration", "pair": "amplification", "why_right": "The tell is <em>name the solvent, the temperature, and the timing<\/em> - the reviewer demands fuller, more specific detail about what is already on the page, elaboration's one direction of growth.", "why_wrong": "That kind of growth adds room and force -- a point made bigger and louder. Reviewer two wants it more SPECIFIC: solvent, temperature, timing."}, {"sentence": "Committee minutes record a single motion: the safety plan returns to staff for ____, with the evacuation step to be developed in fuller detail before the next session.", "options": ["elaboration", "fleshing-out"], "key": "elaboration", "pair": "fleshing-out", "why_right": "The tell is <em>Committee minutes record a single motion<\/em> - formal proceedings requesting fuller detail take the formal name, the word the card says committees and editors use when they request this growth.", "why_wrong": "That is what the staff writer might mutter at the keyboard. In the minutes of a committee, the request goes by its formal name."}, {"sentence": "The professor's reply asked for no new material at all -- just one ____ of the second claim, the same point said again in words that admit only one reading.", "options": ["elaboration", "clarification"], "key": "clarification", "pair": "clarification", "why_right": "The tell is <em>no new material at all<\/em> - the professor wants the same point restated so it admits only one reading, the lighter ask in which nothing new is added.", "why_wrong": "That word asks the writer to develop the claim with fuller detail. The professor forbids exactly that -- no new material at all."}, {"sentence": "Air traffic control wanted only ____ from the pilot tonight: the altitude readback repeated in unambiguous words, with nothing added to it.", "options": ["elaboration", "clarification"], "key": "clarification", "pair": "clarification", "why_right": "The tell is <em>with nothing added to it<\/em> - the tower wants the same readback restated in unambiguous words, the card's lighter ask; any growth in detail is expressly forbidden here.", "why_wrong": "That would mean the pilot develops the readback with fuller detail. The tower wants nothing added -- only the same numbers, unmistakably said."}, {"sentence": "In the writers' room the showrunner never says anything fancier than 'this scene needs ____' -- the sketch has to grow real detail before Friday's table read.", "options": ["elaboration", "fleshing-out"], "key": "fleshing-out", "pair": "fleshing-out", "why_right": "The tell is <em>never says anything fancier<\/em> - this room speaks the working writer's word for growing a sketch into a full account; the formal term is exactly the fancier word it avoids.", "why_wrong": "That is the formal name -- what a committee writes in minutes or an editor in a letter. A showrunner talking shop reaches for the plainer workshop word."}, {"sentence": "What the keynote draft got in revision was pure ____: the middle argument now runs three pages instead of one, louder and roomier, yet not a single new particular appears.", "options": ["elaboration", "amplification"], "key": "amplification", "pair": "amplification", "why_right": "The tell is <em>not a single new particular appears<\/em> - the argument gained room, length, and force without getting more specific, exactly the growth the card allows an amplified point.", "why_wrong": "That word requires the argument to get more specific about what is already there. Three pages with no new particulars got bigger, not more specific."}, {"sentence": "The adjuster asked for ____ of the claim -- the ladder's make, the height of the fall, the hour the rain began -- details the first report never mentioned.", "options": ["elaboration", "clarification"], "key": "elaboration", "pair": "clarification", "why_right": "The tell is <em>details the first report never mentioned<\/em> - the adjuster wants new material grown onto the account, development in fuller detail; a restatement of the old report could not supply it.", "why_wrong": "That word is the lighter ask: restate what you meant so it cannot be misread, adding nothing. The make, the height, and the hour are new details the report never contained."}, {"sentence": "The revised field guide is not a page longer, yet every entry now gives wingspan, season, and call -- the ____ its readers had asked for.", "options": ["elaboration", "amplification"], "key": "elaboration", "pair": "amplification", "why_right": "The tell is <em>not a page longer<\/em> - with no room or volume gained, the guide's growth is entirely new specifics about entries already there, the fuller detail that defines elaboration.", "why_wrong": "That word gives a point more room, force, and volume on the page. A book that grew by zero pages gained none of those; it only grew more specific."}], "display_order": [0, 3, 5, 2, 1, 7, 4, 6], "dimension_order": ["fleshing-out", "amplification", "clarification"], "dimension_feedback": {"fleshing-out": "Fleshing-out is the working writer's word for adding the muscle and detail that turn a sketch into a full account. Elaboration is the formal name for that same growth — the word committees and editors use when they request it — and both leave the original idea standing.", "amplification": "Amplification develops a point more fully, giving it room, force, and volume on the page. Elaboration grows in one particular direction — fuller detail. An amplified point may simply get louder and longer; an elaboration must get more specific about what is already there.", "clarification": "A clarification is a lighter ask than an elaboration — restate what you meant so it can't be misread; nothing new is added."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show something short being developed with fuller detail -- and the original still standing when the detail arrives. Try working in a word like <i>spell out<\/i>, <i>fuller<\/i>, <i>request<\/i> or <i>details<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

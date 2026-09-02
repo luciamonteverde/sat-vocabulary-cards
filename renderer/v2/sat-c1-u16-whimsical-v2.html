@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="220f92ced7c3">
+<meta name="build" content="d1cd606058ec">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>whimsical &#8212; SAT Vocabulary, Course 1 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "whimsical", "gradeUrl": "/api/grade", "taskId": "whimsical", "minWords": 12, "items": {"s1": {"q": "The city's newest parking garage startled commuters: each level is named for a sea creature, painted octopus tentacles curl around the concrete columns, and the elevator plays a cheerful seagull call at every floor. How would you describe the garage's design?", "opts": {"A": "Whimsical", "B": "Strictly businesslike", "C": "Confusing", "D": "Gloomy"}, "key": "A", "fb": {"correct": "Correct. Sea-creature level names, painted tentacles, and seagull-call elevators do nothing to park cars better — they are playful, imaginative touches added for the fun of it, which is what whimsical means.", "B": "Strictly businesslike is the last thing this garage is — octopus tentacles on the columns and seagull calls in the elevator do nothing to park cars. Look for the answer that names playfulness and imagination, not bare function.", "C": "Confusing would mean drivers losing track of where they parked, but a memorable sea-creature name for each level gives commuters something easy to hold onto. The stem says the design startled people, not that it lost them.", "D": "Gloomy means dark, dreary, and cheerless. This garage is the opposite: painted tentacles curl around the columns and every floor announces itself with a cheerful seagull call. The design is dressed up for fun, not left dreary."}}, "s3a": {"q": "In this passage, calling the waiting room \"whimsical\" means it was", "opts": {"A": "assembled completely at random, with no guiding plan of any kind behind its decorations", "B": "playfully inventive, full of charming touches with a logic of their own", "C": "an unserious waste of money that the trustees should have stopped", "D": "cheerful in tone but otherwise plain and practical"}, "key": "B", "fb": {"correct": "Right — the report's own gloss is 'playful invention with a logic all its own.'", "A": "The room is anything but random — the mouse door and the dimming constellations are deliberate, coordinated inventions.", "C": "The passage ends by saying 'it worked': crying at check-in fell by half, so the money was not wasted.", "D": "The room is far more than cheerful — it is full of invented touches like a three-inch door for mice."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "whimsical", "B": "fanciful", "C": "lighthearted", "D": "capricious"}, "key": "B", "fb": {"correct": "Right. These details were spun from pure imagination — the mapmakers worked while <em>citing no survey and no traveler's log<\/em> — and imagination floating free of fact is exactly what fanciful describes.", "A": "Whimsical adds charm and play to imagination, and this passage removes both: readers <em>found nothing amusing in the charts<\/em>, and the inventions <em>misled expeditions for a century<\/em>.", "D": "Capricious describes sudden, ungoverned swings of mood or decision. These mapmakers were the opposite of changeable — they <em>never changed course, defending the same invented rivers edition after edition<\/em>.", "C": "Lighthearted describes a cheerful, carefree tone, but the mapmakers <em>drew in perfect earnest<\/em>, and their charts carried real consequences."}}}, "grid": {"words": ["whimsical", "fanciful", "capricious", "lighthearted"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The stationery line's ____ flourishes — pencils striped like barber poles, erasers shaped as tiny clouds with faces — delighted shoppers with playful inventions that follow a logic all their own.", "ks": ["whimsical"], "fb": {"fanciful": "That word faults a thing for floating on imagination rather than fact or practicality — a theory with no evidence. These are real pencils and erasers that work; the point is their playful charm.", "capricious": "That word means sudden, ungoverned swings of mood or decision, and it usually complains. A settled product design swings at nothing — and shoppers are delighted, not disrupted.", "lighthearted": "That word names a cheerful, carefree tone and stops there. The sentence is about invented touches — striped pencils, cloud erasers — imaginative play, not just mood."}}, {"s": "The review board dismissed the harbor proposal as ____: a plan spun from pure imagination, with no cost figures, no tide data, and no charm anywhere in it to redeem the daydreaming.", "ks": ["fanciful"], "fb": {"whimsical": "That word requires charm — playful imagination in a light, delightful way. The board found <em>no charm anywhere in it<\/em>; this is daydreaming without the delight.", "capricious": "That word means sudden, ungoverned swings of mood or decision. The proposal does not swing; its sin is standing on imagination instead of cost figures and tide data.", "lighthearted": "That word names a cheerful, carefree tone. A plan getting dismissed for ignoring the facts is not a matter of tone at all."}}, {"s": "Readers loved the columnist's ____ habit of answering sober financial questions with tiny illustrated fables about a thrifty hedgehog — playful, inventive, and somehow always on point.", "ks": ["whimsical"], "fb": {"fanciful": "That word describes imagination outrunning fact — a theory floating free of the evidence. These fables are <em>somehow always on point<\/em>; the imagination serves the facts.", "capricious": "That word complains about sudden, ungoverned swings. A habit readers love is the opposite of a swing — steady, playful, welcome.", "lighthearted": "That word promises only a cheerful, carefree tone. The sentence turns on invention — a thrifty hedgehog in illustrated fables — which is imaginative play, not mere cheer."}}, {"s": "The castaway's rescue schemes grew steadily more ____ — rafts of woven kelp, signal mirrors aimed at ships that were never there — desperate imaginings untethered from any fact, with nothing playful about them.", "ks": ["fanciful"], "fb": {"whimsical": "That word is charming, playful imagination. These schemes have <em>nothing playful about them<\/em> — they are desperate.", "capricious": "That word describes sudden, ungoverned swings. The schemes <em>grew steadily<\/em> — the problem is their grip on fact, not changeability.", "lighthearted": "That word means cheerful and carefree. A desperate castaway's imaginings are neither."}}, {"s": "Sailors dreaded the strait's ____ weather, which swung from flat calm to squall and back within an hour, wrecking schedules and delighting no one.", "ks": ["capricious"], "fb": {"whimsical": "That word makes unpredictability charming — playful and delightful. Weather that sailors dread and that wrecks schedules delights no one.", "fanciful": "That word faults imagination for outrunning fact. These squalls are entirely real; the complaint is how suddenly they swing.", "lighthearted": "That word names a cheerful, carefree tone. Dread and wrecked schedules are the opposite."}}, {"s": "The retirement toast stayed ____ from start to finish — easy jokes, warm stories, no heavy speeches, and not a single flight of invention in it.", "ks": ["lighthearted"], "fb": {"whimsical": "That word adds imaginative fancy — invented, playful touches. This toast has <em>not a single flight of invention in it<\/em>; it is simply cheerful.", "fanciful": "That word means guided by imagination rather than fact. Nothing in an evening of easy jokes and warm stories is imagined at all.", "capricious": "That word means sudden, ungoverned swings of mood. This toast holds one warm mood <em>from start to finish<\/em>."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show playful imagination, not just a good mood — your sentence needs an invented, charming touch that follows its own logic. Try working in a word like <i>playful<\/i>, <i>invented<\/i>, <i>delight<\/i> or <i>imagination<\/i>."}};
+  var CFG = {"word": "whimsical", "gradeUrl": "/api/grade", "taskId": "whimsical", "minWords": 12, "items": {"s1": {"q": "The city's newest parking garage startled commuters: each level is named for a sea creature, painted octopus tentacles curl around the concrete columns, and the elevator plays a cheerful seagull call at every floor. How would you describe the garage's design?", "opts": {"A": "Whimsical", "B": "Strictly businesslike", "C": "Confusing", "D": "Gloomy"}, "key": "A", "fb": {"correct": "Correct. Sea-creature level names, painted tentacles, and seagull-call elevators do nothing to park cars better — they are playful, imaginative touches added for the fun of it, which is what whimsical means.", "B": "Strictly businesslike is the last thing this garage is — octopus tentacles on the columns and seagull calls in the elevator do nothing to park cars. Look for the answer that names playfulness and imagination, not bare function.", "C": "Confusing would mean drivers losing track of where they parked, but a memorable sea-creature name for each level gives commuters something easy to hold onto. The stem says the design startled people, not that it lost them.", "D": "Gloomy means dark, dreary, and cheerless. This garage is the opposite: painted tentacles curl around the columns and every floor announces itself with a cheerful seagull call. The design is dressed up for fun, not left dreary."}}, "s3a": {"q": "In this passage, calling the waiting room \"whimsical\" means it was", "opts": {"A": "assembled completely at random, with no guiding plan of any kind behind its decorations", "B": "playfully inventive, full of charming touches with a logic of their own", "C": "an unserious waste of money that the trustees should have stopped", "D": "cheerful in tone but otherwise plain and practical"}, "key": "B", "fb": {"correct": "Right — the report's own gloss is 'playful invention with a logic all its own.'", "A": "The room is anything but random — the mouse door and the dimming constellations are deliberate, coordinated inventions.", "C": "The passage ends by saying 'it worked': crying at check-in fell by half, so the money was not wasted.", "D": "The room is far more than cheerful — it is full of invented touches like a three-inch door for mice."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "whimsical", "B": "fanciful", "C": "lighthearted", "D": "capricious"}, "key": "B", "fb": {"correct": "Right. These details were spun from pure imagination — the mapmakers worked while <em>citing no survey and no traveler's log<\/em> — and imagination floating free of fact is exactly what fanciful describes.", "A": "Whimsical adds charm and play to imagination, and this passage removes both: readers <em>found nothing amusing in the charts<\/em>, and the inventions <em>misled expeditions for a century<\/em>.", "D": "Capricious describes sudden, ungoverned swings of mood or decision. These mapmakers were the opposite of changeable — they <em>never changed course, defending the same invented rivers edition after edition<\/em>.", "C": "Lighthearted describes a cheerful, carefree tone, but the mapmakers <em>drew in perfect earnest<\/em>, and their charts carried real consequences."}}}, "pairwise": {"rows": [{"sentence": "Readers loved the columnist's ____ habit of answering sober financial questions with tiny illustrated fables about a thrifty hedgehog — playful, inventive, and somehow always on point.", "options": ["whimsical", "fanciful"], "key": "whimsical", "pair": "fanciful", "why_right": "The tell is <em>somehow always on point<\/em> - the imagination serves the facts rather than floating free of them, so what the habit claims is charm and play, not fancy outrunning evidence.", "why_wrong": "That word describes imagination outrunning fact — a theory floating free of the evidence. These fables are <em>somehow always on point<\/em>; the imagination serves the facts."}, {"sentence": "The stationery line's ____ flourishes — pencils striped like barber poles, erasers shaped as tiny clouds with faces — delighted shoppers with playful inventions that follow a logic all their own.", "options": ["whimsical", "capricious"], "key": "whimsical", "pair": "capricious", "why_right": "The tell is <em>delighted shoppers<\/em> - the unpredictability here charms rather than disrupts, and inventions that follow a logic all their own are the opposite of sudden, ungoverned swings.", "why_wrong": "That word means sudden, ungoverned swings of mood or decision, and it usually complains. A settled product design swings at nothing — and shoppers are delighted, not disrupted."}, {"sentence": "The review board dismissed the harbor proposal as ____: a plan spun from pure imagination, with no cost figures, no tide data, and no charm anywhere in it to redeem the daydreaming.", "options": ["whimsical", "fanciful"], "key": "fanciful", "pair": "fanciful", "why_right": "The tell is <em>no cost figures, no tide data<\/em> - a plan guided by imagination rather than fact or practicality, and with no charm in it, the light, delightful half the other word would need.", "why_wrong": "That word requires charm — playful imagination in a light, delightful way. The board found <em>no charm anywhere in it<\/em>; this is daydreaming without the delight."}, {"sentence": "The castaway's rescue schemes grew steadily more ____ — rafts of woven kelp, signal mirrors aimed at ships that were never there — desperate imaginings untethered from any fact, with nothing playful about them.", "options": ["whimsical", "fanciful"], "key": "fanciful", "pair": "fanciful", "why_right": "The tell is <em>untethered from any fact<\/em> - imagination has outrun evidence entirely, and with nothing playful in these schemes, the charming, delightful word has no foothold.", "why_wrong": "That word is charming, playful imagination. These schemes have <em>nothing playful about them<\/em> — they are desperate."}, {"sentence": "Sailors dreaded the strait's ____ weather, which swung from flat calm to squall and back within an hour, wrecking schedules and delighting no one.", "options": ["whimsical", "capricious"], "key": "capricious", "pair": "capricious", "why_right": "The tell is <em>delighting no one<\/em> - these sudden, ungoverned swings wreck schedules and draw dread, the complaining register this word carries, with none of the charm its playful cousin requires.", "why_wrong": "That word makes unpredictability charming — playful and delightful. Weather that sailors dread and that wrecks schedules delights no one."}, {"sentence": "The retirement toast stayed ____ from start to finish — easy jokes, warm stories, no heavy speeches, and not a single flight of invention in it.", "options": ["whimsical", "lighthearted"], "key": "lighthearted", "pair": "lighthearted", "why_right": "The tell is <em>not a single flight of invention in it<\/em> - the toast is pure cheerful, carefree tone, and the fancier word would need invented, playful touches the sentence rules out.", "why_wrong": "That word adds imaginative fancy — invented, playful touches. This toast has <em>not a single flight of invention in it<\/em>; it is simply cheerful."}, {"sentence": "Even in the ward's heaviest weeks, the mural stayed ____ - otters rowing acorn-cap boats, a moon with a doorbell - inventions that made grieving families smile without pretending the weight away.", "options": ["whimsical", "lighthearted"], "key": "whimsical", "pair": "lighthearted", "why_right": "The tell is <em>without pretending the weight away<\/em> - the tone is not carefree, so a cheerful-mood word cannot fit; what remains is invented, playful touches that follow their own logic.", "why_wrong": "That word names a cheerful, carefree tone free of worry or weight. These weeks are the ward's heaviest, and nobody pretends otherwise - the claim is the mural's playful inventions, not the mood."}, {"sentence": "The guide's ____ detours were the same beloved pair every tour - naming each gargoyle, voting on the oldest alley - playful inventions that charmed every group and flustered no one.", "options": ["whimsical", "capricious"], "key": "whimsical", "pair": "capricious", "why_right": "The tell is <em>the same beloved pair every tour<\/em> - a settled, playful invention that charms rather than disrupts, the opposite of sudden, ungoverned swings that keep everyone guessing.", "why_wrong": "That word complains about sudden, ungoverned swings that keep everyone guessing. Detours repeated every tour swing at nothing, and they charm the group rather than disrupt it."}], "display_order": [4, 3, 7, 6, 0, 1, 2, 5], "dimension_order": ["fanciful", "capricious", "lighthearted"], "dimension_feedback": {"fanciful": "Fanciful means guided by imagination rather than fact or practicality — a fanciful theory floats free of the evidence. Whimsical adds charm and play: a whimsical idea is fanciful in a light, delightful way that follows its own cheerful logic.", "capricious": "Capricious describes sudden, ungoverned swings of mood or decision, and it usually complains: a capricious boss keeps everyone guessing. Whimsical is the charming cousin — unpredictable too, but in a playful, imaginative way that delights more than it disrupts.", "lighthearted": "Lighthearted describes a cheerful, carefree tone free of worry or weight. Whimsical goes beyond mood and adds imaginative fancy: a speech can be lighthearted without one whimsical image in it, while a whimsical design invents playful touches that follow their own logic."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show playful imagination, not just a good mood — your sentence needs an invented, charming touch that follows its own logic. Try working in a word like <i>playful<\/i>, <i>invented<\/i>, <i>delight<\/i> or <i>imagination<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

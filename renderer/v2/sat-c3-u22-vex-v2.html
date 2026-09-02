@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="0954fd90e899">
+<meta name="build" content="af37cc14c13a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>vex &#8212; SAT Vocabulary, Course 3 Unit 22</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "vex", "gradeUrl": "/api/grade", "taskId": "vex", "minWords": 12, "items": {"s1": {"q": "Which sentence uses vex correctly?", "opts": {"A": "A long morning stretch vexed the deepest knots out of his tired shoulders.", "B": "The choir vexed the concert hall with candlelight and holly for the winter program.", "C": "Pencils in the reading room, a small rule broken daily, vexed the archivist.", "D": "She vexed the parquet floor to a high shine the night before the inspection."}, "key": "C", "fb": {"correct": "Correct! A small rule broken daily, prickling at one person's patience — vex in its natural habitat.", "A": "Here vex stands in for easing 'the deepest knots out of his tired shoulders' — the stretch is relieving discomfort. Vex does the opposite: it means to annoy or irritate. Look for something wearing on a person's nerves.", "B": "Decorating a concert hall 'with candlelight and holly' is festive preparation, nothing bothersome. To vex is to annoy or irritate someone — the sentence needs an irritation gnawing at a person, not decorations going up.", "D": "This sentence swaps vex for its sound-alike, waxing — polishing a floor 'to a high shine.' Vex means to annoy or irritate; a floor cannot be pestered, and nothing here is bothering anyone."}}, "s3a": {"q": "As used in this passage, what does it mean that the discrepancy began to vex Marta?", "opts": {"A": "it enraged her so badly she demanded a refund of the full purchase price", "B": "it amused her as a harmless quirk of the new oven", "C": "it worried her that the oven might be unsafe", "D": "it nagged at her attention persistently, too insistent to ignore"}, "key": "D", "fb": {"correct": "Right -- 'too large to ignore,' noticed 'forty times a day,' muttered over: a small irritation that insists on being noticed.", "A": "Nothing rises to rage -- no refund, not even a service call. The passage stays at the level of muttering, not fury.", "B": "She 'could not' shrug at it, unlike her assistant -- amusement is the one thing the passage never shows.", "C": "The oven 'worked perfectly' apart from the timer; safety never enters the story. The cost is to her patience, not her safety."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "irk", "B": "vex", "C": "bother", "D": "nettle"}, "key": "A", "fb": {"correct": "Right. A quiet, low-grade annoyance the irked person never even mentions — <em>said nothing, shift after shift, to anyone<\/em> — is exactly what irk names: he shrugs and lives with it.", "B": "Vexation is sharper and insists on being noticed — the card's vexed person mutters. This clerk <em>said nothing, shift after shift, to anyone<\/em>, and the passage calls the habit <em>never a grievance worth words<\/em>. Vex overstates what is happening here.", "D": "To nettle is to sting someone's pride, usually with one sharp personal remark. Here <em>No remark had caused it<\/em> — the annoyance is an impersonal habit, and nobody's pride is involved.", "C": "A bother is a passing thing, shooed and forgotten in a moment. This one lasted nine years as <em>a small, standing friction<\/em> — it never stopped recurring, so bother understates it."}}}, "grid": {"words": ["vex", "irk", "nettle", "bother"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The crossword's final clue continued to ____ the professor all weekend; she muttered at it over breakfast, on her walk, and again at midnight, unable to let it rest.", "ks": ["vex"], "fb": {"irk": "That word is the quiet, low-grade rub the sufferer may never even mention -- a shrug. This professor <em>muttered at it<\/em> from breakfast to midnight; the annoyance insists on being noticed.", "nettle": "That word is one sharp, personal poke -- a remark that stings pride. A crossword clue jabs nobody's pride; this is a riddle nagging at the attention.", "bother": "That word is a moment's nuisance, shooed and forgotten. Something that follows a person <em>over breakfast, on her walk, and again at midnight<\/em> is not being forgotten."}}, {"s": "The shuttle's shifting timetable would ____ commuters month after month: a delay too small to report, yet one they grumbled about on the platform every single morning.", "ks": ["vex"], "fb": {"irk": "The quiet word's annoyance goes unmentioned -- a private shrug. <em>Grumbled about on the platform every single morning<\/em> is annoyance saying itself aloud, day after day.", "nettle": "That word needs a personal sting -- a poke at someone's pride, usually a remark. A timetable is impersonal; nobody's pride is in play.", "bother": "That word is a fly-swat nuisance, gone as soon as it is waved off. <em>Month after month<\/em> of morning grumbling is the opposite."}}, {"s": "One offhand comment about her 'beginner's luck' was enough to ____ the champion; her ears went red, though she said nothing and the game moved on.", "ks": ["nettle"], "fb": {"vex": "That word is patient and persistent -- irritation that keeps buzzing over time. Here there is <em>one offhand comment<\/em>, a flare, and <em>the game moved on<\/em>.", "irk": "The quiet word never shows itself. <em>Her ears went red<\/em> -- this jab at her skill flared visibly, the signature of a sting to pride.", "bother": "A mild nuisance is waved away without leaving a mark. A comment that turns someone's <em>ears ... red<\/em> has struck pride, not patience."}}, {"s": "The gallery visitor's murmured aside -- that the seascape felt 'decorative' -- seemed to ____ the painter more than any printed pan; she flushed, snapped one brush in half, and was calm again by closing time.", "ks": ["nettle"], "fb": {"vex": "That word nags at the attention over time. This painter <em>was calm again by closing time<\/em> -- one sting, quickly over.", "irk": "A quiet rub never makes anyone <em>flush<\/em> or snap brushes. This is a visible flare of temper at a jab to her pride.", "bother": "That is the mildest of the four -- a nuisance shooed and forgotten. A remark that makes a painter <em>flush<\/em> and break her own brush has hit something closer to the bone."}}, {"s": "The way his seatmate clicked her pen through every lecture would quietly ____ him, though he only ever sighed and never once brought it up.", "ks": ["irk"], "fb": {"vex": "That word insists on being noticed -- the sufferer mutters. He <em>only ever sighed and never once brought it up<\/em>: annoyance kept entirely to himself.", "nettle": "That word stings pride with a pointed personal remark. A <em>clicked ... pen<\/em> pokes at no one's pride.", "bother": "A fly-swat nuisance is forgotten at once. This runs <em>through every lecture<\/em> -- a standing, low-grade rub rather than a passing moment."}}, {"s": "The neighbor's wind chime would ____ the new tenant for a second or two whenever a gust caught it -- noticed, dismissed, and forgotten before the sound had even died away.", "ks": ["bother"], "fb": {"vex": "That word keeps buzzing and demands notice over time. This chime is <em>forgotten before the sound had even died away<\/em>.", "irk": "Even the quiet word settles in -- a low-grade rub that stays. <em>Noticed, dismissed, and forgotten<\/em> in a breath is briefer still.", "nettle": "That word needs a personal poke that stings pride. A <em>gust<\/em> catching a <em>wind chime<\/em> is nobody's insult."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show an irritation that keeps coming back and refuses to be ignored -- sharper than a passing nuisance, far short of fury. Show the persistence: try working in a word like <i>again<\/i>, <i>kept<\/i>, <i>muttered<\/i> or <i>weeks<\/i>."}};
+  var CFG = {"word": "vex", "gradeUrl": "/api/grade", "taskId": "vex", "minWords": 12, "items": {"s1": {"q": "Which sentence uses vex correctly?", "opts": {"A": "A long morning stretch vexed the deepest knots out of his tired shoulders.", "B": "The choir vexed the concert hall with candlelight and holly for the winter program.", "C": "Pencils in the reading room, a small rule broken daily, vexed the archivist.", "D": "She vexed the parquet floor to a high shine the night before the inspection."}, "key": "C", "fb": {"correct": "Correct! A small rule broken daily, prickling at one person's patience — vex in its natural habitat.", "A": "Here vex stands in for easing 'the deepest knots out of his tired shoulders' — the stretch is relieving discomfort. Vex does the opposite: it means to annoy or irritate. Look for something wearing on a person's nerves.", "B": "Decorating a concert hall 'with candlelight and holly' is festive preparation, nothing bothersome. To vex is to annoy or irritate someone — the sentence needs an irritation gnawing at a person, not decorations going up.", "D": "This sentence swaps vex for its sound-alike, waxing — polishing a floor 'to a high shine.' Vex means to annoy or irritate; a floor cannot be pestered, and nothing here is bothering anyone."}}, "s3a": {"q": "As used in this passage, what does it mean that the discrepancy began to vex Marta?", "opts": {"A": "it enraged her so badly she demanded a refund of the full purchase price", "B": "it amused her as a harmless quirk of the new oven", "C": "it worried her that the oven might be unsafe", "D": "it nagged at her attention persistently, too insistent to ignore"}, "key": "D", "fb": {"correct": "Right -- 'too large to ignore,' noticed 'forty times a day,' muttered over: a small irritation that insists on being noticed.", "A": "Nothing rises to rage -- no refund, not even a service call. The passage stays at the level of muttering, not fury.", "B": "She 'could not' shrug at it, unlike her assistant -- amusement is the one thing the passage never shows.", "C": "The oven 'worked perfectly' apart from the timer; safety never enters the story. The cost is to her patience, not her safety."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "irk", "B": "vex", "C": "bother", "D": "nettle"}, "key": "A", "fb": {"correct": "Right. A quiet, low-grade annoyance the irked person never even mentions — <em>said nothing, shift after shift, to anyone<\/em> — is exactly what irk names: he shrugs and lives with it.", "B": "Vexation is sharper and insists on being noticed — the card's vexed person mutters. This clerk <em>said nothing, shift after shift, to anyone<\/em>, and the passage calls the habit <em>never a grievance worth words<\/em>. Vex overstates what is happening here.", "D": "To nettle is to sting someone's pride, usually with one sharp personal remark. Here <em>No remark had caused it<\/em> — the annoyance is an impersonal habit, and nobody's pride is involved.", "C": "A bother is a passing thing, shooed and forgotten in a moment. This one lasted nine years as <em>a small, standing friction<\/em> — it never stopped recurring, so bother understates it."}}}, "pairwise": {"rows": [{"sentence": "The way his seatmate clicked her pen through every lecture would quietly ____ him, though he only ever sighed and never once brought it up.", "options": ["vex", "irk"], "key": "irk", "pair": "irk", "why_right": "The tell is <em>never once brought it up<\/em> - the quiet word's annoyance is a private shrug the sufferer may never mention, while the sharper word insists on being noticed and sets its victim muttering aloud.", "why_wrong": "That word insists on being noticed -- the sufferer mutters. He <em>only ever sighed and never once brought it up<\/em>: annoyance kept entirely to himself."}, {"sentence": "One loose porch board would ____ Mrs. Adeyemi through a third winter; each visitor set off the same squawk, and each time she swore at it aloud.", "options": ["vex", "irk"], "key": "vex", "pair": "irk", "why_right": "The tell is <em>swore at it aloud<\/em> - a vexation insists on being noticed and sets its sufferer muttering, where the quiet word's annoyance is shrugged off and may never be mentioned at all.", "why_wrong": "That word is a quiet, low-grade rub its sufferer may never even mention -- a shrug. A board that draws a curse aloud from her at every visit, for a third winter, is being noticed."}, {"sentence": "The new streetlight's electric hum would ____ the couple on the corner for a year: two letters to the council -- 'a constant low buzz' -- and a complaint to every neighbor who stopped to chat.", "options": ["vex", "irk"], "key": "vex", "pair": "irk", "why_right": "The tell is <em>two letters to the council<\/em> - the sharper word's irritation insists on being noticed and gets voiced again and again; the quiet word's annoyance is a shrug that may never be mentioned to anyone.", "why_wrong": "That word is the low-grade rub a person shrugs at and may never bring up. Two letters to the council and a word with every passing neighbor is annoyance saying itself aloud, all year long."}, {"sentence": "The crossword's final clue continued to ____ the professor all weekend; she muttered at it over breakfast, on her walk, and again at midnight, unable to let it rest.", "options": ["vex", "nettle"], "key": "vex", "pair": "nettle", "why_right": "The tell is <em>again at midnight<\/em> - the irritation keeps buzzing at her patience across a whole weekend and comes from a puzzle, not a remark; the other word is one sharp personal sting, and then it is over.", "why_wrong": "That word is one sharp, personal poke -- a remark that stings pride. A crossword clue jabs nobody's pride; this is a riddle nagging at the attention."}, {"sentence": "One offhand comment about her 'beginner's luck' was enough to ____ the champion; her ears went red, though she said nothing and the game moved on.", "options": ["vex", "nettle"], "key": "nettle", "pair": "nettle", "why_right": "The tell is <em>one offhand comment<\/em> - a single personal remark stings her pride and reddens her ears, then the game moves on; the other word is a patient irritation that keeps nagging at the attention over time.", "why_wrong": "That word is patient and persistent -- irritation that keeps buzzing over time. Here there is <em>one offhand comment<\/em>, a flare, and <em>the game moved on<\/em>."}, {"sentence": "The gallery visitor's murmured aside -- that the seascape felt 'decorative' -- seemed to ____ the painter more than any printed pan; she flushed, snapped one brush in half, and was calm again by closing time.", "options": ["vex", "nettle"], "key": "nettle", "pair": "nettle", "why_right": "The tell is <em>was calm again by closing time<\/em> - one murmured remark stings the painter's pride and reddens her temper for an afternoon, then it is over; the other word keeps buzzing at the attention for far longer.", "why_wrong": "That word nags at the attention over time. This painter <em>was calm again by closing time<\/em> -- one sting, quickly over."}, {"sentence": "The neighbor's wind chime would ____ the new tenant for a second or two whenever a gust caught it -- noticed, dismissed, and forgotten before the sound had even died away.", "options": ["vex", "bother"], "key": "bother", "pair": "bother", "why_right": "The tell is <em>for a second or two<\/em> - the milder word is a fly at the picnic, shooed and forgotten before the sound dies; the other word keeps buzzing at the patience and insists on being noticed over time.", "why_wrong": "That word keeps buzzing and demands notice over time. This chime is <em>forgotten before the sound had even died away<\/em>."}, {"sentence": "The guest bathroom's tap went on to ____ the whole household for six weeks -- one drip every few seconds, loudest after midnight -- while three plumbers in turn failed to find a washer that fit.", "options": ["vex", "bother"], "key": "vex", "pair": "bother", "why_right": "The tell is <em>for six weeks<\/em> - the card gives the milder word a fly at the picnic, shooed and forgotten, while this drip keeps buzzing at the whole household's patience night after night and will not be dismissed.", "why_wrong": "That word is the mild one -- a fly at the picnic, shooed and forgotten. A drip that has kept a household awake after midnight for six weeks, through three plumbers, is not being forgotten by anyone."}], "display_order": [5, 2, 3, 6, 1, 7, 4, 0], "dimension_order": ["irk", "nettle", "bother"], "dimension_feedback": {"irk": "To irk is to rub someone the wrong way, quietly — a low-grade annoyance the irked person may never even mention. To vex is a shade sharper and far more persistent: a vexation keeps buzzing at the patience and insists on being noticed. An irked person shrugs; a vexed one mutters.", "nettle": "To nettle is to sting someone's pride just enough to redden the temper — usually one sharp, personal poke, often a remark. To vex is less personal and more patient: small irritations, delays, and riddles that nag at the attention over time. Nettle stings once; vexation keeps buzzing.", "bother": "Bother is milder than vex — a fly at the picnic, shooed and forgotten."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show an irritation that keeps coming back and refuses to be ignored -- sharper than a passing nuisance, far short of fury. Show the persistence: try working in a word like <i>again<\/i>, <i>kept<\/i>, <i>muttered<\/i> or <i>weeks<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

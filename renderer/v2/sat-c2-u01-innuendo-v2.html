@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="e4f02efd8e5c">
+<meta name="build" content="1dbd75ce39d9">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>innuendo &#8212; SAT Vocabulary, Course 2 Unit 1</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "innuendo", "gradeUrl": "/api/grade", "taskId": "innuendo", "minWords": 12, "items": {"s1": {"q": "Which sentence uses innuendo correctly?", "opts": {"A": "The referee's innuendo was printed clearly in the official rulebook for both teams to study before the championship game.", "B": "Her innuendo about the missing funds included exact dates, precise amounts, and a signed confession from the treasurer.", "C": "The union delegate communicated by innuendo, standing on the courthouse steps and reading the members' exact demand aloud to every reporter present.", "D": "His innuendo did its work on the judges: loud marveling, just within earshot, at how 'professional' the winning volcano's wiring looked."}, "key": "D", "fb": {"correct": "Right. He accused no one and claimed nothing—just loud 'admiration' placed where the judges would hear it and finish the ugly thought themselves. A deniable, damaging hint is innuendo.", "A": "Rules 'printed clearly in the official rulebook' are as direct and public as language gets. Innuendo travels sideways — it hints at something damaging without ever stating it — so nothing published openly qualifies.", "B": "With 'exact dates, precise amounts, and a signed confession,' this is a documented accusation, evidence laid on the table. Innuendo never spells out its charge — it plants a suggestion and stays deniable.", "C": "Reading 'the members' exact demand aloud' to reporters is open declaration — the plainest possible statement. Innuendo is the indirect route: a sly implication that damages while leaving the speaker room to deny everything."}}, "s3a": {"q": "As it is used in the passage, 'innuendo' most nearly means:", "opts": {"A": "an open, direct accusation of plagiarism printed for all to see", "B": "a glowing compliment about her famous editor's talents", "C": "a factual account of how the book came to be written", "D": "a damaging suggestion planted without being stated"}, "key": "D", "fb": {"correct": "Right -- 'no charge had been made,' yet the suggestion 'that Vale had not really written it' was left hanging.", "A": "The review 'never made a single accusation' -- that is the whole trick of it.", "B": "The praise is the wrapping; what it carries is the ugly question about who wrote the book.", "C": "The review reports nothing -- it only 'wondered,' and the wondering did the damage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hint", "B": "innuendo", "C": "aspersion", "D": "dig"}, "key": "C", "fb": {"correct": "Right. An open, quotable attack on a colleague's honesty — plainly stated and publicly signed — is an aspersion, the reputation attack that can be made in the open.", "B": "An innuendo plants its damage indirectly, so its maker can deny having meant anything. Harlow could deny nothing: the accusation was <em>plain, public<\/em>, set down in <em>a signed letter<\/em> anyone could point to.", "D": "A dig is a quick, teasing jab, open but light enough to laugh at. There is nothing light here: the sentence was <em>aimed straight at the man's honesty<\/em>, <em>calling a fellow astronomer a fraud<\/em>.", "A": "A hint only points toward something without saying it. Harlow said it, in so many words: his rival's tables were <em>invented at the desk, not observed at the eyepiece<\/em>."}}}, "grid": {"words": ["innuendo", "dig", "aspersion", "hint"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The rival vintner never made a charge, only musing about 'how affordable medals have become for some wineries' -- ____ he could disown the instant anyone objected.", "ks": ["innuendo"], "fb": {"dig": "A jab is delivered openly enough for everyone to catch it. This stays under cover -- built to be disowned <em>the instant anyone objected<\/em>.", "aspersion": "That word is a remark that attacks, and it can be made plainly. Here no attack is ever stated -- the vintner <em>never made a charge<\/em>; the harm is only implied.", "hint": "A neutral pointer damages no one. This muses its way toward one unflattering idea about <em>some wineries<\/em> -- and plants it."}}, {"s": "Nothing in the coach's interview could be quoted against him, yet every listener came away sure the star had been skipping practice -- accusation by ____, never by statement.", "ks": ["innuendo"], "fb": {"dig": "A jab is caught by everyone because it lands in the open. Here <em>nothing could be quoted against him<\/em> -- the words never show the blow.", "aspersion": "That word is an attacking remark, statable plainly. This coach states nothing -- the accusation exists only in what listeners assemble.", "hint": "A soft pointer lets you notice it or not. This plants one damaging belief -- <em>the star had been skipping practice<\/em> -- in every single listener."}}, {"s": "When Priya arrived twenty minutes late, her brother's ____ -- 'Look who finally found a calendar!' -- got a laugh from the whole table.", "ks": ["dig"], "fb": {"innuendo": "That word works under cover, never quite said, always deniable. This jab is shouted across the table and <em>got a laugh<\/em> from everyone.", "aspersion": "That word attacks someone's honesty or reputation. 'Look who found a calendar' teases her lateness -- nothing graver.", "hint": "Nothing here is left for people to notice or miss -- the remark lands instantly and openly."}}, {"s": "The retiring editor's speech included one ____ at the accounting department, quick and grinning and understood instantly by everyone in the room.", "ks": ["dig"], "fb": {"innuendo": "That word hides its meaning so its maker can deny it. This jab is <em>understood instantly by everyone<\/em> -- there is nothing to deny.", "aspersion": "That word attacks honesty or reputation. A <em>quick and grinning<\/em> tease at a department is mockery, not an attack.", "hint": "A soft pointer can be missed. This lands on its target in front of the whole room, at once."}}, {"s": "The pamphlet's attack on the mayor was one open ____ after another: it called his contracts crooked plainly, in printed words anyone could quote.", "ks": ["aspersion"], "fb": {"innuendo": "That word never quite says the ugly thing, so its maker can deny it. This pamphlet says it <em>plainly, in printed words anyone could quote<\/em>.", "dig": "A jab is quick, informal, and teasing. Calling a mayor's <em>contracts crooked<\/em> in print is an attack on his honesty.", "hint": "Nothing is left for the reader to infer -- the charge is spelled out on the page."}}, {"s": "All spring the studio dropped one small ____ after another about the sequel -- a date scrawled into a teaser frame, a familiar melody under the credits.", "ks": ["hint"], "fb": {"innuendo": "That word plants something damaging about somebody. A scrawled date and a familiar melody damage no one -- they tease a film.", "dig": "A jab needs a person to land on. These clues are aimed at an audience's curiosity, not at anyone's expense.", "aspersion": "That word attacks honesty or reputation. Nothing here touches either -- it's marketing at play."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> The damage has to be implied, not stated -- your speaker should be able to deny meaning it. Try working in a word like <i>merely wondered<\/i>, <i>certain people<\/i>, <i>reputation<\/i> or <i>never quite said<\/i>."}};
+  var CFG = {"word": "innuendo", "gradeUrl": "/api/grade", "taskId": "innuendo", "minWords": 12, "items": {"s1": {"q": "Which sentence uses innuendo correctly?", "opts": {"A": "The referee's innuendo was printed clearly in the official rulebook for both teams to study before the championship game.", "B": "Her innuendo about the missing funds included exact dates, precise amounts, and a signed confession from the treasurer.", "C": "The union delegate communicated by innuendo, standing on the courthouse steps and reading the members' exact demand aloud to every reporter present.", "D": "His innuendo did its work on the judges: loud marveling, just within earshot, at how 'professional' the winning volcano's wiring looked."}, "key": "D", "fb": {"correct": "Right. He accused no one and claimed nothing—just loud 'admiration' placed where the judges would hear it and finish the ugly thought themselves. A deniable, damaging hint is innuendo.", "A": "Rules 'printed clearly in the official rulebook' are as direct and public as language gets. Innuendo travels sideways — it hints at something damaging without ever stating it — so nothing published openly qualifies.", "B": "With 'exact dates, precise amounts, and a signed confession,' this is a documented accusation, evidence laid on the table. Innuendo never spells out its charge — it plants a suggestion and stays deniable.", "C": "Reading 'the members' exact demand aloud' to reporters is open declaration — the plainest possible statement. Innuendo is the indirect route: a sly implication that damages while leaving the speaker room to deny everything."}}, "s3a": {"q": "As it is used in the passage, 'innuendo' most nearly means:", "opts": {"A": "an open, direct accusation of plagiarism printed for all to see", "B": "a glowing compliment about her famous editor's talents", "C": "a factual account of how the book came to be written", "D": "a damaging suggestion planted without being stated"}, "key": "D", "fb": {"correct": "Right -- 'no charge had been made,' yet the suggestion 'that Vale had not really written it' was left hanging.", "A": "The review 'never made a single accusation' -- that is the whole trick of it.", "B": "The praise is the wrapping; what it carries is the ugly question about who wrote the book.", "C": "The review reports nothing -- it only 'wondered,' and the wondering did the damage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hint", "B": "innuendo", "C": "aspersion", "D": "dig"}, "key": "C", "fb": {"correct": "Right. An open, quotable attack on a colleague's honesty — plainly stated and publicly signed — is an aspersion, the reputation attack that can be made in the open.", "B": "An innuendo plants its damage indirectly, so its maker can deny having meant anything. Harlow could deny nothing: the accusation was <em>plain, public<\/em>, set down in <em>a signed letter<\/em> anyone could point to.", "D": "A dig is a quick, teasing jab, open but light enough to laugh at. There is nothing light here: the sentence was <em>aimed straight at the man's honesty<\/em>, <em>calling a fellow astronomer a fraud<\/em>.", "A": "A hint only points toward something without saying it. Harlow said it, in so many words: his rival's tables were <em>invented at the desk, not observed at the eyepiece<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Half the guests took the toastmaster's line about 'self-made men and generous fathers-in-law' as warm humor; the ____ reached only those who knew how the groom's firm was funded.", "options": ["innuendo", "dig"], "key": "innuendo", "pair": "dig", "why_right": "The tell is <em>reached only those who knew<\/em> - an innuendo works under cover, its damaging suggestion planted indirectly enough that half the room misses it while its maker keeps deniability.", "why_wrong": "That word means a jab delivered openly enough for everyone to catch. This line hides its charge inside warm humor, reaching only insiders while its maker keeps deniability."}, {"sentence": "When Priya arrived twenty minutes late, her brother's ____ -- 'Look who finally found a calendar!' -- got a laugh from the whole table.", "options": ["innuendo", "dig"], "key": "dig", "pair": "dig", "why_right": "The tell is <em>got a laugh from the whole table<\/em> - a dig is a quick, teasing jab delivered in the open, caught by everyone at once rather than slipped past them.", "why_wrong": "That word works under cover, never quite said, always deniable. This jab is shouted across the table and <em>got a laugh<\/em> from everyone."}, {"sentence": "When Marcus wore brand-new mountaineering boots to the flattest trail in the county, his cousin's ____ about 'summit gear' landed loudly enough to double the whole group over.", "options": ["innuendo", "dig"], "key": "dig", "pair": "dig", "why_right": "The tell is <em>landed loudly enough to double the whole group over<\/em> - a dig is delivered openly, a quick tease its whole audience catches at once.", "why_wrong": "That word works under cover, never quite said, so its maker can deny it. This jab about 'summit gear' lands loudly, openly, and on the whole group at once."}, {"sentence": "The newsletter praised the treasurer's 'creative bookkeeping,' an ____ every reader felt, though no line of it stated a charge he could ask the editors to retract.", "options": ["innuendo", "aspersion"], "key": "innuendo", "pair": "aspersion", "why_right": "The tell is <em>no line of it stated a charge<\/em> - an innuendo inflicts its damage sideways, wrapped in innocent-sounding words, so nothing quotable ever attacks the treasurer outright.", "why_wrong": "That word is a remark that attacks honesty openly and plainly. Nothing here states any attack - the words read as praise, and the charge exists only by implication."}, {"sentence": "The pamphlet's attack on the mayor was one open ____ after another: it called his contracts crooked plainly, in printed words anyone could quote.", "options": ["innuendo", "aspersion"], "key": "aspersion", "pair": "aspersion", "why_right": "The tell is <em>plainly, in printed words anyone could quote<\/em> - an aspersion is a remark that attacks someone's honesty openly, stated outright where anyone can test it.", "why_wrong": "That word never quite says the ugly thing, so its maker can deny it. This pamphlet says it <em>plainly, in printed words anyone could quote<\/em>."}, {"sentence": "Callers kept 'just wondering' on air why the charity's director drove a new car; the ____ cost her real donations within a week.", "options": ["innuendo", "hint"], "key": "innuendo", "pair": "hint", "why_right": "The tell is <em>cost her real donations<\/em> - an innuendo points at somebody and plants something unflattering; this on-air wondering targets the director and does measurable damage.", "why_wrong": "That word merely points somewhere, neutrally, and lets people notice or not. This wondering points at the director herself and plants an unflattering charge that costs her donations."}, {"sentence": "The rival dealer's compliments about how fast the young painter finished commissions all pointed one way; the ____ -- that her canvases were not her own -- emptied her opening night.", "options": ["innuendo", "hint"], "key": "innuendo", "pair": "hint", "why_right": "The tell is <em>emptied her opening night<\/em> - an innuendo points at somebody, and where it points is always unflattering; these compliments plant a damaging charge about the painter herself.", "why_wrong": "That word is a neutral pointer that damages nobody. These compliments aim at one painter and plant the ugly idea that her canvases are not her own."}, {"sentence": "All spring the studio dropped one small ____ after another about the sequel -- a date scrawled into a teaser frame, a familiar melody under the credits.", "options": ["innuendo", "hint"], "key": "hint", "pair": "hint", "why_right": "The tell is <em>a date scrawled into a teaser frame<\/em> - a hint merely points somewhere and lets an audience notice or not, with nobody targeted and nobody harmed.", "why_wrong": "That word plants something damaging about somebody. A scrawled date and a familiar melody damage no one -- they tease a film."}], "display_order": [1, 5, 0, 6, 3, 2, 7, 4], "dimension_order": ["dig", "aspersion", "hint"], "dimension_feedback": {"dig": "A dig is an informal jab — a quick, teasing remark aimed at someone, usually delivered openly enough that everyone catches it. An innuendo works under cover: the damaging suggestion is planted indirectly, never quite said, so its maker can deny meaning anything at all.", "aspersion": "An aspersion is a remark that attacks someone's honesty or reputation, classically in the phrase 'to cast aspersions,' and it can be made openly and plainly. An innuendo inflicts the same damage sideways: the charge is only implied, wrapped in innocent-sounding words, and stays deniable.", "hint": "A hint merely points somewhere without saying it; an innuendo points at somebody, and the somewhere it points is always unflattering."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> The damage has to be implied, not stated -- your speaker should be able to deny meaning it. Try working in a word like <i>merely wondered<\/i>, <i>certain people<\/i>, <i>reputation<\/i> or <i>never quite said<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

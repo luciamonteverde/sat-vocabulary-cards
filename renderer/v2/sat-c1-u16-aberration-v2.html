@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="55beb8365b5a">
+<meta name="build" content="65d47464c7fb">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>aberration &#8212; SAT Vocabulary, Course 1 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "aberration", "gradeUrl": "/api/grade", "taskId": "aberration", "minWords": 12, "items": {"s1": {"q": "Miguel has ridden the 7:15 ferry to work for six years, and for most of that time it docked on time. This spring, though, it has arrived late -- sometimes by half an hour or more -- about once a week, some weeks on a Tuesday, some weeks on a Friday, never with a storm or an explanation, and it has docked punctually on the other days. How should Miguel describe these late arrivals?", "opts": {"A": "As an aberration", "B": "As a fluke", "C": "As an irregularity", "D": "As a monstrosity"}, "key": "C", "fb": {"correct": "Correct. A late run about once a week, all spring, with no pattern behind it, is a fault that keeps returning -- and once the same flaw keeps coming back, irregularity is the honest word for it.", "A": "An aberration is a single irregular departure from a well-established pattern -- one odd Thursday in six years would qualify. But this ferry has run late about once a week for an entire spring. Once the same fault keeps returning, the record has a recurring flaw, an irregularity, not a lone break.", "B": "A fluke is a one-time stroke of chance, and usually a lucky one. These delays are neither: they have happened again and again all season, and nobody standing on the dock is calling them lucky.", "D": "A monstrosity is a departure so extreme that it shocks everyone who encounters it. A ferry running half an hour late annoys its commuters, but it shocks no one -- the scale is far too ordinary for that word."}}, "s3a": {"q": "In the passage, aberration most nearly means--", "opts": {"A": "a one-time departure from a long and steady pattern", "B": "a flaw in a schedule that keeps recurring", "C": "an event so strange it would stand out anywhere", "D": "an accident that turned out luckily"}, "key": "A", "fb": {"correct": "Right. Thirty-one years within a minute is the pattern, and the passage calls the late arrival 'not a habit forming, just one crack' -- a single break, gone by Wednesday.", "B": "The passage rules out recurrence directly: by Wednesday the bus was 'back within its minute,' and the lateness is called 'not a habit forming.'", "C": "A bus arriving nineteen minutes late is ordinary on almost any route. It stuns this depot only because of Mr. Okafor's own record.", "D": "Nothing fortunate happened -- a tree blocked the road and a bus ran late. The word here is about the break in the record, not about luck."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fluke", "B": "aberration", "C": "oddity", "D": "irregularity"}, "key": "D", "fb": {"correct": "Right. A required call was skipped again and again — <em>not once but in every month examined<\/em> — and a rule-breaking failure that keeps repeating is exactly what this word covers, where a single break in an otherwise clean record would take a different word.", "B": "An aberration is a single break in an otherwise steady record — one crack, and then the record resumes. These crossings were <em>not once but in every month examined<\/em>. A failure that keeps returning has outgrown the one-off word.", "A": "A fluke is a stroke of luck — a happy one-time accident that cannot be planned or repeated. Nothing lucky happened here: <em>no one gained anything by the shortcut<\/em>, and it happened <em>in every month examined<\/em>.", "C": "An oddity is strange in itself, wherever it turns up. These crossings were the opposite: <em>Nothing about any single crossing was remarkable in itself<\/em>. Each one was ordinary; only the standing rule it ignored makes it worth flagging."}}}, "grid": {"words": ["aberration", "irregularity", "fluke", "oddity"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "For a bakery that had opened at six sharp for twenty years, Tuesday's locked door was a bewildering ____ that no regular could explain.", "ks": ["aberration"], "fb": {"irregularity": "That word is for a flaw that keeps failing to follow the rule, time after time. This door was locked once, against twenty years of openings.", "fluke": "A stroke of luck is that word's home ground, and it usually points at a happy accident. A locked bakery door is nobody's good fortune.", "oddity": "That word needs something strange in itself, strange on any street. A locked shop door is ordinary everywhere -- except against this shop's own record."}}, {"s": "Missing the morning bus was a true ____ for Priya, whose six-year commuting record showed nothing like it before or since.", "ks": ["aberration"], "fb": {"irregularity": "That word suits a failure that keeps coming back. <em>Nothing like it before or since<\/em> says this one never did.", "fluke": "That word wants a stroke of chance, usually a lucky one. Nothing fortunate happened here -- just one uncharacteristic slip.", "oddity": "Something must be strange in itself to earn that word. Missing a bus is utterly ordinary; only Priya's own record makes it stand out."}}, {"s": "Inspectors kept finding the same ____ in the plant's logs: temperature columns filled in hours late, week after week.", "ks": ["irregularity"], "fb": {"aberration": "That word covers a single break in an otherwise steady record. <em>Week after week<\/em> means this flaw keeps coming back.", "fluke": "Luck has nothing to do with a records failure -- and a one-time stroke of chance cannot repeat <em>week after week<\/em>.", "oddity": "Nothing here is strange in itself; a late entry is dull paperwork. The trouble is a rule repeatedly not followed."}}, {"s": "The league fined the club for one ____ after another: unsigned rosters, altered scorecards, benches over the player limit.", "ks": ["irregularity"], "fb": {"aberration": "That word is reserved for a single break in an otherwise steady record. This club piles up violation upon violation.", "fluke": "A stroke of luck it is not -- unsigned rosters and altered scorecards are failings, and they keep recurring, which chance cannot.", "oddity": "None of these items is strange in itself. Each is ordinary paperwork gone wrong -- a failure to follow the rule."}}, {"s": "On her first cast ever, June hooked the lake's biggest trout, and thirty empty trips since have convinced her it was pure ____.", "ks": ["fluke"], "fb": {"aberration": "That word needs an established pattern to break, and this was her <em>first cast ever<\/em> -- there was no record yet to depart from.", "irregularity": "No rule failed and no procedure was breached. A lucky catch is chance, not a flaw in anyone's records.", "oddity": "A big fish is not strange in itself. What the sentence dwells on is luck -- one chance result never repeated."}}, {"s": "The museum's back room held one true ____ -- a Victorian teapot shaped like an octopus, strange on any shelf it ever sat on.", "ks": ["oddity"], "fb": {"aberration": "That word marks a break in a steady surrounding record. This teapot is <em>strange on any shelf<\/em> -- no record required.", "irregularity": "Nothing failed to follow a rule. The teapot breaks no procedure; it is simply strange in itself.", "fluke": "No luck, no chance result, no one-time event -- just an object that would be strange wherever it turned up."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a long steady record and one single break in it -- and the break should never repeat. Try working in a word like <i>always<\/i>, <i>once<\/i>, <i>years<\/i> or <i>otherwise<\/i>."}};
+  var CFG = {"word": "aberration", "gradeUrl": "/api/grade", "taskId": "aberration", "minWords": 12, "items": {"s1": {"q": "Miguel has ridden the 7:15 ferry to work for six years, and for most of that time it docked on time. This spring, though, it has arrived late -- sometimes by half an hour or more -- about once a week, some weeks on a Tuesday, some weeks on a Friday, never with a storm or an explanation, and it has docked punctually on the other days. How should Miguel describe these late arrivals?", "opts": {"A": "As an aberration", "B": "As a fluke", "C": "As an irregularity", "D": "As a monstrosity"}, "key": "C", "fb": {"correct": "Correct. A late run about once a week, all spring, with no pattern behind it, is a fault that keeps returning -- and once the same flaw keeps coming back, irregularity is the honest word for it.", "A": "An aberration is a single irregular departure from a well-established pattern -- one odd Thursday in six years would qualify. But this ferry has run late about once a week for an entire spring. Once the same fault keeps returning, the record has a recurring flaw, an irregularity, not a lone break.", "B": "A fluke is a one-time stroke of chance, and usually a lucky one. These delays are neither: they have happened again and again all season, and nobody standing on the dock is calling them lucky.", "D": "A monstrosity is a departure so extreme that it shocks everyone who encounters it. A ferry running half an hour late annoys its commuters, but it shocks no one -- the scale is far too ordinary for that word."}}, "s3a": {"q": "In the passage, aberration most nearly means--", "opts": {"A": "a one-time departure from a long and steady pattern", "B": "a flaw in a schedule that keeps recurring", "C": "an event so strange it would stand out anywhere", "D": "an accident that turned out luckily"}, "key": "A", "fb": {"correct": "Right. Thirty-one years within a minute is the pattern, and the passage calls the late arrival 'not a habit forming, just one crack' -- a single break, gone by Wednesday.", "B": "The passage rules out recurrence directly: by Wednesday the bus was 'back within its minute,' and the lateness is called 'not a habit forming.'", "C": "A bus arriving nineteen minutes late is ordinary on almost any route. It stuns this depot only because of Mr. Okafor's own record.", "D": "Nothing fortunate happened -- a tree blocked the road and a bus ran late. The word here is about the break in the record, not about luck."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fluke", "B": "aberration", "C": "oddity", "D": "irregularity"}, "key": "D", "fb": {"correct": "Right. A required call was skipped again and again — <em>not once but in every month examined<\/em> — and a rule-breaking failure that keeps repeating is exactly what this word covers, where a single break in an otherwise clean record would take a different word.", "B": "An aberration is a single break in an otherwise steady record — one crack, and then the record resumes. These crossings were <em>not once but in every month examined<\/em>. A failure that keeps returning has outgrown the one-off word.", "A": "A fluke is a stroke of luck — a happy one-time accident that cannot be planned or repeated. Nothing lucky happened here: <em>no one gained anything by the shortcut<\/em>, and it happened <em>in every month examined<\/em>.", "C": "An oddity is strange in itself, wherever it turns up. These crossings were the opposite: <em>Nothing about any single crossing was remarkable in itself<\/em>. Each one was ordinary; only the standing rule it ignored makes it worth flagging."}}}, "pairwise": {"rows": [{"sentence": "For a bakery that had opened at six sharp for twenty years, Tuesday's locked door was a bewildering ____ that no regular could explain.", "options": ["aberration", "irregularity"], "key": "aberration", "pair": "irregularity", "why_right": "The tell is <em>had opened at six sharp for twenty years<\/em> - one locked morning against that record is a single break in an otherwise steady record, not a flaw that keeps returning.", "why_wrong": "That word is for a flaw that keeps failing to follow the rule, time after time. This door was locked once, against twenty years of openings."}, {"sentence": "Inspectors kept finding the same ____ in the plant's logs: temperature columns filled in hours late, week after week.", "options": ["aberration", "irregularity"], "key": "irregularity", "pair": "irregularity", "why_right": "The tell is <em>week after week<\/em> - the same flaw keeps returning, and once a flaw keeps coming back, irregularity is the honest word; an aberration is a single break.", "why_wrong": "That word covers a single break in an otherwise steady record. <em>Week after week<\/em> means this flaw keeps coming back."}, {"sentence": "The league fined the club for one ____ after another: unsigned rosters, altered scorecards, benches over the player limit.", "options": ["aberration", "irregularity"], "key": "irregularity", "pair": "irregularity", "why_right": "The tell is <em>unsigned rosters, altered scorecards, benches over the player limit<\/em> - a string of rule-breaking failures that keeps recurring, not a single break in an otherwise steady record.", "why_wrong": "That word is reserved for a single break in an otherwise steady record. This club piles up violation upon violation."}, {"sentence": "Missing the morning bus was a true ____ for Priya, whose six-year commuting record showed nothing like it before or since.", "options": ["aberration", "fluke"], "key": "aberration", "pair": "fluke", "why_right": "The tell is <em>Missing the morning bus<\/em> - a slip, not a stroke of chance; an aberration simply breaks an established pattern, lucky or not, and nothing fortunate happened here.", "why_wrong": "That word wants a stroke of chance, usually a lucky one. Nothing fortunate happened here -- just one uncharacteristic slip."}, {"sentence": "On her first cast ever, June hooked the lake's biggest trout, and thirty empty trips since have convinced her it was pure ____.", "options": ["aberration", "fluke"], "key": "fluke", "pair": "fluke", "why_right": "The tell is <em>first cast ever<\/em> - there was no established record for the catch to break; a one-time stroke of luck that thirty empty trips could not repeat is a fluke.", "why_wrong": "That word needs an established pattern to break, and this was her <em>first cast ever<\/em> -- there was no record yet to depart from."}, {"sentence": "The veteran auctioneer's stumble over a lot number, after eleven thousand flawless sales, was one ____ he spent all week apologizing for.", "options": ["aberration", "fluke"], "key": "aberration", "pair": "fluke", "why_right": "The tell is <em>he spent all week apologizing for<\/em> - this is a failing, nobody's stroke of luck; an aberration is a break in a flawless record, lucky or not.", "why_wrong": "That word means a one-time stroke of chance, usually a lucky one. Nothing fortunate landed on anyone here - the auctioneer's own slip is what he keeps apologizing for."}, {"sentence": "The museum's back room held one true ____ -- a Victorian teapot shaped like an octopus, strange on any shelf it ever sat on.", "options": ["aberration", "oddity"], "key": "oddity", "pair": "oddity", "why_right": "The tell is <em>strange on any shelf it ever sat on<\/em> - a thing strange in itself needs no surrounding record, and that is an oddity, not a break in a pattern.", "why_wrong": "That word marks a break in a steady surrounding record. This teapot is <em>strange on any shelf<\/em> -- no record required."}, {"sentence": "The two-star review sat alone among nine hundred raves, one ____ in the guesthouse's fifteen-year record and a perfectly ordinary complaint anywhere else on the site.", "options": ["aberration", "oddity"], "key": "aberration", "pair": "oddity", "why_right": "The tell is <em>a perfectly ordinary complaint anywhere else on the site<\/em> - the review is strange only against this record, and a break in an otherwise steady pattern is an aberration.", "why_wrong": "That word needs a thing strange in itself, strange wherever it turns up. A two-star review is ordinary all over the site - only this guesthouse's nine hundred raves make it stand out."}], "display_order": [0, 4, 2, 6, 5, 1, 7, 3], "dimension_order": ["irregularity", "fluke", "oddity"], "dimension_feedback": {"irregularity": "An irregularity is something that fails to follow the usual rule or pattern, and unlike an aberration it can happen again and again. An aberration is a single break in an otherwise steady record; once the same flaw keeps returning, irregularity is the honest word for it.", "fluke": "A fluke is a one-time stroke of chance, usually a lucky result that cannot be planned or repeated. An aberration is also a one-off, but it simply breaks an established pattern, lucky or not, and it more often points at something going wrong than at a happy accident.", "oddity": "An oddity is a thing that is strange in itself, wherever it turns up. An aberration is strange only against the record around it: a perfectly ordinary event can still be an aberration if it breaks an otherwise steady, well-established pattern."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a long steady record and one single break in it -- and the break should never repeat. Try working in a word like <i>always<\/i>, <i>once<\/i>, <i>years<\/i> or <i>otherwise<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

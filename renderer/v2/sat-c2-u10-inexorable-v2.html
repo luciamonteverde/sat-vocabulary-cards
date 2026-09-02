@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="52fa6a5681ae">
+<meta name="build" content="839ef10eb71e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>inexorable &#8212; SAT Vocabulary, Course 2 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "inexorable", "gradeUrl": "/api/grade", "taskId": "inexorable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses inexorable correctly?", "opts": {"A": "The inexorable thunderstorm blew through the fairgrounds in twenty minutes flat, drenching the midway and vanishing over the ridge.", "B": "Letters, lawyers, and a petition of nine thousand names changed nothing; the railroad's board proved inexorable, and the crossing closed in June.", "C": "The coach's inexorable starting lineup survived exactly until the first parent complained; two phone calls later it was quietly rewritten.", "D": "The auditors flagged an inexorable error in the ledger, a lone figure that nobody in the office could explain, trace, or reproduce."}, "key": "B", "fb": {"correct": "Correct! Inexorable means deaf to every plea — and the board hears the letters, the lawyers, and nine thousand signatures, then closes the crossing on schedule anyway. Appeal was possible, appeal was made, and appeal moved nothing: that is the word exactly.", "A": "Not quite! Inexorable describes a course that holds without swerving or stopping — the tide, not the squall. A storm that blows through in twenty minutes and vanishes over the ridge is brief and changeable, nearly the opposite of a fixed, unturnable advance.", "C": "Not quite! Inexorable means no appeal can move it. A lineup rewritten two phone calls after the first complaint yielded at the very first push, which is the exact behavior the word rules out.", "D": "Not quite! Inexorable means unmovable by pleading; it does not mean unexplainable. A figure that nobody can trace calls for a word about mystery — the ledger's error is baffling, not deaf to appeals."}}, "s3a": {"q": "In this passage, calling the spread \"inexorable\" most nearly means that it", "opts": {"A": "advanced no matter what anyone did to stop or slow it", "B": "moved faster every year than the arborist predicted", "C": "was caused by the council's slow and divided response", "D": "could have been halted by an earlier quarantine"}, "key": "A", "fb": {"correct": "Right — traps, quarantines, injections, campaigns: every measure was tried, and the range still moved outward each spring, 'never listening.'", "B": "Speed is not the claim — a mile or two a year is steady, not accelerating. The point is that nothing anyone did changed it.", "C": "The council funded everything the arborist asked for; the passage blames no one. The spread simply could not be stopped.", "D": "The quarantine was among the first things tried. The passage offers no missed chance — only measures that all failed."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unyielding", "B": "relentless", "C": "firm", "D": "inexorable"}, "key": "A", "fb": {"correct": "Right. Two rivals gave — one stretched, one frayed — while the third refused to bend through <em>crush plates, torsion rigs, salt fog<\/em>. Unyielding is the stance word for exactly that refusal, and the stance is the whole finding.", "D": "Inexorable adds a shut door to appeals: cases made, and nothing moved. Nothing here was asked or argued — the third cable simply <em>ran the whole gauntlet<\/em> of force. With no plea in play, the appeal-proof word claims more than the passage shows.", "B": "Relentless describes pressure that never lets up — it fits the trial itself, the <em>crush plates, torsion rigs, salt fog<\/em>. The blank describes the cable standing up to all of that, the other side of the contest.", "C": "Firm is the mild word — a line held for now, with give still possible. The trials could plainly make a cable give: <em>The first stretched measurably<\/em>, <em>the second frayed<\/em>. The third came through <em>the whole gauntlet<\/em> without giving at all, and firm undersells that record."}}}, "grid": {"words": ["inexorable", "relentless", "unyielding", "firm"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Petitions, a candlelight vigil, and a personal letter from the mayor all reached the railway's directors, who proved ____: the branch line would close on the first of March, and it did.", "ks": ["inexorable"], "fb": {"relentless": "That word describes pressure that never lets up — the outbound kind. The directors send nothing out; the sentence is about the appeals that reached them and moved nothing.", "unyielding": "That is a stance holding against force or pressure. What arrived here was not force — it was pleading, and pleading is exactly what could not reach them.", "firm": "A firm board holds the line today but can still be brought around by a strong enough case. The mayor's letter and the vigil were the strong case; the line closed anyway."}}, {"s": "The co-op board heard the tenants' appeal in full — hardship letters, a veterinarian's note, the superintendent's testimony — and remained ____, ordering the dog rehomed by Friday.", "ks": ["inexorable"], "fb": {"relentless": "That word faces outward — pressure applied and kept up. The board applies nothing; it sits, hears the best case the tenants can make, and is unmoved.", "unyielding": "That word resists force — a line that will not bend under pressure. This board faced no force at all, only pleading, and the pleading is what got nowhere.", "firm": "Firm still leaves a door: a strong enough case can bring a firm board around. This case was heard in full and moved nothing — the door was never open."}}, {"s": "The doorman stayed ____ as the crowd pushed toward the stage door: braced in the frame, he gave not one step in twenty minutes, until the marshals arrived.", "ks": ["unyielding"], "fb": {"inexorable": "That word means deaf to appeals — pleas made and refused. Nobody here is pleading; the crowd is pushing, and the gap names the stance that would not bend under it.", "relentless": "That fits the crowd — pressure kept up without letup. The gap sits on the doorman, the one absorbing the pressure and refusing to bend.", "firm": "That would be holding the line for the moment. Twenty minutes of shoving without giving a step is the stronger claim: a stance that will not bend at all."}}, {"s": "Through the wettest spring on record the old levee stood ____: the river climbed nine feet and pressed for six weeks, and the packed clay gave not an inch.", "ks": ["unyielding"], "fb": {"inexorable": "That word is about being deaf to pleas — and nothing pleads with a levee. The sentence is about force pressing and a stance not bending.", "relentless": "That describes the river — six weeks of pressure without a pause. The gap describes the clay bank that would not bend under it.", "firm": "Holding the line for a day is one claim; not giving an inch under nine feet of river for six weeks is a stronger one — a stance that will not bend at all."}}, {"s": "The collection agency's calls were ____ — seven a day, weekends included, from the first of June straight through August, never once easing off.", "ks": ["relentless"], "fb": {"inexorable": "That word measures what comes in — pleas arriving and failing. This sentence is all outbound: calls applied like weather, seven a day, all summer.", "unyielding": "That word describes something withstanding pressure. Nothing is withstanding here; the calls are the pressure itself, kept up without a break.", "firm": "A held position is not the claim. Seven calls a day for three months is force applied and never let up — the outbound word."}}, {"s": "The registrar was ____ about the deadline all week — no exceptions, she repeated — yet when the flooded dorm's residents finally made their case on Friday, she granted three more days.", "ks": ["firm"], "fb": {"inexorable": "That word means no case will ever be strong enough. Friday's case was — she gave the three days. The line held only until a good enough appeal arrived.", "unyielding": "A stance that will not bend did bend: the exception was granted. The gap needs the weaker word — a line held until a strong case comes along.", "relentless": "No pressure is being applied by her — she is holding a position, and holding it only until Friday's case moved her."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show pleas or countermeasures actually being made — and failing to change the outcome one bit; the reader must watch an appeal bounce off. Try working in a word like <i>begged<\/i>, <i>petition<\/i>, <i>anyway<\/i> or <i>unmoved<\/i>."}};
+  var CFG = {"word": "inexorable", "gradeUrl": "/api/grade", "taskId": "inexorable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses inexorable correctly?", "opts": {"A": "The inexorable thunderstorm blew through the fairgrounds in twenty minutes flat, drenching the midway and vanishing over the ridge.", "B": "Letters, lawyers, and a petition of nine thousand names changed nothing; the railroad's board proved inexorable, and the crossing closed in June.", "C": "The coach's inexorable starting lineup survived exactly until the first parent complained; two phone calls later it was quietly rewritten.", "D": "The auditors flagged an inexorable error in the ledger, a lone figure that nobody in the office could explain, trace, or reproduce."}, "key": "B", "fb": {"correct": "Correct! Inexorable means deaf to every plea — and the board hears the letters, the lawyers, and nine thousand signatures, then closes the crossing on schedule anyway. Appeal was possible, appeal was made, and appeal moved nothing: that is the word exactly.", "A": "Not quite! Inexorable describes a course that holds without swerving or stopping — the tide, not the squall. A storm that blows through in twenty minutes and vanishes over the ridge is brief and changeable, nearly the opposite of a fixed, unturnable advance.", "C": "Not quite! Inexorable means no appeal can move it. A lineup rewritten two phone calls after the first complaint yielded at the very first push, which is the exact behavior the word rules out.", "D": "Not quite! Inexorable means unmovable by pleading; it does not mean unexplainable. A figure that nobody can trace calls for a word about mystery — the ledger's error is baffling, not deaf to appeals."}}, "s3a": {"q": "In this passage, calling the spread \"inexorable\" most nearly means that it", "opts": {"A": "advanced no matter what anyone did to stop or slow it", "B": "moved faster every year than the arborist predicted", "C": "was caused by the council's slow and divided response", "D": "could have been halted by an earlier quarantine"}, "key": "A", "fb": {"correct": "Right — traps, quarantines, injections, campaigns: every measure was tried, and the range still moved outward each spring, 'never listening.'", "B": "Speed is not the claim — a mile or two a year is steady, not accelerating. The point is that nothing anyone did changed it.", "C": "The council funded everything the arborist asked for; the passage blames no one. The spread simply could not be stopped.", "D": "The quarantine was among the first things tried. The passage offers no missed chance — only measures that all failed."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unyielding", "B": "relentless", "C": "firm", "D": "inexorable"}, "key": "A", "fb": {"correct": "Right. Two rivals gave — one stretched, one frayed — while the third refused to bend through <em>crush plates, torsion rigs, salt fog<\/em>. Unyielding is the stance word for exactly that refusal, and the stance is the whole finding.", "D": "Inexorable adds a shut door to appeals: cases made, and nothing moved. Nothing here was asked or argued — the third cable simply <em>ran the whole gauntlet<\/em> of force. With no plea in play, the appeal-proof word claims more than the passage shows.", "B": "Relentless describes pressure that never lets up — it fits the trial itself, the <em>crush plates, torsion rigs, salt fog<\/em>. The blank describes the cable standing up to all of that, the other side of the contest.", "C": "Firm is the mild word — a line held for now, with give still possible. The trials could plainly make a cable give: <em>The first stretched measurably<\/em>, <em>the second frayed<\/em>. The third came through <em>the whole gauntlet<\/em> without giving at all, and firm undersells that record."}}}, "pairwise": {"rows": [{"sentence": "Petitions, a candlelight vigil, and a personal letter from the mayor all reached the railway's directors, who proved ____: the branch line would close on the first of March, and it did.", "options": ["inexorable", "firm"], "key": "inexorable", "pair": "firm", "why_right": "The tell is <em>a personal letter from the mayor<\/em> - as strong as cases come, and it moved nothing; a merely firm board could still have been brought around by it.", "why_wrong": "A firm board holds the line today but can still be brought around by a strong enough case. The mayor's letter and the vigil were the strong case; the line closed anyway."}, {"sentence": "Half the class wrote to the dean, the chair raised it twice at faculty meeting, and the professor proved ____: December's grades were still the grades of record in May.", "options": ["inexorable", "firm"], "key": "inexorable", "pair": "firm", "why_right": "The tell is <em>December's grades were still the grades of record in May<\/em> - every channel was tried and months changed nothing; no case was ever going to be strong enough.", "why_wrong": "That word holds the line today but leaves the door open to a strong enough case. The dean and the chair were the strong case, twice over, and the grades never moved."}, {"sentence": "The registrar was ____ about the deadline all week — no exceptions, she repeated — yet when the flooded dorm's residents finally made their case on Friday, she granted three more days.", "options": ["inexorable", "firm"], "key": "firm", "pair": "firm", "why_right": "The tell is <em>she granted three more days<\/em> - the line held only until a strong enough case arrived; a door that can still open is exactly this word's territory.", "why_wrong": "That word means no case will ever be strong enough. Friday's case was — she gave the three days. The line held only until a good enough appeal arrived."}, {"sentence": "The co-op board heard the tenants' appeal in full — hardship letters, a veterinarian's note, the superintendent's testimony — and remained ____, ordering the dog rehomed by Friday.", "options": ["inexorable", "unyielding"], "key": "inexorable", "pair": "unyielding", "why_right": "The tell is <em>hardship letters, a veterinarian's note, the superintendent's testimony<\/em> - pleading heard in full and changing nothing; no force ever pushed on this board, only appeals.", "why_wrong": "That word resists force — a line that will not bend under pressure. This board faced no force at all, only pleading, and the pleading is what got nowhere."}, {"sentence": "The doorman stayed ____ as the crowd pushed toward the stage door: braced in the frame, he gave not one step in twenty minutes, until the marshals arrived.", "options": ["inexorable", "unyielding"], "key": "unyielding", "pair": "unyielding", "why_right": "The tell is <em>braced in the frame<\/em> - a stance holding against physical force; nobody pleads with this man, the crowd only pushes, and pushing is what he would not bend under.", "why_wrong": "That word means deaf to appeals — pleas made and refused. Nobody here is pleading; the crowd is pushing, and the gap names the stance that would not bend under it."}, {"sentence": "Through the wettest spring on record the old levee stood ____: the river climbed nine feet and pressed for six weeks, and the packed clay gave not an inch.", "options": ["inexorable", "unyielding"], "key": "unyielding", "pair": "unyielding", "why_right": "The tell is <em>gave not an inch<\/em> - a position refusing to bend under six weeks of river pressure; no plea is anywhere in the sentence, only force against a stance.", "why_wrong": "That word is about being deaf to pleas — and nothing pleads with a levee. The sentence is about force pressing and a stance not bending."}, {"sentence": "Both captains argued it, the league reviewed the tape twice, and the home crowd booed for a quarter of an hour; the referee stayed ____, and the disputed goal stood.", "options": ["inexorable", "relentless"], "key": "inexorable", "pair": "relentless", "why_right": "The tell is <em>argued it, the league reviewed the tape twice<\/em> - appeals were made from every side and moved nothing; the gap measures deafness to what comes in, not pressure sent out.", "why_wrong": "That word measures pressure that never lets up - the outbound kind, like the booing. The referee sends nothing out; every appeal arrived, and the shut door is the point."}, {"sentence": "The collection agency's calls were ____ — seven a day, weekends included, from the first of June straight through August, never once easing off.", "options": ["inexorable", "relentless"], "key": "relentless", "pair": "relentless", "why_right": "The tell is <em>never once easing off<\/em> - pressure sent out and kept up for three straight months; nothing here receives appeals or refuses them.", "why_wrong": "That word measures what comes in — pleas arriving and failing. This sentence is all outbound: calls applied like weather, seven a day, all summer."}], "display_order": [4, 1, 6, 0, 5, 2, 7, 3], "dimension_order": ["firm", "unyielding", "relentless"], "dimension_feedback": {"firm": "Firm is far weaker than inexorable: a firm official holds the line today but can still be brought around by a strong enough case, while inexorable means no case will ever be strong enough.", "unyielding": "Unyielding describes the stance: a person or position that will not bend under pressure. Inexorable describes the outcome of every possible approach — not just firm against force, but deaf to pleading, unmoved by the best case anyone can make.", "relentless": "Relentless measures pressure that never lets up — relentless rain, a relentless interviewer — and it says nothing about persuasion, because nobody argues with rain. Inexorable adds the shut door: appeals were possible, appeals were made, and appeals moved nothing."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show pleas or countermeasures actually being made — and failing to change the outcome one bit; the reader must watch an appeal bounce off. Try working in a word like <i>begged<\/i>, <i>petition<\/i>, <i>anyway<\/i> or <i>unmoved<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

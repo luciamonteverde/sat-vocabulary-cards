@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="5491edaafff7">
+<meta name="build" content="20474165218d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>impel &#8212; SAT Vocabulary, Course 3 Unit 5</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "impel", "gradeUrl": "/api/grade", "taskId": "impel", "minWords": 12, "items": {"s1": {"q": "Which sentence uses impel correctly?", "opts": {"A": "The hostess impelled the leftovers to the neighbors before they could spoil.", "B": "Marisol impelled her essay to the top of the pile so the judges would see it first.", "C": "The coach impelled practice to Thursday because of the coming storm.", "D": "Rising rents finally impelled the bookbinders to buy the old firehouse and share it."}, "key": "D", "fb": {"correct": "Correct! A real pressure — rents climbing past what they could pay — drove the bookbinders to act, and the frame is exact: it impelled them to buy.", "A": "The hostess is handing out food — sending 'leftovers to the neighbors' is a delivery, not pressure on anyone's will. Impel needs a force that drives a person to act; nothing here urges anybody to do anything.", "B": "Moving 'her essay to the top of the pile' is placing an object where it will be seen. Impel takes a person as its object — some pressure pushing someone toward an action they then take.", "C": "A storm may be real pressure, but 'practice to Thursday' moves a date, and a calendar can't be urged. Impel means driving a person to act — look for someone who feels the push and then does something."}}, "s3a": {"q": "As used in the passage, 'what impels people back' most nearly means what", "opts": {"A": "presses them into action through a force felt from inside", "B": "persuades them to return through repeated spoken appeals", "C": "rewards each of their returns with public recognition", "D": "requires them to come back under written rules"}, "key": "A", "fb": {"correct": "Right. The passage locates the push inside the volunteers -- a debt, an itch, a refusal to sit still -- with no one assigning or asking.", "B": "No one appeals to them at all: no agency assigns them, and the student says plainly that nobody sent her.", "C": "The passage says the opposite -- coming back is almost never a reward, and several volunteers lose money by it.", "D": "There are no rules involved; nothing official requires anything of them."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "drive", "B": "urge", "C": "impel", "D": "prod"}, "key": "C", "fb": {"correct": "Right. Something impelled her: <em>one push, felt the afternoon the boxed card files reached her door<\/em>. Nobody spoke, nothing nagged, no deadline loomed — the push came from circumstance and feeling alone, which is exactly the push impel names.", "A": "Drive is not wrong so much as loose — the ordinary, catch-all word for nearly any pressure toward an act. The passage strips the usual pressures away: <em>the university had closed the project years earlier<\/em>, and there was <em>no deadline to answer<\/em>. The stem asks for the most logical and precise word, and the loose one is not it.", "B": "Urging takes a voice — someone pressing you on with words. There was none: <em>no one so much as hinted she should<\/em>.", "D": "A prod is a small, repeated poke toward action — the same tap arriving again and again until you move. The passage shuts that door: there was <em>no drumbeat of reminders<\/em>."}}}, "grid": {"words": ["impel", "drive", "urge", "prod"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The citation kept its formal, old-fashioned wording: only a sense of duty, it read, would ____ a keeper to row out into such a sea.", "ks": ["impel"], "fb": {"drive": "That is the everyday word, at home in casual talk about ambition or deadlines. A citation reaching for formal, old-fashioned wording wants its formal cousin.", "urge": "That word needs a voice pressing with words and encouragement. Nobody says anything to the keeper -- the push is a feeling, felt from inside.", "prod": "That word is a series of gentle pokes -- reminders, nudges -- until someone finally moves. Rowing into a storm follows one strong push, not a tapping campaign."}}, {"s": "No rule required it; a private unease she could not put down would ____ the inspector to walk the whole span one last time.", "ks": ["impel"], "fb": {"urge": "That word puts words in someone's mouth -- a coach, an editor, a friend pressing you on. Here no one even knows she is on the bridge; the push is all her own.", "prod": "That word keeps tapping -- notes, hints, little reminders -- until you move. This is a single deep unease, strong enough to send her back out alone.", "drive": "The everyday word covers any pressure loosely -- ambition, fear, a deadline. This sentence names the felt push itself pressing her toward one act, which is the formal cousin's exact job."}}, {"s": "From the stern the coxswain kept shouting to ____ the rowers through the final five hundred meters of the race.", "ks": ["urge"], "fb": {"impel": "That word means the push wells up inside, no speaker needed. Take away the shouting here and nothing presses the rowers at all.", "prod": "That word is a light, nagging tap -- a reminder here, a blunt question there. A full-throated call through a finish sprint is open encouragement, not nagging.", "drive": "The everyday word usually points at pressures like ambition, fear, or a deadline. What presses these rowers is nothing but a voice -- words of encouragement, delivered loudly."}}, {"s": "One long letter from her editor was enough to ____ the novelist to send out the chapters she had been hoarding for a year.", "ks": ["urge"], "fb": {"impel": "That word works without any speaker -- conscience, dread, a push felt from inside. This push arrived by mail, in somebody else's words.", "prod": "That word means repeated small pokes until you finally move. This was one letter, long and earnest -- pressing, not pestering.", "drive": "The everyday word leans on pressures like ambition or a deadline. Here a person presses with words of encouragement, which is the other pattern entirely."}}, {"s": "Scouts kept asking what could ____ a kid from a town with no rink to practice stickhandling in a frozen parking lot every night.", "ks": ["drive"], "fb": {"impel": "The formal cousin belongs to formal frames -- citations, findings, reports. A scout wondering aloud about 'a kid' is everyday talk, which wants the everyday word.", "urge": "That word needs someone pressing with spoken encouragement. Nobody in this town is even watching -- the pressure is the boy's own ambition.", "prod": "That word is a nudge repeated until someone finally moves. Whatever sends a boy out to the ice every single night is a far harder push than a nudge."}}, {"s": "It took reminder notes on the fridge and the same blunt question at every dinner to finally ____ his roommate into filing the overdue taxes.", "ks": ["prod"], "fb": {"impel": "That word is one strong push felt from inside. This campaign worked by the opposite -- tiny pokes, over and over, until he moved.", "urge": "That word presses with encouragement and real force of feeling. Sticky notes and a dinner-table question are taps, not pressing.", "drive": "The everyday strong word means real pressure toward an act. Nothing here pressures -- it pesters, gently and endlessly, which is the mildest push on the card."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a push that wells up from inside a person and moves them to one act -- no one asking, ordering, or cheering. Try working in a word like <i>guilt<\/i>, <i>duty<\/i>, or <i>conscience<\/i> as the force."}};
+  var CFG = {"word": "impel", "gradeUrl": "/api/grade", "taskId": "impel", "minWords": 12, "items": {"s1": {"q": "Which sentence uses impel correctly?", "opts": {"A": "The hostess impelled the leftovers to the neighbors before they could spoil.", "B": "Marisol impelled her essay to the top of the pile so the judges would see it first.", "C": "The coach impelled practice to Thursday because of the coming storm.", "D": "Rising rents finally impelled the bookbinders to buy the old firehouse and share it."}, "key": "D", "fb": {"correct": "Correct! A real pressure — rents climbing past what they could pay — drove the bookbinders to act, and the frame is exact: it impelled them to buy.", "A": "The hostess is handing out food — sending 'leftovers to the neighbors' is a delivery, not pressure on anyone's will. Impel needs a force that drives a person to act; nothing here urges anybody to do anything.", "B": "Moving 'her essay to the top of the pile' is placing an object where it will be seen. Impel takes a person as its object — some pressure pushing someone toward an action they then take.", "C": "A storm may be real pressure, but 'practice to Thursday' moves a date, and a calendar can't be urged. Impel means driving a person to act — look for someone who feels the push and then does something."}}, "s3a": {"q": "As used in the passage, 'what impels people back' most nearly means what", "opts": {"A": "presses them into action through a force felt from inside", "B": "persuades them to return through repeated spoken appeals", "C": "rewards each of their returns with public recognition", "D": "requires them to come back under written rules"}, "key": "A", "fb": {"correct": "Right. The passage locates the push inside the volunteers -- a debt, an itch, a refusal to sit still -- with no one assigning or asking.", "B": "No one appeals to them at all: no agency assigns them, and the student says plainly that nobody sent her.", "C": "The passage says the opposite -- coming back is almost never a reward, and several volunteers lose money by it.", "D": "There are no rules involved; nothing official requires anything of them."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "drive", "B": "urge", "C": "impel", "D": "prod"}, "key": "C", "fb": {"correct": "Right. Something impelled her: <em>one push, felt the afternoon the boxed card files reached her door<\/em>. Nobody spoke, nothing nagged, no deadline loomed — the push came from circumstance and feeling alone, which is exactly the push impel names.", "A": "Drive is not wrong so much as loose — the ordinary, catch-all word for nearly any pressure toward an act. The passage strips the usual pressures away: <em>the university had closed the project years earlier<\/em>, and there was <em>no deadline to answer<\/em>. The stem asks for the most logical and precise word, and the loose one is not it.", "B": "Urging takes a voice — someone pressing you on with words. There was none: <em>no one so much as hinted she should<\/em>.", "D": "A prod is a small, repeated poke toward action — the same tap arriving again and again until you move. The passage shuts that door: there was <em>no drumbeat of reminders<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The citation kept its formal, old-fashioned wording: only a sense of duty, it read, would ____ a keeper to row out into such a sea.", "options": ["impel", "drive"], "key": "impel", "pair": "drive", "why_right": "The tell is <em>formal, old-fashioned wording<\/em> - the citation's own diction claims the formal register, and the card sends the felt push there to the formal cousin, not the everyday word.", "why_wrong": "That is the everyday word, at home in casual talk about ambition or deadlines. A citation reaching for formal, old-fashioned wording wants its formal cousin."}, {"sentence": "Scouts kept asking what could ____ a kid from a town with no rink to practice stickhandling in a frozen parking lot every night.", "options": ["impel", "drive"], "key": "drive", "pair": "drive", "why_right": "The tell is <em>a kid<\/em> - scouts wondering aloud in everyday talk take the everyday word that covers almost any pressure; the card keeps its formal cousin for formal frames.", "why_wrong": "The formal cousin belongs to formal frames -- citations, findings, reports. A scout wondering aloud about 'a kid' is everyday talk, which wants the everyday word."}, {"sentence": "Cadets joke about what gets you through drills; the honor code's stiff 1902 phrasing holds that shame alone should ____ a man to report himself.", "options": ["impel", "drive"], "key": "impel", "pair": "drive", "why_right": "The tell is <em>stiff 1902 phrasing<\/em> - the blank sits inside a formal, dated document's own wording, which the card gives to the formal cousin that names the felt push itself.", "why_wrong": "That is the everyday word, at home in the cadets' joking about what gets you through. Inside the code's stiff, dated phrasing, the felt push wants its formal cousin."}, {"sentence": "No rule required it; a private unease she could not put down would ____ the inspector to walk the whole span one last time.", "options": ["impel", "urge"], "key": "impel", "pair": "urge", "why_right": "The tell is <em>a private unease<\/em> - the push wells up from a feeling with no speaker anywhere, and the card says this word needs no one to say a word at all.", "why_wrong": "That word puts words in someone's mouth -- a coach, an editor, a friend pressing you on. Here no one even knows she is on the bridge; the push is all her own."}, {"sentence": "One long letter from her editor was enough to ____ the novelist to send out the chapters she had been hoarding for a year.", "options": ["impel", "urge"], "key": "urge", "pair": "urge", "why_right": "The tell is <em>One long letter from her editor<\/em> - a person pressing with words and encouragement is this word's whole card ground; nothing here is a push felt from inside.", "why_wrong": "That word works without any speaker -- conscience, dread, a push felt from inside. This push arrived by mail, in somebody else's words."}, {"sentence": "Over coffee her sister talked for a full hour, gently but insistently, to ____ her to see a specialist before fieldwork season began.", "options": ["impel", "urge"], "key": "urge", "pair": "urge", "why_right": "The tell is <em>talked for a full hour<\/em> - the push is a person pressing with words and encouragement, the card's home case for this word; nothing here wells up from inside.", "why_wrong": "That word needs no speaker -- feelings or circumstances supply the push, felt from inside. Here the pressure is entirely her sister's words, an hour of them."}, {"sentence": "Nobody had been nagging him; one look at his father's silent cello was enough to ____ him to book the recital hall that night.", "options": ["impel", "prod"], "key": "impel", "pair": "prod", "why_right": "The tell is <em>one look<\/em> - a single strong push, felt at once and acted on the same night; the card says what impels you is one strong push you feel.", "why_wrong": "That word means small, repeated pokes, far gentler than this -- taps that work only by accumulation. Nobody here was nagging; one strong felt push set him moving that night."}, {"sentence": "Every few days his lab partner nodded at the crusted beakers and raised an eyebrow, a patient campaign to ____ him to clear the bench.", "options": ["impel", "prod"], "key": "prod", "pair": "prod", "why_right": "The tell is <em>Every few days<\/em> - the pushes are small, gentle, and repeated, working only by accumulation, which the card calls the far gentler word's whole method.", "why_wrong": "That word is one strong push felt from inside, setting you moving at once. A raised eyebrow every few days is the gentlest kind of tapping, working only by repetition."}], "display_order": [0, 4, 6, 1, 5, 7, 2, 3], "dimension_order": ["drive", "urge", "prod"], "dimension_feedback": {"drive": "Drive is the everyday word for pushing someone toward an act, and it covers almost any pressure — ambition, fear, a deadline. Impel is its formal cousin and names the felt push itself, in a fixed frame: something impels someone to do something.", "urge": "To urge is to press someone with words and encouragement — a coach urges the team on. Impel needs no speaker at all: feelings or circumstances supply the push, and you can be impelled to act without anyone saying a word.", "prod": "A prod is a small, repeated poke toward action — reminders, pointed questions — and it is far gentler than impel. What impels you is one strong push you feel; what prods you just keeps tapping until you finally move."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a push that wells up from inside a person and moves them to one act -- no one asking, ordering, or cheering. Try working in a word like <i>guilt<\/i>, <i>duty<\/i>, or <i>conscience<\/i> as the force."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

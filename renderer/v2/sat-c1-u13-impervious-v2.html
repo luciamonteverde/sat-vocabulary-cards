@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9a81d1a2ef05">
+<meta name="build" content="f40f252a27bf">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>impervious &#8212; SAT Vocabulary, Course 1 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "impervious", "gradeUrl": "/api/grade", "taskId": "impervious", "minWords": 12, "items": {"s1": {"q": "A history class is studying Fort Granmore, a hilltop fortress that was attacked eleven times and never fell. The teacher asks which piece of evidence best shows that the fortress walls were impervious to attack. Which detail should the students choose?", "opts": {"A": "The walls were decorated with banners that could be seen from miles away.", "B": "The walls took nearly thirty years and two generations of masons to complete.", "C": "Guards patrolled the tops of the walls in shifts around the clock.", "D": "Cannonballs bounced off the granite walls without leaving a single crack."}, "key": "D", "fb": {"correct": "Exactly — direct hits did nothing at all to the stone. Impervious means impossible to penetrate or damage, and only that detail shows attacks literally failing to leave a mark.", "A": "Banners 'seen from miles away' show the fortress was visible and decorated, not that it could shrug off an assault. Impervious to attack means weapons cannot harm the walls — look for evidence of an attack failing to hurt them.", "B": "Taking 'two generations of masons' to build tells us construction was slow and grand, not that the finished walls resisted damage. Impervious is about what happens when something strikes the fortress, not how long it took to raise.", "C": "Guards patrolling 'around the clock' prove the fort was well defended by people. Impervious describes the walls themselves being impossible to damage — find the detail where an assault does nothing to the stone."}}, "s3a": {"q": "In this passage, calling the fabric \"impervious to windblown sand\" means", "opts": {"A": "the sand could not get through it at all, no matter the storm", "B": "the fabric was too heavy for the wind to move", "C": "the fabric survived the first storm but might fail in the next one", "D": "the sand slid off because the fabric was kept clean"}, "key": "A", "fb": {"correct": "Right -- 'not one grain worked its way through the weave,' storm after storm, at any speed.", "B": "The fabric is 'light enough to lift with one hand' -- weight has nothing to do with it.", "C": "The crew 'had stopped bracing for storms at all' -- this is a standing property, not one lucky escape.", "D": "It is the instruments inside that stayed clean; the claim is about what can pass through the weave."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unaffected", "B": "impervious", "C": "immune", "D": "impenetrable"}, "key": "B", "fb": {"correct": "Right. The lining stands permanently against one specific force, the molten bronze, which simply cannot work its way in, whatever else may chip or crack the vessel.", "D": "An impenetrable barrier lets nothing at all find a way through. This lining is breached by plenty: <em>the same vessel chips when a ladle knocks it and cracks if cooled too fast<\/em>. Its <em>defense holds against exactly one enemy<\/em>, not against everything.", "A": "Unaffected reports an outcome, no mark this time and no promises about the next. The passage makes a standing claim instead: <em>thirty years of pours have not changed the verdict<\/em>, and within its limit <em>the rule is absolute<\/em>.", "C": "Immunity is protection built into a thing's own makeup, the way an unusual protein protects from within. Here the resistance is not inborn: <em>Nor does the protection lie in the clay's own nature<\/em>; <em>it comes entirely from a thin fired glaze<\/em> applied over it."}}}, "grid": {"words": ["impervious", "impenetrable", "unaffected", "immune"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The new deck stain leaves the boards ____ to rain: water beads and rolls off season after season, never soaking in.", "ks": ["impervious"], "fb": {"impenetrable": "That word describes the barrier itself -- a wall, a defense nothing gets through -- and it does not take 'to.' This sentence names the one force, rain, that the boards stand against.", "unaffected": "That word reports a single outcome -- no mark this time. 'Season after season' makes a standing claim about what rain can ever do.", "immune": "That word means protected by one's own makeup, the way a vaccinated body is. These boards owe everything to an applied stain, not to what they are made of."}}, {"s": "The lab bench's resin top is ____ to acid: spills that etch steel leave it unmarked, year after year.", "ks": ["impervious"], "fb": {"impenetrable": "That word belongs to barriers as such -- vaults, walls, defenses -- and does not take 'to.' Here the whole claim is how the top stands toward one named force.", "unaffected": "That word covers one event that left no mark. 'Year after year' claims the acid can never mark it at all.", "immune": "That word lives with bodies and persons -- a vaccinated body, a mind proof against flattery. A resin counter is just a surface the spills cannot touch."}}, {"s": "Early mapmakers left the interior blank: the mangrove swamp proved ____, swallowing every expedition that tried to cut a path through.", "ks": ["impenetrable"], "fb": {"impervious": "That word says how a thing stands toward one named force, and usually takes 'to.' This swamp is the barrier itself: no one finds a way through it.", "unaffected": "That word reports that something came through an event without a mark. The problem here is not marks on the swamp -- it is that every expedition failed to get through.", "immune": "That word means protected by one's own makeup against something harmful. The swamp is not being protected from anything; it is the thing no one can pass."}}, {"s": "Opposing coaches spent whole film sessions hunting for a seam, but the champions' zone defense remained ____ all tournament: no attack ever got through it.", "ks": ["impenetrable"], "fb": {"impervious": "That word takes 'to' and names the force a thing withstands -- to water, to criticism. The sentence names no force; it treats the defense as a wall no attack passes.", "unaffected": "That word says one event left something unchanged. The tournament-long claim is different: every attempt to get through failed.", "immune": "That word is built-in protection against a harm, like a body against a virus. A zone defense is a barrier, not an organism protecting itself."}}, {"s": "The power surge fried half the appliances on the block, yet somehow the old radio came through ____ this time -- no promises about the next storm.", "ks": ["unaffected"], "fb": {"impervious": "That word makes a standing claim -- the force can never touch the thing. This sentence promises nothing about the next storm; the radio just came through once.", "impenetrable": "That word is for barriers nothing can find a way through. A radio surviving one surge is a single lucky outcome, not a wall.", "immune": "That word claims protection built into the thing itself. Nothing says the radio is protected by its own design -- it simply escaped this time."}}, {"s": "Born with an unusual protein in their blood, the island's mongooses are ____ to the cobra venom that fells every other predator.", "ks": ["immune"], "fb": {"impervious": "That word stresses that the force cannot penetrate or touch the thing at all. Here the venom does get in -- it is the animals' own inborn chemistry that defeats it.", "impenetrable": "That word describes a barrier nothing gets through -- a vault, a wall. Nothing here is a wall; the protection works inside the blood.", "unaffected": "That word reports a one-time escape. An inborn protein is standing, built-in protection that works on every bite."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Name one specific force and show it failing to get through or leave any mark -- the word usually takes 'to.' Make the claim standing, not one lucky escape: try working in <i>to<\/i>, <i>never<\/i>, <i>even<\/i> or <i>years<\/i>."}};
+  var CFG = {"word": "impervious", "gradeUrl": "/api/grade", "taskId": "impervious", "minWords": 12, "items": {"s1": {"q": "A history class is studying Fort Granmore, a hilltop fortress that was attacked eleven times and never fell. The teacher asks which piece of evidence best shows that the fortress walls were impervious to attack. Which detail should the students choose?", "opts": {"A": "The walls were decorated with banners that could be seen from miles away.", "B": "The walls took nearly thirty years and two generations of masons to complete.", "C": "Guards patrolled the tops of the walls in shifts around the clock.", "D": "Cannonballs bounced off the granite walls without leaving a single crack."}, "key": "D", "fb": {"correct": "Exactly — direct hits did nothing at all to the stone. Impervious means impossible to penetrate or damage, and only that detail shows attacks literally failing to leave a mark.", "A": "Banners 'seen from miles away' show the fortress was visible and decorated, not that it could shrug off an assault. Impervious to attack means weapons cannot harm the walls — look for evidence of an attack failing to hurt them.", "B": "Taking 'two generations of masons' to build tells us construction was slow and grand, not that the finished walls resisted damage. Impervious is about what happens when something strikes the fortress, not how long it took to raise.", "C": "Guards patrolling 'around the clock' prove the fort was well defended by people. Impervious describes the walls themselves being impossible to damage — find the detail where an assault does nothing to the stone."}}, "s3a": {"q": "In this passage, calling the fabric \"impervious to windblown sand\" means", "opts": {"A": "the sand could not get through it at all, no matter the storm", "B": "the fabric was too heavy for the wind to move", "C": "the fabric survived the first storm but might fail in the next one", "D": "the sand slid off because the fabric was kept clean"}, "key": "A", "fb": {"correct": "Right -- 'not one grain worked its way through the weave,' storm after storm, at any speed.", "B": "The fabric is 'light enough to lift with one hand' -- weight has nothing to do with it.", "C": "The crew 'had stopped bracing for storms at all' -- this is a standing property, not one lucky escape.", "D": "It is the instruments inside that stayed clean; the claim is about what can pass through the weave."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unaffected", "B": "impervious", "C": "immune", "D": "impenetrable"}, "key": "B", "fb": {"correct": "Right. The lining stands permanently against one specific force, the molten bronze, which simply cannot work its way in, whatever else may chip or crack the vessel.", "D": "An impenetrable barrier lets nothing at all find a way through. This lining is breached by plenty: <em>the same vessel chips when a ladle knocks it and cracks if cooled too fast<\/em>. Its <em>defense holds against exactly one enemy<\/em>, not against everything.", "A": "Unaffected reports an outcome, no mark this time and no promises about the next. The passage makes a standing claim instead: <em>thirty years of pours have not changed the verdict<\/em>, and within its limit <em>the rule is absolute<\/em>.", "C": "Immunity is protection built into a thing's own makeup, the way an unusual protein protects from within. Here the resistance is not inborn: <em>Nor does the protection lie in the clay's own nature<\/em>; <em>it comes entirely from a thin fired glaze<\/em> applied over it."}}}, "pairwise": {"rows": [{"sentence": "The new deck stain leaves the boards ____ to rain: water beads and rolls off season after season, never soaking in.", "options": ["impervious", "unaffected"], "key": "impervious", "pair": "unaffected", "why_right": "The tell is <em>season after season<\/em> - the boards make a standing claim about what rain can ever do, not a report that one storm left no mark this time.", "why_wrong": "That word reports a single outcome -- no mark this time. 'Season after season' makes a standing claim about what rain can ever do."}, {"sentence": "The lab bench's resin top is ____ to acid: spills that etch steel leave it unmarked, year after year.", "options": ["impervious", "impenetrable"], "key": "impervious", "pair": "impenetrable", "why_right": "The tell is <em>to acid<\/em> - one named force framed with the word to; the top is no barrier nothing passes, it simply stands unmarked against acid.", "why_wrong": "That word belongs to barriers as such -- vaults, walls, defenses -- and does not take 'to.' Here the whole claim is how the top stands toward one named force."}, {"sentence": "Early mapmakers left the interior blank: the mangrove swamp proved ____, swallowing every expedition that tried to cut a path through.", "options": ["impervious", "impenetrable"], "key": "impenetrable", "pair": "impenetrable", "why_right": "The tell is <em>tried to cut a path through<\/em> - the swamp is the barrier itself, the thing no one gets through; nothing stands protected against a named force with to.", "why_wrong": "That word says how a thing stands toward one named force, and usually takes 'to.' This swamp is the barrier itself: no one finds a way through it."}, {"sentence": "Opposing coaches spent whole film sessions hunting for a seam, but the champions' zone defense remained ____ all tournament: no attack ever got through it.", "options": ["impervious", "impenetrable"], "key": "impenetrable", "pair": "impenetrable", "why_right": "The tell is <em>no attack ever got through it<\/em> - this defense is the barrier itself, a wall nothing finds a way through, not a thing standing toward one named force with to.", "why_wrong": "That word takes 'to' and names the force a thing withstands -- to water, to criticism. The sentence names no force; it treats the defense as a wall no attack passes."}, {"sentence": "The power surge fried half the appliances on the block, yet somehow the old radio came through ____ this time -- no promises about the next storm.", "options": ["impervious", "unaffected"], "key": "unaffected", "pair": "unaffected", "why_right": "The tell is <em>no promises about the next storm<\/em> - this is one outcome that left no mark, openly refusing the standing claim that the force could never touch it.", "why_wrong": "That word makes a standing claim -- the force can never touch the thing. This sentence promises nothing about the next storm; the radio just came through once."}, {"sentence": "Born with an unusual protein in their blood, the island's mongooses are ____ to the cobra venom that fells every other predator.", "options": ["impervious", "immune"], "key": "immune", "pair": "immune", "why_right": "The tell is <em>Born with an unusual protein in their blood<\/em> - the protection is the animals' own inborn makeup, working inside them; the venom is not simply failing to touch them.", "why_wrong": "That word stresses that the force cannot penetrate or touch the thing at all. Here the venom does get in -- it is the animals' own inborn chemistry that defeats it."}, {"sentence": "Nothing in the granite itself repels the graffiti - it is the museum's invisible sealant that keeps the wall ____ to spray paint, which wipes away with plain water.", "options": ["impervious", "immune"], "key": "impervious", "pair": "immune", "why_right": "The tell is <em>Nothing in the granite itself<\/em> - immune protection comes from a thing's own makeup, and this sentence denies that outright; an applied sealant keeps the paint from ever taking hold.", "why_wrong": "That word means protected by one's own makeup, the way a vaccinated body is. The sentence rules that out - nothing in the granite itself repels paint; an applied sealant does."}, {"sentence": "Sulfur fumes strip the paint from every railing at the hot springs, yet rangers call the cedar boardwalk ____: decades from now it will look exactly as it does today.", "options": ["impervious", "unaffected"], "key": "impervious", "pair": "unaffected", "why_right": "The tell is <em>decades from now<\/em> - the claim is a standing guarantee about what the fumes can ever do, not a report that one exposure left no mark this time.", "why_wrong": "That word simply reports an outcome - something happened and left no mark this time. This sentence reports no single event; it guarantees decades of them in advance."}], "display_order": [3, 7, 5, 4, 2, 6, 0, 1], "dimension_order": ["impenetrable", "unaffected", "immune"], "dimension_feedback": {"impenetrable": "Impenetrable describes the barrier itself — a wall, a vault, a defense that nothing can find a way through. Impervious describes how something stands toward one specific force, and usually takes to: impervious to water, impervious to criticism. Armor is impenetrable; the knight inside is impervious to arrows.", "unaffected": "Unaffected simply reports an outcome — something happened and left no mark this time. Impervious makes a stronger, standing claim: the thing cannot be penetrated or affected by that force at all. A speaker might be unaffected by one heckler yet not truly impervious to heckling.", "immune": "Immune means protected by one's own makeup, the way a vaccinated body is immune to a virus, and it also takes to, as in immune to flattery. Immune stresses built-in protection; impervious stresses that the force simply cannot penetrate or touch the thing at all."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Name one specific force and show it failing to get through or leave any mark -- the word usually takes 'to.' Make the claim standing, not one lucky escape: try working in <i>to<\/i>, <i>never<\/i>, <i>even<\/i> or <i>years<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

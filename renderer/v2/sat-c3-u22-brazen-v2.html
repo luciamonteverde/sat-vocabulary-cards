@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="776b91c97ccb">
+<meta name="build" content="ed28ec578758">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>brazen &#8212; SAT Vocabulary, Course 3 Unit 22</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "brazen", "gradeUrl": "/api/grade", "taskId": "brazen", "minWords": 12, "items": {"s1": {"q": "Which sentence uses brazen correctly?", "opts": {"A": "The brazen safecracker worked only on moonless nights, wore two pairs of gloves, and left no trace for the detectives in nine years.", "B": "His brazen confession came out in a whisper, eyes fixed on the floor and cheeks burning red in front of the whole congregation.", "C": "In a brazen bit of stagecraft, the magician pawned the mayor's borrowed watch next door and handed back the ticket.", "D": "The climbers' brazen new route was filed with the rangers, flagged at every anchor, and never mentioned again."}, "key": "C", "fb": {"correct": "Correct! Pawning a borrowed watch and handing back the ticket, in front of the whole audience, is boldness with the shame stripped out — brazen exactly.", "A": "Moonless nights and no trace at all is stealth. Brazen daring is done openly, in plain view.", "B": "Burning cheeks and a whisper are full of shame. Brazen boldness feels none of it.", "D": "Filing the route and flagging every anchor is careful and discreet. Brazen means bold and unashamed."}}, "s3a": {"q": "The colleagues call the student's plagiarism \"brazen\" because it was", "opts": {"A": "carefully hidden so that only an expert reader could ever detect it", "B": "the desperate act of a student who panicked at a deadline", "C": "done in the open, daring the person he robbed to object", "D": "an accident caused by submitting the wrong file"}, "key": "C", "fb": {"correct": "Right — 'theft carried out in the open, daring its victim to object': the shamelessness is the point.", "A": "Hidden is exactly what it was not — he handed the professor the professor's own article.", "B": "Nothing suggests panic; he leans back and asks, 'Can you prove it?'", "D": "The wrong-file excuse is the one Halloran expected and never got."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "bold", "B": "brazen", "C": "brash", "D": "defiant"}, "key": "C", "fb": {"correct": "Right. The passage piles up pushy, unpolished boldness: he <em>charged at defenders twice his size<\/em>, <em>shouted for the ball on every possession<\/em>, and stayed <em>deaf to how any of it landed<\/em>. Barging forward, loud and heedless of the effect — that is brash exactly.", "B": "Brazen boldness performs — it is carried out in the open to dare onlookers to object, and it knows exactly what it is doing. This player is the opposite of a performer: he <em>never once played to the cameras<\/em>, and <em>none of it was calculated<\/em>. Nerve without the shameless display is not brazen.", "D": "Defiant means openly resisting a rule or an authority, and the passage removes any target for resistance: <em>He broke no rules and resisted no one<\/em>. A graceless style of play, with nothing forbidding it, defies nobody.", "A": "Bold is the mildest word here: a bold move takes a real risk and can still be modest about it. Modesty is what this play lacks — he <em>shouted for the ball on every possession<\/em>, <em>loud and unpolished<\/em>. The question asks for the most precise word, and plain boldness misses the pushy, graceless manner."}}}, "grid": {"words": ["brazen", "brash", "defiant", "bold"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The salesman parked his rival-brand van at the dealership's front curb every single morning — a ____ bit of theater that dared the owners to react, though no ordinance actually forbade it.", "ks": ["brazen"], "fb": {"brash": "That word is unpolished pushiness — barging in loud, blind to how it lands. This man knows exactly how it lands and performs it anyway, daring a reaction.", "defiant": "That word needs a rule or an authority to resist. 'No ordinance actually forbade it' — there is nothing to defy, only shame to be missing.", "bold": "That milder word can take its risk quietly and modestly. Parking there daily as theater, daring a response, is show-off daring with the shame switched off."}}, {"s": "Caught mid-lie on camera, the lobbyist offered a ____ smile and repeated the claim louder, as if daring the room to blush on his behalf.", "ks": ["brazen"], "fb": {"brash": "That word blunders — loud, unpolished, blind to the winces. This smile is deliberate theater from a man who sees the winces and plays to them.", "defiant": "That word resists a rule or an authority. Nobody has ordered him to do anything; the missing ingredient here is shame.", "bold": "That milder word takes real risks and can still be modest about them. Repeating a caught lie louder is not modest risk-taking — it is daring with no blush left."}}, {"s": "Ordered by the judge to name her sources, the reporter remained ____, saying quietly that she would sit in contempt before giving up a single name.", "ks": ["defiant"], "fb": {"brazen": "That word is shameless display — daring that performs for onlookers. Her stand is quiet and principled; what defines it is the order she refuses.", "brash": "That word barges in loud and unpolished. She speaks 'quietly' and takes the consequences deliberately.", "bold": "True but incomplete: that milder word notes courage and stops there. This sentence is specifically about resisting a judge's order — courage aimed against an authority."}}, {"s": "Handed a week's suspension, the student was back at the school gates next morning — grim, silent, and ____ — in open breach of the ban.", "ks": ["defiant"], "fb": {"brazen": "That word performs its shamelessness for an audience. This boy is 'grim, silent' — no show, just refusal of the rule.", "brash": "That word is loud and heedless. Standing silently at a gate is neither.", "bold": "Courage is present, but the sentence turns on something more specific: a named ban, openly breached. The stronger word names that resistance."}}, {"s": "The new hire announced himself in ____ style, pushing into the partners' meeting uninvited and at full volume, offering opinions nobody asked for, blind to the winces around the table.", "ks": ["brash"], "fb": {"brazen": "That word performs — it sees the audience and dares it to object. This man never even notices the audience; he is heedless, not shameless.", "defiant": "That word needs something to resist — a rule, an order, a referee. No one forbade him the room; he barged into it.", "bold": "That milder word can be quiet and considered about its risk. Full volume, uninvited, blind to the winces — this is pushiness without polish."}}, {"s": "It was a ____ plan — betting the firm's entire marketing budget on one untested channel — though the team laid it out quietly, with no theatrics at all.", "ks": ["bold"], "fb": {"brazen": "That word wants shameless display that dares onlookers. This plan was presented 'quietly, with no theatrics.'", "brash": "That word is pushy, loud, and blind to how it lands. This team weighed a big risk and offered it calmly.", "defiant": "That word resists an order or a rule. No one forbade this bet — it is simply a large risk, modestly proposed."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show daring with the shame switched off — done where everyone can see, by someone who refuses to blush. Try working in a word like <i>in broad daylight<\/i>, <i>shameless<\/i>, <i>dared<\/i> or <i>blush<\/i>."}};
+  var CFG = {"word": "brazen", "gradeUrl": "/api/grade", "taskId": "brazen", "minWords": 12, "items": {"s1": {"q": "Which sentence uses brazen correctly?", "opts": {"A": "The brazen safecracker worked only on moonless nights, wore two pairs of gloves, and left no trace for the detectives in nine years.", "B": "His brazen confession came out in a whisper, eyes fixed on the floor and cheeks burning red in front of the whole congregation.", "C": "In a brazen bit of stagecraft, the magician pawned the mayor's borrowed watch next door and handed back the ticket.", "D": "The climbers' brazen new route was filed with the rangers, flagged at every anchor, and never mentioned again."}, "key": "C", "fb": {"correct": "Correct! Pawning a borrowed watch and handing back the ticket, in front of the whole audience, is boldness with the shame stripped out — brazen exactly.", "A": "Moonless nights and no trace at all is stealth. Brazen daring is done openly, in plain view.", "B": "Burning cheeks and a whisper are full of shame. Brazen boldness feels none of it.", "D": "Filing the route and flagging every anchor is careful and discreet. Brazen means bold and unashamed."}}, "s3a": {"q": "The colleagues call the student's plagiarism \"brazen\" because it was", "opts": {"A": "carefully hidden so that only an expert reader could ever detect it", "B": "the desperate act of a student who panicked at a deadline", "C": "done in the open, daring the person he robbed to object", "D": "an accident caused by submitting the wrong file"}, "key": "C", "fb": {"correct": "Right — 'theft carried out in the open, daring its victim to object': the shamelessness is the point.", "A": "Hidden is exactly what it was not — he handed the professor the professor's own article.", "B": "Nothing suggests panic; he leans back and asks, 'Can you prove it?'", "D": "The wrong-file excuse is the one Halloran expected and never got."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "bold", "B": "brazen", "C": "brash", "D": "defiant"}, "key": "C", "fb": {"correct": "Right. The passage piles up pushy, unpolished boldness: he <em>charged at defenders twice his size<\/em>, <em>shouted for the ball on every possession<\/em>, and stayed <em>deaf to how any of it landed<\/em>. Barging forward, loud and heedless of the effect — that is brash exactly.", "B": "Brazen boldness performs — it is carried out in the open to dare onlookers to object, and it knows exactly what it is doing. This player is the opposite of a performer: he <em>never once played to the cameras<\/em>, and <em>none of it was calculated<\/em>. Nerve without the shameless display is not brazen.", "D": "Defiant means openly resisting a rule or an authority, and the passage removes any target for resistance: <em>He broke no rules and resisted no one<\/em>. A graceless style of play, with nothing forbidding it, defies nobody.", "A": "Bold is the mildest word here: a bold move takes a real risk and can still be modest about it. Modesty is what this play lacks — he <em>shouted for the ball on every possession<\/em>, <em>loud and unpolished<\/em>. The question asks for the most precise word, and plain boldness misses the pushy, graceless manner."}}}, "pairwise": {"rows": [{"sentence": "Caught mid-lie on camera, the lobbyist offered a ____ smile and repeated the claim louder, as if daring the room to blush on his behalf.", "options": ["brazen", "brash"], "key": "brazen", "pair": "brash", "why_right": "The tell is <em>daring the room to blush on his behalf<\/em> - he sees exactly how the smile lands and performs it anyway; the card's pushier word blunders forward heedless of how it lands.", "why_wrong": "That word blunders — loud, unpolished, blind to the winces. This smile is deliberate theater from a man who sees the winces and plays to them."}, {"sentence": "The heiress parked across the hospital's ambulance bay, then blew the approaching guard a kiss from the cafe window, ____ to the last, holding the pose until he looked away.", "options": ["brazen", "brash"], "key": "brazen", "pair": "brash", "why_right": "The tell is <em>holding the pose until he looked away<\/em> - she watches the guard watching and performs for him, daring an objection; the pushier word blunders on heedless of how it lands.", "why_wrong": "That word is pushy boldness with no polish, barging in loud and heedless of how it lands. She sees the guard perfectly, blows the kiss for him, and holds the pose — a performance."}, {"sentence": "The new hire announced himself in ____ style, pushing into the partners' meeting uninvited and at full volume, offering opinions nobody asked for, blind to the winces around the table.", "options": ["brazen", "brash"], "key": "brash", "pair": "brash", "why_right": "The tell is <em>blind to the winces<\/em> - he never sees how his barging lands, the card's pushy boldness with no polish; the shameless word sees its audience and dares it to object.", "why_wrong": "That word performs — it sees the audience and dares it to object. This man never even notices the audience; he is heedless, not shameless."}, {"sentence": "The salesman parked his rival-brand van at the dealership's front curb every single morning — a ____ bit of theater that dared the owners to react, though no ordinance actually forbade it.", "options": ["brazen", "defiant"], "key": "brazen", "pair": "defiant", "why_right": "The tell is <em>no ordinance actually forbade it<\/em> - with no rule or authority to resist, what the daily theater shows is daring with the shame switched off, performed to provoke a reaction.", "why_wrong": "That word needs a rule or an authority to resist. 'No ordinance actually forbade it' — there is nothing to defy, only shame to be missing."}, {"sentence": "Ordered by the judge to name her sources, the reporter remained ____, saying quietly that she would sit in contempt before giving up a single name.", "options": ["brazen", "defiant"], "key": "defiant", "pair": "defiant", "why_right": "The tell is <em>sit in contempt<\/em> - open resistance to a judge's direct order, said quietly; nothing is performed for onlookers or shameless, and the order refused is what defines the stand.", "why_wrong": "That word is shameless display — daring that performs for onlookers. Her stand is quiet and principled; what defines it is the order she refuses."}, {"sentence": "Handed a week's suspension, the student was back at the school gates next morning — grim, silent, and ____ — in open breach of the ban.", "options": ["brazen", "defiant"], "key": "defiant", "pair": "defiant", "why_right": "The tell is <em>in open breach of the ban<\/em> - a named rule resisted by a grim, silent boy with no show for an audience; the card's shameless word needs display, not a ban.", "why_wrong": "That word performs its shamelessness for an audience. This boy is 'grim, silent' — no show, just refusal of the rule."}, {"sentence": "Every trader on the desk was gambling client money that week, the same real risk on every screen; what made Okafor's bet ____ was placing it in full view of the compliance officer, grinning.", "options": ["brazen", "bold"], "key": "brazen", "pair": "bold", "why_right": "The tell is <em>in full view of the compliance officer<\/em> - every trader shared the real risk, so risk cannot be what set his bet apart; open display daring the watcher is the shameless word's mark.", "why_wrong": "That word notes a real risk taken, which every trader on the desk was already taking. What set this bet apart was staging it under the compliance officer's nose, grinning — shame gone."}, {"sentence": "The guide's call to push for the top was ____ — a genuine chance of not coming back — made in the same flat voice she used for weather checks, with nobody to impress.", "options": ["brazen", "bold"], "key": "bold", "pair": "bold", "why_right": "The tell is <em>with nobody to impress<\/em> - a genuine risk taken quietly and modestly, the card's milder word; the shameless one needs open display that dares onlookers, and there are none.", "why_wrong": "That word means daring that has lost its shame, performed in the open to dare onlookers to object. A quiet call made in a flat voice with nobody to impress is a risk, not a display."}], "display_order": [4, 2, 6, 0, 5, 7, 1, 3], "dimension_order": ["brash", "defiant", "bold"], "dimension_feedback": {"brash": "Brash is pushy boldness with no polish or patience — barging in loud, heedless of how it lands. Brazen keeps the nerve but adds shameless display: a brazen act is performed in the open and dares onlookers to object. Brash blunders forward; brazen performs.", "defiant": "Defiant means openly resisting a rule or an authority — a defiant refusal, a defiant stare at the referee. Brazen needs no authority to resist: it names boldness that has lost its shame, offensive in itself even when no rule forbids it.", "bold": "Bold is milder than brazen: a bold plan takes a real risk, but it can still be modest about it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show daring with the shame switched off — done where everyone can see, by someone who refuses to blush. Try working in a word like <i>in broad daylight<\/i>, <i>shameless<\/i>, <i>dared<\/i> or <i>blush<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

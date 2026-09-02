@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="a47ac79f5e17">
+<meta name="build" content="745f0249337b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>zephyr &#8212; SAT Vocabulary, Course 2 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "zephyr", "gradeUrl": "/api/grade", "taskId": "zephyr", "minWords": 12, "items": {"s1": {"q": "Which sentence uses zephyr correctly?", "opts": {"A": "The zephyr laid the wheat flat and took three shingles off the barn roof before dark.", "B": "The radio warned of a damaging zephyr making landfall by evening.", "C": "He oiled the zephyr so the back door would finally stop squeaking.", "D": "A zephyr off the lake lifted one corner of the picnic blanket and set it down again, softly."}, "key": "D", "fb": {"correct": "Correct. Air that lifts one corner of a blanket and lays it back down is the gentlest wind there is — a zephyr.", "A": "Wind that 'took three shingles off' a roof is a damaging gale. A zephyr is the mildest wind there is — barely enough to stir a curtain.", "B": "Radio warnings and 'making landfall' belong to a storm. Zephyr points the other way entirely: the faintest, most harmless breeze on the scale.", "C": "Something you oil to 'stop squeaking' is a hinge — a piece of hardware. A zephyr is moving air, a light breath of wind no oilcan could ever reach."}}, "s3a": {"q": "As it is used in the passage, what does \"zephyr\" most nearly mean?", "opts": {"A": "a sudden gust of wind strong enough to lift canvas", "B": "a spell of cool weather that follows an evening rain", "C": "a gentle, harmless wind", "D": "the nightly forecast the projectionist relied on"}, "key": "C", "fb": {"correct": "Right — it's the 'faintest west wind,' enough to cool necks and sway string lights while the canvas barely trembles: gentle by definition.", "A": "A gust is exactly what she cancels for — the passage sets this word against the wind that lifts screens, not equal to it.", "B": "Nothing in the passage is about weather spells or rain; the word names moving air on a given evening, 'just enough to cool the audience's necks.'", "D": "The forecast is what she checks; the word names the wind she hopes the forecast will promise."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "breath", "B": "waft", "C": "breeze", "D": "zephyr"}, "key": "D", "fb": {"correct": "Right. The valley's air was the gentle wind itself — soft all day, kind to everything except the milling, and carrying nothing. A zephyr is exactly that: gentleness as the wind's whole character, which is why there was <em>not a bag of flour<\/em> to show for it.", "A": "A breath of air is one soft, momentary stir — felt for an instant and gone. This complaint is about air that held <em>from sunrise to dusk<\/em>; a single passing stir cannot fill a milling day.", "B": "A waft is a light current known by what it carries — a scent, a seed, a strain of music drifting past. This air <em>carried no scent off the neighbor's hayfield<\/em>; there is no cargo for a waft to be named by.", "C": "A breeze is wind you notice plainly — enough to flutter flags and turn pages. This air <em>barely registered on a raised, licked finger<\/em> and was <em>too soft to swing the great arms through a quarter turn<\/em>."}}}, "grid": {"words": ["zephyr", "breath", "waft", "breeze"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "All afternoon the same soft ____ moved through the garden, steady for hours yet barely strong enough to tilt the poppy heads.", "ks": ["zephyr"], "fb": {"breath": "That word names one momentary stir of air, gone as soon as it's felt — this wind keeps moving through the garden for hours.", "breeze": "Barely tilting a poppy head is too little force for the word you chose — it should be felt plainly, fluttering flags and turning pages.", "waft": "Nothing rides this air — no smell of dinner, no drifting seeds, no music. The word you chose is known by what it carries."}}, {"s": "The ode opens by courting a ____ from the west, addressing the mildest of winds in language no poet would spend on rougher weather.", "ks": ["zephyr"], "fb": {"breath": "That's the everyday phrase for a passing stir of air — nothing a poem would court or address by name. The sentence asks for a wind formal enough to be spoken to.", "breeze": "'The mildest of winds' sets the bar below the word you chose — anything strong enough to be felt plainly counts as the 'rougher weather' the poet refuses.", "waft": "The ode speaks to the wind itself, not to something the air happens to be carrying — and nothing here is being carried at all."}}, {"s": "Inside the tent the heat sat motionless until a single ____ of cooler air slipped under the flap, stirred the map once, and was gone — it carried nothing with it, not even the smell of rain.", "ks": ["breath"], "fb": {"zephyr": "This bit of air lasts exactly one stir and vanishes. The poets' gentle wind blows on and on — a moment's flicker is too brief for it.", "breeze": "It moved a map once and died — nothing here flutters, snaps, or presses on your face. The word you chose is a wind you can plainly feel.", "waft": "The sentence goes out of its way to say the air carried nothing — no scent, no sound. The word you chose needs cargo."}}, {"s": "A ____ of frying garlic climbed the stairwell ahead of the dinner announcement, and doors began opening on every floor.", "ks": ["waft"], "fb": {"zephyr": "Nothing here is about wind at all — it's about a smell finding its way upstairs. The gentle wind of the poets has no kitchen duties.", "breath": "That word names a stir of moving air you feel for a moment. This sentence's air matters for what it brings with it — the garlic.", "breeze": "No one feels this on their face and nothing flutters; the air current here is known entirely by its cargo."}}, {"s": "Each time the hall doors swung open, a ____ of orchestra music escaped into the lobby, and the latecomers went quiet to catch it.", "ks": ["waft"], "fb": {"zephyr": "The poets' soft wind belongs outdoors, and this sentence isn't about wind at all — it's about music riding the air through a door.", "breath": "Nothing brushes anyone's skin here. The air matters only for the music it lets escape — cargo, not a stir.", "breeze": "Nothing flutters and no one feels moving air — what crosses the lobby is the music itself, carried."}}, {"s": "By ten the harbor ____ had strengthened enough to crack the pennants on the pier and send napkins skating off the café tables.", "ks": ["breeze"], "fb": {"zephyr": "Cracking pennants and launching napkins is real force — the poets' wind is soft by definition and stays that way.", "breath": "A single soft stir couldn't strengthen through the morning or move a napkin an inch — this wind is being felt all over the pier.", "waft": "Nothing is being carried here — no smell, no music. The sentence is about push: pennants cracking, napkins flying."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must make the wind unmistakably gentle — a reader should feel it could never knock anything over. Try measuring it against something delicate, with a word like <i>petals<\/i>, <i>curtain<\/i>, <i>candle<\/i> or <i>barely<\/i>."}};
+  var CFG = {"word": "zephyr", "gradeUrl": "/api/grade", "taskId": "zephyr", "minWords": 12, "items": {"s1": {"q": "Which sentence uses zephyr correctly?", "opts": {"A": "The zephyr laid the wheat flat and took three shingles off the barn roof before dark.", "B": "The radio warned of a damaging zephyr making landfall by evening.", "C": "He oiled the zephyr so the back door would finally stop squeaking.", "D": "A zephyr off the lake lifted one corner of the picnic blanket and set it down again, softly."}, "key": "D", "fb": {"correct": "Correct. Air that lifts one corner of a blanket and lays it back down is the gentlest wind there is — a zephyr.", "A": "Wind that 'took three shingles off' a roof is a damaging gale. A zephyr is the mildest wind there is — barely enough to stir a curtain.", "B": "Radio warnings and 'making landfall' belong to a storm. Zephyr points the other way entirely: the faintest, most harmless breeze on the scale.", "C": "Something you oil to 'stop squeaking' is a hinge — a piece of hardware. A zephyr is moving air, a light breath of wind no oilcan could ever reach."}}, "s3a": {"q": "As it is used in the passage, what does \"zephyr\" most nearly mean?", "opts": {"A": "a sudden gust of wind strong enough to lift canvas", "B": "a spell of cool weather that follows an evening rain", "C": "a gentle, harmless wind", "D": "the nightly forecast the projectionist relied on"}, "key": "C", "fb": {"correct": "Right — it's the 'faintest west wind,' enough to cool necks and sway string lights while the canvas barely trembles: gentle by definition.", "A": "A gust is exactly what she cancels for — the passage sets this word against the wind that lifts screens, not equal to it.", "B": "Nothing in the passage is about weather spells or rain; the word names moving air on a given evening, 'just enough to cool the audience's necks.'", "D": "The forecast is what she checks; the word names the wind she hopes the forecast will promise."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "breath", "B": "waft", "C": "breeze", "D": "zephyr"}, "key": "D", "fb": {"correct": "Right. The valley's air was the gentle wind itself — soft all day, kind to everything except the milling, and carrying nothing. A zephyr is exactly that: gentleness as the wind's whole character, which is why there was <em>not a bag of flour<\/em> to show for it.", "A": "A breath of air is one soft, momentary stir — felt for an instant and gone. This complaint is about air that held <em>from sunrise to dusk<\/em>; a single passing stir cannot fill a milling day.", "B": "A waft is a light current known by what it carries — a scent, a seed, a strain of music drifting past. This air <em>carried no scent off the neighbor's hayfield<\/em>; there is no cargo for a waft to be named by.", "C": "A breeze is wind you notice plainly — enough to flutter flags and turn pages. This air <em>barely registered on a raised, licked finger<\/em> and was <em>too soft to swing the great arms through a quarter turn<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Inside the tent the heat sat motionless until a single ____ of cooler air slipped under the flap, stirred the map once, and was gone — it carried nothing with it, not even the smell of rain.", "options": ["zephyr", "breath"], "key": "breath", "pair": "breath", "why_right": "The tell is <em>stirred the map once, and was gone<\/em> - one soft stir of air, felt for a moment and finished, exactly the everyday phrase's claim.", "why_wrong": "This bit of air lasts exactly one stir and vanishes. The poets' gentle wind blows on and on — a moment's flicker is too brief for it."}, {"sentence": "All afternoon the same soft ____ moved through the garden, steady for hours yet barely strong enough to tilt the poppy heads.", "options": ["zephyr", "breath"], "key": "zephyr", "pair": "breath", "why_right": "The tell is <em>steady for hours<\/em> - a wind this soft that keeps blowing all afternoon is the poet's named breeze, not a single stir that vanishes as soon as it is felt.", "why_wrong": "That word names one momentary stir of air, gone as soon as it's felt — this wind keeps moving through the garden for hours."}, {"sentence": "A ____ of frying garlic climbed the stairwell ahead of the dinner announcement, and doors began opening on every floor.", "options": ["zephyr", "waft"], "key": "waft", "pair": "waft", "why_right": "The tell is <em>of frying garlic<\/em> - the air matters only for the smell it carries upstairs, a current known by its cargo, which is this word's whole business.", "why_wrong": "Nothing here is about wind at all — it's about a smell finding its way upstairs. The gentle wind of the poets has no kitchen duties."}, {"sentence": "Each time the hall doors swung open, a ____ of orchestra music escaped into the lobby, and the latecomers went quiet to catch it.", "options": ["zephyr", "waft"], "key": "waft", "pair": "waft", "why_right": "The tell is <em>of orchestra music<\/em> - what crosses the lobby is music riding the air, cargo naming the current, and nothing here is a wind at all.", "why_wrong": "The poets' soft wind belongs outdoors, and this sentence isn't about wind at all — it's about music riding the air through a door."}, {"sentence": "The ode opens by courting a ____ from the west, addressing the mildest of winds in language no poet would spend on rougher weather.", "options": ["zephyr", "waft"], "key": "zephyr", "pair": "waft", "why_right": "The tell is <em>addressing the mildest of winds<\/em> - the ode courts the gentle wind itself, the poet's named breeze, with no scent or sound carried anywhere in it.", "why_wrong": "The ode speaks to the wind itself, not to something the air happens to be carrying — and nothing here is being carried at all."}, {"sentence": "By ten the harbor ____ had strengthened enough to crack the pennants on the pier and send napkins skating off the café tables.", "options": ["zephyr", "breeze"], "key": "breeze", "pair": "breeze", "why_right": "The tell is <em>crack the pennants<\/em> - this wind is felt plainly and moves what it hits, flags snapping and napkins flying, real force the soft named wind never claims.", "why_wrong": "Cracking pennants and launching napkins is real force — the poets' wind is soft by definition and stays that way."}, {"sentence": "The ____ off the water reached the anchored skiff as hardly more than a coolness, rocking it so gently that the sleeping dog aboard never woke.", "options": ["zephyr", "breeze"], "key": "zephyr", "pair": "breeze", "why_right": "The tell is <em>hardly more than a coolness<\/em> - air too soft to be felt plainly or to flutter anything is the gentle named wind, softness built into the word.", "why_wrong": "That word is wind felt plainly - enough to flutter flags and turn pages. Air registering as a mere coolness, gentle enough to leave a dog asleep, sits below its floor."}, {"sentence": "All through the hot afternoon the laundry hung dead still, until a ____ came through the orchard -- the pinned sheets swayed softly, and no fold ever snapped.", "options": ["zephyr", "breeze"], "key": "zephyr", "pair": "breeze", "why_right": "The tell is <em>no fold ever snapped<\/em> - the sheets barely sway; a wind that never reaches the force felt plainly or fluttering anything is the soft named wind.", "why_wrong": "That word means wind you feel plainly, strong enough to flutter flags and turn pages. Sheets that sway softly without a single snap are meeting something gentler than that."}], "display_order": [5, 3, 6, 1, 2, 0, 4, 7], "dimension_order": ["breath", "waft", "breeze"], "dimension_feedback": {"breath": "A breath of air is the everyday phrase for the same whisper of wind — one soft stir, felt for a moment and gone. A zephyr is that gentleness with a name and a history: the poet's breeze, soft by definition, kind for as long as it blows.", "waft": "A waft is a light current known by its cargo — a scent, a seed, a strain of music drifting past on the air. A zephyr is the gentle wind itself, freight or none; if the sentence is about what the air carried, waft is the word.", "breeze": "A breeze goes past a zephyr — enough to flutter flags, turn pages, and be felt plainly on your face."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must make the wind unmistakably gentle — a reader should feel it could never knock anything over. Try measuring it against something delicate, with a word like <i>petals<\/i>, <i>curtain<\/i>, <i>candle<\/i> or <i>barely<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

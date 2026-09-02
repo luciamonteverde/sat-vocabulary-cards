@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f8928a35e134">
+<meta name="build" content="c82253f8304b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>tentative &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "tentative", "gradeUrl": "/api/grade", "taskId": "tentative", "minWords": 12, "items": {"s1": {"q": "Which sentence uses tentative correctly?", "opts": {"A": "The old monument's tentative granite has stood entirely unchanged through nine full centuries of weather.", "B": "Their tentative itinerary put them in Lisbon by June, though nothing was booked past the ferry.", "C": "His tentative grip on the climbing rope was what saved him - nothing on Earth could have pried it loose.", "D": "The tentative smoke alarm in the hallway chirped every forty seconds until we finally changed it."}, "key": "B", "fb": {"correct": "Correct. The itinerary is real and drafted - and openly subject to change while nothing is booked. Real but not final is exactly what tentative means.", "A": "Granite that has 'stood entirely unchanged' for nine centuries is the picture of permanence. Tentative describes what is still unsettled and open to revision — this monument settled long ago.", "C": "The sentence calls the grip tentative, then insists 'nothing on Earth could have pried it loose' — an absolute, unshakable hold. Tentative would mean unsure and uncommitted, the very quality this grip lacks.", "D": "The chirping alarm is faulty, not undecided — 'chirped every forty seconds' means a dying battery. Tentative fits what is undecided and still subject to change, not hardware that needs replacing."}}, "s3a": {"q": "In this passage, calling the itinerary \"tentative\" means that it was", "opts": {"A": "waiting for another city's officials to approve it", "B": "a real, detailed plan its makers deliberately kept open to change", "C": "no more than a rough idea, released only to gauge the families' interest", "D": "certain to be rewritten many times before the fall"}, "key": "B", "fb": {"correct": "Right. The plan is real and detailed, the committee built it, could have locked it, and chose to leave it loose -- openness by its makers' own design.", "A": "The committee could have locked the plan itself at any time. No outside approval appears anywhere in the passage.", "C": "Host families were already matched and a museum day set -- far past gauging interest. The plan exists; it is simply unlocked.", "D": "The footer says dates may shift, not that they will, over and over. Built-in give is not a habit of flip-flopping."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unconfirmed", "B": "floated", "C": "tentative", "D": "changeable"}, "key": "B", "fb": {"correct": "Right. The director <em>watched the table's faces<\/em> and collected nothing but <em>polite nods<\/em> — a trial balloon, aired exactly once to gauge the room, with nothing built behind it.", "C": "Tentative describes a plan that actually exists — dates penciled in, an itinerary drafted — whose makers have deliberately left it open. Here staff <em>hunting for a plan behind the remark came up empty<\/em>: nothing yet exists to be held loosely.", "A": "Unconfirmed means something real is waiting on another party's final yes — a booking, a report, a bid. Nothing was ever submitted: <em>no proposal sits on anyone's desk awaiting a yes<\/em>, so there was nothing for anyone to confirm.", "D": "Changeable marks a standing disposition to shift — weather, moods, prices that move again and again. But <em>the events calendar shows no such nights<\/em> and the budget no such line; a thing has to exist before its terms can keep moving."}}}, "grid": {"words": ["tentative", "unconfirmed", "changeable", "floated"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The families penciled the reunion in for August -- a deliberately ____ date, kept open by its own makers until the harvest picture firmed up.", "ks": ["tentative"], "fb": {"unconfirmed": "That word hangs on someone else's answer -- a sign-off that hasn't come. Nobody outside these families holds the pen; <em>they<\/em> are keeping the date open.", "changeable": "That word describes a standing habit of shifting, over and over. This date hasn't shifted once -- it simply hasn't been locked yet.", "floated": "That word means merely tossed into the room to test reactions. A penciled-in month with both families planning around it is a real arrangement."}}, {"s": "Route planners published the marathon's ____ course in January, complete with mile markers, while reserving the right to redraw two bridge crossings.", "ks": ["tentative"], "fb": {"unconfirmed": "That word waits on another party's final yes. These planners answer to no one in the sentence -- they published the course and kept their own right to redraw it.", "changeable": "That word wants a disposition to shift again and again -- moods, prices. This is one course in one January, real but not yet final.", "floated": "That word suits an idea tossed out to see faces. A course published <em>with mile markers<\/em> is an actual arrangement, just an unlocked one."}}, {"s": "The rare-crane sighting stayed ____ for a week: the birder's photos sat with the records committee, and only its verdict could make the record official.", "ks": ["unconfirmed"], "fb": {"tentative": "That word describes a plan its own makers hold open. This birder holds nothing open -- the sighting is claimed outright, and a committee holds the only pen.", "changeable": "That word means shifting over and over by nature. This report hasn't changed at all -- it is parked, awaiting one verdict.", "floated": "That word means offered casually to gauge reactions. Photos filed with a records committee are a formal claim, not a trial balloon."}}, {"s": "The transfer story stayed ____ all weekend: three outlets carried the same details, and the club declined to say yes on the record.", "ks": ["unconfirmed"], "fb": {"tentative": "That word marks a plan deliberately left open by the people making it. Reporters aren't keeping anything open -- they're waiting for the club to say yes.", "changeable": "That word describes what shifts again and again. The details never moved all weekend; only the sign-off is missing.", "floated": "That word suits an idea tossed out to gauge reactions. Three outlets reporting the same deal as fact is not a trial balloon."}}, {"s": "The café's soup lineup is notoriously ____ , shifting with whatever the morning market offers -- regulars have learned never to count on Tuesday's lentil.", "ks": ["changeable"], "fb": {"tentative": "That word marks one real plan not yet final -- and it ends the moment the plan locks. This lineup never locks; shifting is its permanent nature.", "unconfirmed": "That word waits on an authority's yes. No committee rules on soup -- the pots just follow the market, week after week.", "floated": "That word means suggested to see reactions. These soups are cooked and served daily -- real, just never the same."}}, {"s": "The four-day week remained a merely ____ idea: tossed out at the retreat to test reactions, with no memo, no dates, and no draft behind it.", "ks": ["floated"], "fb": {"tentative": "That word needs a real arrangement that its makers keep open. There is no arrangement here at all -- <em>no memo, no dates, no draft<\/em>.", "unconfirmed": "That word waits on an official yes to something claimed or agreed. Nothing was claimed or agreed -- only a thought offered to the room.", "changeable": "That word describes a thing that keeps shifting. Nothing exists yet to shift -- the idea never left the meeting."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a real arrangement whose makers are keeping it open on purpose -- not a rumor and not a habit of flip-flopping. Signal the built-in give with a word like <i>penciled<\/i>, <i>for now<\/i>, <i>may shift<\/i> or <i>until<\/i>."}};
+  var CFG = {"word": "tentative", "gradeUrl": "/api/grade", "taskId": "tentative", "minWords": 12, "items": {"s1": {"q": "Which sentence uses tentative correctly?", "opts": {"A": "The old monument's tentative granite has stood entirely unchanged through nine full centuries of weather.", "B": "Their tentative itinerary put them in Lisbon by June, though nothing was booked past the ferry.", "C": "His tentative grip on the climbing rope was what saved him - nothing on Earth could have pried it loose.", "D": "The tentative smoke alarm in the hallway chirped every forty seconds until we finally changed it."}, "key": "B", "fb": {"correct": "Correct. The itinerary is real and drafted - and openly subject to change while nothing is booked. Real but not final is exactly what tentative means.", "A": "Granite that has 'stood entirely unchanged' for nine centuries is the picture of permanence. Tentative describes what is still unsettled and open to revision — this monument settled long ago.", "C": "The sentence calls the grip tentative, then insists 'nothing on Earth could have pried it loose' — an absolute, unshakable hold. Tentative would mean unsure and uncommitted, the very quality this grip lacks.", "D": "The chirping alarm is faulty, not undecided — 'chirped every forty seconds' means a dying battery. Tentative fits what is undecided and still subject to change, not hardware that needs replacing."}}, "s3a": {"q": "In this passage, calling the itinerary \"tentative\" means that it was", "opts": {"A": "waiting for another city's officials to approve it", "B": "a real, detailed plan its makers deliberately kept open to change", "C": "no more than a rough idea, released only to gauge the families' interest", "D": "certain to be rewritten many times before the fall"}, "key": "B", "fb": {"correct": "Right. The plan is real and detailed, the committee built it, could have locked it, and chose to leave it loose -- openness by its makers' own design.", "A": "The committee could have locked the plan itself at any time. No outside approval appears anywhere in the passage.", "C": "Host families were already matched and a museum day set -- far past gauging interest. The plan exists; it is simply unlocked.", "D": "The footer says dates may shift, not that they will, over and over. Built-in give is not a habit of flip-flopping."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unconfirmed", "B": "floated", "C": "tentative", "D": "changeable"}, "key": "B", "fb": {"correct": "Right. The director <em>watched the table's faces<\/em> and collected nothing but <em>polite nods<\/em> — a trial balloon, aired exactly once to gauge the room, with nothing built behind it.", "C": "Tentative describes a plan that actually exists — dates penciled in, an itinerary drafted — whose makers have deliberately left it open. Here staff <em>hunting for a plan behind the remark came up empty<\/em>: nothing yet exists to be held loosely.", "A": "Unconfirmed means something real is waiting on another party's final yes — a booking, a report, a bid. Nothing was ever submitted: <em>no proposal sits on anyone's desk awaiting a yes<\/em>, so there was nothing for anyone to confirm.", "D": "Changeable marks a standing disposition to shift — weather, moods, prices that move again and again. But <em>the events calendar shows no such nights<\/em> and the budget no such line; a thing has to exist before its terms can keep moving."}}}, "pairwise": {"rows": [{"sentence": "The families penciled the reunion in for August -- a deliberately ____ date, kept open by its own makers until the harvest picture firmed up.", "options": ["tentative", "unconfirmed"], "key": "tentative", "pair": "unconfirmed", "why_right": "The tell is <em>kept open by its own makers<\/em> - the openness is the families' own choice, with no outside party's yes pending, which is exactly tentative's home ground.", "why_wrong": "That word hangs on someone else's answer -- a sign-off that hasn't come. Nobody outside these families holds the pen; <em>they<\/em> are keeping the date open."}, {"sentence": "The rare-crane sighting stayed ____ for a week: the birder's photos sat with the records committee, and only its verdict could make the record official.", "options": ["tentative", "unconfirmed"], "key": "unconfirmed", "pair": "unconfirmed", "why_right": "The tell is <em>only its verdict<\/em> - everything hangs on another party's answer, the committee's missing yes, which is unconfirmed's territory rather than a plan held open by its makers.", "why_wrong": "That word describes a plan its own makers hold open. This birder holds nothing open -- the sighting is claimed outright, and a committee holds the only pen."}, {"sentence": "The transfer story stayed ____ all weekend: three outlets carried the same details, and the club declined to say yes on the record.", "options": ["tentative", "unconfirmed"], "key": "unconfirmed", "pair": "unconfirmed", "why_right": "The tell is <em>declined to say yes on the record<\/em> - the one missing piece is another party's final yes, and that waiting state is what unconfirmed names.", "why_wrong": "That word marks a plan deliberately left open by the people making it. Reporters aren't keeping anything open -- they're waiting for the club to say yes."}, {"sentence": "Route planners published the marathon's ____ course in January, complete with mile markers, while reserving the right to redraw two bridge crossings.", "options": ["tentative", "floated"], "key": "tentative", "pair": "floated", "why_right": "The tell is <em>complete with mile markers<\/em> - a published, detailed course is an actual arrangement its makers keep open, far past an idea tossed out to see faces.", "why_wrong": "That word suits an idea tossed out to see faces. A course published <em>with mile markers<\/em> is an actual arrangement, just an unlocked one."}, {"sentence": "The planner circulated a ____ seating chart for the gala, tables drawn to scale and already guiding the rental order, though she promised to shuffle guests freely until the final week.", "options": ["tentative", "floated"], "key": "tentative", "pair": "floated", "why_right": "The tell is <em>already guiding the rental order<\/em> - a real arrangement exists and is in use, just held open on purpose; a floated idea is merely tossed out to see faces.", "why_wrong": "That word means merely tossed into the room to see faces. A chart drawn to scale and already driving the rental order is an actual arrangement - just an unlocked one."}, {"sentence": "The four-day week remained a merely ____ idea: tossed out at the retreat to test reactions, with no memo, no dates, and no draft behind it.", "options": ["tentative", "floated"], "key": "floated", "pair": "floated", "why_right": "The tell is <em>no memo, no dates, and no draft<\/em> - nothing exists beyond a remark tossed out to test the room, and floated is the word for exactly that.", "why_wrong": "That word needs a real arrangement that its makers keep open. There is no arrangement here at all -- <em>no memo, no dates, no draft<\/em>."}, {"sentence": "The lab posted a ____ agenda for the spring conference, sessions timed to the minute; it has not moved once since October, and it locks for good when registration opens.", "options": ["tentative", "changeable"], "key": "tentative", "pair": "changeable", "why_right": "The tell is <em>has not moved once since October<\/em> - no standing habit of shifting here, just one real plan awaiting its lock, which is tentative's one-time status.", "why_wrong": "That word describes a standing disposition to shift over and over - weather, moods, prices. This agenda has shifted zero times; it is one real plan that simply has not locked."}, {"sentence": "The café's soup lineup is notoriously ____ , shifting with whatever the morning market offers -- regulars have learned never to count on Tuesday's lentil.", "options": ["tentative", "changeable"], "key": "changeable", "pair": "changeable", "why_right": "The tell is <em>shifting with whatever the morning market offers<\/em> - a standing habit of moving over and over, never locking, which is changeable's disposition rather than one plan awaiting its lock.", "why_wrong": "That word marks one real plan not yet final -- and it ends the moment the plan locks. This lineup never locks; shifting is its permanent nature."}], "display_order": [2, 5, 6, 1, 3, 0, 4, 7], "dimension_order": ["unconfirmed", "changeable", "floated"], "dimension_feedback": {"unconfirmed": "Unconfirmed hangs on someone else's answer: a booking, a report, or a rumor stays unconfirmed while you wait for another party to say a final yes. Tentative describes the plan's own status — a real arrangement exists, but its makers have deliberately left it open to change.", "changeable": "Changeable describes a standing disposition to shift — weather, moods, prices that move for any reason at all, over and over. Tentative marks a one-time status instead: this particular plan is real but not yet final, and it stops being tentative the moment it locks.", "floated": "A floated idea is merely tossed into the room to see faces; tentative goes further - an actual arrangement exists, just one that can still move."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a real arrangement whose makers are keeping it open on purpose -- not a rumor and not a habit of flip-flopping. Signal the built-in give with a word like <i>penciled<\/i>, <i>for now<\/i>, <i>may shift<\/i> or <i>until<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

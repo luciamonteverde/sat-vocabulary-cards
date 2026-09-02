@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="16a78c9b6293">
+<meta name="build" content="0d4a710c0928">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>constrain &#8212; SAT Vocabulary, Course 3 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "constrain", "gradeUrl": "/api/grade", "taskId": "constrain", "minWords": 12, "items": {"s1": {"q": "Which sentence uses constrain correctly?", "opts": {"A": "The waiter constrained the day's specials to each table in a cheerful singsong that carried across the whole patio.", "B": "A court order constrains what the company may say about the merger until the papers are signed and the deal closes.", "C": "She constrained her keys somewhere between the car and the kitchen and spent twenty minutes retracing her steps.", "D": "The choir constrained three brand-new hymns for the spring concert and had them polished within a fortnight."}, "key": "B", "fb": {"correct": "Correct! An outside force — a court order — forcibly narrows what the company may do. That is constrain at work.", "A": "Announcing the specials 'in a cheerful singsong' broadcasts a menu; it narrows nobody's choices. Constrain means to forcibly restrict — hard limits forced onto what someone is allowed to do.", "C": "Misplacing keys 'between the car and the kitchen' loses an object; no force restricts anyone. To constrain is to forcibly restrict a person's freedom of action or options.", "D": "A choir learning hymns and getting them polished 'within a fortnight' is rehearsing new music. Constraining forcibly restricts — it squeezes what someone is permitted to do rather than adding anything."}}, "s3a": {"q": "As used here, what does it mean that the regulations would constrain the shoot?", "opts": {"A": "they made the crew's working space feel awkward and crowded", "B": "they held the director to a promise she had personally made", "C": "outside rules pressed their choices into a narrower set", "D": "they set one gentle ceiling the crew never actually reached"}, "key": "C", "fb": {"correct": "Right -- 'pressure from outside' that 'took whole scenes off the storyboard': choices removed by rules nobody agreed to.", "A": "Crowding is a different kind of squeeze -- the passage says whole scenes were gone, not that the crew worked awkwardly.", "B": "The passage rules that out: 'None of this was a promise the director had made.'", "D": "The finale 'was simply gone' -- these rules did far more than set a ceiling nobody touched."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "limit", "B": "bind", "C": "constrain", "D": "cramp"}, "key": "C", "fb": {"correct": "Right. <em>the pressure came wholly from outside<\/em> — a rule the owners never agreed to — and it pressed their options into a narrower set until <em>whole lines of work were pressed out of reach<\/em>. That is exactly what constrain names.", "A": "Limit is the milder, everyday word — a ceiling you bump against while carrying on. This was <em>more than a cap politely observed<\/em>: <em>whole lines of work were pressed out of reach<\/em>, with real force behind the narrowing.", "B": "Bind ties someone down with an obligation they took on — a contract, a promise, an oath. <em>The owners had signed no papers and sworn nothing<\/em>; this pressure arrived from outside, with no agreement anywhere in it.", "D": "Cramp squeezes the room a thing has to work or grow in, so the work turns awkward. Space was never the problem — <em>the shop stayed roomy and fully staffed<\/em> — and the trouble was choices disappearing outright, not elbow room."}}}, "grid": {"words": ["constrain", "cramp", "bind", "limit"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "A late frost will ____ the growers' choices this spring: the early varieties are simply off the table, whatever anyone prefers or promised.", "ks": ["constrain"], "fb": {"bind": "That word ties people down through a promise, contract, or duty. A frost asks for no one's word -- it presses in from outside.", "cramp": "That word squeezes the room you work in, leaving you awkward but still able. Here the early varieties are not awkward -- they are gone.", "limit": "That milder word sets a ceiling you bump against. This is force pressing the options themselves out of reach."}}, {"s": "The apprenticeship papers ____ him to the workshop for seven years -- a duty he signed his own name to and cannot now shrug off.", "ks": ["bind"], "fb": {"constrain": "That word is pressure from outside -- weather, budgets, injuries -- on people who never agreed to anything. This man signed; his own word holds him.", "cramp": "That word squeezes the space you work or grow in. Nothing is tight here -- an obligation is unbreakable.", "limit": "That word caps how much or how far. These papers do not cap anything; they hold him to a duty."}}, {"s": "Renovation costs will ____ the museum's spring program: with the budget gone, the touring exhibition and the lecture series are no longer possible.", "ks": ["constrain"], "fb": {"bind": "That word works through obligation -- a duty someone took on. A vanished budget obliges no one; it just presses choices away.", "cramp": "That word leaves you working awkwardly in too little room. These programs are not awkward -- they are off the calendar.", "limit": "That gentler word says how far you may go. Here outside pressure has erased the options altogether."}}, {"s": "The oath will ____ every council member to secrecy, and no change of heart releases them from what they swore.", "ks": ["bind"], "fb": {"constrain": "That word is circumstance pressing in -- weather, injury, cost -- with no promise involved. An oath is the promise itself.", "cramp": "That word squeezes style and space. Secrecy sworn on an oath is a duty, not a tight corner.", "limit": "That word sets a ceiling. An oath does not measure anything -- it holds the swearer to their word."}}, {"s": "Three roommates sharing one desk began to ____ her painting, every canvas smaller and more cautious for lack of elbow room.", "ks": ["cramp"], "fb": {"constrain": "That word removes choices outright -- some things become simply impossible. She can still paint everything; the squeeze only makes it awkward.", "bind": "That word holds you to a duty you took on. Nothing was promised here -- the desk is just crowded.", "limit": "That word caps an amount or a reach. Nothing is capped -- her room to work is squeezed, and the work turns cautious."}}, {"s": "Park rules ____ each campsite to eight guests -- a plain ceiling that campers bump against on busy weekends, nothing more.", "ks": ["limit"], "fb": {"constrain": "That word carries the press of outside force closing options off. This is just a number to bump against -- the mildest of the four moves.", "bind": "That word holds someone to a duty they took on. A guest cap asks for no promise.", "cramp": "That word squeezes room until working turns awkward. Nothing is squeezed -- a count simply tops out at eight."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs outside pressure -- a rule, a budget, an injury, the weather -- squeezing someone's options so that some are simply gone. Show the source of the pressure: try working in a word like <i>budget<\/i>, <i>weather<\/i>, <i>rules<\/i> or <i>forced<\/i>."}};
+  var CFG = {"word": "constrain", "gradeUrl": "/api/grade", "taskId": "constrain", "minWords": 12, "items": {"s1": {"q": "Which sentence uses constrain correctly?", "opts": {"A": "The waiter constrained the day's specials to each table in a cheerful singsong that carried across the whole patio.", "B": "A court order constrains what the company may say about the merger until the papers are signed and the deal closes.", "C": "She constrained her keys somewhere between the car and the kitchen and spent twenty minutes retracing her steps.", "D": "The choir constrained three brand-new hymns for the spring concert and had them polished within a fortnight."}, "key": "B", "fb": {"correct": "Correct! An outside force — a court order — forcibly narrows what the company may do. That is constrain at work.", "A": "Announcing the specials 'in a cheerful singsong' broadcasts a menu; it narrows nobody's choices. Constrain means to forcibly restrict — hard limits forced onto what someone is allowed to do.", "C": "Misplacing keys 'between the car and the kitchen' loses an object; no force restricts anyone. To constrain is to forcibly restrict a person's freedom of action or options.", "D": "A choir learning hymns and getting them polished 'within a fortnight' is rehearsing new music. Constraining forcibly restricts — it squeezes what someone is permitted to do rather than adding anything."}}, "s3a": {"q": "As used here, what does it mean that the regulations would constrain the shoot?", "opts": {"A": "they made the crew's working space feel awkward and crowded", "B": "they held the director to a promise she had personally made", "C": "outside rules pressed their choices into a narrower set", "D": "they set one gentle ceiling the crew never actually reached"}, "key": "C", "fb": {"correct": "Right -- 'pressure from outside' that 'took whole scenes off the storyboard': choices removed by rules nobody agreed to.", "A": "Crowding is a different kind of squeeze -- the passage says whole scenes were gone, not that the crew worked awkwardly.", "B": "The passage rules that out: 'None of this was a promise the director had made.'", "D": "The finale 'was simply gone' -- these rules did far more than set a ceiling nobody touched."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "limit", "B": "bind", "C": "constrain", "D": "cramp"}, "key": "C", "fb": {"correct": "Right. <em>the pressure came wholly from outside<\/em> — a rule the owners never agreed to — and it pressed their options into a narrower set until <em>whole lines of work were pressed out of reach<\/em>. That is exactly what constrain names.", "A": "Limit is the milder, everyday word — a ceiling you bump against while carrying on. This was <em>more than a cap politely observed<\/em>: <em>whole lines of work were pressed out of reach<\/em>, with real force behind the narrowing.", "B": "Bind ties someone down with an obligation they took on — a contract, a promise, an oath. <em>The owners had signed no papers and sworn nothing<\/em>; this pressure arrived from outside, with no agreement anywhere in it.", "D": "Cramp squeezes the room a thing has to work or grow in, so the work turns awkward. Space was never the problem — <em>the shop stayed roomy and fully staffed<\/em> — and the trouble was choices disappearing outright, not elbow room."}}}, "pairwise": {"rows": [{"sentence": "The apprenticeship papers ____ him to the workshop for seven years -- a duty he signed his own name to and cannot now shrug off.", "options": ["constrain", "bind"], "key": "bind", "pair": "bind", "why_right": "The tell is <em>a duty he signed his own name to<\/em> - the hold comes from an obligation he took on himself, his own word tying him down, not outside circumstance.", "why_wrong": "That word is pressure from outside -- weather, budgets, injuries -- on people who never agreed to anything. This man signed; his own word holds him."}, {"sentence": "The oath will ____ every council member to secrecy, and no change of heart releases them from what they swore.", "options": ["constrain", "bind"], "key": "bind", "pair": "bind", "why_right": "The tell is <em>what they swore<\/em> - a promise taken on holds the council to secrecy; obligation of their own making, not pressure from circumstances nobody agreed to.", "why_wrong": "That word is circumstance pressing in -- weather, injury, cost -- with no promise involved. An oath is the promise itself."}, {"sentence": "A cracked press cylinder will ____ the shop's work for weeks: every big-format job drops away, with no contract or signature behind the loss.", "options": ["constrain", "bind"], "key": "constrain", "pair": "bind", "why_right": "The tell is <em>no contract or signature behind the loss<\/em> - the pressure is outside circumstance, a broken machine nobody agreed to, pressing the shop's options into a narrower set.", "why_wrong": "That word ties someone down through an obligation they took on -- a contract, a promise, a duty. Nothing here was signed or sworn; a broken part presses in from outside."}, {"sentence": "Three roommates sharing one desk began to ____ her painting, every canvas smaller and more cautious for lack of elbow room.", "options": ["constrain", "cramp"], "key": "cramp", "pair": "cramp", "why_right": "The tell is <em>for lack of elbow room<\/em> - the room she works in is squeezed, so the painting turns awkward and small, yet no choice has been pressed away outright.", "why_wrong": "That word removes choices outright -- some things become simply impossible. She can still paint everything; the squeeze only makes it awkward."}, {"sentence": "The recall of its one twin-engine plane will ____ the flight school's syllabus -- the multi-engine rating is gone this term, whatever instructors rearrange.", "options": ["constrain", "cramp"], "key": "constrain", "pair": "cramp", "why_right": "The tell is <em>gone this term<\/em> - outside force has pressed a whole option out of the syllabus, not squeezed the room the school works in; some choices are simply no longer there.", "why_wrong": "That word squeezes the room a thing has to work in -- awkward, smaller, but still possible. The multi-engine rating is not awkward this term; it is gone."}, {"sentence": "Park rules ____ each campsite to eight guests -- a plain ceiling that campers bump against on busy weekends, nothing more.", "options": ["constrain", "limit"], "key": "limit", "pair": "limit", "why_right": "The tell is <em>a plain ceiling that campers bump against<\/em> - the mild, everyday cap with no felt force behind it and no whole option pressed out of reach.", "why_wrong": "That word carries the press of outside force closing options off. This is just a number to bump against -- the mildest of caps."}, {"sentence": "A late frost will ____ the growers' choices this spring: the early varieties are simply off the table, whatever anyone prefers or promised.", "options": ["constrain", "limit"], "key": "constrain", "pair": "limit", "why_right": "The tell is <em>simply off the table<\/em> - outside force is removing whole choices outright, well past the mild ceiling a grower might merely bump against.", "why_wrong": "That milder word sets a ceiling you bump against. This is force pressing the options themselves out of reach."}, {"sentence": "With the dockworkers out, the shortage will ____ the bistro's opening menu; whole courses vanish outright, and no swap the chef tries brings them back.", "options": ["constrain", "limit"], "key": "constrain", "pair": "limit", "why_right": "The tell is <em>whole courses vanish outright<\/em> - the shortage presses options out of existence with force no kitchen substitution can push back.", "why_wrong": "That milder, everyday word is a ceiling you bump against. A shortage that erases whole courses is force pressing the options themselves away, not a cap to run into."}], "display_order": [2, 7, 0, 4, 6, 3, 5, 1], "dimension_order": ["bind", "cramp", "limit"], "dimension_feedback": {"bind": "Bind ties someone down with obligation — a contract, a promise, a duty they cannot shrug off. Constrain presses from outside with no promise involved: weather, budgets, and injuries constrain people who never agreed to anything. You are bound by your word; you are constrained by your circumstances.", "cramp": "Cramp squeezes the room a thing has to work or grow in — a tiny kitchen cramps a cook's style. Constrain is force from outside pressing your options into a narrower set: a rule, an injury, a budget. Cramped, you work awkwardly; constrained, some choices are simply gone.", "limit": "Limit is the milder, everyday word — a ceiling you bump against; constrain adds the feel of force pressing the bounds in on you."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs outside pressure -- a rule, a budget, an injury, the weather -- squeezing someone's options so that some are simply gone. Show the source of the pressure: try working in a word like <i>budget<\/i>, <i>weather<\/i>, <i>rules<\/i> or <i>forced<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

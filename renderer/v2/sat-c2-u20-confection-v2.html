@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="073c703b3999">
+<meta name="build" content="62c2c9ccb3f3">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>confection &#8212; SAT Vocabulary, Course 2 Unit 20</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "confection", "gradeUrl": "/api/grade", "taskId": "confection", "minWords": 12, "items": {"s1": {"q": "Which sentence uses confection correctly?", "opts": {"A": "The mechanic's confection of zip ties and salvaged wire held the bumper on until spring.", "B": "The oven's confection setting browned the dinner rolls evenly on both crowded racks.", "C": "The spy's signed confection named every accomplice and ended the long trial in a day.", "D": "Amara's confection won the fair: a chocolate drawbridge lowered by sugar chains."}, "key": "D", "fb": {"correct": "Correct. A sweet built like a working model, craft in every part — a confection in the exact sense.", "A": "'Zip ties and salvaged wire' holding a bumper on make a makeshift contraption — clever, maybe, but not edible. A confection is food: a sweet made with elaborate care.", "B": "An oven mode that 'browned the dinner rolls evenly' by circulating hot air is convection. A confection is not a setting on an appliance — it is an elaborately crafted sweet.", "C": "A signed statement that 'named every accomplice' is a confession — an admission of guilt. A confection belongs in a bakery, not a courtroom: a fancifully made sweet."}}, "s3a": {"q": "In this passage, a \"confection\" is best understood as", "opts": {"A": "any dessert that tastes far better than it happens to look on the plate", "B": "a sweet built with planning and craft, made to be admired as much as eaten", "C": "a dessert whose main claim is sheer size — big enough to feed every judge at once", "D": "an old family recipe handed down and never changed"}, "key": "B", "fb": {"correct": "Right — the passage calls for construction, \"sugar with a plan behind it,\" admired before it is eaten.", "A": "Taste is never the test in this passage — the judges admire the engineering before anyone takes a bite.", "C": "Nothing in the passage measures the entry by size; a small piece with a plan behind it would still qualify.", "D": "Dev invents his design on the spot, sketching first — heritage has nothing to do with it."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "treat", "B": "dainty", "C": "snack", "D": "confection"}, "key": "C", "fb": {"correct": "Right. A snack is the plainest word on offer — <em>grabbed from the crate<\/em>, <em>fuel between readings and nothing more<\/em>, food with no ambition behind it.", "D": "A confection is sugar somebody engineered — built with real craft to be admired before it is eaten. These bars are the opposite: <em>there was no craft in them<\/em>, and they were <em>chewed in the wind<\/em>, not admired.", "A": "A treat is something sweet you are glad to get, and the word carries a little pleasure with it. The passage strips the pleasure out: <em>Nobody savored these bars and nobody was meant to<\/em>, with <em>nothing ceremonial between them<\/em>.", "B": "A dainty is a choice little sweet prized for being delicate — the tea-tray word. Nothing here is delicate or prized: <em>a granola bar grabbed from the crate by the tent flap<\/em>, its <em>wrapper stuffed into a pocket<\/em>."}}}, "grid": {"words": ["confection", "treat", "dainty", "snack"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The chef spent three evenings on the centerpiece ____: twelve spun-sugar arches over a caramel lake, meant to be photographed before anyone could taste it.", "ks": ["confection"], "fb": {"treat": "You can be glad to get almost anything sweet — that word makes no claim about craft, and this sentence is entirely about <em>three evenings<\/em> of building.", "dainty": "That old-fashioned word names a small, delicate sweet passed around on a tea tray; a centerpiece with twelve arches is prized for its engineering, not its littleness.", "snack": "Something grabbed and eaten without ceremony has no blueprint behind it; this sweet took three evenings to assemble."}}, {"s": "The bakery's window held one showpiece ____ each December, a gilded sugar cathedral so elaborate that strangers stopped just to stare through the glass.", "ks": ["confection"], "fb": {"treat": "That word covers any sweet you are pleased to get and says nothing about the making; the sentence turns on a <em>gilded sugar cathedral<\/em> built to be admired.", "dainty": "The tea-tray word is for tiny, delicate sweets; a piece that fills a shop window earns its name through craft and scale, not littleness.", "snack": "A plain grab-and-go bite is not stared at through glass; this is sugar somebody engineered."}}, {"s": "The tea tray circled the parlor twice, and each guest took a single ____ — a violet-scented morsel scarcely bigger than a thimble.", "ks": ["dainty"], "fb": {"confection": "That name is earned by craft and elaborate building — sugar with a blueprint; this sweet is prized simply for being little and delicate.", "treat": "Any sweet you are glad to get can carry that word; the tray, the parlor and the thimble-size all point to the old-fashioned name for a choice small sweet.", "snack": "Nothing about a tray passed around a parlor is grabbed or plain; the scene is delicacy, not fuel."}}, {"s": "The tearoom's menu kept the old-fashioned name for it: one tiny lavender ____ per saucer, gone in a single bite and chosen for its delicacy.", "ks": ["dainty"], "fb": {"confection": "That word is earned by elaborate making and can name something enormous; the menu's <em>old-fashioned name<\/em> is for a sweet prized for being small and delicate.", "treat": "That word is everyday and broad — anything sweet you are glad to get; the menu reaches for an <em>old-fashioned name<\/em> with a much narrower meaning: a choice little sweet.", "snack": "Plain fuel grabbed between errands does not arrive one per saucer at a tearoom."}}, {"s": "The scoutmaster promised the troop a proper ____ at the summit, and the bag of store-bought toffees was greeted with louder cheering than the view.", "ks": ["treat"], "fb": {"confection": "A bag of <em>store-bought toffees<\/em> has no craft behind it; that name belongs to sugar somebody engineered.", "dainty": "That old-fashioned word names a delicate little sweet on a tea tray, not a bag of toffees passed round a summit.", "snack": "Plain fuel does not get promised in advance or welcomed with cheering; the word here has to carry the gladness of a reward."}}, {"s": "Halfway through the double shift she grabbed a ____ from the vending machine and ate it standing at the loading dock, hardly tasting it.", "ks": ["snack"], "fb": {"confection": "Sugar with a blueprint is built and admired; nothing <em>grabbed from the vending machine<\/em> qualifies.", "treat": "That word carries gladness — a sweet you are pleased to get; she eats this one <em>hardly tasting it<\/em>, which makes it fuel, not a reward.", "dainty": "The tea-tray word is for delicate little sweets served with care, not machine food eaten standing up."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show craft — sugar somebody planned and assembled, admired before it is eaten — not just something tasty. Try working in a word like <i>layers<\/i>, <i>sculpted<\/i>, <i>hours<\/i> or <i>admired<\/i>."}};
+  var CFG = {"word": "confection", "gradeUrl": "/api/grade", "taskId": "confection", "minWords": 12, "items": {"s1": {"q": "Which sentence uses confection correctly?", "opts": {"A": "The mechanic's confection of zip ties and salvaged wire held the bumper on until spring.", "B": "The oven's confection setting browned the dinner rolls evenly on both crowded racks.", "C": "The spy's signed confection named every accomplice and ended the long trial in a day.", "D": "Amara's confection won the fair: a chocolate drawbridge lowered by sugar chains."}, "key": "D", "fb": {"correct": "Correct. A sweet built like a working model, craft in every part — a confection in the exact sense.", "A": "'Zip ties and salvaged wire' holding a bumper on make a makeshift contraption — clever, maybe, but not edible. A confection is food: a sweet made with elaborate care.", "B": "An oven mode that 'browned the dinner rolls evenly' by circulating hot air is convection. A confection is not a setting on an appliance — it is an elaborately crafted sweet.", "C": "A signed statement that 'named every accomplice' is a confession — an admission of guilt. A confection belongs in a bakery, not a courtroom: a fancifully made sweet."}}, "s3a": {"q": "In this passage, a \"confection\" is best understood as", "opts": {"A": "any dessert that tastes far better than it happens to look on the plate", "B": "a sweet built with planning and craft, made to be admired as much as eaten", "C": "a dessert whose main claim is sheer size — big enough to feed every judge at once", "D": "an old family recipe handed down and never changed"}, "key": "B", "fb": {"correct": "Right — the passage calls for construction, \"sugar with a plan behind it,\" admired before it is eaten.", "A": "Taste is never the test in this passage — the judges admire the engineering before anyone takes a bite.", "C": "Nothing in the passage measures the entry by size; a small piece with a plan behind it would still qualify.", "D": "Dev invents his design on the spot, sketching first — heritage has nothing to do with it."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "treat", "B": "dainty", "C": "snack", "D": "confection"}, "key": "C", "fb": {"correct": "Right. A snack is the plainest word on offer — <em>grabbed from the crate<\/em>, <em>fuel between readings and nothing more<\/em>, food with no ambition behind it.", "D": "A confection is sugar somebody engineered — built with real craft to be admired before it is eaten. These bars are the opposite: <em>there was no craft in them<\/em>, and they were <em>chewed in the wind<\/em>, not admired.", "A": "A treat is something sweet you are glad to get, and the word carries a little pleasure with it. The passage strips the pleasure out: <em>Nobody savored these bars and nobody was meant to<\/em>, with <em>nothing ceremonial between them<\/em>.", "B": "A dainty is a choice little sweet prized for being delicate — the tea-tray word. Nothing here is delicate or prized: <em>a granola bar grabbed from the crate by the tent flap<\/em>, its <em>wrapper stuffed into a pocket<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The chef spent three evenings on the centerpiece ____: twelve spun-sugar arches over a caramel lake, meant to be photographed before anyone could taste it.", "options": ["confection", "snack"], "key": "confection", "pair": "snack", "why_right": "The tell is <em>three evenings<\/em> - sugar with a blueprint behind it, made to be admired before anyone tastes it; nothing here was grabbed on the way somewhere else.", "why_wrong": "Something grabbed and eaten without ceremony has no blueprint behind it; this sweet took three evenings to assemble."}, {"sentence": "The bakery's window held one showpiece ____ each December, a gilded sugar cathedral so elaborate that strangers stopped just to stare through the glass.", "options": ["confection", "dainty"], "key": "confection", "pair": "dainty", "why_right": "The tell is <em>gilded sugar cathedral<\/em> - a confection earns its name through craft and can be enormous; the small delicate tea-tray word could never fill a shop window.", "why_wrong": "The tea-tray word is for tiny, delicate sweets; a piece that fills a shop window earns its name through craft and scale, not littleness."}, {"sentence": "The tearoom's menu kept the old-fashioned name for it: one tiny lavender ____ per saucer, gone in a single bite and chosen for its delicacy.", "options": ["confection", "dainty"], "key": "dainty", "pair": "dainty", "why_right": "The tell is <em>old-fashioned name<\/em> - dainty is the old-fashioned word for a choice small sweet, and this one is tiny, delicate, and gone in a bite.", "why_wrong": "That word is earned by elaborate making and can name something enormous; the menu's <em>old-fashioned name<\/em> is for a sweet prized for being small and delicate."}, {"sentence": "The scoutmaster promised the troop a proper ____ at the summit, and the bag of store-bought toffees was greeted with louder cheering than the view.", "options": ["confection", "treat"], "key": "treat", "pair": "treat", "why_right": "The tell is <em>store-bought toffees<\/em> - a treat is anything sweet you are glad to get, and the cheering carries the gladness; a bag from a shop has no blueprint behind it.", "why_wrong": "A bag of <em>store-bought toffees<\/em> has no craft behind it; that name belongs to sugar somebody engineered."}, {"sentence": "Halfway through the double shift she grabbed a ____ from the vending machine and ate it standing at the loading dock, hardly tasting it.", "options": ["confection", "snack"], "key": "snack", "pair": "snack", "why_right": "The tell is <em>vending machine<\/em> - grabbed, not made: sweetness with no ambition, eaten without ceremony, the exact opposite of sugar somebody engineered to be admired.", "why_wrong": "Sugar with a blueprint is built and admired; nothing <em>grabbed from the vending machine<\/em> qualifies."}, {"sentence": "At the pastry guild's exam the word ____ must be earned: sweetness alone counts for nothing, and entries stand or fall on their design sheets.", "options": ["confection", "treat"], "key": "confection", "pair": "treat", "why_right": "The tell is <em>sweetness alone counts for nothing<\/em> - the confection name is earned by craft and blueprint, while the other word takes any sweet automatically, one free cookie included.", "why_wrong": "That word means anything sweet you are glad to get - one free cookie counts - so it can never be a name that must be earned by craft."}, {"sentence": "For their instructor's retirement the pastry students spent a week after class on one ____ -- a chocolate lighthouse, wired so its tiny lamp glowed.", "options": ["confection", "snack"], "key": "confection", "pair": "snack", "why_right": "The tell is <em>a week after class<\/em> - this is sugar somebody engineered to be admired, built piece by piece; nothing grabbed on the run could take wiring.", "why_wrong": "That word means sweetness grabbed, not made - fuel with no ambition at all; a lighthouse built and wired over a week is the opposite of grabbed."}, {"sentence": "After the boy's tenth haircut the barber slid the glass jar across and told him to choose one ____ -- peppermints and wax-paper caramels, nothing fancier.", "options": ["confection", "treat"], "key": "treat", "pair": "treat", "why_right": "The tell is <em>nothing fancier<\/em> - a treat is anything sweet you are glad to get, and a free pick from the jar is pure gladness with no craft in sight.", "why_wrong": "That word means a sweet elaborately made - sugar with a blueprint, assembled to be admired before it is eaten; peppermints scooped from a jar have no making behind them."}], "display_order": [4, 7, 1, 3, 0, 5, 2, 6], "dimension_order": ["treat", "dainty", "snack"], "dimension_feedback": {"treat": "A treat is anything sweet you are glad to get — a candy bar counts, so does one free cookie — and the word says nothing about workmanship. A confection is built: sugar with a blueprint behind it, assembled to be admired before it is eaten. Every confection is a treat; few treats earn the name confection.", "dainty": "A dainty is an old-fashioned word for a choice small sweet — the sort passed around on a tea tray, prized for being delicate and little. A confection can be enormous; what earns that name is not the size of the sweet but the craft and elaborate making behind it.", "snack": "A snack is far plainer than a confection — grabbed, not made, sweetness with no ambition at all, while a confection is sugar somebody engineered to be admired."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show craft — sugar somebody planned and assembled, admired before it is eaten — not just something tasty. Try working in a word like <i>layers<\/i>, <i>sculpted<\/i>, <i>hours<\/i> or <i>admired<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

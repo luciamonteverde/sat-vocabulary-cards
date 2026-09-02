@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="87fee474cbf7">
+<meta name="build" content="c87a9d1d341c">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>consummate &#8212; SAT Vocabulary, Course 1 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "consummate", "gradeUrl": "/api/grade", "taskId": "consummate", "minWords": 12, "items": {"s1": {"q": "Which situation shows an agreement being consummated?", "opts": {"A": "Two publishing houses stamp their seals onto the pact they spent eighteen months hammering out, closing it at last.", "B": "Two startups schedule their very first exploratory phone call to feel out whether working together is even worth discussing.", "C": "A founder daydreams about someday selling her company, doodling possible price tags on a napkin during her lunch break.", "D": "A negotiation over the purchase price collapses after neither side will move even a single dollar from its opening offer."}, "key": "A", "fb": {"correct": "Right — the seals turn eighteen months of negotiation into a closed, finished deal. Bringing an agreement to that final completion is what consummate means.", "B": "A 'very first exploratory phone call' sits at the opposite end of a deal's life — the startups are only testing the waters. An agreement is consummated at its finish, when the final step makes it binding.", "C": "Doodling 'possible price tags on a napkin' is pure daydream — no agreement exists for anyone to complete. Consummating requires a real deal carried through its final step, not an imagined sale that never leaves the lunch table.", "D": "When talks collapse with 'neither side' budging, the deal dies before reaching its end — the reverse of completion. A consummated agreement is one whose final step actually happens; this one never gets past its opening offers."}}, "s3a": {"q": "In this passage, to \"consummate\" the purchase means to", "opts": {"A": "negotiate the remaining terms and the final price of the sale", "B": "carry out the final binding act that seals the deal", "C": "announce the completed agreement to the public and the press", "D": "agree informally on terms over a handshake"}, "key": "B", "fb": {"correct": "Right — one meeting, four signatures, keys and payment exchanged: the binding act after which neither side could walk away.", "A": "Negotiation had been over since March; the passage is about the step that made those terms stick.", "C": "The newsletter came after the fact — the announcement marked the sealing; it did not do the sealing.", "D": "The informal stage is exactly what the passage says was not enough: 'a handshake was not a sale.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "complete", "B": "finalize", "C": "settle", "D": "consummate"}, "key": "A", "fb": {"correct": "Right. The indenture had been binding since day one; what remained was the work itself, and only <em>with every listed item forged and logged<\/em> could the seven years be brought fully to their end — finishing a task outright, whatever its kind, is exactly this word's job.", "D": "Consummate is reserved for the moment a formal arrangement becomes binding — the final act that seals a deal or a marriage. That moment is long past here: the indenture <em>bound master and candidate from the first morning<\/em>, so nothing remained to be sealed.", "B": "Finalize means to nail down the last step of something — plans, a schedule, a design. Nothing here is a last touch on a plan: the ledger spans <em>four hundred hinges, ninety locks<\/em>, seven years of work end to end.", "C": "Settle is the loose, informal ending — parties settling on terms over a handshake, a dispute resolved without lawyers. There was nothing loose here to resolve: <em>nothing about the seven years that followed was ever renegotiated<\/em>, and every requirement stood exactly as written."}}}, "grid": {"words": ["consummate", "finalize", "complete", "settle"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Lawyers for both families will meet Thursday to ____ the land swap, exchanging the signed deeds that make the agreement binding at last.", "ks": ["consummate"], "fb": {"finalize": "That word lives among seating charts and schedules — everyday last steps. A deed exchange that makes a family agreement binding calls for the formal, sealing word.", "complete": "That word finishes anything at all — homework, a lap, a census. This sentence is about parties sealing an arrangement with one binding act, a much narrower thing.", "settle": "That word can stop at a handshake and loose terms. These families are going all the way to signed deeds and a binding agreement — the fully formal end."}}, {"s": "Under the old dynastic custom, the two courts would ____ the alliance with a formal wedding rite — the binding act without which every clause lapsed.", "ks": ["consummate"], "fb": {"finalize": "That word signs off on plans and paperwork in any office. Sealing an alliance between royal courts by a wedding rite is the formal act the stronger word names.", "complete": "That word merely brings something to an end. Here the point is HOW the alliance is made real — by one binding ceremonial act between the parties.", "settle": "That word covers informal terms and handshakes. The sentence says loose terms died on their own — 'every clause lapsed' — without the full binding act."}}, {"s": "The wedding planner needs two more days to ____ the seating chart, the last small step before the programs can go to print.", "ks": ["finalize"], "fb": {"consummate": "That word seals deals, pacts, and marriages with one binding act. A seating chart — even at a wedding — is office work, not a binding arrangement between parties.", "complete": "That word would cover the whole job from the first sketch onward. The sentence is narrower: only 'the last small step' remains to be closed out.", "settle": "That word suits parties reaching terms — over a table, maybe a handshake. The planner is negotiating with no one; she is finishing a document."}}, {"s": "One task remains: on Friday the studio will ____ the game's design, freezing every menu and level so the discs can be pressed.", "ks": ["finalize"], "fb": {"consummate": "That word needs two parties and a binding act — a merger, a pact, a marriage. A studio freezing its own design has no counterparty at all.", "complete": "That word would describe finishing the game itself, years of work. Friday's job is only the last step: locking what already exists.", "settle": "That word reaches loose, informal agreement on terms. A design freeze is the opposite of loose — every menu fixed, every level locked."}}, {"s": "Rain or not, the crew intends to ____ the marsh survey before the season ends, all forty transects walked and logged.", "ks": ["complete"], "fb": {"consummate": "That word seals formal arrangements between parties. A crew slogging through a marsh has an agreement with nobody — just work to finish.", "finalize": "That word closes out the last step of something already nearly done. This sentence spans the whole effort — every one of the forty transects.", "settle": "That word gets parties to yes on terms. There are no terms in a marsh — only mud and a deadline."}}, {"s": "Rather than drag in the lawyers, the neighbors chose to ____ the fence dispute over coffee, shaking hands with nothing in writing.", "ks": ["settle"], "fb": {"consummate": "That word is the full formal sealing — signatures, deeds, binding force. These neighbors deliberately stopped short of all that: coffee and a handshake.", "finalize": "That word closes the last step of a formal process. No process exists here — the lawyers were never called and nothing was drafted.", "complete": "That word finishes tasks. A dispute is not a task to finish but a disagreement to resolve, and they resolved it on loose, friendly terms."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Pick a deal, pact, or marriage and show the one final, binding step that seals it — after which no one can back out. Try working in a word like <i>signing<\/i>, <i>binding<\/i>, <i>sealed<\/i> or <i>at last<\/i>."}};
+  var CFG = {"word": "consummate", "gradeUrl": "/api/grade", "taskId": "consummate", "minWords": 12, "items": {"s1": {"q": "Which situation shows an agreement being consummated?", "opts": {"A": "Two publishing houses stamp their seals onto the pact they spent eighteen months hammering out, closing it at last.", "B": "Two startups schedule their very first exploratory phone call to feel out whether working together is even worth discussing.", "C": "A founder daydreams about someday selling her company, doodling possible price tags on a napkin during her lunch break.", "D": "A negotiation over the purchase price collapses after neither side will move even a single dollar from its opening offer."}, "key": "A", "fb": {"correct": "Right — the seals turn eighteen months of negotiation into a closed, finished deal. Bringing an agreement to that final completion is what consummate means.", "B": "A 'very first exploratory phone call' sits at the opposite end of a deal's life — the startups are only testing the waters. An agreement is consummated at its finish, when the final step makes it binding.", "C": "Doodling 'possible price tags on a napkin' is pure daydream — no agreement exists for anyone to complete. Consummating requires a real deal carried through its final step, not an imagined sale that never leaves the lunch table.", "D": "When talks collapse with 'neither side' budging, the deal dies before reaching its end — the reverse of completion. A consummated agreement is one whose final step actually happens; this one never gets past its opening offers."}}, "s3a": {"q": "In this passage, to \"consummate\" the purchase means to", "opts": {"A": "negotiate the remaining terms and the final price of the sale", "B": "carry out the final binding act that seals the deal", "C": "announce the completed agreement to the public and the press", "D": "agree informally on terms over a handshake"}, "key": "B", "fb": {"correct": "Right — one meeting, four signatures, keys and payment exchanged: the binding act after which neither side could walk away.", "A": "Negotiation had been over since March; the passage is about the step that made those terms stick.", "C": "The newsletter came after the fact — the announcement marked the sealing; it did not do the sealing.", "D": "The informal stage is exactly what the passage says was not enough: 'a handshake was not a sale.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "complete", "B": "finalize", "C": "settle", "D": "consummate"}, "key": "A", "fb": {"correct": "Right. The indenture had been binding since day one; what remained was the work itself, and only <em>with every listed item forged and logged<\/em> could the seven years be brought fully to their end — finishing a task outright, whatever its kind, is exactly this word's job.", "D": "Consummate is reserved for the moment a formal arrangement becomes binding — the final act that seals a deal or a marriage. That moment is long past here: the indenture <em>bound master and candidate from the first morning<\/em>, so nothing remained to be sealed.", "B": "Finalize means to nail down the last step of something — plans, a schedule, a design. Nothing here is a last touch on a plan: the ledger spans <em>four hundred hinges, ninety locks<\/em>, seven years of work end to end.", "C": "Settle is the loose, informal ending — parties settling on terms over a handshake, a dispute resolved without lawyers. There was nothing loose here to resolve: <em>nothing about the seven years that followed was ever renegotiated<\/em>, and every requirement stood exactly as written."}}}, "pairwise": {"rows": [{"sentence": "Lawyers for both families will meet Thursday to ____ the land swap, exchanging the signed deeds that make the agreement binding at last.", "options": ["consummate", "finalize"], "key": "consummate", "pair": "finalize", "why_right": "The tell is <em>exchanging the signed deeds that make the agreement binding at last<\/em> - one final binding act sealing a formal arrangement between parties, not an everyday last step.", "why_wrong": "That word lives among seating charts and schedules — everyday last steps. A deed exchange that makes a family agreement binding calls for the formal, sealing word."}, {"sentence": "Under the old dynastic custom, the two courts would ____ the alliance with a formal wedding rite — the binding act without which every clause lapsed.", "options": ["consummate", "settle"], "key": "consummate", "pair": "settle", "why_right": "The tell is <em>the binding act without which every clause lapsed<\/em> - informal terms alone were never enough; the alliance demanded its full, formal completion in one sealing rite.", "why_wrong": "That word covers informal terms and handshakes. The sentence says loose terms died on their own — 'every clause lapsed' — without the full binding act."}, {"sentence": "The wedding planner needs two more days to ____ the seating chart, the last small step before the programs can go to print.", "options": ["consummate", "finalize"], "key": "finalize", "pair": "finalize", "why_right": "The tell is <em>the last small step before the programs can go to print<\/em> - the closing of an everyday document's final step; no deal, agreement, or marriage is being sealed.", "why_wrong": "That word seals deals, pacts, and marriages with one binding act. A seating chart — even at a wedding — is office work, not a binding arrangement between parties."}, {"sentence": "Rain or not, the crew intends to ____ the marsh survey before the season ends, all forty transects walked and logged.", "options": ["consummate", "complete"], "key": "complete", "pair": "complete", "why_right": "The tell is <em>all forty transects walked and logged<\/em> - a whole task brought to its end; no arrangement between parties exists, so the general finishing word is the fit.", "why_wrong": "That word seals formal arrangements between parties. A crew slogging through a marsh has an agreement with nobody — just work to finish."}, {"sentence": "Rather than drag in the lawyers, the neighbors chose to ____ the fence dispute over coffee, shaking hands with nothing in writing.", "options": ["consummate", "settle"], "key": "settle", "pair": "settle", "why_right": "The tell is <em>shaking hands with nothing in writing<\/em> - parties reaching informal terms and deliberately stopping there, short of any final, binding, formal act.", "why_wrong": "That word is the full formal sealing — signatures, deeds, binding force. These neighbors deliberately stopped short of all that: coffee and a handshake."}, {"sentence": "The restaurant group and the inventor will ____ their licensing agreement on Monday, when the notarized signatures give the pact its binding force.", "options": ["consummate", "finalize"], "key": "consummate", "pair": "finalize", "why_right": "The tell is <em>notarized signatures give the pact its binding force<\/em> - an agreement between parties sealed by its one final binding act; everyday plans get finalized, a pact gets consummated.", "why_wrong": "That word completes the last step of everyday things - plans, schedules, designs. An agreement between parties, sealed by one binding act, calls for the narrower, more formal word."}, {"sentence": "The terms were agreed over a handshake last spring; only when both troupes sign the binding charter this week will they ____ the co-production pact.", "options": ["consummate", "settle"], "key": "consummate", "pair": "settle", "why_right": "The tell is <em>terms were agreed over a handshake last spring<\/em> - the settling is already done; what remains is carrying the deal to its full, formal, binding completion.", "why_wrong": "That word means reaching informal agreement on terms - and that happened over a handshake months ago. Signing the binding charter is the full, formal completion only the stronger word names."}, {"sentence": "The museum staff worked overnight to ____ the inventory before the auditors arrived, every one of nine thousand objects counted and tagged.", "options": ["consummate", "complete"], "key": "complete", "pair": "complete", "why_right": "The tell is <em>every one of nine thousand objects counted and tagged<\/em> - a whole task brought to an end; no deal, agreement, or marriage between parties is being sealed here.", "why_wrong": "That word seals a deal, agreement, or marriage with one final binding act between parties. The staff are sealing nothing with anyone - only finishing a counting job."}], "display_order": [1, 2, 7, 6, 5, 4, 0, 3], "dimension_order": ["finalize", "settle", "complete"], "dimension_feedback": {"finalize": "Finalize means to complete the last step of something - you finalize plans, a schedule, or a design. Consummate is narrower and more formal: it applies to deals, agreements, and marriages, where one final binding act seals the arrangement. Everyday things get finalized; a merger gets consummated.", "settle": "Settle is looser and weaker — parties can settle on terms informally over a handshake; to consummate a deal is to carry it all the way to full, formal completion.", "complete": "Complete means to bring something to an end - the most general word for finishing anything at all. Consummate is reserved for a specific kind of finishing: carrying out the final, binding step that seals a deal, agreement, or marriage. Any task can be completed; only a formal arrangement between parties is consummated."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Pick a deal, pact, or marriage and show the one final, binding step that seals it — after which no one can back out. Try working in a word like <i>signing<\/i>, <i>binding<\/i>, <i>sealed<\/i> or <i>at last<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

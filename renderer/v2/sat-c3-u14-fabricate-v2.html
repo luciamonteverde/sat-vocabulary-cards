@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="3f41e8316e34">
+<meta name="build" content="89d1c0a980e9">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>fabricate &#8212; SAT Vocabulary, Course 3 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "fabricate", "gradeUrl": "/api/grade", "taskId": "fabricate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses fabricate correctly?", "opts": {"A": "The company fabricated its safety record by publishing every incident report in full and on time.", "B": "She fabricated the antique's history by reading it aloud, word for word, from the auction house's own catalog.", "C": "His alibi was fabricated: the 'movie ticket' he offered had been printed at home, days after the night in question.", "D": "The coach fabricated the season's statistics by copying them straight from the league's official site."}, "key": "C", "fb": {"correct": "Right. An alibi built from nothing — down to a home-printed ticket for a night that never happened — is an invention constructed and presented as real: fabricated.", "A": "Publishing 'every incident report in full' and on time is honest disclosure of real records. Fabricating means inventing something and passing it off as genuine — faithful paperwork is the reverse.", "B": "Reading the piece's history 'word for word' from the auction catalog transmits an account that already exists. To fabricate is to invent from nothing — a faithful recitation manufactures no fiction.", "D": "Copying statistics 'straight from the league's official site' reproduces real numbers exactly. Fabricated figures would be invented and passed off as true — this coach transcribes facts rather than creating them."}}, "s3a": {"q": "In the passage, fabricated most nearly means that the diary was…", "opts": {"A": "deliberately damaged so badly that its original text could never be recovered", "B": "copied from another soldier's genuine journal", "C": "built from nothing and passed off as authentic", "D": "printed later than the museum had estimated"}, "key": "C", "fb": {"correct": "Right. The founder composed the entries himself and presented the volume as a soldier's testimony — created from nothing, and offered as real. Both halves are required, and only this choice has both.", "A": "The diary is intact; nothing was destroyed or lost. The problem is that the pages never held a soldier's words in the first place.", "B": "A copy would trace back to some genuine original. The passage points the other way — the founder composed the entries himself in 1921.", "D": "The paper's late date is the clue that exposed the diary, not the accusation itself. Being printed late is not the same as being made up to deceive."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "invent", "B": "forge", "C": "misstate", "D": "fabricate"}, "key": "C", "fb": {"correct": "Right. To misstate is to get one thing wrong, sometimes without even meaning to. That is the whole story here: one flipped figure, while <em>Every other measurement in the chapter matched the original surveys<\/em>, and a fix that meant <em>changing exactly two digits<\/em>.", "D": "Fabricate is deliberate construction — a record built from nothing, piece by piece, and presented as real. This error was neither built nor from nothing: the figure began as <em>the eighty-nine in his own field notes<\/em>, and <em>Every other measurement in the chapter matched the original surveys<\/em>.", "A": "Invent means to create something new. Nothing new was created here: a real number was scrambled in the copying — the printed figure is just <em>the eighty-nine in his own field notes<\/em> with its digits swapped.", "B": "Forge means to fake a specific document or signature — a counterfeit imitating someone else's genuine paperwork. There is no counterfeit in this story: the slip happened <em>in a late draft<\/em> of the author's own book, under his own name."}}}, "grid": {"words": ["fabricate", "invent", "forge", "misstate"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The exposé accused the lab's analysts of quiet pressure to ____ trial results — tables of data for studies that were never run, built from nothing and handed to regulators as real.", "ks": ["fabricate"], "fb": {"invent": "Inventing is neutral — a machine or a game can be invented with no deceit anywhere. This sentence needs the word that itself carries the accusation: data <em>built from nothing and handed to regulators as real<\/em>.", "forge": "Forging fakes a specific genuine document or signature — a counterfeit imitating someone's real paperwork. These tables imitated nothing; they were original constructions for <em>studies that were never run<\/em>.", "misstate": "Misstating gets one figure wrong in an otherwise real record, sometimes by accident. Here the studies <em>were never run<\/em> — there was no real record to get wrong."}}, {"s": "Working nights in her garage, the engineer hoped to ____ a cheaper water filter — something genuinely new, owed to no earlier design, which no catalog anywhere had ever offered.", "ks": ["invent"], "fb": {"fabricate": "That word accuses someone of building a fake and passing it off as real. The engineer is making a genuine filter for actual use — there is no deception here to name.", "forge": "Forgery imitates a specific real document or signature and passes the copy off as genuine. A new water filter copies nothing and deceives no one.", "misstate": "To misstate is to get a fact wrong when describing something. Nothing is being described here — the garage work is building a device, not reporting on one."}}, {"s": "Fact-checkers concluded the memoirist would simply ____ whole episodes that had never taken place — a shipwreck, a year in prison — and then defend each one as lived experience.", "ks": ["fabricate"], "fb": {"invent": "Inventing passes no judgment — a board game or a mousetrap can be invented honestly. These episodes were defended <em>as lived experience<\/em> after being challenged, and that deception needs the accusing word.", "forge": "Forging counterfeits a particular genuine document — a passport, a signature. A shipwreck that never happened imitates no paperwork; it was built out of thin air.", "misstate": "A misstated memoir would put the wrong year on a real voyage. These episodes <em>had never taken place<\/em> — far past getting one fact wrong in a true account."}}, {"s": "Bored on the long ferry crossing, the cousins decided to ____ a card game of their own, with rules nobody on board had ever played.", "ks": ["invent"], "fb": {"fabricate": "That accusation says someone built a falsehood and presented it as real. A card game made up openly for an afternoon's fun deceives nobody.", "forge": "Forging imitates something genuine — a signature, a banknote — to pass the copy off. A brand-new game imitates nothing.", "misstate": "Misstating is an error in describing facts. The cousins are creating something, not describing anything."}}, {"s": "Prosecutors say the clerk used the governor's own letterhead to ____ a pardon, tracing the signature stroke for stroke from a framed proclamation.", "ks": ["forge"], "fb": {"fabricate": "That word builds a deception from nothing — a whole alibi, a career. This document copies a real signature <em>stroke for stroke<\/em> from genuine paperwork, and there is a narrower word for exactly that.", "invent": "Nothing new is created here: the letterhead is real and the signature is traced <em>stroke for stroke<\/em> from a real proclamation. Copying to deceive is not creation.", "misstate": "A misstated pardon would be a real document with an error in it. This one is a counterfeit from the first line — nothing about it was ever genuine."}}, {"s": "The annual review found the club secretary had done nothing worse than ____ a single date on an otherwise accurate filing — an error she corrected the moment it was pointed out.", "ks": ["misstate"], "fb": {"fabricate": "That charge means building a false record from nothing and defending it as real. This filing is <em>otherwise accurate<\/em>, and the one slip was <em>corrected the moment it was pointed out<\/em>.", "invent": "Nothing was created here, honestly or otherwise — one date in a genuine filing came out wrong.", "forge": "Forgery would mean the filing counterfeits genuine paperwork. The document is real; a single date in it was wrong."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show something built from nothing and then passed off as real — not just a lie, but a made thing. Try working in a word like <i>records<\/i>, <i>evidence<\/i>, <i>whole<\/i> or <i>never happened<\/i>."}};
+  var CFG = {"word": "fabricate", "gradeUrl": "/api/grade", "taskId": "fabricate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses fabricate correctly?", "opts": {"A": "The company fabricated its safety record by publishing every incident report in full and on time.", "B": "She fabricated the antique's history by reading it aloud, word for word, from the auction house's own catalog.", "C": "His alibi was fabricated: the 'movie ticket' he offered had been printed at home, days after the night in question.", "D": "The coach fabricated the season's statistics by copying them straight from the league's official site."}, "key": "C", "fb": {"correct": "Right. An alibi built from nothing — down to a home-printed ticket for a night that never happened — is an invention constructed and presented as real: fabricated.", "A": "Publishing 'every incident report in full' and on time is honest disclosure of real records. Fabricating means inventing something and passing it off as genuine — faithful paperwork is the reverse.", "B": "Reading the piece's history 'word for word' from the auction catalog transmits an account that already exists. To fabricate is to invent from nothing — a faithful recitation manufactures no fiction.", "D": "Copying statistics 'straight from the league's official site' reproduces real numbers exactly. Fabricated figures would be invented and passed off as true — this coach transcribes facts rather than creating them."}}, "s3a": {"q": "In the passage, fabricated most nearly means that the diary was…", "opts": {"A": "deliberately damaged so badly that its original text could never be recovered", "B": "copied from another soldier's genuine journal", "C": "built from nothing and passed off as authentic", "D": "printed later than the museum had estimated"}, "key": "C", "fb": {"correct": "Right. The founder composed the entries himself and presented the volume as a soldier's testimony — created from nothing, and offered as real. Both halves are required, and only this choice has both.", "A": "The diary is intact; nothing was destroyed or lost. The problem is that the pages never held a soldier's words in the first place.", "B": "A copy would trace back to some genuine original. The passage points the other way — the founder composed the entries himself in 1921.", "D": "The paper's late date is the clue that exposed the diary, not the accusation itself. Being printed late is not the same as being made up to deceive."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "invent", "B": "forge", "C": "misstate", "D": "fabricate"}, "key": "C", "fb": {"correct": "Right. To misstate is to get one thing wrong, sometimes without even meaning to. That is the whole story here: one flipped figure, while <em>Every other measurement in the chapter matched the original surveys<\/em>, and a fix that meant <em>changing exactly two digits<\/em>.", "D": "Fabricate is deliberate construction — a record built from nothing, piece by piece, and presented as real. This error was neither built nor from nothing: the figure began as <em>the eighty-nine in his own field notes<\/em>, and <em>Every other measurement in the chapter matched the original surveys<\/em>.", "A": "Invent means to create something new. Nothing new was created here: a real number was scrambled in the copying — the printed figure is just <em>the eighty-nine in his own field notes<\/em> with its digits swapped.", "B": "Forge means to fake a specific document or signature — a counterfeit imitating someone else's genuine paperwork. There is no counterfeit in this story: the slip happened <em>in a late draft<\/em> of the author's own book, under his own name."}}}, "pairwise": {"rows": [{"sentence": "Bored on the long ferry crossing, the cousins decided to ____ a card game of their own, with rules nobody on board had ever played.", "options": ["fabricate", "invent"], "key": "invent", "pair": "invent", "why_right": "The tell is <em>rules nobody on board had ever played<\/em> - invent is judgment-free creation of something new, and a game made openly for fun presents nothing false as real.", "why_wrong": "That accusation says someone built a falsehood and presented it as real. A card game made up openly for an afternoon's fun deceives nobody."}, {"sentence": "Any driver could have made up an excuse for the missing pallets — the foreman went further, choosing to ____ one, a signed delivery log and receipts handed over as genuine.", "options": ["fabricate", "invent"], "key": "fabricate", "pair": "invent", "why_right": "The tell is <em>went further<\/em> - making an excuse up is all invent claims; what lies past it is a falsehood built piece by piece and handed over as genuine.", "why_wrong": "That word means creating something new and passes no judgment — any driver could do that much. A signed log and receipts handed over as genuine are a deception built piece by piece."}, {"sentence": "For the school play the drama club set out to ____ a language for its villains — by opening night half the cast could trade insults in it.", "options": ["fabricate", "invent"], "key": "invent", "pair": "invent", "why_right": "The tell is <em>trade insults in it<\/em> - a stage language the whole cast knows is openly made up; invent creates something new and passes no judgment, with nothing presented as real.", "why_wrong": "That word narrows invention to deception, something built and presented as real. A made-up language for stage villains fools nobody and claims nothing — it is simply new, the judgment-free word's whole job."}, {"sentence": "Prosecutors say the clerk used the governor's own letterhead to ____ a pardon, tracing the signature stroke for stroke from a framed proclamation.", "options": ["fabricate", "forge"], "key": "forge", "pair": "forge", "why_right": "The tell is <em>tracing the signature stroke for stroke<\/em> - forge counterfeits a specific genuine document or signature; nothing here is built from nothing, only copied from real paperwork.", "why_wrong": "That word builds a deception from nothing — a whole alibi, a career. This document copies a real signature <em>stroke for stroke<\/em> from genuine paperwork, and there is a narrower word for exactly that."}, {"sentence": "The reporter was fired for choosing to ____ a source, an entire retired colonel, complete with a hometown and grandchildren, who had never existed anywhere but in her notebook.", "options": ["fabricate", "forge"], "key": "fabricate", "pair": "forge", "why_right": "The tell is <em>never existed anywhere but in her notebook<\/em> - fabricate builds a deception from nothing, here a person presented as real; forge would need a genuine document or signature to counterfeit.", "why_wrong": "That word means faking a document or signature, a counterfeit passed off as genuine. A colonel who never existed imitates no one's paperwork; he was constructed from nothing and presented as real."}, {"sentence": "The exposé accused the lab's analysts of quiet pressure to ____ trial results — tables of data for studies that were never run, built from nothing and handed to regulators as real.", "options": ["fabricate", "misstate"], "key": "fabricate", "pair": "misstate", "why_right": "The tell is <em>studies that were never run<\/em> - fabricate builds the whole record from nothing and presents it as real; there was never one true figure here to get wrong.", "why_wrong": "Misstating gets one figure wrong in an otherwise real record, sometimes by accident. Here the studies <em>were never run<\/em> — there was no real record to get wrong."}, {"sentence": "The annual review found the club secretary had done nothing worse than ____ a single date on an otherwise accurate filing — an error she corrected the moment it was pointed out.", "options": ["fabricate", "misstate"], "key": "misstate", "pair": "misstate", "why_right": "The tell is <em>otherwise accurate filing<\/em> - misstate gets one thing wrong in a real record, sometimes not even on purpose; one corrected date is the mildest rung, far below building from nothing.", "why_wrong": "That charge means building a false record from nothing and defending it as real. This filing is <em>otherwise accurate<\/em>, and the one slip was <em>corrected the moment it was pointed out<\/em>."}, {"sentence": "Badge records show the inspector never entered the plant, so the two-hour walkthrough in her logbook, readings and all, is something she chose to ____.", "options": ["fabricate", "misstate"], "key": "fabricate", "pair": "misstate", "why_right": "The tell is <em>never entered the plant<\/em> - fabricate builds the entire thing from nothing and presents it as real; a walkthrough that never happened is not one figure wrong in a log.", "why_wrong": "That word is the mildest rung: one thing wrong in a real record, sometimes by accident. This visit never happened at all, and she logged it anyway — an entry built from nothing."}], "display_order": [7, 1, 6, 2, 3, 5, 0, 4], "dimension_order": ["invent", "forge", "misstate"], "dimension_feedback": {"invent": "To invent is to create something new — a machine or a lie with equal ease, and the word itself passes no judgment. Fabricate narrows invention to deception: a fabricated record is built piece by piece and presented as real, and the accusation is always deliberate.", "forge": "To forge is to fake a specific document or signature, producing a counterfeit passed off as genuine. Fabricate is wider — a whole alibi, career, or past can be fabricated — and it points at the deliberate construction, not the imitation of someone else's paperwork.", "misstate": "Misstate is the mildest rung, far below fabricate — a misstated figure gets one thing wrong, sometimes not even on purpose."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show something built from nothing and then passed off as real — not just a lie, but a made thing. Try working in a word like <i>records<\/i>, <i>evidence<\/i>, <i>whole<\/i> or <i>never happened<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="022aaced9cd8">
+<meta name="build" content="2bb2a82002c5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>frivolous &#8212; SAT Vocabulary, Course 2 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "frivolous", "gradeUrl": "/api/grade", "taskId": "frivolous", "minWords": 12, "items": {"s1": {"q": "Which sentence uses frivolous correctly?", "opts": {"A": "The awards panel skipped frivolous questions like 'favorite pizza topping' and went straight to her research.", "B": "The surgeon kept a frivolous checklist, confirming every instrument twice before making the first cut.", "C": "He was frivolous with praise, naming every single volunteer by name in the annual thank-you report.", "D": "The bridge's frivolous steel cables held firm through the worst windstorm anyone in the county remembered."}, "key": "A", "fb": {"correct": "Correct. Pizza toppings weigh nothing beside research — questions of so little importance are frivolous, and the panel treats them that way.", "B": "Confirming 'every instrument twice before making the first cut' is care taken to its limit. Frivolous means treating things as trivial or unserious — the opposite of a surgeon's double-checking.", "C": "Being 'frivolous with praise' here means generous — thanking every volunteer thoroughly. The writer wants a word like lavish; frivolous instead brands things as trifling and beneath serious attention.", "D": "Cables that 'held firm through the worst windstorm' are serious, load-carrying hardware. Frivolous describes what is of little importance, too light to matter; nothing keeping a bridge standing can be brushed off that way."}}, "s3a": {"q": "The committee's charge that the banjo was \"a frivolous indulgence\" means they believed it", "opts": {"A": "was too poorly made to survive the voyage", "B": "claimed weight owed to serious needs", "C": "would break before the winter ended", "D": "made no sense as a musical instrument"}, "key": "B", "fb": {"correct": "Right — 'five kilos of varnished wood on a journey where men would shave grams off their spoons' is the mismatch itself.", "A": "Craftsmanship never comes up — 'varnished wood' is a jab at its lightness of purpose, not its build.", "C": "Durability is never questioned.", "D": "As an instrument it makes perfect sense; the objection is what its kilos cost."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "frivolous", "B": "silly", "C": "trifling", "D": "lighthearted"}, "key": "B", "fb": {"correct": "Right. Earnest, detailed, and cheap as the paperwork was, floating a road on <em>sealed barrels<\/em> fails on plain sense — <em>a road is not a raft<\/em>. Silly is the everyday word for an idea that just isn't reasonable, whatever effort went into it.", "A": "Frivolous charges that something light claimed money or attention owed to weightier things. Here <em>the engineering was earnest and the costs modest<\/em> — the plan addressed the county's gravest road problem and asked for nothing outsized. Its defect lies elsewhere.", "C": "Trifling means too small to deserve notice, but a scheme laid out in <em>two hundred pages of load tables<\/em> for an entire roadbed is not small — the panel had to take it seriously enough to read every page.", "D": "Lighthearted describes harmless fun that suits the moment, and the panel <em>found no humor in it<\/em> — the firm meant every page. Whatever this proposal was, it was not offered in play."}}}, "grid": {"words": ["frivolous", "trifling", "silly", "lighthearted"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The board called the fountain a ____ purchase: handsome enough, but it drank the semester's tutoring budget for the sake of a splash in the lobby.", "ks": ["frivolous"], "fb": {"trifling": "That word means too small to deserve attention — a sum you could ignore. A whole semester's tutoring budget is not small; it was simply spent on something light.", "silly": "That word charges a thing with lacking sense. The fountain is 'handsome enough' — sensible on its own; the fault is what it cost weightier needs.", "lighthearted": "That word describes harmless fun that suits the moment. This fun was paid for with the tutoring budget — the harm is the point."}}, {"s": "Filed the week of the layoff talks, the ____ grievance — pressed in earnest, over the break room's coffee — claimed a full day of bargaining time.", "ks": ["frivolous"], "fb": {"trifling": "That word marks what is too small to deserve attention — ignorable. This grievance was not ignored; it swallowed a bargaining day owed to the layoff fight.", "silly": "That word means lacking sense. The complaint was 'pressed in earnest' and perfectly arguable — the charge is the day it claimed, not its logic.", "lighthearted": "That word suits a joke that harms nothing. This claim consumed a full day the layoff talks needed — a real cost, not a light touch."}}, {"s": "The recount shifted the total by a ____ margin — nine votes out of two million, too few to change any outcome or delay the certification.", "ks": ["trifling"], "fb": {"frivolous": "That word faults a mismatch — something light spending money or time owed to serious things. Nothing here spent anything; the shift was just too small to matter.", "silly": "That word says a thing fails to make sense. Nine votes out of two million makes perfect sense — it is merely tiny.", "lighthearted": "That word describes a playful manner. A margin has no manner; the sentence's only claim is smallness."}}, {"s": "The landlord shrugged the shortfall off as ____ — forty cents light on a month's rent, beneath the cost of the stamp it would take to chase it.", "ks": ["trifling"], "fb": {"frivolous": "That word needs a mismatch — light spending against weighty claims. Forty cents claims nothing; it is small enough to ignore outright.", "silly": "That word faults reasoning. A forty-cent slip isn't unreasonable — it's just beneath the cost of caring.", "lighthearted": "That word is a mood — playful, easy. A ledger line has no mood; what it has is a size too small to matter."}}, {"s": "Offered in complete earnest, the student's ____ explanation — 'because the moon is shy' — made even the patient teacher blink at how little sense it held.", "ks": ["silly"], "fb": {"frivolous": "That word faults light things claiming serious time or money. Nothing was spent here; the trouble is that the explanation doesn't hold together.", "trifling": "That word means too small to notice. The explanation was noticed by everyone — it simply made no sense.", "lighthearted": "That word means playful on purpose. This answer was 'offered in complete earnest' — the student meant it; it just isn't reasonable."}}, {"s": "The retirement toast stayed ____ — gentle jokes about his legendary parking, nothing that stung, exactly the mood the room wanted.", "ks": ["lighthearted"], "fb": {"frivolous": "That word marks lightness that costs something weightier. This toast cost nothing — the moment called for exactly this.", "trifling": "That word measures size — too small to deserve attention. Nobody is sizing the toast; the point is its easy, playful warmth.", "silly": "That word means short on sense. These jokes landed with perfect sense — gentle, aimed, and fitting."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something light or fun soaking up time or money that serious things needed — the mismatch is the point, not silliness. Try working in a word like <i>budget<\/i>, <i>instead of<\/i>, <i>deadline<\/i> or <i>spent<\/i>."}};
+  var CFG = {"word": "frivolous", "gradeUrl": "/api/grade", "taskId": "frivolous", "minWords": 12, "items": {"s1": {"q": "Which sentence uses frivolous correctly?", "opts": {"A": "The awards panel skipped frivolous questions like 'favorite pizza topping' and went straight to her research.", "B": "The surgeon kept a frivolous checklist, confirming every instrument twice before making the first cut.", "C": "He was frivolous with praise, naming every single volunteer by name in the annual thank-you report.", "D": "The bridge's frivolous steel cables held firm through the worst windstorm anyone in the county remembered."}, "key": "A", "fb": {"correct": "Correct. Pizza toppings weigh nothing beside research — questions of so little importance are frivolous, and the panel treats them that way.", "B": "Confirming 'every instrument twice before making the first cut' is care taken to its limit. Frivolous means treating things as trivial or unserious — the opposite of a surgeon's double-checking.", "C": "Being 'frivolous with praise' here means generous — thanking every volunteer thoroughly. The writer wants a word like lavish; frivolous instead brands things as trifling and beneath serious attention.", "D": "Cables that 'held firm through the worst windstorm' are serious, load-carrying hardware. Frivolous describes what is of little importance, too light to matter; nothing keeping a bridge standing can be brushed off that way."}}, "s3a": {"q": "The committee's charge that the banjo was \"a frivolous indulgence\" means they believed it", "opts": {"A": "was too poorly made to survive the voyage", "B": "claimed weight owed to serious needs", "C": "would break before the winter ended", "D": "made no sense as a musical instrument"}, "key": "B", "fb": {"correct": "Right — 'five kilos of varnished wood on a journey where men would shave grams off their spoons' is the mismatch itself.", "A": "Craftsmanship never comes up — 'varnished wood' is a jab at its lightness of purpose, not its build.", "C": "Durability is never questioned.", "D": "As an instrument it makes perfect sense; the objection is what its kilos cost."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "frivolous", "B": "silly", "C": "trifling", "D": "lighthearted"}, "key": "B", "fb": {"correct": "Right. Earnest, detailed, and cheap as the paperwork was, floating a road on <em>sealed barrels<\/em> fails on plain sense — <em>a road is not a raft<\/em>. Silly is the everyday word for an idea that just isn't reasonable, whatever effort went into it.", "A": "Frivolous charges that something light claimed money or attention owed to weightier things. Here <em>the engineering was earnest and the costs modest<\/em> — the plan addressed the county's gravest road problem and asked for nothing outsized. Its defect lies elsewhere.", "C": "Trifling means too small to deserve notice, but a scheme laid out in <em>two hundred pages of load tables<\/em> for an entire roadbed is not small — the panel had to take it seriously enough to read every page.", "D": "Lighthearted describes harmless fun that suits the moment, and the panel <em>found no humor in it<\/em> — the firm meant every page. Whatever this proposal was, it was not offered in play."}}}, "pairwise": {"rows": [{"sentence": "The board called the fountain a ____ purchase: handsome enough, but it drank the semester's tutoring budget for the sake of a splash in the lobby.", "options": ["frivolous", "trifling"], "key": "frivolous", "pair": "trifling", "why_right": "The tell is <em>it drank the semester's tutoring budget<\/em> - something light claiming money owed to weighty things; trifling means too small to notice, and a semester's budget is anything but small.", "why_wrong": "That word means too small to deserve attention — a sum you could ignore. A whole semester's tutoring budget is not small; it was simply spent on something light."}, {"sentence": "The recount shifted the total by a ____ margin — nine votes out of two million, too few to change any outcome or delay the certification.", "options": ["frivolous", "trifling"], "key": "trifling", "pair": "trifling", "why_right": "The tell is <em>too few to change any outcome<\/em> - pure smallness, beneath attention; frivolous needs something light claiming weighty time or money, and nine votes claim nothing at all.", "why_wrong": "That word faults a mismatch — something light spending money or time owed to serious things. Nothing here spent anything; the shift was just too small to matter."}, {"sentence": "The landlord shrugged the shortfall off as ____ — forty cents light on a month's rent, beneath the cost of the stamp it would take to chase it.", "options": ["frivolous", "trifling"], "key": "trifling", "pair": "trifling", "why_right": "The tell is <em>beneath the cost of the stamp<\/em> - a sum too small to deserve attention, ignorable outright; frivolous would need lightness spending weighty money, and forty cents spends nothing.", "why_wrong": "That word needs a mismatch — light spending against weighty claims. Forty cents claims nothing; it is small enough to ignore outright."}, {"sentence": "Filed the week of the layoff talks, the ____ grievance — pressed in earnest, over the break room's coffee — claimed a full day of bargaining time.", "options": ["frivolous", "lighthearted"], "key": "frivolous", "pair": "lighthearted", "why_right": "The tell is <em>claimed a full day of bargaining time<\/em> - lightness spending time owed to the layoff fight; lighthearted fun suits its moment and harms nothing, and this cost a real day.", "why_wrong": "That word suits a joke that harms nothing. This claim consumed a full day the layoff talks needed — a real cost, not a light touch."}, {"sentence": "The retirement toast stayed ____ — gentle jokes about his legendary parking, nothing that stung, exactly the mood the room wanted.", "options": ["frivolous", "lighthearted"], "key": "lighthearted", "pair": "lighthearted", "why_right": "The tell is <em>exactly the mood the room wanted<\/em> - playful fun that suits its moment and harms nothing; frivolous needs lightness stealing time or money owed to weightier things.", "why_wrong": "That word marks lightness that costs something weightier. This toast cost nothing — the moment called for exactly this."}, {"sentence": "Offered in complete earnest, the student's ____ explanation — 'because the moon is shy' — made even the patient teacher blink at how little sense it held.", "options": ["frivolous", "silly"], "key": "silly", "pair": "silly", "why_right": "The tell is <em>how little sense it held<\/em> - the plain charge of lacking sense; frivolous faults light things claiming serious time or money, and this answer cost nobody anything.", "why_wrong": "That word faults light things claiming serious time or money. Nothing was spent here; the trouble is that the explanation doesn't hold together."}, {"sentence": "Their logic was flawless for two straight hours — cited sources, numbered rebuttals — which is what made the mascot-fight debate so ____ the night before the state final.", "options": ["frivolous", "silly"], "key": "frivolous", "pair": "silly", "why_right": "The tell is <em>the night before the state final<\/em> - two hours of flawless argument spent where weighty preparation was owed; silly means lacking sense, and this logic held to the letter.", "why_wrong": "That word says a thing just isn't reasonable, and this logic was flawless. The fault is the timing - two hours of mascot argument on a night the state final owned."}, {"sentence": "Nobody faulted the math — the spreadsheet for the pizza oven balanced to the dollar — yet with the furnace on its last winter, Mom ruled the plan ____.", "options": ["frivolous", "silly"], "key": "frivolous", "pair": "silly", "why_right": "The tell is <em>the furnace on its last winter<\/em> - a light pleasure claiming money a weighty need is owed; silly charges a plan with lacking sense, and this one balanced to the dollar.", "why_wrong": "That word charges a plan with lacking sense, and nobody faulted this math. The trouble is the mismatch - oven money claimed while the furnace that heats the house is failing."}], "display_order": [5, 1, 4, 6, 0, 3, 7, 2], "dimension_order": ["trifling", "silly", "lighthearted"], "dimension_feedback": {"trifling": "Trifling measures pure size: too small to deserve attention, whoever is paying it — a trifling sum, a trifling error. Frivolous measures a mismatch instead: something light claiming the time or money owed to weighty things. A trifling cost can be ignored; a frivolous purchase already spent the allowance.", "silly": "Silly is the plain, everyday word for lacking sense — a silly answer just isn't reasonable. Frivolous makes a narrower charge: the thing may be perfectly sensible, only too light for the moment or the money it claims. A frivolous lawsuit can be argued with a straight face.", "lighthearted": "A lighthearted joke suits the moment and harms nothing; frivolous goes further, spending real attention on what doesn't merit it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something light or fun soaking up time or money that serious things needed — the mismatch is the point, not silliness. Try working in a word like <i>budget<\/i>, <i>instead of<\/i>, <i>deadline<\/i> or <i>spent<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="2907c99f32b1">
+<meta name="build" content="4f070cb5b325">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>gluttony &#8212; SAT Vocabulary, Course 2 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "gluttony", "gradeUrl": "/api/grade", "taskId": "gluttony", "minWords": 12, "items": {"s1": {"q": "Which sentence uses gluttony correctly?", "opts": {"A": "The cafe's new gluttony-free menu lists six house-baked breads safe for sensitive diners.", "B": "The diet book's first chapter separates true hunger from gluttony — the eating that rolls on after fullness.", "C": "Weeks of famine sharpened the villagers' gluttony until the relief trucks finally arrived from the coast.", "D": "His gluttony for late-night highlight reels kept the laptop glowing until three most mornings."}, "key": "B", "fb": {"correct": "Correct. Eating that rolls on after fullness is indulgence past need — the definition of gluttony.", "A": "This menu confuses gluttony with gluten — 'house-baked breads safe for sensitive diners' concerns an ingredient allergy. Gluttony is a habit of overindulgence in food or drink, not something a bakery can remove.", "C": "'Weeks of famine' produce desperate appetite, not overindulgence. Gluttony is excess — consuming far past need — and villagers waiting on relief trucks have had no chance at excess.", "D": "Watching highlights till three is overindulgence in television. Gluttony is about food and drink."}}, "s3a": {"q": "In this passage, \"gluttony\" refers to", "opts": {"A": "serving food too showy for anyone actually to enjoy", "B": "hoarding delicacies rather than sharing them with guests", "C": "eating that goes on after hunger is gone", "D": "the hosts' desire to put their new wealth on display"}, "key": "C", "fb": {"correct": "Right — the passage defines it in the same breath: 'the eating that keeps on long after hunger has left the room.'", "A": "The peacocks are showy, but showiness is the wealth joke — the named target is the eating.", "B": "Nothing is kept back; every course is consumed at the table.", "D": "The poet's target 'was not wealth itself,' the passage says outright."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "overindulgence", "B": "greediness", "C": "appetite", "D": "gluttony"}, "key": "C", "fb": {"correct": "Right. Exercise before lunch made students hungry, and hungry students eat: demand rose, <em>plate waste fell by half<\/em>, and nothing tipped into excess. Appetite — the body's honest wanting, which switches off when fed — is exactly what the report describes.", "D": "Gluttony is eating that keeps going after fullness, and nothing in this cafeteria rolls past the switch: students <em>ate what they took<\/em> and then stopped. More lunches were eaten, but no lunch went on too long.", "A": "Overindulgence means too much of a pleasure, and the report found no too-much anywhere — <em>the dessert counter stayed no busier than before<\/em>, and waste fell. Bigger demand is not the same thing as excess.", "B": "Greediness grasps for more than a fair share and hangs on to it. These students <em>took no more than the menu offered<\/em> — no grabbing, no hoarding trays. The report records fair shares, eaten."}}}, "grid": {"words": ["gluttony", "overindulgence", "greediness", "appetite"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "What the innkeeper witnessed was plain ____: the traveler, full an hour ago, still working through a fourth roast and calling for more wine.", "ks": ["gluttony"], "fb": {"overindulgence": "That word covers too much of any pleasure — screens, spending, sleep. When the excess is a fourth roast and more wine, the table's own harsher word is the precise one.", "greediness": "That word grasps and keeps — money, food, praise stored up whether or not it can be used. Nothing here is kept; it is swallowed on the spot.", "appetite": "That word is the body's honest wanting, and it switches off when fed. This diner was 'full an hour ago' and kept going."}}, {"s": "Medieval preachers ranked ____ among the deadly sins, warning that the belly could become a god — feasting past fullness as worship of the plate.", "ks": ["gluttony"], "fb": {"overindulgence": "That word spreads over every pleasure — screens, sleep, spending. The sin the preachers named lives at the table alone: the belly as god.", "greediness": "That word is grasping and keeping — and it has its own place on the sin list. This warning is about feasting, excess swallowed rather than stored.", "appetite": "That word is the body's honest wanting — no preacher ranks hunger a sin. The sermon aims at what continues after fullness."}}, {"s": "The pediatrician's pamphlet warns against screen-time ____ — three cartoons are a treat, but a whole rainy Saturday of them leaves a child cranky and spent.", "ks": ["overindulgence"], "fb": {"gluttony": "That word belongs to the table — eating and drinking past fullness. A day of cartoons is excess, but nothing here is eaten or drunk.", "greediness": "That word grasps and keeps whether or not the pile can be used. These hours aren't kept anywhere — they're burned through, leaving the child spent.", "appetite": "That word is honest wanting that switches off when satisfied. A treat that stretches into a whole cranky Saturday sailed past the switch."}}, {"s": "The budgeting app flags weekend ____ of every stripe — midnight shopping sprees, gadget binges, spa splurges — and totals the damage on Monday.", "ks": ["overindulgence"], "fb": {"gluttony": "That word is table excess — food and drink past fullness. Sprees and splurges cost money, not helpings.", "greediness": "That word is about grasping and keeping. A spree is the opposite motion — the money pours out for pleasure and is gone by Monday.", "appetite": "That word is the body's honest, self-limiting want. A binge the app must total up each Monday has left honest wanting far behind."}}, {"s": "The will laid bare the uncle's ____ — accounts in nine banks, rooms of unopened purchases, sums grasped and kept that he never once spent or shared.", "ks": ["greediness"], "fb": {"gluttony": "That word swallows its excess at the table. This excess was banked and boxed — kept, never consumed.", "overindulgence": "That word means enjoying too much of a pleasure. The uncle enjoyed nothing — 'never once spent or shared' — he only held on.", "appetite": "That word is the body's honest wanting, satisfied and switched off. Wanting that fills nine banks and never stops has left the body far behind."}}, {"s": "A morning in the orchard gave the crew a real ____ — they ate well at noon, then pushed their plates away and went back to the ladders.", "ks": ["appetite"], "fb": {"gluttony": "That word is eating carried on past fullness. This crew stopped the moment they were fed — plates pushed away.", "overindulgence": "That word means too much of a good thing. A hard-earned lunch, finished and done, is exactly enough.", "greediness": "That word grasps for more and keeps it. Nobody stockpiled anything — they ate their fill and climbed back up."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Keep it at the table: show eating or drinking that keeps going after fullness — the second helping after the second helping. Try working in a word like <i>full<\/i>, <i>another<\/i>, <i>plate<\/i> or <i>still<\/i>."}};
+  var CFG = {"word": "gluttony", "gradeUrl": "/api/grade", "taskId": "gluttony", "minWords": 12, "items": {"s1": {"q": "Which sentence uses gluttony correctly?", "opts": {"A": "The cafe's new gluttony-free menu lists six house-baked breads safe for sensitive diners.", "B": "The diet book's first chapter separates true hunger from gluttony — the eating that rolls on after fullness.", "C": "Weeks of famine sharpened the villagers' gluttony until the relief trucks finally arrived from the coast.", "D": "His gluttony for late-night highlight reels kept the laptop glowing until three most mornings."}, "key": "B", "fb": {"correct": "Correct. Eating that rolls on after fullness is indulgence past need — the definition of gluttony.", "A": "This menu confuses gluttony with gluten — 'house-baked breads safe for sensitive diners' concerns an ingredient allergy. Gluttony is a habit of overindulgence in food or drink, not something a bakery can remove.", "C": "'Weeks of famine' produce desperate appetite, not overindulgence. Gluttony is excess — consuming far past need — and villagers waiting on relief trucks have had no chance at excess.", "D": "Watching highlights till three is overindulgence in television. Gluttony is about food and drink."}}, "s3a": {"q": "In this passage, \"gluttony\" refers to", "opts": {"A": "serving food too showy for anyone actually to enjoy", "B": "hoarding delicacies rather than sharing them with guests", "C": "eating that goes on after hunger is gone", "D": "the hosts' desire to put their new wealth on display"}, "key": "C", "fb": {"correct": "Right — the passage defines it in the same breath: 'the eating that keeps on long after hunger has left the room.'", "A": "The peacocks are showy, but showiness is the wealth joke — the named target is the eating.", "B": "Nothing is kept back; every course is consumed at the table.", "D": "The poet's target 'was not wealth itself,' the passage says outright."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "overindulgence", "B": "greediness", "C": "appetite", "D": "gluttony"}, "key": "C", "fb": {"correct": "Right. Exercise before lunch made students hungry, and hungry students eat: demand rose, <em>plate waste fell by half<\/em>, and nothing tipped into excess. Appetite — the body's honest wanting, which switches off when fed — is exactly what the report describes.", "D": "Gluttony is eating that keeps going after fullness, and nothing in this cafeteria rolls past the switch: students <em>ate what they took<\/em> and then stopped. More lunches were eaten, but no lunch went on too long.", "A": "Overindulgence means too much of a pleasure, and the report found no too-much anywhere — <em>the dessert counter stayed no busier than before<\/em>, and waste fell. Bigger demand is not the same thing as excess.", "B": "Greediness grasps for more than a fair share and hangs on to it. These students <em>took no more than the menu offered<\/em> — no grabbing, no hoarding trays. The report records fair shares, eaten."}}}, "pairwise": {"rows": [{"sentence": "Medieval preachers ranked ____ among the deadly sins, warning that the belly could become a god — feasting past fullness as worship of the plate.", "options": ["gluttony", "overindulgence"], "key": "gluttony", "pair": "overindulgence", "why_right": "The tell is <em>worship of the plate<\/em> - the sermon's charge is confined to the table, and only the food-and-drink kind of excess earns the older, harsher word the sin list names.", "why_wrong": "That word spreads over every pleasure — screens, sleep, spending. The sin the preachers named lives at the table alone: the belly as god."}, {"sentence": "The pediatrician's pamphlet warns against screen-time ____ — three cartoons are a treat, but a whole rainy Saturday of them leaves a child cranky and spent.", "options": ["gluttony", "overindulgence"], "key": "overindulgence", "pair": "overindulgence", "why_right": "The tell is <em>screen-time<\/em> - too much of any pleasure takes the broad word, and gluttony is overindulgence kept to the table; a whole rainy Saturday of cartoons puts no plate in sight.", "why_wrong": "That word belongs to the table — eating and drinking past fullness. A day of cartoons is excess, but nothing here is eaten or drunk."}, {"sentence": "The budgeting app flags weekend ____ of every stripe — midnight shopping sprees, gadget binges, spa splurges — and totals the damage on Monday.", "options": ["gluttony", "overindulgence"], "key": "overindulgence", "pair": "overindulgence", "why_right": "The tell is <em>spa splurges<\/em> - overindulgence is too much of any pleasure, spending and screens included, and not one of these flagged weekend excesses is eaten or drunk.", "why_wrong": "That word is table excess — food and drink past fullness. Sprees and splurges cost money, not helpings."}, {"sentence": "What the innkeeper witnessed was plain ____: the traveler, full an hour ago, still working through a fourth roast and calling for more wine.", "options": ["gluttony", "greediness"], "key": "gluttony", "pair": "greediness", "why_right": "The tell is <em>still working through<\/em> - nothing gained here is kept; the greedy keep what they gain, the glutton swallows it, and this traveler is swallowing a fourth roast on the spot.", "why_wrong": "That word grasps and keeps — money, food, praise stored up whether or not it can be used. Nothing here is kept; it is swallowed on the spot."}, {"sentence": "The will laid bare the uncle's ____ — accounts in nine banks, rooms of unopened purchases, sums grasped and kept that he never once spent or shared.", "options": ["gluttony", "greediness"], "key": "greediness", "pair": "greediness", "why_right": "The tell is <em>grasped and kept<\/em> - greediness hoards its gains whether or not they can ever be used, while the glutton's excess is eaten and drunk on the spot.", "why_wrong": "That word swallows its excess at the table. This excess was banked and boxed — kept, never consumed."}, {"sentence": "Nothing from the shared pantry ever turned up stashed in Theo's room; the losses came down to simple ____, whole boxes emptied at the counter the same night they were bought.", "options": ["gluttony", "greediness"], "key": "gluttony", "pair": "greediness", "why_right": "The tell is <em>whole boxes emptied at the counter<\/em> - nothing is grasped and stored for later; the greedy keep what they gain, while the glutton swallows it on the spot.", "why_wrong": "That word grasps for more and hoards it, used or not. Nothing was kept anywhere - every box was emptied at the counter, the excess swallowed rather than stored."}, {"sentence": "Reviews of the ship's midnight buffet described sheer ____: diners still full from the late seating queued up again and cleared plate after plate where they stood.", "options": ["gluttony", "appetite"], "key": "gluttony", "pair": "appetite", "why_right": "The tell is <em>still full from the late seating<\/em> - appetite switches off when fed, and this eating kept going past the switch, plate after plate at midnight.", "why_wrong": "That word is the body's honest wanting, and it switches off when fed. These diners were still full when they queued; eating that starts again at midnight has left honest hunger behind."}, {"sentence": "After the marathon, the runners' ____ was a spectacle - pasta by the trayful, whole pizzas vanishing - yet within the hour every one of them was full, done, and asleep.", "options": ["gluttony", "appetite"], "key": "appetite", "pair": "appetite", "why_right": "The tell is <em>full, done, and asleep<\/em> - appetite is the body's honest wanting, and it switches off when fed; however big the meal, the eating stopped at fullness.", "why_wrong": "That word is eating carried on past fullness. These runners earned every trayful and stopped the moment they were fed - big is not the same as past need."}], "display_order": [1, 3, 7, 2, 5, 6, 0, 4], "dimension_order": ["overindulgence", "greediness", "appetite"], "dimension_feedback": {"overindulgence": "Overindulgence is too much of any pleasure — screens, spending, sleep, sweets. Gluttony is overindulgence kept to the table: eating and drinking carried on past fullness. Every bout of gluttony is overindulgence, but only the food-and-drink kind earns the older, harsher word.", "greediness": "Greediness is grasping for more of anything — money, food, praise — and hoarding it whether or not it can ever be used. Gluttony is narrower and bodily: the excess is eaten and drunk on the spot. The greedy keep what they gain; the glutton swallows it.", "appetite": "Appetite is the body's honest wanting, and it switches off when fed; gluttony is what keeps eating after the switch."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Keep it at the table: show eating or drinking that keeps going after fullness — the second helping after the second helping. Try working in a word like <i>full<\/i>, <i>another<\/i>, <i>plate<\/i> or <i>still<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="3d37ba41c53c">
+<meta name="build" content="bf80109fa6c5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>uniformity &#8212; SAT Vocabulary, Course 2 Unit 5</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "uniformity", "gradeUrl": "/api/grade", "taskId": "uniformity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses uniformity correctly?", "opts": {"A": "The franchise audits every location for uniformity, so a burrito in Boston matches one in Boise.", "B": "Regulars loved the bakery's uniformity: the pastry case never held the same two items twice, and the menu changed with the baker's mood.", "C": "Critics marveled at the uniformity of the sculptor's one-of-a-kind commission, a piece unlike anything else ever shown in the gallery.", "D": "After a week of hearings, the two senators finally reached uniformity and drafted the compromise bill together."}, "key": "A", "fb": {"correct": "Correct! Uniformity means sameness of form across every instance in a set, and a chain checking that a burrito in Boston matches one in Boise is policing exactly that instance-to-instance sameness.", "B": "Not quite! Uniformity means sameness of form across every instance in a set, so it's not the correct choice here because a pastry case that never repeats itself and a menu that changes on a whim describe constant variety - the reverse condition.", "C": "Not quite! Uniformity means sameness of form across every instance in a set, so it's not the correct choice here because a one-of-a-kind commission is a single piece with nothing else to match; without a set of instances, nothing can be the same as anything.", "D": "Not quite! Uniformity means sameness of form across every instance in a set, so it's not the correct choice here because two people arriving at an agreement is a meeting of minds - a consensus - not a set of things matching in shape."}}, "s3a": {"q": "As it is used in this passage, 'uniformity' most nearly means:", "opts": {"A": "the state of every station matching every other, variation smoothed away", "B": "the multi-year process by which officials drafted and imposed one official design on the system", "C": "the steady reliability of train service from year to year", "D": "a shared decorative style meant to beautify the stations"}, "key": "A", "fb": {"correct": "Right — the passage's last line states it plainly: 'variation had been smoothed away, and every station now matched the rest.' The word names that state of matching.", "B": "Close, but the repainting program was the means. The word names what the program aimed at and left behind — the state in which nothing varies from station to station.", "C": "The passage never discusses whether trains run reliably. Every claim is about stations matching one another in look, not about service holding up over time.", "D": "The engineers defend the program on function — faster reading in an emergency — not on beauty, and the grumbling riders counted it a loss, not an adornment."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "consistency", "B": "homogeneity", "C": "standardization", "D": "uniformity"}, "key": "A", "fb": {"correct": "Right. Thirty years of commissions, every piece its own design, and <em>joints as true in this year's work as in her first<\/em> — quality holding steady over time while each piece keeps its own character.", "D": "Uniformity would mean every piece matching the rest in form — shape, size, finish. Here <em>no two pieces have matched<\/em>; every commission is built <em>each to its own design<\/em>.", "C": "Standardization is the deliberate process of imposing one specification on products. Nothing was imposed in this workshop: she <em>works from no pattern book and follows no shop specification<\/em>.", "B": "Homogeneity is sameness of composition — parts all of one kind, like a batch poured from a single mix. Her materials run from <em>a walnut desk, an oak bench, a hall table from salvaged ship timber<\/em>; nothing here is one stuff throughout."}}}, "grid": {"words": ["uniformity", "consistency", "standardization", "homogeneity"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "No code required it, and the houses were built of brick, timber, and stucco alike, yet the street shows an eerie ____ of form, each facade matching the next.", "ks": ["uniformity"], "fb": {"consistency": "That word is steadiness of one thing over time — a bakery holding its quality all year. This sentence lines up many houses against each other at a single moment.", "standardization": "That word names the deliberate process of imposing one specification, and the sentence rules a rule out from the start: 'No code required it.'", "homogeneity": "That word claims sameness of composition, and the sentence denies it outright — 'brick, timber, and stucco alike.' Only the form matches here."}}, {"s": "No template was handed out, yet from five hundred wildly different students came essays of numbing ____, each one matching the next in shape, length, and tone.", "ks": ["uniformity"], "fb": {"homogeneity": "That word says the parts are all of one kind, like a batch from a single mix — but these essays came from 'five hundred wildly different students.' What matches is their shape.", "standardization": "That word is the process of imposing a spec, and this sentence rules the process out: 'No template was handed out.' Only the state that resulted is being named.", "consistency": "That word would praise one writer for holding steady across many essays. Here five hundred different writers are being compared with one another all at once."}}, {"s": "Critics kept praising the columnist's ____: ten years of weekly essays, each one different in shape and subject, yet never once dipping in quality.", "ks": ["consistency"], "fb": {"uniformity": "That word would require the essays to match one another in form, and the sentence says the opposite — 'each one different in shape and subject.' What never varies is the quality.", "standardization": "That word names a deliberate process of imposing one specification. Nobody imposed anything on these essays; their quality simply held steady for ten years.", "homogeneity": "That word claims a set whose members are all of one kind. These essays differ in shape and subject; the only thing unchanged is how good they are."}}, {"s": "Reviewers marveled at the soloist's ____ across the forty-city tour — no two evenings alike in program or mood, but not one of them ever weak.", "ks": ["consistency"], "fb": {"uniformity": "'No two evenings alike' rules that word out — it needs the members of a set to match in form. What the reviewers admired was quality that never slipped.", "standardization": "That word is the process of forcing things onto one specification, and no one did that to these concerts. The tour's virtue was steadiness, not sameness by decree.", "homogeneity": "That word describes a set all of one kind through and through. These evenings varied in program and mood; what never varied was the level of the playing."}}, {"s": "The ministry spent three years on the ____ of electrical plugs, drafting a single specification and requiring every factory in the country to retool to it.", "ks": ["standardization"], "fb": {"uniformity": "That word names the finished state — sameness already achieved, however it came about. This sentence is about the three-year process of imposing it.", "consistency": "That word is a quality holding steady over time. A ministry drafting one specification and making factories retool is an action, not a quality.", "homogeneity": "That word would claim the plugs are all one material through and through. The project here is about imposing a single form by rule."}}, {"s": "Geologists prize the quarry for the ____ of its marble: cut it anywhere and the stone is the same substance through and through, without one vein of anything else.", "ks": ["homogeneity"], "fb": {"uniformity": "That word is sameness of form across the members of a set. This sentence makes a different claim — that the stone is one substance all the way through.", "consistency": "That word describes quality or behavior holding steady over time. The quarry's virtue is what its stone is made of, not how it behaves.", "standardization": "That word requires a deliberate process imposing one specification. Nobody imposed anything on this marble; it simply formed from a single mix."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show many things matching each other in form, not one thing staying reliable. Give the reader a whole set to compare — try working in a word like <i>every<\/i>, <i>identical<\/i>, <i>row<\/i> or <i>matching<\/i>."}};
+  var CFG = {"word": "uniformity", "gradeUrl": "/api/grade", "taskId": "uniformity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses uniformity correctly?", "opts": {"A": "The franchise audits every location for uniformity, so a burrito in Boston matches one in Boise.", "B": "Regulars loved the bakery's uniformity: the pastry case never held the same two items twice, and the menu changed with the baker's mood.", "C": "Critics marveled at the uniformity of the sculptor's one-of-a-kind commission, a piece unlike anything else ever shown in the gallery.", "D": "After a week of hearings, the two senators finally reached uniformity and drafted the compromise bill together."}, "key": "A", "fb": {"correct": "Correct! Uniformity means sameness of form across every instance in a set, and a chain checking that a burrito in Boston matches one in Boise is policing exactly that instance-to-instance sameness.", "B": "Not quite! Uniformity means sameness of form across every instance in a set, so it's not the correct choice here because a pastry case that never repeats itself and a menu that changes on a whim describe constant variety - the reverse condition.", "C": "Not quite! Uniformity means sameness of form across every instance in a set, so it's not the correct choice here because a one-of-a-kind commission is a single piece with nothing else to match; without a set of instances, nothing can be the same as anything.", "D": "Not quite! Uniformity means sameness of form across every instance in a set, so it's not the correct choice here because two people arriving at an agreement is a meeting of minds - a consensus - not a set of things matching in shape."}}, "s3a": {"q": "As it is used in this passage, 'uniformity' most nearly means:", "opts": {"A": "the state of every station matching every other, variation smoothed away", "B": "the multi-year process by which officials drafted and imposed one official design on the system", "C": "the steady reliability of train service from year to year", "D": "a shared decorative style meant to beautify the stations"}, "key": "A", "fb": {"correct": "Right — the passage's last line states it plainly: 'variation had been smoothed away, and every station now matched the rest.' The word names that state of matching.", "B": "Close, but the repainting program was the means. The word names what the program aimed at and left behind — the state in which nothing varies from station to station.", "C": "The passage never discusses whether trains run reliably. Every claim is about stations matching one another in look, not about service holding up over time.", "D": "The engineers defend the program on function — faster reading in an emergency — not on beauty, and the grumbling riders counted it a loss, not an adornment."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "consistency", "B": "homogeneity", "C": "standardization", "D": "uniformity"}, "key": "A", "fb": {"correct": "Right. Thirty years of commissions, every piece its own design, and <em>joints as true in this year's work as in her first<\/em> — quality holding steady over time while each piece keeps its own character.", "D": "Uniformity would mean every piece matching the rest in form — shape, size, finish. Here <em>no two pieces have matched<\/em>; every commission is built <em>each to its own design<\/em>.", "C": "Standardization is the deliberate process of imposing one specification on products. Nothing was imposed in this workshop: she <em>works from no pattern book and follows no shop specification<\/em>.", "B": "Homogeneity is sameness of composition — parts all of one kind, like a batch poured from a single mix. Her materials run from <em>a walnut desk, an oak bench, a hall table from salvaged ship timber<\/em>; nothing here is one stuff throughout."}}}, "pairwise": {"rows": [{"sentence": "Critics kept praising the columnist's ____: ten years of weekly essays, each one different in shape and subject, yet never once dipping in quality.", "options": ["uniformity", "consistency"], "key": "consistency", "pair": "consistency", "why_right": "The tell is <em>each one different in shape and subject<\/em> - the essays never match one another; what holds steady over ten years is one writer's quality, which is consistency.", "why_wrong": "That word would require the essays to match one another in form, and the sentence says the opposite — 'each one different in shape and subject.' What never varies is the quality."}, {"sentence": "Reviewers marveled at the soloist's ____ across the forty-city tour — no two evenings alike in program or mood, but not one of them ever weak.", "options": ["uniformity", "consistency"], "key": "consistency", "pair": "consistency", "why_right": "The tell is <em>no two evenings alike in program or mood<\/em> - the performances never match in form; what never wavers across the tour is the quality of one soloist's playing.", "why_wrong": "'No two evenings alike' rules that word out — it needs the members of a set to match in form. What the reviewers admired was quality that never slipped."}, {"sentence": "No code required it, and the houses were built of brick, timber, and stucco alike, yet the street shows an eerie ____ of form, each facade matching the next.", "options": ["uniformity", "consistency"], "key": "uniformity", "pair": "consistency", "why_right": "The tell is <em>each facade matching the next<\/em> - a whole set compared at one moment, every member matching in form; consistency is one thing holding its quality steady over time.", "why_wrong": "That word is steadiness of one thing over time — a bakery holding its quality all year. This sentence lines up many houses against each other at a single moment."}, {"sentence": "The ministry spent three years on the ____ of electrical plugs, drafting a single specification and requiring every factory in the country to retool to it.", "options": ["uniformity", "standardization"], "key": "standardization", "pair": "standardization", "why_right": "The tell is <em>drafting a single specification and requiring every factory<\/em> - this names the deliberate process of imposing one spec, not the finished state the process leaves behind.", "why_wrong": "That word names the finished state — sameness already achieved, however it came about. This sentence is about the three-year process of imposing it."}, {"sentence": "No template was handed out, yet from five hundred wildly different students came essays of numbing ____, each one matching the next in shape, length, and tone.", "options": ["uniformity", "standardization"], "key": "uniformity", "pair": "standardization", "why_right": "The tell is <em>No template was handed out<\/em> - no process imposed a specification; the essays simply came out matching, and uniformity names the state left behind however it arose.", "why_wrong": "That word is the process of imposing a spec, and this sentence rules the process out: 'No template was handed out.' Only the state that resulted is being named."}, {"sentence": "Left to pack whatever they liked, the forty field crews converged on identical kit, down to the stove and the rope; the ____ was ordered by no one and enforced by nothing.", "options": ["uniformity", "standardization"], "key": "uniformity", "pair": "standardization", "why_right": "The tell is <em>Left to pack whatever they liked<\/em> - no specification was imposed on anyone; the sameness arrived by drift, and uniformity names that state however it got that way.", "why_wrong": "That word is the deliberate process of imposing one specification. Nobody imposed anything on these crews - they were left free, and the sameness simply drifted into place."}, {"sentence": "Geologists prize the quarry for the ____ of its marble: cut it anywhere and the stone is the same substance through and through, without one vein of anything else.", "options": ["uniformity", "homogeneity"], "key": "homogeneity", "pair": "homogeneity", "why_right": "The tell is <em>the same substance through and through<\/em> - a claim about what the stone is made of, one kind of stuff throughout; uniformity would compare the forms of many instances.", "why_wrong": "That word is sameness of form across the members of a set. This sentence makes a different claim — that the stone is one substance all the way through."}, {"sentence": "Turned from olive wood, thrown in clay, or cast in brass, the bowls on the co-op's shelf still match one another in size and curve; the ____ stops at their form.", "options": ["uniformity", "homogeneity"], "key": "uniformity", "pair": "homogeneity", "why_right": "The tell is <em>olive wood, thrown in clay, or cast in brass<\/em> - the bowls are made of different stuff yet match in shape and size; homogeneity claims one material through and through.", "why_wrong": "That word says the parts are all of one kind, like a batch poured from a single mix. These bowls are wood, clay, and brass; only their form matches."}], "display_order": [2, 4, 1, 7, 5, 0, 6, 3], "dimension_order": ["consistency", "standardization", "homogeneity"], "dimension_feedback": {"consistency": "Consistency is steadiness of quality or behavior over time — a pitcher can show consistency all season while every start keeps its own shape. Uniformity is stricter: not one thing holding steady, but every instance in a set matching the others.", "standardization": "Standardization is the deliberate process of imposing one specification on products or procedures. Uniformity is the state left behind once the variation is gone — however it got that way, by rule or by drift.", "homogeneity": "Homogeneity is sameness of composition — parts all of one kind, like a batch poured from a single mix. Uniformity is sameness of form: the members of a set can be made of different stuff and still match in shape, size, and finish."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show many things matching each other in form, not one thing staying reliable. Give the reader a whole set to compare — try working in a word like <i>every<\/i>, <i>identical<\/i>, <i>row<\/i> or <i>matching<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

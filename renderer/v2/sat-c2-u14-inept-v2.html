@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6f547623295b">
+<meta name="build" content="d8a74a36caec">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>inept &#8212; SAT Vocabulary, Course 2 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "inept", "gradeUrl": "/api/grade", "taskId": "inept", "minWords": 12, "items": {"s1": {"q": "Which sentence uses inept correctly?", "opts": {"A": "Her inept toast matched the occasion so perfectly that the whole reception rose to applaud.", "B": "Inept weather washed out the third village picnic in a row, and the fourth looks unlikely.", "C": "The goalkeeper was so inept that fans cheered his first stop — face-first, by accident.", "D": "Too inept to raise his hand in class, Ben whispered the right answer to his desk."}, "key": "C", "fb": {"correct": "Correct. A keeper whose first save is accidental and face-first is lacking skill — not capable at the job: inept.", "A": "A toast that 'matched the occasion so perfectly' is apt — exactly right, the reverse of this word. Inept literally undoes apt: it marks missing skill, a performance that fails its task.", "B": "Weather that 'washed out the third village picnic' is foul luck, but weather holds no skill to lack. The sentence hands a competence word to the sky. Inept judges people and their abilities.", "D": "Ben 'whispered the right answer to his desk' — he has the material down and lacks only nerve. Timidity is not incapability. Inept means unskilled or unqualified, and a boy holding the correct answer is neither."}}, "s3a": {"q": "In this passage, saying Bert was \"inept\" with numbers means that he", "opts": {"A": "was too lazy to give the ledger real attention", "B": "lacked the ability for the job, so effort never fixed the failures", "C": "was dishonest in small ways the audit exposed", "D": "was simply new to the treasurer's work and improving steadily month by month"}, "key": "B", "fb": {"correct": "Right — he supplied workshops, software, and checklists, and 'no amount of effort was turning that around.'", "A": "The passage insists on the opposite: 'He tried,' twice over, with workshops and checklists.", "C": "The errors are doubled payments and mislabeled sales — muddle, not theft; nobody accuses him.", "D": "There is no improvement to point to: the failures run March, April, and into June."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unskilled", "B": "awkward", "C": "bungling", "D": "inept"}, "key": "B", "fb": {"correct": "Right — awkward: early efforts that <em>landed a size too large<\/em> before she found the scale of the new medium. An awkward start can find its feet, and within two weeks hers did.", "D": "Inept is a standing verdict — the ability absent, the failure permanent however long the person works at it. <em>By the second week she had scaled her performance to the frame<\/em>, so this failing was temporary, not a missing ability.", "A": "Unskilled means the training isn't there yet. Hers plainly was: <em>Twenty years of repertory stages had made Amara a master<\/em> — what tripped her was a new medium, not missing training.", "C": "Bungling is the live spectacle of a job going wrong in someone's hands. Here <em>no take was wrecked and nothing was reshot<\/em> — the early footage <em>merely looked stiff<\/em>, which is a wobble, not a botch."}}}, "grid": {"words": ["inept", "unskilled", "bungling", "awkward"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Ten years behind the counter and Mo still rings up half the orders wrong; even patient regulars admit the man is simply ____ at the register.", "ks": ["inept"], "fb": {"unskilled": "Missing training can be fixed by training — and Mo has had ten years of it. What's missing here is the ability itself.", "bungling": "That word films one live moment of things going wrong, and anyone can supply such a moment. This sentence is a verdict on ten years.", "awkward": "A wobbly start may still find its feet. A decade at the register with half the orders wrong is failure that never found them."}}, {"s": "Coaching, videos, private lessons — nothing took: after three summers Rae remains ____ at diving, failing the same entry she failed on day one.", "ks": ["inept"], "fb": {"unskilled": "That word says training is missing — but Rae had coaching, videos, and private lessons. The gap is in the ability, not the teaching.", "bungling": "That word describes one botch happening live in someone's hands. Three summers of the same failure is the standing verdict behind such moments.", "awkward": "A wobbly first attempt may improve; this one is failing the same entry it failed on day one."}}, {"s": "The cannery hires ____ workers by design: the line takes a week to learn, and by August the new hands run it as smoothly as anyone.", "ks": ["unskilled"], "fb": {"inept": "By August the new hands run the line as smoothly as anyone — the ability was there all along. That word means it never arrives.", "bungling": "No one here is shown botching anything in real time; the sentence is about training not yet received.", "awkward": "That word describes a wobbly performance. This sentence describes a hiring category — people who simply haven't been taught yet."}}, {"s": "Fresh from the bus, with no papers and no trade, thousands arrived as ____ laborers — yet foremen knew a season of teaching would fix that.", "ks": ["unskilled"], "fb": {"inept": "'A season of teaching would fix that' — teaching fixes missing training. It does not fix an ability that was never there, which is what that word claims.", "bungling": "That word needs a job going wrong in someone's hands, live. These workers haven't started yet; they just haven't been taught.", "awkward": "That word describes how an attempt looks as it wobbles. Nothing is being attempted here — no trade has been learned at all."}}, {"s": "The heist fell apart on camera in four minutes of ____ effort — the getaway car locked, the alarm tripped twice, the mask on backwards.", "ks": ["bungling"], "fb": {"inept": "That word is the standing verdict on a person over time. This sentence is four minutes of film — one live spectacle, which can happen to anyone.", "unskilled": "That word says training was never received. The camera doesn't show a résumé; it shows a job going wrong in real time, hand by hand.", "awkward": "A stepped-on toe wobbles; a locked getaway car, a tripped alarm, and a backwards mask are a job being actively botched."}}, {"s": "Her first waltz was ____ — a stepped-on toe, a missed turn — but by the third song she and the rhythm had come to terms.", "ks": ["awkward"], "fb": {"inept": "That verdict means the failing never stops. Here it stopped by the third song — the attempt found its feet.", "unskilled": "That word points at training never received. This sentence watches one evening's first attempt wobble and then recover, with no teaching in between.", "bungling": "That word is a job going wrong in someone's hands — a spectacle. A toe and a turn are the ordinary wobbles of a first try."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show that the ability itself is missing — not just that the person is new. Give them time or training and let them fail anyway: try working in a word like <i>still<\/i>, <i>years<\/i>, <i>lessons<\/i> or <i>every time<\/i>."}};
+  var CFG = {"word": "inept", "gradeUrl": "/api/grade", "taskId": "inept", "minWords": 12, "items": {"s1": {"q": "Which sentence uses inept correctly?", "opts": {"A": "Her inept toast matched the occasion so perfectly that the whole reception rose to applaud.", "B": "Inept weather washed out the third village picnic in a row, and the fourth looks unlikely.", "C": "The goalkeeper was so inept that fans cheered his first stop — face-first, by accident.", "D": "Too inept to raise his hand in class, Ben whispered the right answer to his desk."}, "key": "C", "fb": {"correct": "Correct. A keeper whose first save is accidental and face-first is lacking skill — not capable at the job: inept.", "A": "A toast that 'matched the occasion so perfectly' is apt — exactly right, the reverse of this word. Inept literally undoes apt: it marks missing skill, a performance that fails its task.", "B": "Weather that 'washed out the third village picnic' is foul luck, but weather holds no skill to lack. The sentence hands a competence word to the sky. Inept judges people and their abilities.", "D": "Ben 'whispered the right answer to his desk' — he has the material down and lacks only nerve. Timidity is not incapability. Inept means unskilled or unqualified, and a boy holding the correct answer is neither."}}, "s3a": {"q": "In this passage, saying Bert was \"inept\" with numbers means that he", "opts": {"A": "was too lazy to give the ledger real attention", "B": "lacked the ability for the job, so effort never fixed the failures", "C": "was dishonest in small ways the audit exposed", "D": "was simply new to the treasurer's work and improving steadily month by month"}, "key": "B", "fb": {"correct": "Right — he supplied workshops, software, and checklists, and 'no amount of effort was turning that around.'", "A": "The passage insists on the opposite: 'He tried,' twice over, with workshops and checklists.", "C": "The errors are doubled payments and mislabeled sales — muddle, not theft; nobody accuses him.", "D": "There is no improvement to point to: the failures run March, April, and into June."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unskilled", "B": "awkward", "C": "bungling", "D": "inept"}, "key": "B", "fb": {"correct": "Right — awkward: early efforts that <em>landed a size too large<\/em> before she found the scale of the new medium. An awkward start can find its feet, and within two weeks hers did.", "D": "Inept is a standing verdict — the ability absent, the failure permanent however long the person works at it. <em>By the second week she had scaled her performance to the frame<\/em>, so this failing was temporary, not a missing ability.", "A": "Unskilled means the training isn't there yet. Hers plainly was: <em>Twenty years of repertory stages had made Amara a master<\/em> — what tripped her was a new medium, not missing training.", "C": "Bungling is the live spectacle of a job going wrong in someone's hands. Here <em>no take was wrecked and nothing was reshot<\/em> — the early footage <em>merely looked stiff<\/em>, which is a wobble, not a botch."}}}, "pairwise": {"rows": [{"sentence": "Coaching, videos, private lessons — nothing took: after three summers Rae remains ____ at diving, failing the same entry she failed on day one.", "options": ["inept", "unskilled"], "key": "inept", "pair": "unskilled", "why_right": "The tell is <em>nothing took<\/em> - coaching, videos, and lessons supplied the training in quantity, so missing training cannot be the diagnosis; the ability itself never arrived.", "why_wrong": "That word says training is missing — but Rae had coaching, videos, and private lessons. The gap is in the ability, not the teaching."}, {"sentence": "Fresh from the bus, with no papers and no trade, thousands arrived as ____ laborers — yet foremen knew a season of teaching would fix that.", "options": ["inept", "unskilled"], "key": "unskilled", "pair": "unskilled", "why_right": "The tell is <em>a season of teaching would fix that<\/em> - only training is missing, and teaching supplies it; an absent ability would stay absent, however long the season.", "why_wrong": "'A season of teaching would fix that' — teaching fixes missing training. It does not fix an ability that was never there, which is what that word claims."}, {"sentence": "The bakery takes on ____ apprentices every autumn; none of them can laminate dough in October, and all of them can by Christmas.", "options": ["inept", "unskilled"], "key": "unskilled", "pair": "unskilled", "why_right": "The tell is <em>all of them can by Christmas<\/em> - the apprentices simply have not been taught yet, and teaching fixes them; an absent ability would still be absent in spring.", "why_wrong": "That word passes the harder judgment - the ability itself is absent, so failure keeps coming however long the training runs. Here training is the only thing missing, and Christmas proves it."}, {"sentence": "Ten years behind the counter and Mo still rings up half the orders wrong; even patient regulars admit the man is simply ____ at the register.", "options": ["inept", "bungling"], "key": "inept", "pair": "bungling", "why_right": "The tell is <em>ten years behind the counter<\/em> - half the orders still ring up wrong after a decade, a standing verdict on the man, not one live botch anyone might supply.", "why_wrong": "That word films one live moment of things going wrong, and anyone can supply such a moment. This sentence is a verdict on ten years."}, {"sentence": "The heist fell apart on camera in four minutes of ____ effort — the getaway car locked, the alarm tripped twice, the mask on backwards.", "options": ["inept", "bungling"], "key": "bungling", "pair": "bungling", "why_right": "The tell is <em>fell apart on camera in four minutes<\/em> - a job going wrong live in someone's hands, the spectacle itself, not a settled verdict on anyone's ability over time.", "why_wrong": "That word is the standing verdict on a person over time. This sentence is four minutes of film — one live spectacle, which can happen to anyone."}, {"sentence": "Her first waltz was ____ — a stepped-on toe, a missed turn — but by the third song she and the rhythm had come to terms.", "options": ["inept", "awkward"], "key": "awkward", "pair": "awkward", "why_right": "The tell is <em>by the third song<\/em> - a first attempt that wobbles and then finds its feet within the evening; the harsher verdict never allows the failing to stop.", "why_wrong": "That verdict means the failing never stops. Here it stopped by the third song — the attempt found its feet."}, {"sentence": "Ten seasons in the chess club have not helped: Petr remains ____ at the endgame, so the club now pairs him only with beginners.", "options": ["inept", "awkward"], "key": "inept", "pair": "awkward", "why_right": "The tell is <em>ten seasons<\/em> - a wobbly first attempt may find its feet, but this endgame never has; the failing keeps on outright, year after year.", "why_wrong": "That word describes a first attempt that wobbles but may find its feet. Ten seasons of the same endgame failures is not a wobble; the feet were never found."}, {"sentence": "Grandfather has whistled off-key for fifty years; his ____ rendering of the anthem surprises nobody at the reunions, though the dog still leaves the room.", "options": ["inept", "awkward"], "key": "inept", "pair": "awkward", "why_right": "The tell is <em>for fifty years<\/em> - an awkward attempt is a wobble that may improve; fifty years of the same off-key anthem is failure that never found its feet.", "why_wrong": "That word allows the wobble to improve - a first try finding its feet. Fifty years of the same off-key anthem is a standing failure that improvement never reached."}], "display_order": [1, 7, 4, 2, 5, 3, 6, 0], "dimension_order": ["unskilled", "bungling", "awkward"], "dimension_feedback": {"unskilled": "Unskilled says only that training or practice is missing — an unskilled worker may do fine once taught. Inept passes a harder judgment: the ability itself is absent, so the attempt keeps failing no matter how long the person has worked at it.", "bungling": "Bungling describes botching a job in real time — the live spectacle of things going wrong in someone's hands. Inept is the standing verdict behind that spectacle: the skill was never there to begin with. A bungling moment can happen to anyone; an inept practitioner supplies such moments reliably.", "awkward": "An awkward first attempt wobbles but may find its feet; inept performance keeps failing the task outright."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show that the ability itself is missing — not just that the person is new. Give them time or training and let them fail anyway: try working in a word like <i>still<\/i>, <i>years<\/i>, <i>lessons<\/i> or <i>every time<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

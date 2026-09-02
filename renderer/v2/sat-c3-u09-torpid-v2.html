@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="55007af8d7d5">
+<meta name="build" content="6b409bc19ab3">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>torpid &#8212; SAT Vocabulary, Course 3 Unit 9</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "torpid", "gradeUrl": "/api/grade", "taskId": "torpid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses torpid correctly?", "opts": {"A": "The torpid kitten chased the laser dot up the curtains and across both sofas before breakfast.", "B": "After the flood of graduation posts, the alumni forum went torpid, a single message in the whole month of July.", "C": "Torpid with excitement, the fans stormed the court at the final buzzer and hoisted the coach onto their shoulders.", "D": "The torpid geyser erupted right on the hour, all steam and spray, to a chorus of camera shutters."}, "key": "B", "fb": {"correct": "Right—one message in a month is a forum idling at its minimum: near-shutdown is torpid.", "A": "A kitten that 'chased the laser dot up the curtains' is energy in constant motion. Torpid means sluggish to the point of dormancy — a torpid kitten would barely lift its head from the cushion.", "C": "Fans who 'stormed the court at the final buzzer' are surging with energy, and pairing torpid with excitement clashes outright. Torpid means dormant, drained, nearly motionless — closer to hibernation than celebration.", "D": "Erupting 'right on the hour, all steam and spray' is vigorous, scheduled activity. Torpid describes near-total stillness — a torpid geyser would sit silent and cold, giving the cameras nothing to shoot."}}, "s3a": {"q": "As it is used in the passage, \"torpid\" most nearly means --", "opts": {"A": "barely active, idling at its lowest", "B": "sliding into permanent economic decline", "C": "completely shut down for the season", "D": "emptied out as residents leave for the summer"}, "key": "A", "fb": {"correct": "Right -- the town still runs ('registers still ring a sale or two an hour') but at its lowest setting until the heat lifts.", "B": "The locals rule that out: 'temporary arithmetic, not decline,' with a full October wake-up expected.", "C": "Nothing has closed -- the boats still run and the mail still comes; the town is at a minimum, not off.", "D": "Nobody leaves -- dogs, clerks, and locals are all still there; activity, not population, is what drops."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sluggish", "B": "dormant", "C": "numb", "D": "torpid"}, "key": "D", "fb": {"correct": "Right — torpid. <em>the engine stays on, turned as low as it will go<\/em>: motion at its bare minimum, senses intact, never fully stopped.", "C": "Numb is about lost sensation, not low activity — fingers after snow feel nothing. This animal still feels its world: <em>its eyes track anyone crossing the room<\/em>, and <em>a warm hand on the shell earns a slow blink<\/em>.", "B": "Dormant would mean switched off for the season, the way seeds or an untouched account go dark. But <em>it never fully shuts down for the season<\/em> — something keeps running every single day.", "A": "Sluggish is only a mild slowdown — slower than usual but still going about its business. <em>its heart slows to a few beats a minute<\/em> and <em>whole days pass without a step<\/em>: that is far below merely slow."}}}, "grid": {"words": ["torpid", "numb", "dormant", "sluggish"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "August finds the exchange floor ____ : screens lit, clerks at their posts, and barely a trade an hour crawling across the board.", "ks": ["torpid"], "fb": {"dormant": "That word names the full pause -- switched off for a season. This floor is open and staffed, with a faint pulse of trades still ticking.", "numb": "That word is about feeling nothing. The floor senses everything -- it just barely moves.", "sluggish": "A merely slow market still grinds along complaining. One trade an hour is deeper than slow -- activity has sunk to its minimum."}}, {"s": "In the cold snap the hive went ____ , its hum sunk to a faint tick, though the scouts still stirred whenever noon sun touched the boards.", "ks": ["torpid"], "fb": {"dormant": "Fully paused things don't stir at noon sun. This hive is running at its minimum, not switched off.", "numb": "Deadened means feeling nothing -- yet the scouts stir the moment sunlight arrives. What's lost here is motion, not sense.", "sluggish": "Slow-but-running is the milder claim. A hum sunk to a faint tick is the very bottom of the range."}}, {"s": "The rooftop garden lies ____ from November to March, beds stripped and covered, nothing stirring until the first thaw.", "ks": ["dormant"], "fb": {"torpid": "That word keeps a faint pulse ticking under the stillness. Here nothing stirs at all until thaw -- the sentence names the pause itself.", "numb": "That word means deadened to feeling. A winter garden isn't failing to feel -- it is switched off until spring.", "sluggish": "Slow still means moving. Between November and March, nothing here moves at all."}}, {"s": "The mining claim has sat ____ since the eighties -- paperwork current, gates locked, waiting for an owner willing to reopen it.", "ks": ["dormant"], "fb": {"torpid": "That word describes something still faintly running. Behind locked gates, nothing here runs at any speed -- the claim is simply paused, alive on paper.", "numb": "Feeling isn't the issue -- activity is, and there is none. The word needed names a long switch-off.", "sluggish": "A slow mine would still be mining. This one stopped in the eighties and merely waits."}}, {"s": "An hour after the filling, the left side of Theo's jaw was still ____ , registering neither the scalding tea nor his own fingertip.", "ks": ["numb"], "fb": {"torpid": "That word means motion drained to a minimum. Theo's jaw moves fine -- it simply can't feel the scalding tea.", "dormant": "That word names a long switch-off, like seeds or a shuttered account. This is an hour of missing sensation.", "sluggish": "Nothing here is slow. The tea goes down at normal speed -- it just isn't felt."}}, {"s": "After the update the laptop turned ____ -- windows opening a beat late, video stuttering, everything still working, just slower.", "ks": ["sluggish"], "fb": {"torpid": "That word means activity has sunk to a bare minimum. This machine does everything it did before -- a beat late.", "dormant": "Switched off is a different claim. This laptop is on and working through every task, slowly.", "numb": "That word is about failing to sense. The laptop registers every click -- it just answers slowly."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something still alive but running at its very lowest -- keep a faint pulse in the picture. Try working in words like <i>barely<\/i>, <i>idle<\/i>, <i>heat<\/i> or <i>minimum<\/i>."}};
+  var CFG = {"word": "torpid", "gradeUrl": "/api/grade", "taskId": "torpid", "minWords": 12, "items": {"s1": {"q": "Which sentence uses torpid correctly?", "opts": {"A": "The torpid kitten chased the laser dot up the curtains and across both sofas before breakfast.", "B": "After the flood of graduation posts, the alumni forum went torpid, a single message in the whole month of July.", "C": "Torpid with excitement, the fans stormed the court at the final buzzer and hoisted the coach onto their shoulders.", "D": "The torpid geyser erupted right on the hour, all steam and spray, to a chorus of camera shutters."}, "key": "B", "fb": {"correct": "Right—one message in a month is a forum idling at its minimum: near-shutdown is torpid.", "A": "A kitten that 'chased the laser dot up the curtains' is energy in constant motion. Torpid means sluggish to the point of dormancy — a torpid kitten would barely lift its head from the cushion.", "C": "Fans who 'stormed the court at the final buzzer' are surging with energy, and pairing torpid with excitement clashes outright. Torpid means dormant, drained, nearly motionless — closer to hibernation than celebration.", "D": "Erupting 'right on the hour, all steam and spray' is vigorous, scheduled activity. Torpid describes near-total stillness — a torpid geyser would sit silent and cold, giving the cameras nothing to shoot."}}, "s3a": {"q": "As it is used in the passage, \"torpid\" most nearly means --", "opts": {"A": "barely active, idling at its lowest", "B": "sliding into permanent economic decline", "C": "completely shut down for the season", "D": "emptied out as residents leave for the summer"}, "key": "A", "fb": {"correct": "Right -- the town still runs ('registers still ring a sale or two an hour') but at its lowest setting until the heat lifts.", "B": "The locals rule that out: 'temporary arithmetic, not decline,' with a full October wake-up expected.", "C": "Nothing has closed -- the boats still run and the mail still comes; the town is at a minimum, not off.", "D": "Nobody leaves -- dogs, clerks, and locals are all still there; activity, not population, is what drops."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sluggish", "B": "dormant", "C": "numb", "D": "torpid"}, "key": "D", "fb": {"correct": "Right — torpid. <em>the engine stays on, turned as low as it will go<\/em>: motion at its bare minimum, senses intact, never fully stopped.", "C": "Numb is about lost sensation, not low activity — fingers after snow feel nothing. This animal still feels its world: <em>its eyes track anyone crossing the room<\/em>, and <em>a warm hand on the shell earns a slow blink<\/em>.", "B": "Dormant would mean switched off for the season, the way seeds or an untouched account go dark. But <em>it never fully shuts down for the season<\/em> — something keeps running every single day.", "A": "Sluggish is only a mild slowdown — slower than usual but still going about its business. <em>its heart slows to a few beats a minute<\/em> and <em>whole days pass without a step<\/em>: that is far below merely slow."}}}, "pairwise": {"rows": [{"sentence": "August finds the exchange floor ____ : screens lit, clerks at their posts, and barely a trade an hour crawling across the board.", "options": ["torpid", "numb"], "key": "torpid", "pair": "numb", "why_right": "The tell is <em>barely a trade an hour crawling<\/em> - the floor's trouble is motion sunk to a bare minimum, not lost feeling.", "why_wrong": "That word is about feeling nothing. The floor senses everything -- it just barely moves."}, {"sentence": "In the cold snap the hive went ____ , its hum sunk to a faint tick, though the scouts still stirred whenever noon sun touched the boards.", "options": ["torpid", "dormant"], "key": "torpid", "pair": "dormant", "why_right": "The tell is <em>the scouts still stirred<\/em> - a faint pulse still ticks and the hive still senses the sun, so it is idling at its minimum, not switched off.", "why_wrong": "Fully paused things don't stir at noon sun. This hive is running at its minimum, not switched off."}, {"sentence": "The rooftop garden lies ____ from November to March, beds stripped and covered, nothing stirring until the first thaw.", "options": ["torpid", "dormant"], "key": "dormant", "pair": "dormant", "why_right": "The tell is <em>nothing stirring until the first thaw<\/em> - nothing runs inside at all until spring, the long seasonal pause itself -- alive but switched off, not merely idling.", "why_wrong": "That word keeps a faint pulse ticking under the stillness. Here nothing stirs at all until thaw -- the sentence names the pause itself."}, {"sentence": "The mining claim has sat ____ since the eighties -- paperwork current, gates locked, waiting for an owner willing to reopen it.", "options": ["torpid", "dormant"], "key": "dormant", "pair": "dormant", "why_right": "The tell is <em>gates locked<\/em> - nothing operates behind the locked gates at any level; this is a long switch-off, alive on paper, not a faint idle still ticking.", "why_wrong": "That word describes something still faintly running. Behind locked gates, nothing here runs at any speed -- the claim is simply paused, alive on paper."}, {"sentence": "An hour after the filling, the left side of Theo's jaw was still ____ , registering neither the scalding tea nor his own fingertip.", "options": ["torpid", "numb"], "key": "numb", "pair": "numb", "why_right": "The tell is <em>registering neither the scalding tea<\/em> - what is lost is sensation, not motion -- the jaw works fine but simply cannot feel.", "why_wrong": "That word means motion drained to a minimum. Theo's jaw moves fine -- it simply can't feel the scalding tea."}, {"sentence": "After the update the laptop turned ____ -- windows opening a beat late, video stuttering, everything still working, just slower.", "options": ["torpid", "sluggish"], "key": "sluggish", "pair": "sluggish", "why_right": "The tell is <em>everything still working, just slower<\/em> - the machine still does everything it did, only a beat late -- the milder slowdown that grumbles but runs, not a bare idle.", "why_wrong": "That word means activity has sunk to a bare minimum. This machine does everything it did before -- a beat late."}, {"sentence": "The desert iguana lay ____ at dawn, tongue flicking at each passing shadow yet too far down its idle to move.", "options": ["torpid", "numb"], "key": "torpid", "pair": "numb", "why_right": "The tell is <em>tongue flicking at each passing shadow<\/em> - the lizard still senses its world -- the card says this word keeps sensation while motion drains to the bottom of its range.", "why_wrong": "That word means deadened to sensation. The iguana clearly feels -- its tongue tracks every shadow; what has drained away is the motion, not the sense."}, {"sentence": "By four the diner had gone ____ -- griddle cold, one waitress refilling the same cup she poured an hour before.", "options": ["torpid", "sluggish"], "key": "torpid", "pair": "sluggish", "why_right": "The tell is <em>refilling the same cup<\/em> - activity has sunk to a bare idle, far below the milder word that still turns over and grumbles along.", "why_wrong": "That word is the milder slowdown that still turns over, grumbling but running. One refill an hour over a cold griddle is not slow service -- it is a bare idle."}], "display_order": [2, 0, 5, 4, 3, 6, 7, 1], "dimension_order": ["numb", "dormant", "sluggish"], "dimension_feedback": {"numb": "Numb means deadened to sensation—fingers after snow, a foot gone to sleep, feelings blanked by shock. It is about not feeling, where torpid is about not moving: a torpid system still senses its world but idles at the bottom of its range. Numb loses input; torpid loses motion.", "dormant": "Dormant names the long pause itself—a dormant volcano, dormant seeds, an account nobody touches—alive but switched off for a season. Torpid describes the barely-running state inside such a pause: metabolism, market, or mind idling at its minimum, a faint pulse still ticking under the stillness.", "sluggish": "Sluggish is the milder slowdown next to torpid—a sluggish engine still turns over, grumbling but running, while a torpid one has dialed down to a bare idle."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show something still alive but running at its very lowest -- keep a faint pulse in the picture. Try working in words like <i>barely<\/i>, <i>idle<\/i>, <i>heat<\/i> or <i>minimum<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

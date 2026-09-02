@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="8dec1c7d4a7e">
+<meta name="build" content="aea9228bf96f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>larceny &#8212; SAT Vocabulary, Course 1 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "larceny", "gradeUrl": "/api/grade", "taskId": "larceny", "minWords": 12, "items": {"s1": {"q": "A warehouse worker quietly redirected returned electronics to a personal resale account for months, marking them as disposed. He never threatened anyone and never broke into anything. Why would prosecutors call this larceny?", "opts": {"A": "Because he made off with his employer's goods by deceit, never by threat or break-in.", "B": "Because he threatened his supervisor to keep the scheme quiet after it was discovered.", "C": "Because he broke into the warehouse after closing time to take the electronics.", "D": "Because he damaged the electronics before quietly reselling them online."}, "key": "A", "fb": {"correct": "Right. Larceny is the quiet, unlawful taking of someone else's property — he sneaked his employer's goods into a resale account by deceit, with no force involved.", "B": "The prompt rules this out directly: he 'never threatened anyone.' Threatening a supervisor into silence would be intimidation, a different wrong. Larceny is quiet, unlawful taking — reread how the electronics actually left the warehouse.", "C": "This sentence claims he 'broke into the warehouse after closing time,' but the prompt says he never broke into anything — he already worked there. Larceny needs no forced entry. Focus on how the electronics actually disappeared.", "D": "Damage is a different offense. The prompt never mentions him having 'damaged the electronics' — and even if he had, larceny concerns taking property unlawfully, not harming it. Ask what he did with the returned items instead."}}, "s3a": {"q": "In this passage, larceny most nearly means", "opts": {"A": "the crime of unlawfully taking property", "B": "any dishonest act, whether large or small", "C": "robbery committed with force or threats of violence", "D": "a moral failing rather than a legal offense"}, "key": "A", "fb": {"correct": "Right — the passage calls it 'the law's precise name and measure' for taking another's property, graded by value.", "B": "The passage narrows it to property unlawfully taken and defined by statute — not dishonesty in general.", "C": "No force appears anywhere — the crime here is 'a hand slipping a phone from an unattended bag.'", "D": "The statute 'cares nothing for how a taking looks' in moral terms — it names and grades a crime, the opposite of a mere failing."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "theft", "B": "larceny", "C": "stealing", "D": "shoplifting"}, "key": "B", "fb": {"correct": "Right. The blank sits on a charging document, in <em>the wording the statute itself supplies<\/em> — and that is exactly this word's home ground: the precise legal name for unlawful taking, the term that appears on the charge sheet rather than in headlines or casual talk.", "A": "That is the everyday umbrella word, and the passage assigns it a different sentence: <em>the evening headline reached for the blunt everyday word of conversation<\/em>. Headlines and conversation are where it lives — not a charging document written in <em>the wording the statute itself supplies<\/em>.", "C": "That is the plainest word there is, and the passage gives that register to the witness: <em>a shaken witness fell back on the schoolyard's plain word, the first one anyone learns<\/em>. A prosecutor's formal filing does not write in it.", "D": "That word names one narrow kind of taking — goods sneaked out of a shop without paying. The passage closes that reading off: <em>no store, no counter, no force<\/em>; the atlas left a private library."}}}, "grid": {"words": ["larceny", "theft", "stealing", "shoplifting"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The statute grades ____ into petty and grand by the value taken, and the forty-dollar lawn chairs lifted from a neighbor's yard fell well under the felony line.", "ks": ["larceny"], "fb": {"theft": "That word is at home in conversation and headlines. What a statute defines, grades into petty and grand, and tries under its own name is the courtroom's word.", "stealing": "That is the plainest word there is — the one a child learns first. A statute does not grade the schoolyard word into petty and grand.", "shoplifting": "That word names one narrow kind of taking: goods sneaked out of a store by a customer. Lawn chairs lifted from a yard are outside it."}}, {"s": "Because he was tried for ____, the jury had to find every element the statute lists: property of another, taken unlawfully, with intent to keep it.", "ks": ["larceny"], "fb": {"theft": "That everyday word never appears with statutory elements attached. Being tried under a precise legal name, element by element, calls for the courtroom's term.", "stealing": "That plainest of words is what the crime is called on the playground, not at a trial with listed elements.", "shoplifting": "That word is one narrow crime — store goods sneaked past the register. This trial covers unlawfully taking anyone's property, the broad legal category."}}, {"s": "The museum reported the ____ to its insurers within the hour, listing the missing miniature at eighty thousand dollars.", "ks": ["theft"], "fb": {"larceny": "That is the charge sheet's word — the precise legal name used in court. An insurer's report uses the everyday noun that headlines use.", "stealing": "That word is the plainest one a child learns. A museum filing a formal report reaches for the ordinary noun of headlines and paperwork.", "shoplifting": "That word means goods sneaked out of a store by a customer. A miniature missing from a museum case is not that."}}, {"s": "Neighbors traded warnings all week about the ____ of packages from porches, though no one bothered to call the police.", "ks": ["theft", "stealing"], "fb": {"larceny": "That is the courtroom's precise name for the crime — the word on a charge sheet. Porch gossip with no police involved is not that register.", "shoplifting": "That word names one narrow kind of taking — goods slipped out of a store without paying. Porches are not shops."}}, {"s": "Even the kindergartners had a word for taking Maya's markers without asking — ____, the plainest word for it, learned before they could spell it.", "ks": ["stealing"], "fb": {"theft": "That word belongs to headlines and police reports. The sentence asks for the first word a child ever learns for taking, which is plainer still.", "larceny": "That is the statute's word — graded into petty and grand, charged and tried. No kindergartner has ever used it.", "shoplifting": "That narrow word is for goods sneaked out of a store. Markers lifted from a classmate's desk are not that."}}, {"s": "Store cameras caught the teenager tucking two phone cases into his jacket and strolling past the registers — textbook ____, the security manual's word for exactly this.", "ks": ["shoplifting"], "fb": {"larceny": "That is the broad courtroom category — unlawful taking from any victim: shop, stranger, or employer. The manual's word for goods walked past a register is narrower.", "theft": "That umbrella word covers takings of every kind. The manual names the one specific kind that happens between shelves and registers.", "stealing": "That is the plainest, broadest word a child learns. A security manual labels this exact store scenario with its own specific term."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Use the word as the law's own name for unlawful taking — a charge, not casual talk. Try working in words like <i>charged<\/i>, <i>count<\/i>, <i>statute<\/i> or <i>court<\/i>."}};
+  var CFG = {"word": "larceny", "gradeUrl": "/api/grade", "taskId": "larceny", "minWords": 12, "items": {"s1": {"q": "A warehouse worker quietly redirected returned electronics to a personal resale account for months, marking them as disposed. He never threatened anyone and never broke into anything. Why would prosecutors call this larceny?", "opts": {"A": "Because he made off with his employer's goods by deceit, never by threat or break-in.", "B": "Because he threatened his supervisor to keep the scheme quiet after it was discovered.", "C": "Because he broke into the warehouse after closing time to take the electronics.", "D": "Because he damaged the electronics before quietly reselling them online."}, "key": "A", "fb": {"correct": "Right. Larceny is the quiet, unlawful taking of someone else's property — he sneaked his employer's goods into a resale account by deceit, with no force involved.", "B": "The prompt rules this out directly: he 'never threatened anyone.' Threatening a supervisor into silence would be intimidation, a different wrong. Larceny is quiet, unlawful taking — reread how the electronics actually left the warehouse.", "C": "This sentence claims he 'broke into the warehouse after closing time,' but the prompt says he never broke into anything — he already worked there. Larceny needs no forced entry. Focus on how the electronics actually disappeared.", "D": "Damage is a different offense. The prompt never mentions him having 'damaged the electronics' — and even if he had, larceny concerns taking property unlawfully, not harming it. Ask what he did with the returned items instead."}}, "s3a": {"q": "In this passage, larceny most nearly means", "opts": {"A": "the crime of unlawfully taking property", "B": "any dishonest act, whether large or small", "C": "robbery committed with force or threats of violence", "D": "a moral failing rather than a legal offense"}, "key": "A", "fb": {"correct": "Right — the passage calls it 'the law's precise name and measure' for taking another's property, graded by value.", "B": "The passage narrows it to property unlawfully taken and defined by statute — not dishonesty in general.", "C": "No force appears anywhere — the crime here is 'a hand slipping a phone from an unattended bag.'", "D": "The statute 'cares nothing for how a taking looks' in moral terms — it names and grades a crime, the opposite of a mere failing."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "theft", "B": "larceny", "C": "stealing", "D": "shoplifting"}, "key": "B", "fb": {"correct": "Right. The blank sits on a charging document, in <em>the wording the statute itself supplies<\/em> — and that is exactly this word's home ground: the precise legal name for unlawful taking, the term that appears on the charge sheet rather than in headlines or casual talk.", "A": "That is the everyday umbrella word, and the passage assigns it a different sentence: <em>the evening headline reached for the blunt everyday word of conversation<\/em>. Headlines and conversation are where it lives — not a charging document written in <em>the wording the statute itself supplies<\/em>.", "C": "That is the plainest word there is, and the passage gives that register to the witness: <em>a shaken witness fell back on the schoolyard's plain word, the first one anyone learns<\/em>. A prosecutor's formal filing does not write in it.", "D": "That word names one narrow kind of taking — goods sneaked out of a shop without paying. The passage closes that reading off: <em>no store, no counter, no force<\/em>; the atlas left a private library."}}}, "pairwise": {"rows": [{"sentence": "The statute grades ____ into petty and grand by the value taken, and the forty-dollar lawn chairs lifted from a neighbor's yard fell well under the felony line.", "options": ["larceny", "shoplifting"], "key": "larceny", "pair": "shoplifting", "why_right": "The tell is <em>lifted from a neighbor's yard<\/em> - the statute's graded crime covers taking from any victim, and no store, shelf, or register is anywhere in sight.", "why_wrong": "That word names one narrow kind of taking: goods sneaked out of a store by a customer. Lawn chairs lifted from a yard are outside it."}, {"sentence": "Because he was tried for ____, the jury had to find every element the statute lists: property of another, taken unlawfully, with intent to keep it.", "options": ["larceny", "theft"], "key": "larceny", "pair": "theft", "why_right": "The tell is <em>every element the statute lists<\/em> - being tried element by element happens under the crime's precise courtroom name, not the everyday word of headlines and conversation.", "why_wrong": "That everyday word never appears with statutory elements attached. Being tried under a precise legal name, element by element, calls for the courtroom's term."}, {"sentence": "The museum reported the ____ to its insurers within the hour, listing the missing miniature at eighty thousand dollars.", "options": ["larceny", "theft"], "key": "theft", "pair": "theft", "why_right": "The tell is <em>to its insurers within the hour<\/em> - an insurance report reaches for the everyday umbrella word of paperwork and headlines; the charge sheet's precise legal name stays in court.", "why_wrong": "That is the charge sheet's word — the precise legal name used in court. An insurer's report uses the everyday noun that headlines use."}, {"sentence": "Neighbors traded warnings all week about the ____ of packages from porches, though no one bothered to call the police.", "options": ["larceny", "theft"], "key": "theft", "pair": "theft", "why_right": "The tell is <em>no one bothered to call the police<\/em> - porch talk among neighbors wants the everyday word; nothing here is near a charge sheet or a courtroom.", "why_wrong": "That is the courtroom's precise name for the crime — the word on a charge sheet. Porch gossip with no police involved is not that register."}, {"sentence": "Even the kindergartners had a word for taking Maya's markers without asking — ____, the plainest word for it, learned before they could spell it.", "options": ["larceny", "stealing"], "key": "stealing", "pair": "stealing", "why_right": "The tell is <em>learned before they could spell it<\/em> - the plainest first word a child has for taking; the statute's graded courtroom term has no place in a kindergarten quarrel.", "why_wrong": "That is the statute's word — graded into petty and grand, charged and tried. No kindergartner has ever used it."}, {"sentence": "Store cameras caught the teenager tucking two phone cases into his jacket and strolling past the registers — textbook ____, the security manual's word for exactly this.", "options": ["larceny", "shoplifting"], "key": "shoplifting", "pair": "shoplifting", "why_right": "The tell is <em>the security manual's word for exactly this<\/em> - one narrow act, goods tucked away and walked past the registers, where the broad legal category names taking from any victim.", "why_wrong": "That is the broad courtroom category — unlawful taking from any victim: shop, stranger, or employer. The manual's word for goods walked past a register is narrower."}, {"sentence": "The charge sheet listed a single count of ____ in the second degree, and the defense lawyer spent the morning haggling over the degree, not the count.", "options": ["larceny", "stealing"], "key": "larceny", "pair": "stealing", "why_right": "The tell is <em>in the second degree<\/em> - a graded count on a charge sheet calls for the crime's courtroom name, not the plain first word a child learns for taking things.", "why_wrong": "That word is the plainest one there is - the first a child learns for taking. A charge sheet's graded count carries the law's own name for the crime."}, {"sentence": "The groundskeeper's quiet removal of the manor's silverware, a spoon or two per month for a decade, ended in a ____ trial that named the family as victim.", "options": ["larceny", "shoplifting"], "key": "larceny", "pair": "shoplifting", "why_right": "The tell is <em>named the family as victim<\/em> - the broad legal crime covers unlawful taking from any victim, while the narrow word needs goods sneaked out of a store.", "why_wrong": "That word means goods sneaked out of a store by a shopper. The spoons left a manor, taken by its own groundskeeper; no shop counter or register is anywhere in this."}], "display_order": [3, 0, 2, 7, 4, 1, 5, 6], "dimension_order": ["theft", "stealing", "shoplifting"], "dimension_feedback": {"theft": "Theft is the everyday umbrella word for stealing of any kind, at home in conversation and headlines alike. Larceny is the courtroom's version of the same idea — the precise legal name for unlawfully taking property, the word that appears on the charge sheet rather than in casual talk.", "stealing": "Stealing is the plainest word there is for taking what belongs to someone else — the word a child learns first. Larceny is what stealing becomes when the law picks it up: a defined crime, graded into petty and grand, charged and tried under that name.", "shoplifting": "Shoplifting is one narrow kind of stealing — sneaking goods out of a store without paying. Larceny is the broad legal category above it: the crime of unlawfully taking property by stealth or trickery, whoever the victim is — a shop, a stranger, or an employer."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Use the word as the law's own name for unlawful taking — a charge, not casual talk. Try working in words like <i>charged<\/i>, <i>count<\/i>, <i>statute<\/i> or <i>court<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

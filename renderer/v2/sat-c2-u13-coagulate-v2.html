@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="952b10233e0f">
+<meta name="build" content="0f355059b1f8">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>coagulate &#8212; SAT Vocabulary, Course 2 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "coagulate", "gradeUrl": "/api/grade", "taskId": "coagulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses coagulate correctly?", "opts": {"A": "The sugar coagulated into the tea, sweetening every sip evenly from the first to the last.", "B": "Once the rennet went in, the vat of milk coagulated, and the cheesemaker cut the soft curd into cubes.", "C": "The ice coagulated in the spring sunshine and ran off the roof in bright streams by noon.", "D": "The committee coagulated around a single plan by lunchtime, and the vote afterward was unanimous."}, "key": "B", "fb": {"correct": "Correct. Milk thickening and setting into a soft curd that holds its shape is exactly what coagulate names — a liquid crossing into a semi-solid mass.", "A": "Sugar stirred 'into the tea' dissolves — it thins out and disappears into the liquid. Coagulate runs the other way: a liquid thickening and setting into a semi-solid mass, the way blood clots.", "C": "Ice that 'ran off the roof in bright streams' is melting, a solid turning to liquid. Coagulate is that journey reversed — liquid firming toward semi-solid — so this sentence has the change running backward.", "D": "A committee gathering 'around a single plan' is people uniting; the sentence wants coalesce. Coagulate belongs to liquids thickening into a semi-solid — blood, or a custard — not to opinions lining up."}}, "s3a": {"q": "As it is used in this passage, what does it mean for blood to coagulate?", "opts": {"A": "to evaporate quickly from the surface of an open wound", "B": "to firm into a soft mass that no longer flows", "C": "to grow warmer as it reaches the skin", "D": "to break down into a thinner, faster-moving liquid that spreads"}, "key": "B", "fb": {"correct": "Right. The passage tracks blood going from flowing to stopped — the proteins stack up 'until the flow halts and a soft seal forms,' which is the change the word names.", "A": "Nothing in the passage is about blood drying into the air. The gauze works by making the blood firm up and stop moving, not vanish.", "C": "Temperature never comes up. The whole passage is about flow — blood that runs, and blood that firms into a seal and stops.", "D": "That is the opposite direction. The treated gauze is valuable precisely because it makes blood firm up and stop, not run thinner and faster."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "clot", "B": "set", "C": "coagulate", "D": "thicken"}, "key": "A", "fb": {"correct": "Right. Clot is the word blood itself takes — plain, exact corner English for this change — and precise about the result: a seam that <em>holds firm instead of running<\/em>.", "C": "Accurate, but it is the clinic's and the laboratory's term, and this scene keeps its register plain: <em>Corner advice stays in everyday speech; the lab can keep its terminology<\/em>.", "B": "That is the kitchen's gentle word — custards and jellies do it on a cool shelf — and it sits oddly on blood from <em>a cut above a boxer's eye<\/em>. Nothing in this corner belongs on a dessert tray.", "D": "A liquid that has merely thickened still moves and pours. What the ringside doctor must see is a seam that <em>stops weeping and holds firm instead of running<\/em>."}}}, "grid": {"words": ["coagulate", "clot", "set", "thicken"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The dairy's process sheet records the precise minute the rennet makes the vat of milk ____ into a quivering mass you could slice — wording for the lab log, not the dinner table.", "ks": ["coagulate"], "fb": {"clot": "That word belongs to blood — blood does it at a cut, and surgeons watch for it. This is a vat of milk, and the sentence wants the wider term that covers the same change in any liquid at all.", "set": "That is the kitchen's gentle word, the one that sounds friendly at the table. This sentence is written 'for the lab log, not the dinner table' — it needs the precise, clinical term instead.", "thicken": "A liquid can do that and still pour. This milk has become 'a quivering mass you could slice' — the change crosses the line into semi-solid, which is more than that word claims."}}, {"s": "The food-chemistry chapter names the mechanism by which bitter salts make warm soy milk ____ into pressable curds — the textbook's precise term, though cooks call it unappetizing.", "ks": ["coagulate"], "fb": {"clot": "Blood is that word's home — a cut, a vein, a surgeon watching. This is warm soy milk, so the sentence needs the term that covers the same change in any liquid whatsoever.", "set": "That word is the friendly one cooks use at the table. The sentence asks for 'the textbook's precise term' — the clinical word about mechanism, the very one cooks find unappetizing.", "thicken": "'Pressable curds' are a mass that holds its shape. That word stops at less pourable — a sauce does it and still runs off the spoon."}}, {"s": "By the time the nurse arrived, the blood on Theo's scraped knee had begun to ____ and seal the scrape shut — his mother used the plain word for it, nothing off a hospital chart.", "ks": ["clot"], "fb": {"coagulate": "That is the clinic's precise term — and the sentence asks for 'the plain word,' 'nothing off a hospital chart.' Blood at a scraped knee takes the everyday word.", "set": "That is the kitchen's gentle word for food firming at the table. Blood sealing a scrape is not a dish, and it has its own plain name.", "thicken": "Blood that merely did that would still run. This blood is 'sealing the scrape shut' — forming a mass that holds, which is more than that word says."}}, {"s": "The surgeon skipped the Latin and said it plainly: lie still too long and the blood in a leg vein can ____ into a plug that breaks loose and travels — so the nurses would have him walking by evening.", "ks": ["clot"], "fb": {"coagulate": "That is exactly the Latin-flavored chart term the surgeon says he is skipping. Plain bedside speech uses the everyday word for what blood does.", "set": "That gentle word firms custard in the kitchen's vocabulary. A vein is not the table, and the danger here is the plug blood forms, which has its own plain name.", "thicken": "Blood that only did that would still move along the vein. The sentence fears 'a plug that breaks loose' — a formed mass, well past less runny."}}, {"s": "Grandma slid the panna cotta into the fridge to ____ overnight, so it would hold its shape when turned out of the mold — her word for the change as gentle and table-friendly as the dessert.", "ks": ["set"], "fb": {"coagulate": "That precise, clinical word carries an unappetizing edge no cook wants near dessert. The sentence asks for the gentle, table-friendly term.", "clot": "Blood is that word's territory — a cut, a vein, a surgeon watching. Dessert firming in a fridge takes the kitchen's own gentle word.", "thicken": "A cream that merely did that would still pour off the plate. This dessert must 'hold its shape when turned out of the mold' — firmer than that word claims."}}, {"s": "Twenty minutes of gentle simmering made the gravy ____ enough to coat the back of a spoon, though it still poured freely from the ladle.", "ks": ["thicken"], "fb": {"coagulate": "That word means crossing the line into a semi-solid that holds its shape. This gravy 'still poured freely from the ladle,' so the change is far milder.", "clot": "That word is for blood forming a lump at a cut or in a vein. Gravy that still pours has done something much gentler.", "set": "A custard that had done that would hold its shape at the table. This gravy 'still poured freely,' so it never firmed that far."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a liquid crossing the line into a semi-solid mass — not just getting a little thicker. Give the reader a before and an after: try working in a word like <i>liquid<\/i>, <i>mass<\/i>, <i>lump<\/i> or <i>holds<\/i>."}};
+  var CFG = {"word": "coagulate", "gradeUrl": "/api/grade", "taskId": "coagulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses coagulate correctly?", "opts": {"A": "The sugar coagulated into the tea, sweetening every sip evenly from the first to the last.", "B": "Once the rennet went in, the vat of milk coagulated, and the cheesemaker cut the soft curd into cubes.", "C": "The ice coagulated in the spring sunshine and ran off the roof in bright streams by noon.", "D": "The committee coagulated around a single plan by lunchtime, and the vote afterward was unanimous."}, "key": "B", "fb": {"correct": "Correct. Milk thickening and setting into a soft curd that holds its shape is exactly what coagulate names — a liquid crossing into a semi-solid mass.", "A": "Sugar stirred 'into the tea' dissolves — it thins out and disappears into the liquid. Coagulate runs the other way: a liquid thickening and setting into a semi-solid mass, the way blood clots.", "C": "Ice that 'ran off the roof in bright streams' is melting, a solid turning to liquid. Coagulate is that journey reversed — liquid firming toward semi-solid — so this sentence has the change running backward.", "D": "A committee gathering 'around a single plan' is people uniting; the sentence wants coalesce. Coagulate belongs to liquids thickening into a semi-solid — blood, or a custard — not to opinions lining up."}}, "s3a": {"q": "As it is used in this passage, what does it mean for blood to coagulate?", "opts": {"A": "to evaporate quickly from the surface of an open wound", "B": "to firm into a soft mass that no longer flows", "C": "to grow warmer as it reaches the skin", "D": "to break down into a thinner, faster-moving liquid that spreads"}, "key": "B", "fb": {"correct": "Right. The passage tracks blood going from flowing to stopped — the proteins stack up 'until the flow halts and a soft seal forms,' which is the change the word names.", "A": "Nothing in the passage is about blood drying into the air. The gauze works by making the blood firm up and stop moving, not vanish.", "C": "Temperature never comes up. The whole passage is about flow — blood that runs, and blood that firms into a seal and stops.", "D": "That is the opposite direction. The treated gauze is valuable precisely because it makes blood firm up and stop, not run thinner and faster."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "clot", "B": "set", "C": "coagulate", "D": "thicken"}, "key": "A", "fb": {"correct": "Right. Clot is the word blood itself takes — plain, exact corner English for this change — and precise about the result: a seam that <em>holds firm instead of running<\/em>.", "C": "Accurate, but it is the clinic's and the laboratory's term, and this scene keeps its register plain: <em>Corner advice stays in everyday speech; the lab can keep its terminology<\/em>.", "B": "That is the kitchen's gentle word — custards and jellies do it on a cool shelf — and it sits oddly on blood from <em>a cut above a boxer's eye<\/em>. Nothing in this corner belongs on a dessert tray.", "D": "A liquid that has merely thickened still moves and pours. What the ringside doctor must see is a seam that <em>stops weeping and holds firm instead of running<\/em>."}}}, "pairwise": {"rows": [{"sentence": "By the time the nurse arrived, the blood on Theo's scraped knee had begun to ____ and seal the scrape shut — his mother used the plain word for it, nothing off a hospital chart.", "options": ["coagulate", "clot"], "key": "clot", "pair": "clot", "why_right": "The tell is <em>nothing off a hospital chart<\/em> - blood at a scraped knee takes the plain word blood itself owns, while the clinic's precise chart term is exactly what the mother avoids.", "why_wrong": "That is the clinic's precise term — and the sentence asks for 'the plain word,' 'nothing off a hospital chart.' Blood at a scraped knee takes the everyday word."}, {"sentence": "The surgeon skipped the Latin and said it plainly: lie still too long and the blood in a leg vein can ____ into a plug that breaks loose and travels — so the nurses would have him walking by evening.", "options": ["coagulate", "clot"], "key": "clot", "pair": "clot", "why_right": "The tell is <em>skipped the Latin<\/em> - the surgeon wants the plain word blood itself takes for the plug it forms in a vein, not the chart's clinical term he is deliberately avoiding.", "why_wrong": "That is exactly the Latin-flavored chart term the surgeon says he is skipping. Plain bedside speech uses the everyday word for what blood does."}, {"sentence": "Ten minutes after the acid went in, the protein solution in the flask began to ____, drifting flecks knitting into one pale, gel-like mass the stir bar could no longer move.", "options": ["coagulate", "clot"], "key": "coagulate", "pair": "clot", "why_right": "The tell is <em>protein solution in the flask<\/em> - this liquid is not blood, and only one option covers the same setting in any liquid at all; the other is the word blood itself takes.", "why_wrong": "That word belongs to blood - it does its work at a cut or in a vein, with surgeons watching. A protein solution in a flask is not blood, so the wider word for any liquid setting must do the job."}, {"sentence": "Grandma slid the panna cotta into the fridge to ____ overnight, so it would hold its shape when turned out of the mold — her word for the change as gentle and table-friendly as the dessert.", "options": ["coagulate", "set"], "key": "set", "pair": "set", "why_right": "The tell is <em>gentle and table-friendly<\/em> - a dessert firming in the fridge takes the kitchen's friendly word, while the clinical term drags an unappetizing edge no cook wants near the table.", "why_wrong": "That precise, clinical word carries an unappetizing edge no cook wants near dessert. The sentence asks for the gentle, table-friendly term."}, {"sentence": "The food-chemistry chapter names the mechanism by which bitter salts make warm soy milk ____ into pressable curds — the textbook's precise term, though cooks call it unappetizing.", "options": ["coagulate", "set"], "key": "coagulate", "pair": "set", "why_right": "The tell is <em>the textbook's precise term<\/em> - the sentence asks for the laboratory's mechanism-precise word, complete with the unappetizing edge that the kitchen's gentle table word refuses to carry.", "why_wrong": "That word is the friendly one cooks use at the table. The sentence asks for 'the textbook's precise term' — the clinical word about mechanism, the very one cooks find unappetizing."}, {"sentence": "Twenty minutes of gentle simmering made the gravy ____ enough to coat the back of a spoon, though it still poured freely from the ladle.", "options": ["coagulate", "thicken"], "key": "thicken", "pair": "thicken", "why_right": "The tell is <em>still poured freely from the ladle<\/em> - the gravy has taken only the first, mildest step on the scale, turning less pourable without ever crossing into a mass that holds.", "why_wrong": "That word means crossing the line into a semi-solid that holds its shape. This gravy 'still poured freely from the ladle,' so the change is far milder."}, {"sentence": "The dairy's process sheet records the precise minute the rennet makes the vat of milk ____ into a quivering mass you could slice — wording for the lab log, not the dinner table.", "options": ["coagulate", "thicken"], "key": "coagulate", "pair": "thicken", "why_right": "The tell is <em>a quivering mass you could slice<\/em> - the milk has crossed the line into a semi-solid mass that holds its shape, well past merely turning less pourable.", "why_wrong": "A liquid can do that and still pour. This milk has become 'a quivering mass you could slice' — the change crosses the line into semi-solid, which is more than that word claims."}, {"sentence": "Overnight in the walk-in cooler, the stockpot of oxtail broth had ____ into a trembling amber dome - nothing a ladle could lift, though at closing time it had poured like any soup.", "options": ["coagulate", "thicken"], "key": "coagulate", "pair": "thicken", "why_right": "The tell is <em>nothing a ladle could lift<\/em> - the broth has crossed the line into a semi-solid mass that holds its shape, while the milder word stops at less pourable and still pouring.", "why_wrong": "That word is the first, mildest step on this scale - a sauce does it and still pours. This broth stopped pouring altogether overnight; the change has crossed into a mass that holds its shape."}], "display_order": [0, 6, 1, 5, 4, 2, 7, 3], "dimension_order": ["clot", "set", "thicken"], "dimension_feedback": {"clot": "Clot is the word blood itself takes — blood clots at a cut, and surgeons watch for clots. Coagulate covers the same setting in any liquid at all: egg white, latex, hide glue. Every clot has set this way, but a pot of glue coagulates and no one calls it a clot.", "set": "Set is the kitchen's gentle word for the same change — custard sets, jelly sets, cement sets — and it sounds friendly at the table. Coagulate is the laboratory's and the clinic's term, precise about the mechanism and often carrying an unappetizing edge the cook would rather avoid.", "thicken": "To thicken is the first, mildest step on this scale — a sauce thickens and still pours — while to coagulate is to cross the line into a semi-solid mass that holds its shape."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a liquid crossing the line into a semi-solid mass — not just getting a little thicker. Give the reader a before and an after: try working in a word like <i>liquid<\/i>, <i>mass<\/i>, <i>lump<\/i> or <i>holds<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

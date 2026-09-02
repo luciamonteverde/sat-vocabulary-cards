@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="e8a017593d70">
+<meta name="build" content="6678ae0dfbc7">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>obdurate &#8212; SAT Vocabulary, Course 1 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "obdurate", "gradeUrl": "/api/grade", "taskId": "obdurate", "minWords": 12, "items": {"s1": {"q": "Four people respond to a campaign asking them to forgive an old debt owed by a struggling neighbor. Which response is best described as obdurate?", "opts": {"A": "Dana snaps at the first volunteer and slams the door, then mails a check forgiving half the debt the next morning.", "B": "Marcus listens to every tearful plea over three months and still demands full payment on the original date.", "C": "Priya asks for more documents and a week to think before deciding either way about the debt.", "D": "Theo forgets about the debt entirely, never responding because the letters sit unopened in a drawer."}, "key": "B", "fb": {"correct": "Right — Marcus hears every tearful plea for three months and still refuses to soften at all. Staying unmoved by appeals to pity is exactly what obdurate means.", "A": "Dana's gruffness is not obduracy — by the next morning she has softened and forgiven half the debt. Obdurate describes a heart that hears the appeals and refuses to bend at all; a harsh manner that collapses into a concession overnight is the opposite of unyielding.", "C": "Asking for documents and 'a week to think' is deliberation, not refusal — Priya has not decided anything yet. Obdurate describes someone who has heard the appeals and will not soften; an open mind does not qualify.", "D": "Theo never engages at all — the letters 'sit unopened in a drawer,' so no appeal ever reaches him. Being oblivious is not being unyielding; obduracy requires actually facing the appeals and refusing to bend."}}, "s3a": {"q": "As it is used in the passage, \"obdurate\" most nearly means:", "opts": {"A": "too busy to give the villagers a hearing", "B": "impossible to move by pleading or persuasion", "C": "careful to keep the project within the law", "D": "privately sympathetic but bound by his contract"}, "key": "B", "fb": {"correct": "Right — every plea is heard and every plea fails, including his own engineers' compromise. The word names a refusal that persuasion cannot reach.", "A": "He is not too busy — he receives each group courteously and hears the pleas to the end. Access was never the problem; his answer was.", "C": "The passage never raises legality. What it shows is plea after plea meeting the same refusal.", "D": "Nothing shows hidden sympathy or a binding contract — he dismisses even his own engineers' compromise the same afternoon."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hardhearted", "B": "obdurate", "C": "firm", "D": "unyielding"}, "key": "A", "fb": {"correct": "Right. No plea was made, no demand pressed, no position defended — the afternoon simply revealed a plain, everyday coldness toward people suffering in front of him. A lack of pity that needs no occasion and no appeal is exactly what hardhearted names.", "B": "Obdurate describes someone who has actually heard the appeals — tears, arguments, conscience — and refused every one. But <em>no one begged him for anything<\/em>; there were no appeals for him to turn away.", "D": "Unyielding means giving no ground under pressure — force, argument, demands. That afternoon applied no pressure at all: <em>nothing was demanded that he might have refused<\/em>.", "C": "Firm describes someone steadily holding a position that others contest. He held none: <em>he took no stand anyone tried to argue him out of<\/em>."}}}, "grid": {"words": ["obdurate", "unyielding", "hardhearted", "firm"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Tenants sent petitions, then a priest, then the man's own weeping mother to beg a delay in the evictions, and the landlord stayed ____ through it all, hearing every plea to its end and refusing each one.", "ks": ["obdurate"], "fb": {"unyielding": "What is brought against him is not force or demands but <em>a weeping mother<\/em> and pleas — and the sentence turns on his deafness to pity itself, the darker and more particular refusal.", "hardhearted": "That names a cold nature in general, tested or not. Here the appeals were actually made — <em>every plea<\/em> heard <em>to its end<\/em> — and refused one by one, which is the sharper, more literary charge.", "firm": "A person who is merely steady can still be reasoned with. He heard petitions, a priest, and a mother <em>and refused each one<\/em> — nothing could reach him."}}, {"s": "Editorials, staff petitions, and a delegation of retired nurses all begged the administrator to keep the maternity ward open; he stayed ____, receiving each group politely and turning every appeal aside untouched.", "ks": ["obdurate"], "fb": {"unyielding": "The only pressure in the sentence is pleading — editorials and retired nurses <em>begged<\/em>. Its point is that appeals to feeling bounce off him, which calls for the narrower, darker word.", "hardhearted": "An everyday cold nature might never even be asked. He was asked — by editorials, petitions, and a delegation — and <em>turned every appeal aside<\/em>, plea after plea.", "firm": "Holding steady leaves room to be persuaded. Here every appeal lands <em>untouched<\/em> — the door to persuasion is closed completely."}}, {"s": "Three winters of frost, two hydraulic jacks, and a week of drilling left the granite shelf ____ — not an inch of ground given to any force the crew brought against it.", "ks": ["unyielding"], "fb": {"obdurate": "That word wants a heart that hears pleas and refuses them. Nobody pleads with <em>the granite shelf<\/em> — the only pressures here are frost, jacks, and drills.", "hardhearted": "Rock has no pity to withhold. The sentence is about <em>any force the crew brought<\/em> failing against stone, not about a person's coldness.", "firm": "Too mild and too personal: <em>not an inch of ground given<\/em> under jacks and a week of drilling is total, physical refusal, not someone calmly keeping a position."}}, {"s": "Under a strike threat, a lawsuit, and a rival offer, the negotiator proved ____ on the pension clause, conceding nothing to force, argument, or the clock — and stayed, colleagues noted, perfectly warm throughout.", "ks": ["unyielding"], "fb": {"obdurate": "No one is pleading for pity here — the pressures are <em>a strike threat, a lawsuit, and a rival offer<\/em>, and she stays <em>perfectly warm<\/em>. The dark, plea-deaf word does not fit.", "hardhearted": "The sentence grants her the opposite: <em>perfectly warm throughout<\/em>. Coldness of heart is explicitly ruled out.", "firm": "She concedes <em>nothing to force, argument, or the clock<\/em> — that is stronger than steady; no pressure of any kind moves her at all."}}, {"s": "Long before anyone had asked him for a thing, neighbors called the old recluse ____: he watched the flood-relief drive from his porch without a flicker of sympathy, though no appeal had ever actually been put to him.", "ks": ["hardhearted"], "fb": {"obdurate": "That word needs pleas actually made and turned away. Here <em>no appeal had ever actually been put to him<\/em> — his coldness sits untested.", "unyielding": "Nothing pushes at him — no demand, no force, no plea. With no pressure to resist, refusing to give ground never comes into it.", "firm": "He is not holding any position against challenge. The sentence names what is missing in him — <em>a flicker of sympathy<\/em> — which is about warmth, not steadiness."}}, {"s": "The referee was ____ about the offside call, restating it calmly through the captain's protests — yet when the replay showed a clear deflection, she reversed herself without any fuss.", "ks": ["firm"], "fb": {"obdurate": "Sealed against persuasion? The replay persuaded her — <em>she reversed herself without any fuss<\/em>. This is steadiness that can still be reached.", "unyielding": "Refusing ground under any pressure is exactly what she does not do: shown the <em>clear deflection<\/em>, she <em>reversed herself<\/em>.", "hardhearted": "No pity or coldness is at stake in an offside call. She holds her ruling <em>calmly<\/em>, listens, and corrects it — that is poise, not a cold heart."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs appeals actually made — and refused. Let someone beg, plead, or petition, and show every one turned away. Try working in a word like <i>begged<\/i>, <i>pleas<\/i>, <i>refused<\/i> or <i>unmoved<\/i>."}};
+  var CFG = {"word": "obdurate", "gradeUrl": "/api/grade", "taskId": "obdurate", "minWords": 12, "items": {"s1": {"q": "Four people respond to a campaign asking them to forgive an old debt owed by a struggling neighbor. Which response is best described as obdurate?", "opts": {"A": "Dana snaps at the first volunteer and slams the door, then mails a check forgiving half the debt the next morning.", "B": "Marcus listens to every tearful plea over three months and still demands full payment on the original date.", "C": "Priya asks for more documents and a week to think before deciding either way about the debt.", "D": "Theo forgets about the debt entirely, never responding because the letters sit unopened in a drawer."}, "key": "B", "fb": {"correct": "Right — Marcus hears every tearful plea for three months and still refuses to soften at all. Staying unmoved by appeals to pity is exactly what obdurate means.", "A": "Dana's gruffness is not obduracy — by the next morning she has softened and forgiven half the debt. Obdurate describes a heart that hears the appeals and refuses to bend at all; a harsh manner that collapses into a concession overnight is the opposite of unyielding.", "C": "Asking for documents and 'a week to think' is deliberation, not refusal — Priya has not decided anything yet. Obdurate describes someone who has heard the appeals and will not soften; an open mind does not qualify.", "D": "Theo never engages at all — the letters 'sit unopened in a drawer,' so no appeal ever reaches him. Being oblivious is not being unyielding; obduracy requires actually facing the appeals and refusing to bend."}}, "s3a": {"q": "As it is used in the passage, \"obdurate\" most nearly means:", "opts": {"A": "too busy to give the villagers a hearing", "B": "impossible to move by pleading or persuasion", "C": "careful to keep the project within the law", "D": "privately sympathetic but bound by his contract"}, "key": "B", "fb": {"correct": "Right — every plea is heard and every plea fails, including his own engineers' compromise. The word names a refusal that persuasion cannot reach.", "A": "He is not too busy — he receives each group courteously and hears the pleas to the end. Access was never the problem; his answer was.", "C": "The passage never raises legality. What it shows is plea after plea meeting the same refusal.", "D": "Nothing shows hidden sympathy or a binding contract — he dismisses even his own engineers' compromise the same afternoon."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hardhearted", "B": "obdurate", "C": "firm", "D": "unyielding"}, "key": "A", "fb": {"correct": "Right. No plea was made, no demand pressed, no position defended — the afternoon simply revealed a plain, everyday coldness toward people suffering in front of him. A lack of pity that needs no occasion and no appeal is exactly what hardhearted names.", "B": "Obdurate describes someone who has actually heard the appeals — tears, arguments, conscience — and refused every one. But <em>no one begged him for anything<\/em>; there were no appeals for him to turn away.", "D": "Unyielding means giving no ground under pressure — force, argument, demands. That afternoon applied no pressure at all: <em>nothing was demanded that he might have refused<\/em>.", "C": "Firm describes someone steadily holding a position that others contest. He held none: <em>he took no stand anyone tried to argue him out of<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Tenants sent petitions, then a priest, then the man's own weeping mother to beg a delay in the evictions, and the landlord stayed ____ through it all, hearing every plea to its end and refusing each one.", "options": ["obdurate", "firm"], "key": "obdurate", "pair": "firm", "why_right": "The tell is <em>hearing every plea to its end and refusing each one<\/em> - petitions, a priest, a weeping mother, and nothing reaches him; firm's person can still be reasoned with.", "why_wrong": "A person who is merely steady can still be reasoned with. He heard petitions, a priest, and a mother <em>and refused each one<\/em> — nothing could reach him."}, {"sentence": "Editorials, staff petitions, and a delegation of retired nurses all begged the administrator to keep the maternity ward open; he stayed ____, receiving each group politely and turning every appeal aside untouched.", "options": ["obdurate", "firm"], "key": "obdurate", "pair": "firm", "why_right": "The tell is <em>turning every appeal aside untouched<\/em> - editorials, petitions, and a delegation all fail to dent him; the card's firm person holds steady but can still be reasoned with.", "why_wrong": "Holding steady leaves room to be persuaded. Here every appeal lands <em>untouched<\/em> — the door to persuasion is closed completely."}, {"sentence": "Three winters of frost, two hydraulic jacks, and a week of drilling left the granite shelf ____ — not an inch of ground given to any force the crew brought against it.", "options": ["obdurate", "unyielding"], "key": "unyielding", "pair": "unyielding", "why_right": "The tell is <em>not an inch of ground given<\/em> - refusal to yield under force, said of stone; the card's cliff face is unyielding, and only a heart that hears pleas is obdurate.", "why_wrong": "That word wants a heart that hears pleas and refuses them. Nobody pleads with <em>the granite shelf<\/em> — the only pressures here are frost, jacks, and drills."}, {"sentence": "Under a strike threat, a lawsuit, and a rival offer, the negotiator proved ____ on the pension clause, conceding nothing to force, argument, or the clock — and stayed, colleagues noted, perfectly warm throughout.", "options": ["obdurate", "unyielding"], "key": "unyielding", "pair": "unyielding", "why_right": "The tell is <em>conceding nothing to force, argument, or the clock<\/em> - ground refused under every kind of pressure, none of it a plea for pity, which is the broader word's exact territory.", "why_wrong": "No one is pleading for pity here — the pressures are <em>a strike threat, a lawsuit, and a rival offer<\/em>, and she stays <em>perfectly warm<\/em>. The dark, plea-deaf word does not fit."}, {"sentence": "Long before anyone had asked him for a thing, neighbors called the old recluse ____: he watched the flood-relief drive from his porch without a flicker of sympathy, though no appeal had ever actually been put to him.", "options": ["obdurate", "hardhearted"], "key": "hardhearted", "pair": "hardhearted", "why_right": "The tell is <em>without a flicker of sympathy<\/em> - a general cold nature, never tested by any appeal; the card says a hardhearted person may never be tested, while obdurate needs refusals.", "why_wrong": "That word needs pleas actually made and turned away. Here <em>no appeal had ever actually been put to him<\/em> — his coldness sits untested."}, {"sentence": "The referee was ____ about the offside call, restating it calmly through the captain's protests — yet when the replay showed a clear deflection, she reversed herself without any fuss.", "options": ["obdurate", "firm"], "key": "firm", "pair": "firm", "why_right": "The tell is <em>she reversed herself without any fuss<\/em> - steady under protest yet open to evidence, exactly the card's firm; obdurate would stay sealed against every persuasion.", "why_wrong": "Sealed against persuasion? The replay persuaded her — <em>she reversed herself without any fuss<\/em>. This is steadiness that can still be reached."}, {"sentence": "The mill owner proved ____ to the end: a court order pried the back pay out of him, but the injured workers' families, pleading at his gate for three years, never moved him to offer a cent.", "options": ["obdurate", "unyielding"], "key": "obdurate", "pair": "unyielding", "why_right": "The tell is <em>pried the back pay out of him<\/em> - force made him give ground, so unyielding fails; what never cracked was his deafness to three years of pleading.", "why_wrong": "That word means refusing to give ground under any pressure - force included. Force won here: the court order pried the money out of him. Only appeals to pity failed."}, {"sentence": "No one called the judge cold - she wept openly at sentencing hearings and funded two shelters - yet on parole petitions she was ____, reading each tearful application through and denying every one for eleven years.", "options": ["obdurate", "hardhearted"], "key": "obdurate", "pair": "hardhearted", "why_right": "The tell is <em>she wept openly at sentencing hearings<\/em> - warmth is granted outright, so a cold nature is ruled out; what the petitions meet is a heart hardened against appeals.", "why_wrong": "That word names a general cold nature - a lack of pity or warmth. She weeps at hearings and funds shelters; what she refuses is appeal after appeal, warmth intact."}], "display_order": [3, 5, 2, 0, 7, 6, 1, 4], "dimension_order": ["unyielding", "hardhearted", "firm"], "dimension_feedback": {"unyielding": "Unyielding means refusing to give ground under any kind of pressure — force, argument, demands, time. Obdurate is narrower and darker: hardened specifically against appeals to pity, conscience, and persuasion. A cliff face is unyielding; only a heart that hears the plea and still refuses is obdurate.", "hardhearted": "Hardhearted names a general lack of pity or warmth toward others' suffering — an everyday word for a cold nature. Obdurate is more specific and more literary: appeals have actually been made — tears, arguments, conscience — and every one has bounced off. A hardhearted person may never be tested; an obdurate one refuses appeal after appeal.", "firm": "Firm describes someone who holds a position steadily but can still be reasoned with; obdurate goes further, suggesting a heart hardened against every plea."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs appeals actually made — and refused. Let someone beg, plead, or petition, and show every one turned away. Try working in a word like <i>begged<\/i>, <i>pleas<\/i>, <i>refused<\/i> or <i>unmoved<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

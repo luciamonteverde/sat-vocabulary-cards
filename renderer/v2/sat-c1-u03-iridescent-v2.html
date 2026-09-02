@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f1683ee763e8">
+<meta name="build" content="1d5d80feaa95">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>iridescent &#8212; SAT Vocabulary, Course 1 Unit 3</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "iridescent", "gradeUrl": "/api/grade", "taskId": "iridescent", "minWords": 12, "items": {"s1": {"q": "A jeweler is describing two rings to a customer: one is a solid, single shade of blue no matter how it's turned, and the other flashes green, then blue, then violet as it catches the light. Which ring is iridescent?", "opts": {"A": "Neither ring shows any iridescence", "B": "Both rings are equally iridescent", "C": "The ring that stays a solid, single blue", "D": "The ring that shifts color as it's turned"}, "key": "D", "fb": {"correct": "Right. Flashing green, then blue, then violet as it catches the light — color that changes with the viewing angle — is exactly what makes something iridescent.", "A": "Take another look at the second ring: it flashes green, then blue, then violet as it catches the light — precisely the rainbow-like play this word describes.", "B": "Equal treatment fails here: one ring stays 'a solid, single shade of blue' from every angle, showing no play of rainbow hues at all. Only a stone whose look changes with the viewing angle earns this word.", "C": "A stone that 'stays a solid, single blue' is the opposite case: its look never varies, whatever the angle. Iridescence is about hues that dance and change as you move the piece."}}, "s3a": {"q": "As used in this passage, 'iridescent' most nearly means:", "opts": {"A": "glowing steadily with a soft light that comes from somewhere inside the feathers themselves", "B": "colored by a permanent red pigment carried in the feathers", "C": "soft and pearly, with pale blended colors", "D": "showing colors that change with the angle of view"}, "key": "D", "fb": {"correct": "Right — the throat 'blazes red' from one angle and 'the same feathers go black' from another: color that depends on where you stand.", "A": "Nothing glows on its own; the plates only bend and return light that arrives from outside.", "B": "Pigment is exactly what the passage says this color is not — the pigmented bird is the cardinal.", "C": "The throat flips between blazing red and black — sharp extremes, not a pale blend."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "lustrous", "B": "prismatic", "C": "iridescent", "D": "opalescent"}, "key": "A", "fb": {"correct": "Right. A rich, steady sheen that keeps one color -- <em>the same dark red from every angle<\/em> -- is precisely what lustrous describes.", "C": "Iridescent surfaces change color as the viewing angle changes; that shifting is their whole character. This finish does the opposite: <em>tilted left or right<\/em>, it holds <em>the same dark red from every angle<\/em>.", "D": "Opalescent means soft, pale colors floating in a milky glow, like an opal. Nothing here is milky or many-colored: the prized surface is <em>the same dark red<\/em> throughout.", "B": "Prismatic means splitting light into fixed rainbow bands, the way a prism prints a spectrum on a wall. No rainbow appears anywhere in this workshop; even the flawed trays show only <em>small glints that jump as a tray is turned<\/em>."}}}, "grid": {"words": ["iridescent", "opalescent", "prismatic", "lustrous"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The beetle's ____ shell slides from green to violet to copper as you tilt it under the lamp; hold it still and the show stops.", "ks": ["iridescent"], "fb": {"opalescent": "That word evokes an opal's soft, milky glow — pale colors floating in a cloudy stone. Green, violet, and copper snapping past each other are sharp and vivid, not milky.", "prismatic": "That word means light split into fixed rainbow bands, like stripes thrown on a wall. These colors sit on the shell itself and move only when you tilt it.", "lustrous": "That word is a rich, steady sheen that stays one color. This surface's whole character is change — 'hold it still and the show stops,' because the moving angle is everything."}}, {"s": "In the parking-lot puddle a thin film of oil turned ____, its patches of pink and electric blue rearranging themselves each time she shifted her feet.", "ks": ["iridescent"], "fb": {"opalescent": "That word is a soft, milky glow with pale colors adrift inside it. 'Electric blue' patches that jump when you move are vivid and sharp instead.", "prismatic": "That word describes a prism's fixed rainbow stripes thrown across a wall. Here the color lives on the oil film itself and shifts with every step she takes.", "lustrous": "That word means a rich sheen holding one steady color. These patches rearrange 'each time she shifted her feet' — steadiness is exactly what's missing."}}, {"s": "Years of hand-polishing left the banister ____, its surface a deep single tone of honey that looked the same from every step of the stairs.", "ks": ["lustrous"], "fb": {"iridescent": "That word means distinct colors that flip and change as the viewing angle moves. This glow is 'a deep single tone,' identical 'from every step of the stairs.'", "opalescent": "That word evokes an opal's pale, milky glow. Honey-toned polished wood is warm and clear, not cloudy.", "prismatic": "That word means light fanned out into rainbow bands. There is exactly one color here."}}, {"s": "The show cat's coat was ____ under the judges' lights — a rich black gleam, even and unchanging as she circled the table.", "ks": ["lustrous"], "fb": {"iridescent": "That word requires colors that change with the angle of view. She circles the whole table — every angle — and the gleam stays 'even and unchanging.'", "opalescent": "That word is a pale, milky glow, like an opal. A rich black coat is its opposite in both color and clarity.", "prismatic": "That word means the full rainbow fanned out in bands. This coat shows one color, richly."}}, {"s": "The frosted-glass lampshade filled the room with ____ light: pale pinks and blues floating somewhere inside the milky white, too soft to pin down.", "ks": ["opalescent"], "fb": {"iridescent": "That word means distinct, vivid colors that flip as your angle changes. These pinks and blues float 'inside the milky white,' too diffuse to flash or flip.", "prismatic": "That word describes a sharp rainbow split into fixed bands. Nothing here is sharp — the colors are 'too soft to pin down.'", "lustrous": "That word is a rich sheen on a polished surface, holding one steady color. This is a soft glow through cloudy glass, with pale colors adrift in it."}}, {"s": "On sunny mornings the crystal doorknob threw ____ stripes across the hallway — the full rainbow in order, printed on the wall until the sun moved.", "ks": ["prismatic"], "fb": {"iridescent": "That word describes a surface whose own colors shift with your viewing angle. These stripes are cast light, fixed 'on the wall until the sun moved' — the same from wherever you stand.", "opalescent": "That word is a soft, milky glow with pale colors inside. 'The full rainbow in order' is the sharpest possible display of color.", "lustrous": "That word means a rich, steady sheen on a surface — polished wood, satin. A pattern of light thrown across a hallway is not a sheen at all."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Make the viewer or the object move — try <i>tilt<\/i> or <i>shifting<\/i> — so the colors visibly change with the angle instead of sparkling in place."}};
+  var CFG = {"word": "iridescent", "gradeUrl": "/api/grade", "taskId": "iridescent", "minWords": 12, "items": {"s1": {"q": "A jeweler is describing two rings to a customer: one is a solid, single shade of blue no matter how it's turned, and the other flashes green, then blue, then violet as it catches the light. Which ring is iridescent?", "opts": {"A": "Neither ring shows any iridescence", "B": "Both rings are equally iridescent", "C": "The ring that stays a solid, single blue", "D": "The ring that shifts color as it's turned"}, "key": "D", "fb": {"correct": "Right. Flashing green, then blue, then violet as it catches the light — color that changes with the viewing angle — is exactly what makes something iridescent.", "A": "Take another look at the second ring: it flashes green, then blue, then violet as it catches the light — precisely the rainbow-like play this word describes.", "B": "Equal treatment fails here: one ring stays 'a solid, single shade of blue' from every angle, showing no play of rainbow hues at all. Only a stone whose look changes with the viewing angle earns this word.", "C": "A stone that 'stays a solid, single blue' is the opposite case: its look never varies, whatever the angle. Iridescence is about hues that dance and change as you move the piece."}}, "s3a": {"q": "As used in this passage, 'iridescent' most nearly means:", "opts": {"A": "glowing steadily with a soft light that comes from somewhere inside the feathers themselves", "B": "colored by a permanent red pigment carried in the feathers", "C": "soft and pearly, with pale blended colors", "D": "showing colors that change with the angle of view"}, "key": "D", "fb": {"correct": "Right — the throat 'blazes red' from one angle and 'the same feathers go black' from another: color that depends on where you stand.", "A": "Nothing glows on its own; the plates only bend and return light that arrives from outside.", "B": "Pigment is exactly what the passage says this color is not — the pigmented bird is the cardinal.", "C": "The throat flips between blazing red and black — sharp extremes, not a pale blend."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "lustrous", "B": "prismatic", "C": "iridescent", "D": "opalescent"}, "key": "A", "fb": {"correct": "Right. A rich, steady sheen that keeps one color -- <em>the same dark red from every angle<\/em> -- is precisely what lustrous describes.", "C": "Iridescent surfaces change color as the viewing angle changes; that shifting is their whole character. This finish does the opposite: <em>tilted left or right<\/em>, it holds <em>the same dark red from every angle<\/em>.", "D": "Opalescent means soft, pale colors floating in a milky glow, like an opal. Nothing here is milky or many-colored: the prized surface is <em>the same dark red<\/em> throughout.", "B": "Prismatic means splitting light into fixed rainbow bands, the way a prism prints a spectrum on a wall. No rainbow appears anywhere in this workshop; even the flawed trays show only <em>small glints that jump as a tray is turned<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The beetle's ____ shell slides from green to violet to copper as you tilt it under the lamp; hold it still and the show stops.", "options": ["iridescent", "opalescent"], "key": "iridescent", "pair": "opalescent", "why_right": "The tell is <em>slides from green to violet to copper<\/em> - sharp, distinct colors flipping with the tilt of the shell, nothing soft, pale, or milky about them.", "why_wrong": "That word evokes an opal's soft, milky glow — pale colors floating in a cloudy stone. Green, violet, and copper snapping past each other are sharp and vivid, not milky."}, {"sentence": "In the parking-lot puddle a thin film of oil turned ____, its patches of pink and electric blue rearranging themselves each time she shifted her feet.", "options": ["iridescent", "prismatic"], "key": "iridescent", "pair": "prismatic", "why_right": "The tell is <em>rearranging themselves each time she shifted her feet<\/em> - these colors live on the oil film and move with the viewer, not fixed rainbow bands cast onto a wall.", "why_wrong": "That word describes a prism's fixed rainbow stripes thrown across a wall. Here the color lives on the oil film itself and shifts with every step she takes."}, {"sentence": "Years of hand-polishing left the banister ____, its surface a deep single tone of honey that looked the same from every step of the stairs.", "options": ["iridescent", "lustrous"], "key": "lustrous", "pair": "lustrous", "why_right": "The tell is <em>a deep single tone of honey that looked the same from every step<\/em> - a lustrous sheen is steady and stays one color no matter the viewing angle.", "why_wrong": "That word means distinct colors that flip and change as the viewing angle moves. This glow is 'a deep single tone,' identical 'from every step of the stairs.'"}, {"sentence": "The show cat's coat was ____ under the judges' lights — a rich black gleam, even and unchanging as she circled the table.", "options": ["iridescent", "lustrous"], "key": "lustrous", "pair": "lustrous", "why_right": "The tell is <em>even and unchanging as she circled the table<\/em> - circling covers every viewing angle, and a gleam that never shifts color is a steady sheen, not a shifting one.", "why_wrong": "That word requires colors that change with the angle of view. She circles the whole table — every angle — and the gleam stays 'even and unchanging.'"}, {"sentence": "The frosted-glass lampshade filled the room with ____ light: pale pinks and blues floating somewhere inside the milky white, too soft to pin down.", "options": ["iridescent", "opalescent"], "key": "opalescent", "pair": "opalescent", "why_right": "The tell is <em>pale pinks and blues floating somewhere inside the milky white<\/em> - a soft, cloudy glow with pale colors adrift in it, not sharp colors flipping with your angle.", "why_wrong": "That word means distinct, vivid colors that flip as your angle changes. These pinks and blues float 'inside the milky white,' too diffuse to flash or flip."}, {"sentence": "On sunny mornings the crystal doorknob threw ____ stripes across the hallway — the full rainbow in order, printed on the wall until the sun moved.", "options": ["iridescent", "prismatic"], "key": "prismatic", "pair": "prismatic", "why_right": "The tell is <em>the full rainbow in order, printed on the wall<\/em> - light split into fixed bands and thrown across a surface, not colors on the knob shifting with your angle.", "why_wrong": "That word describes a surface whose own colors shift with your viewing angle. These stripes are cast light, fixed 'on the wall until the sun moved' — the same from wherever you stand."}, {"sentence": "The hummingbird's throat flashed ____ in the feeder's light, ruby one instant and emerald the next as it pivoted, never settling on a single color.", "options": ["iridescent", "lustrous"], "key": "iridescent", "pair": "lustrous", "why_right": "The tell is <em>ruby one instant and emerald the next as it pivoted<\/em> - iridescent color flips with every change of angle instead of holding one steady sheen.", "why_wrong": "That word means a rich, glowing sheen that stays one color - polished wood, satin. A throat that turns ruby one instant and emerald the next never holds a single steady tone."}, {"sentence": "As the peacock wheeled through the sunlight, each eye-spot on its tail turned ____, snapping from deep blue to bright bronze and back with every quarter turn.", "options": ["iridescent", "opalescent"], "key": "iridescent", "pair": "opalescent", "why_right": "The tell is <em>snapping from deep blue to bright bronze<\/em> - sharp, vivid colors that flip with each change of angle, nothing soft or milky about them.", "why_wrong": "That word evokes an opal's soft, milky glow, pale colors floating in a cloudy stone. Deep blue snapping to bright bronze is sharp and vivid, not gentle or milky."}], "display_order": [7, 3, 1, 4, 6, 0, 2, 5], "dimension_order": ["opalescent", "prismatic", "lustrous"], "dimension_feedback": {"opalescent": "Opalescent evokes the soft, milky glow of an opal — pale colors floating in a cloudy stone. Iridescent is sharper and more vivid: distinct rainbow colors that flip and change as the viewing angle moves. An opal glows gently; a soap bubble flashes.", "prismatic": "Prismatic means splitting light into the full rainbow, the way a prism throws fixed bands of color on a wall. Iridescent colors also come from bent light, but they live on a surface and shift with every change of angle rather than fanning out in fixed bands.", "lustrous": "Lustrous describes a rich, glowing sheen — polished wood, healthy hair, satin. The shine is steady and stays one color. Iridescent surfaces do the opposite: their whole character is change, showing different colors from every new angle."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Make the viewer or the object move — try <i>tilt<\/i> or <i>shifting<\/i> — so the colors visibly change with the angle instead of sparkling in place."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

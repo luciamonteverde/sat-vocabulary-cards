@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="8a2adb106c0a">
+<meta name="build" content="4421a3c98538">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>coerce &#8212; SAT Vocabulary, Course 3 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "coerce", "gradeUrl": "/api/grade", "taskId": "coerce", "minWords": 12, "items": {"s1": {"q": "Which sentence uses coerce correctly?", "opts": {"A": "The dead phone battery coerced Marco into knocking on strangers' doors to ask for directions in the dark.", "B": "The smugglers coerced the night guard's cooperation with generous weekly payments and a small share of each incoming cargo.", "C": "The inspector admitted a rival firm had coerced him into losing the paperwork, first with gifts, then with photographs of the gifts.", "D": "The furious farmer coerced the rusted gate bolt loose with a crowbar and a string of muttered threats."}, "key": "C", "fb": {"correct": "Right — the photographs turned the gifts into a silent threat of exposure, and the inspector complied out of fear. Forcing someone to act through threats or pressure is exactly what coerce means.", "A": "A dead battery leaves him no option, but it applies no pressure. Coercing needs somebody doing the forcing.", "B": "Weekly payments and a share buy cooperation. Coercing extracts it by threat.", "D": "A crowbar works on a bolt by force, and a bolt cannot be threatened. Coercing applies to people."}}, "s3a": {"q": "In this passage, what were owners doing when they had to \"coerce\" workers outright?", "opts": {"A": "persuading them with better wages, bonuses, and promises of promotion", "B": "forcing their votes through threats to wages and homes", "C": "reminding them politely which candidate the company preferred that year", "D": "physically marching every worker to the polls under armed guard on Election Day"}, "key": "B", "fb": {"correct": "Right — the passage glosses the word itself: \"docking wages, threatening the company houses their families slept in.\" The votes were manufactured through fear of real harm.", "A": "Persuasion offers something. The passage shows only threats of loss — wages docked, houses taken.", "C": "Nothing here is polite: the men \"understood what refusing might cost,\" and the cost fell on their families.", "D": "No marching or guards appear. The pressure worked through fear at a distance — \"the threat never needed saying twice.\""}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "nudge", "B": "browbeat", "C": "compel", "D": "coerce"}, "key": "D", "fb": {"correct": "Right — coerce: the pressure had authors and ran through threats — <em>letters warning athletes who balked at the training regimen that stipends would vanish<\/em>.", "C": "Compel covers force of any kind, including bare circumstance — weather, breakdowns, an empty account can all compel, and nobody has to threaten anybody. But nothing impersonal forced these athletes: officials wrote <em>letters warning athletes who balked<\/em>, and <em>a passport renewal might stall<\/em> is a threat with an author. Mere circumstance never entered it.", "B": "Browbeating is face-to-face bullying — glares, interruptions, one demand repeated across a table. Here <em>no one had ever raised a voice<\/em>, and <em>most of the letter writers never met the athletes at all<\/em>. This pressure traveled by letter, at a distance.", "A": "A nudge is gentle — a hint that costs nothing to ignore. Ignoring these letters carried a price: <em>Refusal carried costs a teenager could not absorb<\/em>. That is menace, not encouragement."}}}, "grid": {"words": ["coerce", "compel", "browbeat", "nudge"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The smugglers tried to ____ the harbormaster into losing their manifest, mentioning — twice, and smiling — how easily warehouse fires start.", "ks": ["coerce"], "fb": {"compel": "That word covers force by any means — even a flat tire or an empty fuel tank — and it does not accuse. A yes manufactured through smiling talk of warehouse fires calls for the word that does.", "browbeat": "That word is bullying by manner — volume, glares, repetition, face to face. The lever here is a veiled threat of real harm, a darker instrument than an overbearing tone.", "nudge": "A gentle reminder leaves the choice free. Smiling mentions of <em>how easily warehouse fires start<\/em> leave nothing free at all."}}, {"s": "A washed-out bridge can ____ even the stubbornest driver to take the long mountain road; no one threatens anyone, and yet there is no choice.", "ks": ["compel"], "fb": {"coerce": "That word accuses: it needs a person manufacturing the yes through threats or fear. Here <em>no one threatens anyone<\/em> — a river did this.", "browbeat": "That word needs a bully working face to face — words, glares, repetition. There is no person in this sentence at all, only a washed-out bridge.", "nudge": "That word is a hint that leaves the decision free. A driver with one passable road left has no decision to make."}}, {"s": "Landlords who ____ tenants into dropping complaints — hinting at sudden audits, lost leases, a word to an employer — now face treble damages.", "ks": ["coerce"], "fb": {"compel": "That word is neutral about how the forcing happens — circumstance alone can do it, with nobody at fault. Tenants dropping complaints under hints of audits and lost leases are answering a person's threats, and the sentence wants the word that says so.", "browbeat": "That word means bullying someone face to face with volume and repetition. These landlords need no meetings — the hint of an audit does the work from a distance.", "nudge": "A word for gentle reminders cannot carry <em>sudden audits, lost leases, a word to an employer<\/em> — those are threats, and the choice they leave is not free."}}, {"s": "Rising water in the lower galleries may ____ the museum to close its river wing for the season: circumstance, not menace, forcing the decision.", "ks": ["compel"], "fb": {"coerce": "That word accuses a person of manufacturing a yes through threats or fear. The sentence rules it out in so many words: <em>circumstance, not menace<\/em>.", "browbeat": "That word needs a bully — glares, repetition, an overbearing manner. Water rising in a gallery has no manner.", "nudge": "That word suggests while leaving the choice free. A museum with water in its galleries is not being offered a choice."}}, {"s": "Meeting after meeting, the chairman would ____ the junior analysts — interrupting, glaring, repeating one demand — though he never threatened anyone's job.", "ks": ["browbeat"], "fb": {"coerce": "That word runs through threats of real harm and can even be applied from a distance. This chairman <em>never threatened anyone's job<\/em> — his instrument is the overbearing manner itself.", "compel": "That word covers force by any means and says nothing about style. This sentence is all style — the interrupting, the glaring, the repetition — so it wants the word that names the manner.", "nudge": "A gentle reminder does not interrupt, glare, or repeat one demand across a month of meetings."}}, {"s": "A postcard from the dentist was all it took to ____ him into finally booking the cleaning — a gentle reminder that left the choice entirely his.", "ks": ["nudge"], "fb": {"coerce": "That word needs threats or fear manufacturing the yes. A dentist's postcard threatens nothing, and the choice stays entirely his.", "compel": "That word means the choice is effectively gone — force or circumstance leaves no way to refuse. He could toss the postcard in a drawer and book nothing.", "browbeat": "That word needs face-to-face hectoring — interruption, glares, repetition. One quiet card in the mail is the gentlest possible push."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a yes manufactured by a person through threats or fear — not force of circumstance, and not gentle persuasion. Try working in a word like <i>threat<\/i>, <i>unless<\/i>, <i>refuse<\/i> or <i>afraid<\/i>."}};
+  var CFG = {"word": "coerce", "gradeUrl": "/api/grade", "taskId": "coerce", "minWords": 12, "items": {"s1": {"q": "Which sentence uses coerce correctly?", "opts": {"A": "The dead phone battery coerced Marco into knocking on strangers' doors to ask for directions in the dark.", "B": "The smugglers coerced the night guard's cooperation with generous weekly payments and a small share of each incoming cargo.", "C": "The inspector admitted a rival firm had coerced him into losing the paperwork, first with gifts, then with photographs of the gifts.", "D": "The furious farmer coerced the rusted gate bolt loose with a crowbar and a string of muttered threats."}, "key": "C", "fb": {"correct": "Right — the photographs turned the gifts into a silent threat of exposure, and the inspector complied out of fear. Forcing someone to act through threats or pressure is exactly what coerce means.", "A": "A dead battery leaves him no option, but it applies no pressure. Coercing needs somebody doing the forcing.", "B": "Weekly payments and a share buy cooperation. Coercing extracts it by threat.", "D": "A crowbar works on a bolt by force, and a bolt cannot be threatened. Coercing applies to people."}}, "s3a": {"q": "In this passage, what were owners doing when they had to \"coerce\" workers outright?", "opts": {"A": "persuading them with better wages, bonuses, and promises of promotion", "B": "forcing their votes through threats to wages and homes", "C": "reminding them politely which candidate the company preferred that year", "D": "physically marching every worker to the polls under armed guard on Election Day"}, "key": "B", "fb": {"correct": "Right — the passage glosses the word itself: \"docking wages, threatening the company houses their families slept in.\" The votes were manufactured through fear of real harm.", "A": "Persuasion offers something. The passage shows only threats of loss — wages docked, houses taken.", "C": "Nothing here is polite: the men \"understood what refusing might cost,\" and the cost fell on their families.", "D": "No marching or guards appear. The pressure worked through fear at a distance — \"the threat never needed saying twice.\""}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "nudge", "B": "browbeat", "C": "compel", "D": "coerce"}, "key": "D", "fb": {"correct": "Right — coerce: the pressure had authors and ran through threats — <em>letters warning athletes who balked at the training regimen that stipends would vanish<\/em>.", "C": "Compel covers force of any kind, including bare circumstance — weather, breakdowns, an empty account can all compel, and nobody has to threaten anybody. But nothing impersonal forced these athletes: officials wrote <em>letters warning athletes who balked<\/em>, and <em>a passport renewal might stall<\/em> is a threat with an author. Mere circumstance never entered it.", "B": "Browbeating is face-to-face bullying — glares, interruptions, one demand repeated across a table. Here <em>no one had ever raised a voice<\/em>, and <em>most of the letter writers never met the athletes at all<\/em>. This pressure traveled by letter, at a distance.", "A": "A nudge is gentle — a hint that costs nothing to ignore. Ignoring these letters carried a price: <em>Refusal carried costs a teenager could not absorb<\/em>. That is menace, not encouragement."}}}, "pairwise": {"rows": [{"sentence": "A washed-out bridge can ____ even the stubbornest driver to take the long mountain road; no one threatens anyone, and yet there is no choice.", "options": ["coerce", "compel"], "key": "compel", "pair": "compel", "why_right": "The tell is <em>no one threatens anyone<\/em> - the card's broader word covers force by bare circumstance, with nobody applying pressure, and a washed-out bridge is exactly that case.", "why_wrong": "That word accuses: it needs a person manufacturing the yes through threats or fear. Here <em>no one threatens anyone<\/em> — a river did this."}, {"sentence": "Rising water in the lower galleries may ____ the museum to close its river wing for the season: circumstance, not menace, forcing the decision.", "options": ["coerce", "compel"], "key": "compel", "pair": "compel", "why_right": "The tell is <em>circumstance, not menace<\/em> - rising water forces the closure with no person applying any pressure, the card's own home case for force by any means.", "why_wrong": "That word accuses a person of manufacturing a yes through threats or fear. The sentence rules it out in so many words: <em>circumstance, not menace<\/em>."}, {"sentence": "Hunger can force a man into the cannery; only another man can ____ him, and the foreman's blacklist talk did exactly that.", "options": ["coerce", "compel"], "key": "coerce", "pair": "compel", "why_right": "The tell is <em>only another man can<\/em> - the card says this word always needs a person applying the pressure, and the foreman's blacklist talk is that person's threat; hunger cannot do it.", "why_wrong": "That word covers force by any means -- even an empty fuel tank, with no one threatening anyone -- so hunger can do it too, and 'only another man can' shuts it out."}, {"sentence": "Meeting after meeting, the chairman would ____ the junior analysts — interrupting, glaring, repeating one demand — though he never threatened anyone's job.", "options": ["coerce", "browbeat"], "key": "browbeat", "pair": "browbeat", "why_right": "The tell is <em>never threatened anyone's job<\/em> - with real harm off the table, what remains is the face-to-face manner of glares and repetition, which the card gives to this word.", "why_wrong": "That word runs through threats of real harm and can even be applied from a distance. This chairman <em>never threatened anyone's job<\/em> — his instrument is the overbearing manner itself."}, {"sentence": "Landlords who ____ tenants into dropping complaints — hinting at sudden audits, lost leases, a word to an employer — now face treble damages.", "options": ["coerce", "browbeat"], "key": "coerce", "pair": "browbeat", "why_right": "The tell is <em>sudden audits, lost leases<\/em> - the pressure runs through hinted threats of real harm, worked from a distance, not the face-to-face glares and repetition of a bully.", "why_wrong": "That word means bullying someone face to face with volume and repetition. These landlords need no meetings — the hint of an audit does the work from a distance."}, {"sentence": "Text after text arrived to ____ the councilwoman into shelving the zoning bill, each from a new number, each promising her family's addresses would circulate.", "options": ["coerce", "browbeat"], "key": "coerce", "pair": "browbeat", "why_right": "The tell is <em>each from a new number<\/em> - threats of real harm pressed from a distance, with no face in the room, and the card reserves face-to-face bullying for the other word.", "why_wrong": "That word is bullying face to face -- glares, volume, repetition until they give in. A sender hiding behind a new number never shows a face; the lever here is the threat itself."}, {"sentence": "A postcard from the dentist was all it took to ____ him into finally booking the cleaning — a gentle reminder that left the choice entirely his.", "options": ["coerce", "nudge"], "key": "nudge", "pair": "nudge", "why_right": "The tell is <em>left the choice entirely his<\/em> - a gentle reminder with nothing at stake behind it, the card's hint and little push that leaves the choice free.", "why_wrong": "That word needs threats or fear manufacturing the yes. A dentist's postcard threatens nothing, and the choice stays entirely his."}, {"sentence": "The smugglers tried to ____ the harbormaster into losing their manifest, mentioning — twice, and smiling — how easily warehouse fires start.", "options": ["coerce", "nudge"], "key": "coerce", "pair": "nudge", "why_right": "The tell is <em>how easily warehouse fires start<\/em> - a smiling hint that is really a threat of arson, manufacturing the yes through fear and leaving the harbormaster no free choice at all.", "why_wrong": "A gentle reminder leaves the choice free. Smiling mentions of <em>how easily warehouse fires start<\/em> leave nothing free at all."}], "display_order": [2, 4, 0, 7, 3, 1, 6, 5], "dimension_order": ["compel", "browbeat", "nudge"], "dimension_feedback": {"compel": "To compel is to force by any means, including bare circumstance — an empty fuel tank can compel a change of plans, with no one threatening anyone. Coerce always needs a person applying the pressure: the yes is manufactured through threats or fear, which is why the word accuses.", "browbeat": "To browbeat is to bully someone face to face — words, glares, and repetition until they give in. Coerce is broader and darker: the pressure runs through threats of real harm, not just an overbearing manner, and it can be applied from a distance.", "nudge": "A nudge is far gentler than coercing — a hint, a reminder, a little push that leaves the choice entirely free."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a yes manufactured by a person through threats or fear — not force of circumstance, and not gentle persuasion. Try working in a word like <i>threat<\/i>, <i>unless<\/i>, <i>refuse<\/i> or <i>afraid<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

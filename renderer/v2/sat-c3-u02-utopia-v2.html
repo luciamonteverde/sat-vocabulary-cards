@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4d780703837f">
+<meta name="build" content="573e0f04f507">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>utopia &#8212; SAT Vocabulary, Course 3 Unit 2</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "utopia", "gradeUrl": "/api/grade", "taskId": "utopia", "minWords": 12, "items": {"s1": {"q": "Which sentence uses utopia correctly?", "opts": {"A": "In their grim final report, the historians of the failed expedition described the flooded, starving colony as a utopia.", "B": "The documentary praised the county landfill as a modern utopia purely on account of its record-breaking size.", "C": "Inside the simulation, the players built a utopia — housing for every avatar, disputes settled by lottery.", "D": "Their idea of a utopia was any downtown restaurant with a ninety-minute wait, rude waiters, and reliably cold food."}, "key": "C", "fb": {"correct": "Correct. A world arranged so completely that no one lacks housing and no dispute lingers — an imagined perfect arrangement is a utopia.", "A": "Calling a 'flooded, starving colony' a utopia flips the word upside down — that colony is a disaster. A utopia is an imagined place of perfect arrangement; look for a world where everything is made to work.", "B": "'Record-breaking size' is the only praise here, and bigness is not perfection. A utopia is an imagined place where the whole arrangement works flawlessly — look for genuine, deliberate perfection, not sheer scale.", "D": "Nothing about a 'ninety-minute wait, rude waiters, and reliably cold food' is perfect — that restaurant fails at every turn. A utopia is an imagined place of perfect arrangement; find where nothing is going wrong."}}, "s3a": {"q": "As used in the passage, a \"utopia\" is:", "opts": {"A": "a community imagined and planned to be perfect in every arrangement", "B": "a frontier settlement laid out mainly to earn its founder a comfortable fortune", "C": "a temporary camp for travelers", "D": "a society that succeeds precisely by refusing to write down any rules at all"}, "key": "A", "fb": {"correct": "Right — streets, crops, schooling, and suppers all specified so that nothing could go wrong: perfection by plan.", "B": "Money never enters the notebooks — Hale sold his shop to build the place. The word is about perfect arrangement, not profit.", "C": "The colony was meant to be permanent — nineteen months was its failure, not its plan. The word names a designed society, not a way station.", "D": "Hale wrote everything down, to the width of the streets. The design is the point of the word, not the absence of rules."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "idyll", "B": "utopia", "C": "haven", "D": "dreamland"}, "key": "B", "fb": {"correct": "Right. A complete society worked out on paper before anyone lives in it — <em>all fixed years in advance of any groundbreaking<\/em>, with <em>Nothing in the plan is left to grow on its own<\/em> — is precisely a utopia: a design that covers everyone and everything.", "A": "An idyll is a stretch of simple happiness a few people stumble into for a season — found, never drafted. This place is the opposite of found: it is planned to the last detail, and <em>Nothing in the plan is left to grow on its own<\/em>.", "D": "Dreamland stays soft, childlike, and vague about how anything would actually work. This plan specifies everything, down to <em>meal plans, exercise hours, even a marriage bureau<\/em> — the opposite of vague.", "C": "A haven is shelter from one particular danger, and no more. Nothing in the passage is about safety at all; the plan maps the whole of daily life, including <em>a school for their children<\/em>."}}}, "grid": {"words": ["utopia", "idyll", "dreamland", "haven"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The pamphlet sketched a full ____: streets, schools, courts, and even mealtimes drawn out so that, on paper, no citizen would ever lack or quarrel.", "ks": ["utopia"], "fb": {"idyll": "That word names a small stretch of blissful simplicity that a few people stumble into for a while. This is a drafted plan for a whole society, meant for every citizen.", "dreamland": "That word is soft and hazy, vague about details. This pamphlet specifies streets, schools, courts, and mealtimes — a planner's document.", "haven": "That word offers safety from one particular storm and nothing more. This plan promises that nothing in any citizen's life would ever go wrong."}}, {"s": "Their six weeks at the fire-lookout became a private ____ — berries, a creek, long silent evenings — stumbled into rather than planned, and over by September.", "ks": ["idyll"], "fb": {"utopia": "That word wants a whole society engineered into perfection, drafted for everyone. This is two people's found happiness, over by September.", "dreamland": "That word floats on a wish, hazy and imagined. These six weeks actually happened, down to the berries and the creek.", "haven": "That word means shelter from some particular storm. Nothing threatens these two — the sentence is about bliss, not safety."}}, {"s": "The kindergartner's mural shows her ____ — a wash of pink towers and floating ponies, nothing labeled and nothing worked out past the glitter.", "ks": ["dreamland"], "fb": {"utopia": "That word comes with a blueprint — institutions worked out, provisions specified. This mural is all glitter and no plan.", "idyll": "That word is a real stretch of simple happiness someone actually lives — a found season, not a painted wish. This place exists only on the wall.", "haven": "That word means a safe place to shelter from something. The mural names no danger — it is a happy haze, not a refuge."}}, {"s": "For the ferry crews the cove is a bare ____: water calm enough to ride out a gale, and nothing else to recommend it.", "ks": ["haven"], "fb": {"utopia": "That word promises a whole life perfectly arranged. The cove offers calm water in a gale and, by the sentence's own admission, nothing else.", "idyll": "That word is a pocket of blissful simplicity. There is no bliss here — 'nothing else to recommend it' — just somewhere to wait out the weather.", "dreamland": "That word is an imagined, hazy happy place. This cove is real water on a real chart, valued for one practical thing."}}, {"s": "Every generation of engineers redraws its ____ — a city in which the grid, the clinics, and the courts mesh so perfectly that no complaint could ever arise.", "ks": ["utopia"], "fb": {"idyll": "That word is a small pocket of bliss a few people find for a while. This is a whole drafted city, meant to satisfy everyone at once.", "dreamland": "That word is vague about details by nature. Engineers drawing grids, clinics, and courts are specifying details — the opposite of haze.", "haven": "That word keeps one danger out and stops there. This city is imagined so that nothing anywhere in it could ever go wrong."}}, {"s": "They still call that first tiny apartment an accidental ____: cheap oranges from the corner stand, one shared radio, and no deadlines all August.", "ks": ["idyll"], "fb": {"utopia": "That word takes a whole society planned into perfection. This is one couple's month of accidental happiness in a tiny apartment.", "dreamland": "That word is an imagined haze. The oranges, the radio, and the August in question were all real.", "haven": "That word means a refuge from some storm. No storm appears — just cheap fruit, a radio, and free time."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should describe a place made perfect on purpose — a design, not just a nice spot. Show the planning with words like <i>planned<\/i>, <i>every<\/i>, <i>perfect<\/i> or <i>society<\/i>."}};
+  var CFG = {"word": "utopia", "gradeUrl": "/api/grade", "taskId": "utopia", "minWords": 12, "items": {"s1": {"q": "Which sentence uses utopia correctly?", "opts": {"A": "In their grim final report, the historians of the failed expedition described the flooded, starving colony as a utopia.", "B": "The documentary praised the county landfill as a modern utopia purely on account of its record-breaking size.", "C": "Inside the simulation, the players built a utopia — housing for every avatar, disputes settled by lottery.", "D": "Their idea of a utopia was any downtown restaurant with a ninety-minute wait, rude waiters, and reliably cold food."}, "key": "C", "fb": {"correct": "Correct. A world arranged so completely that no one lacks housing and no dispute lingers — an imagined perfect arrangement is a utopia.", "A": "Calling a 'flooded, starving colony' a utopia flips the word upside down — that colony is a disaster. A utopia is an imagined place of perfect arrangement; look for a world where everything is made to work.", "B": "'Record-breaking size' is the only praise here, and bigness is not perfection. A utopia is an imagined place where the whole arrangement works flawlessly — look for genuine, deliberate perfection, not sheer scale.", "D": "Nothing about a 'ninety-minute wait, rude waiters, and reliably cold food' is perfect — that restaurant fails at every turn. A utopia is an imagined place of perfect arrangement; find where nothing is going wrong."}}, "s3a": {"q": "As used in the passage, a \"utopia\" is:", "opts": {"A": "a community imagined and planned to be perfect in every arrangement", "B": "a frontier settlement laid out mainly to earn its founder a comfortable fortune", "C": "a temporary camp for travelers", "D": "a society that succeeds precisely by refusing to write down any rules at all"}, "key": "A", "fb": {"correct": "Right — streets, crops, schooling, and suppers all specified so that nothing could go wrong: perfection by plan.", "B": "Money never enters the notebooks — Hale sold his shop to build the place. The word is about perfect arrangement, not profit.", "C": "The colony was meant to be permanent — nineteen months was its failure, not its plan. The word names a designed society, not a way station.", "D": "Hale wrote everything down, to the width of the streets. The design is the point of the word, not the absence of rules."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "idyll", "B": "utopia", "C": "haven", "D": "dreamland"}, "key": "B", "fb": {"correct": "Right. A complete society worked out on paper before anyone lives in it — <em>all fixed years in advance of any groundbreaking<\/em>, with <em>Nothing in the plan is left to grow on its own<\/em> — is precisely a utopia: a design that covers everyone and everything.", "A": "An idyll is a stretch of simple happiness a few people stumble into for a season — found, never drafted. This place is the opposite of found: it is planned to the last detail, and <em>Nothing in the plan is left to grow on its own<\/em>.", "D": "Dreamland stays soft, childlike, and vague about how anything would actually work. This plan specifies everything, down to <em>meal plans, exercise hours, even a marriage bureau<\/em> — the opposite of vague.", "C": "A haven is shelter from one particular danger, and no more. Nothing in the passage is about safety at all; the plan maps the whole of daily life, including <em>a school for their children<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Every generation of engineers redraws its ____ — a city in which the grid, the clinics, and the courts mesh so perfectly that no complaint could ever arise.", "options": ["utopia", "idyll"], "key": "utopia", "pair": "idyll", "why_right": "The tell is <em>redraws<\/em> - the city is designed on purpose, drafted and drafted again for everyone at once, not a small blissful pocket a few people stumble into for a season.", "why_wrong": "That word is a small pocket of bliss a few people find for a while. This is a whole drafted city, meant to satisfy everyone at once."}, {"sentence": "They still call that first tiny apartment an accidental ____: cheap oranges from the corner stand, one shared radio, and no deadlines all August.", "options": ["utopia", "idyll"], "key": "idyll", "pair": "idyll", "why_right": "The tell is <em>accidental<\/em> - the happiness was found, not designed: one household, one August, no plan anywhere -- an idyll happens to a few people for a while.", "why_wrong": "That word takes a whole society planned into perfection. This is one couple's month of accidental happiness in a tiny apartment."}, {"sentence": "A strike stranded the orchestra nine days in a lakeside town; the players still speak of that unplanned ____ -- morning swims, borrowed bicycles, porch card games.", "options": ["utopia", "idyll"], "key": "idyll", "pair": "idyll", "why_right": "The tell is <em>stranded<\/em> - the bliss was found, not designed: a strike produced it, it touched one orchestra, and it ended in nine days -- an idyll's small found pocket, never a plan.", "why_wrong": "That word is a whole society engineered into perfection on purpose, drafted for everyone, forever. A stranded orchestra's nine days of swims and card games was found, not designed."}, {"sentence": "The pamphlet sketched a full ____: streets, schools, courts, and even mealtimes drawn out so that, on paper, no citizen would ever lack or quarrel.", "options": ["utopia", "dreamland"], "key": "utopia", "pair": "dreamland", "why_right": "The tell is <em>even mealtimes drawn out<\/em> - the plan specifies institutions and provisions to the smallest detail, a blueprint where dreamland stays vague and floats on a wish.", "why_wrong": "That word is soft and hazy, vague about details. This pamphlet specifies streets, schools, courts, and mealtimes — a planner's document."}, {"sentence": "The kindergartner's mural shows her ____ — a wash of pink towers and floating ponies, nothing labeled and nothing worked out past the glitter.", "options": ["utopia", "dreamland"], "key": "dreamland", "pair": "dreamland", "why_right": "The tell is <em>nothing worked out past the glitter<\/em> - a hazy, childlike happy vision with no plan behind it; the blueprint word would need institutions, and the mural specifies none.", "why_wrong": "That word comes with a blueprint — institutions worked out, provisions specified. This mural is all glitter and no plan."}, {"sentence": "The strategy game's fan wiki maps the island ____ players keep rebuilding: desalination quotas, a rotating jury, nap schedules, every settler's need anticipated.", "options": ["utopia", "dreamland"], "key": "utopia", "pair": "dreamland", "why_right": "The tell is <em>every settler's need anticipated<\/em> - the island is specified down to nap schedules, a planner's blueprint, where dreamland stays soft, hazy, and vague about the details.", "why_wrong": "That word is soft and hazy, floating on a wish with the details left vague. Desalination quotas, a jury rota, and nap schedules are a blueprint -- the planner's word is wanted here."}, {"sentence": "For the ferry crews the cove is a bare ____: water calm enough to ride out a gale, and nothing else to recommend it.", "options": ["utopia", "haven"], "key": "haven", "pair": "haven", "why_right": "The tell is <em>nothing else to recommend it<\/em> - the cove is valued for safety alone, shelter from one particular storm, nowhere near a whole life perfectly arranged.", "why_wrong": "That word promises a whole life perfectly arranged. The cove offers calm water in a gale and, by the sentence's own admission, nothing else."}, {"sentence": "Fleeing famine, the families wanted more than safe harbor: recruiters described a ____ where land, law, and the festival calendar were settled so nothing would need fixing.", "options": ["utopia", "haven"], "key": "utopia", "pair": "haven", "why_right": "The tell is <em>more than safe harbor<\/em> - safety is granted and then exceeded: land, law, and calendar settled for a whole colony, where a haven is merely safe and stops there.", "why_wrong": "That word means shelter from one particular storm and nothing more. The sentence grants the safety up front and asks for more -- a whole life arranged so nothing would need fixing."}], "display_order": [2, 4, 6, 5, 1, 7, 0, 3], "dimension_order": ["idyll", "dreamland", "haven"], "dimension_feedback": {"idyll": "An idyll is a small pocket of blissful simplicity — a honeymoon month, a cabin summer — found rather than designed. A utopia is a whole society engineered into perfection on purpose, every need anticipated in the plan. An idyll happens to a few people for a while; a utopia is drafted for everyone, forever.", "dreamland": "Dreamland is an imagined happy place with a childlike ring — soft, hazy, and vague about the details. A utopia is imagined too, but it satisfies the planner: institutions worked out, provisions specified, nothing left to wishing. Dreamland floats on a wish; a utopia comes with a blueprint.", "haven": "A haven is merely safe — shelter from one particular storm — far short of a utopia."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should describe a place made perfect on purpose — a design, not just a nice spot. Show the planning with words like <i>planned<\/i>, <i>every<\/i>, <i>perfect<\/i> or <i>society<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

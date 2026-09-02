@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9836fc3e62de">
+<meta name="build" content="1f025b5741c5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>adaptable &#8212; SAT Vocabulary, Course 1 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "adaptable", "gradeUrl": "/api/grade", "taskId": "adaptable", "minWords": 12, "items": {"s1": {"q": "An hour before the school play opens, the lead actor completely loses his voice. The director gathers the cast to decide what to do. Which reaction best shows that Priya is adaptable?", "opts": {"A": "She insists the performance be postponed for at least a week, until the lead's voice has fully recovered.", "B": "She keeps rehearsing her own part exactly as she always has, as if there were no emergency at all.", "C": "She argues to the whole cast that the show cannot possibly go on without its original lead actor.", "D": "She volunteers to learn the lead's key lines and helps rework two scenes so the show can start on time."}, "key": "D", "fb": {"correct": "Right. Priya adjusts to the sudden change — taking on new lines and helping rework scenes so the show can still open — and adjusting successfully to changing demands is exactly what adaptable means.", "A": "Postponing the play 'for at least a week' waits for the world to change back instead of adjusting to it. An adaptable person meets the emergency as it stands. Which reaction reshapes the plan to fit the new situation?", "B": "Rehearsing 'exactly as she always has' pretends nothing changed an hour before opening. Refusing to budge is the opposite of adjusting to new conditions. Look for the choice where Priya changes what she does because the situation did.", "C": "Arguing the show 'cannot possibly go on' treats the new conditions as unbeatable. An adaptable castmate treats a sudden problem as something to work around, not a dead end. Find the reaction that bends with the emergency."}}, "s3a": {"q": "In this passage, adaptable most nearly means", "opts": {"A": "able to adjust its own habits to new conditions", "B": "useful in many different roles", "C": "easily tamed by contact with humans", "D": "physically reshaped by its surroundings"}, "key": "A", "fb": {"correct": "Right — the coyotes kept 'remaking their own habits to fit whatever block they landed in': the adjusting came from the animals themselves.", "B": "The passage shows one species changing its own behavior to fit each place — not an animal filling many roles.", "C": "'No one trained them' — people shaped nothing here.", "D": "'Nothing about their bodies changed' — the shift happened in behavior."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "versatile", "B": "malleable", "C": "adjustable", "D": "adaptable"}, "key": "C", "fb": {"correct": "Right. Every movement here is a setting a person changes by hand — <em>a nurse turning the cranks<\/em> raises, bends, and tilts it — and that is precisely this word's ground: built to be reset by whoever turns the crank, not changing on its own.", "D": "That word describes a thing that responds to new conditions on its own, retuning itself without being reset. This bed never does: <em>left alone it alters nothing about itself from hour to hour<\/em>.", "A": "That word counts roles — one machine useful in many different jobs. The passage closes that door: <em>the bed serves one purpose only<\/em>.", "B": "That word is for material an outside force reshapes, the way a hammer forms warm metal. Here <em>The steel of the frame yields to nothing<\/em>; its joints move, but the metal never takes a new form."}}}, "grid": {"words": ["adaptable", "versatile", "malleable", "adjustable"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The irrigation controller does exactly one job, yet engineers call it ____: it senses each morning's soil moisture and retunes its own watering plan, no hand required.", "ks": ["adaptable"], "fb": {"versatile": "That word multiplies uses — a player covering several positions, a tool doing many jobs. This machine 'does exactly one job'; what varies is how it does it.", "malleable": "That word means shaped by an outside force, the way warm metal takes the hammer's form. This controller does the reshaping itself, 'no hand required.'", "adjustable": "That word means built with settings a person changes — someone at the dial. The whole point here is that no hand is required."}}, {"s": "Recruiters flagged her as ____: holding one single role in a failing branch, she redesigned her own workflow to fit each week's new conditions before anyone asked.", "ks": ["adaptable"], "fb": {"versatile": "That word praises range — covering many roles. She holds 'one single role'; what earns the flag is how she keeps refitting herself inside it.", "malleable": "That word means reshaped by outside hands, like warm metal under a hammer. She redesigns her own workflow, unprompted.", "adjustable": "That word describes built-in settings waiting for someone's hand. Nothing waits here — she changes 'before anyone asked.'"}}, {"s": "Reviewers crowned the stand mixer the kitchen's most ____ machine: one motor that kneads bread dough, grinds meat, and churns ice cream.", "ks": ["versatile"], "fb": {"adaptable": "That word describes something adjusting itself to new conditions. The mixer isn't adjusting to anything — the praise is for how many different jobs it does.", "malleable": "That word means easily reshaped by an outside force — warm metal, soft clay. Nothing is bending this machine; it is simply many tools in one.", "adjustable": "That word points at settings someone changes by hand. The sentence never mentions a dial — it counts jobs: kneading, grinding, churning."}}, {"s": "Directors call the character actor endlessly ____ — a gangster in spring, a saint by fall, a wry comic in the holiday show between.", "ks": ["versatile"], "fb": {"adaptable": "That word is about adjusting to changed conditions. The sentence changes nothing around him — it simply counts the roles he can play.", "malleable": "That word means passively taking whatever shape an outside force gives. The list of roles praises his range, not anyone's molding of him.", "adjustable": "That word wants settings and dials — things a hand resets. People don't come with settings; the sentence is counting roles."}}, {"s": "Fresh from the annealing oven, the copper is briefly ____, taking whatever curve the jeweler's hammer presses into it.", "ks": ["malleable"], "fb": {"adaptable": "That word means something changes itself to fit new conditions. This copper changes nothing on its own — the hammer decides everything.", "versatile": "That word counts the many jobs a thing can do. The sentence is about the metal passively receiving a shape, not performing roles.", "adjustable": "That word means built with settings a person can reset — a dial, a lever. A hammer forcing a curve into soft metal is another thing entirely."}}, {"s": "Every leg of the tripod is independently ____, sliding to a new length whenever the photographer flips the small locking levers.", "ks": ["adjustable"], "fb": {"adaptable": "That word means responding to new conditions on its own. These legs move only when a hand flips the levers.", "versatile": "That word multiplies roles — many different jobs. A leg that slides longer or shorter is one function with settings.", "malleable": "That word is for material reshaped by outside force — hammered, molded. The tripod is engineered with levers; nothing is being bent."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a person or thing changing its own approach when conditions change — the adjusting must come from within, not from someone's hand. Try working in words like <i>new conditions<\/i>, <i>shifted<\/i>, <i>on its own<\/i> or <i>retooled<\/i>."}};
+  var CFG = {"word": "adaptable", "gradeUrl": "/api/grade", "taskId": "adaptable", "minWords": 12, "items": {"s1": {"q": "An hour before the school play opens, the lead actor completely loses his voice. The director gathers the cast to decide what to do. Which reaction best shows that Priya is adaptable?", "opts": {"A": "She insists the performance be postponed for at least a week, until the lead's voice has fully recovered.", "B": "She keeps rehearsing her own part exactly as she always has, as if there were no emergency at all.", "C": "She argues to the whole cast that the show cannot possibly go on without its original lead actor.", "D": "She volunteers to learn the lead's key lines and helps rework two scenes so the show can start on time."}, "key": "D", "fb": {"correct": "Right. Priya adjusts to the sudden change — taking on new lines and helping rework scenes so the show can still open — and adjusting successfully to changing demands is exactly what adaptable means.", "A": "Postponing the play 'for at least a week' waits for the world to change back instead of adjusting to it. An adaptable person meets the emergency as it stands. Which reaction reshapes the plan to fit the new situation?", "B": "Rehearsing 'exactly as she always has' pretends nothing changed an hour before opening. Refusing to budge is the opposite of adjusting to new conditions. Look for the choice where Priya changes what she does because the situation did.", "C": "Arguing the show 'cannot possibly go on' treats the new conditions as unbeatable. An adaptable castmate treats a sudden problem as something to work around, not a dead end. Find the reaction that bends with the emergency."}}, "s3a": {"q": "In this passage, adaptable most nearly means", "opts": {"A": "able to adjust its own habits to new conditions", "B": "useful in many different roles", "C": "easily tamed by contact with humans", "D": "physically reshaped by its surroundings"}, "key": "A", "fb": {"correct": "Right — the coyotes kept 'remaking their own habits to fit whatever block they landed in': the adjusting came from the animals themselves.", "B": "The passage shows one species changing its own behavior to fit each place — not an animal filling many roles.", "C": "'No one trained them' — people shaped nothing here.", "D": "'Nothing about their bodies changed' — the shift happened in behavior."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "versatile", "B": "malleable", "C": "adjustable", "D": "adaptable"}, "key": "C", "fb": {"correct": "Right. Every movement here is a setting a person changes by hand — <em>a nurse turning the cranks<\/em> raises, bends, and tilts it — and that is precisely this word's ground: built to be reset by whoever turns the crank, not changing on its own.", "D": "That word describes a thing that responds to new conditions on its own, retuning itself without being reset. This bed never does: <em>left alone it alters nothing about itself from hour to hour<\/em>.", "A": "That word counts roles — one machine useful in many different jobs. The passage closes that door: <em>the bed serves one purpose only<\/em>.", "B": "That word is for material an outside force reshapes, the way a hammer forms warm metal. Here <em>The steel of the frame yields to nothing<\/em>; its joints move, but the metal never takes a new form."}}}, "pairwise": {"rows": [{"sentence": "The irrigation controller does exactly one job, yet engineers call it ____: it senses each morning's soil moisture and retunes its own watering plan, no hand required.", "options": ["adaptable", "versatile"], "key": "adaptable", "pair": "versatile", "why_right": "The tell is <em>does exactly one job<\/em> - versatile counts roles, and there is only one here; what earns the label is the controller retuning itself to each morning's conditions.", "why_wrong": "That word multiplies uses — a player covering several positions, a tool doing many jobs. This machine 'does exactly one job'; what varies is how it does it."}, {"sentence": "Recruiters flagged her as ____: holding one single role in a failing branch, she redesigned her own workflow to fit each week's new conditions before anyone asked.", "options": ["adaptable", "malleable"], "key": "adaptable", "pair": "malleable", "why_right": "The tell is <em>redesigned her own workflow<\/em> - she does the adjusting herself; malleable things are changed by outside hands, and no one here reshapes her.", "why_wrong": "That word means reshaped by outside hands, like warm metal under a hammer. She redesigns her own workflow, unprompted."}, {"sentence": "Reviewers crowned the stand mixer the kitchen's most ____ machine: one motor that kneads bread dough, grinds meat, and churns ice cream.", "options": ["adaptable", "versatile"], "key": "versatile", "pair": "versatile", "why_right": "The tell is <em>kneads bread dough, grinds meat, and churns ice cream<\/em> - a count of different roles for one machine, which is versatile's territory; nothing shows it adjusting to new conditions.", "why_wrong": "That word describes something adjusting itself to new conditions. The mixer isn't adjusting to anything — the praise is for how many different jobs it does."}, {"sentence": "Fresh from the annealing oven, the copper is briefly ____, taking whatever curve the jeweler's hammer presses into it.", "options": ["adaptable", "malleable"], "key": "malleable", "pair": "malleable", "why_right": "The tell is <em>the jeweler's hammer presses<\/em> - an outside force gives the copper its shape; malleable things are changed by others, while adaptable things change themselves.", "why_wrong": "That word means something changes itself to fit new conditions. This copper changes nothing on its own — the hammer decides everything."}, {"sentence": "Every leg of the tripod is independently ____, sliding to a new length whenever the photographer flips the small locking levers.", "options": ["adaptable", "adjustable"], "key": "adjustable", "pair": "adjustable", "why_right": "The tell is <em>flips the small locking levers<\/em> - the change comes from whoever turns the dial, a hand at built-in settings; nothing responds to conditions on its own.", "why_wrong": "That word means responding to new conditions on its own. These legs move only when a hand flips the levers."}, {"sentence": "The lighthouse keeper's job never varied - keep the lamp burning - yet colleagues called him ____, rewriting his own routines around each season's fog, storms, and shipping traffic.", "options": ["adaptable", "versatile"], "key": "adaptable", "pair": "versatile", "why_right": "The tell is <em>never varied<\/em> - he holds a single role, so the many-roles word cannot apply; the praise is for rewriting his own routines as conditions change.", "why_wrong": "That word means useful or skilled in many different roles. His job never varied - one lamp, one duty - so there are no roles to count, only conditions he keeps adjusting to."}, {"sentence": "The new hearing aid earns its billing as ____: it reshapes its own sound profile the moment its wearer steps from a quiet office into a roaring station, no button pressed.", "options": ["adaptable", "adjustable"], "key": "adaptable", "pair": "adjustable", "why_right": "The tell is <em>no button pressed<\/em> - an adjustable device waits for a hand at its settings, but this one responds to new conditions on its own.", "why_wrong": "That word means built with settings someone changes by hand - a dial, a lever. This aid reshapes its own sound profile with no button pressed; nobody resets anything."}, {"sentence": "The fondant stays ____ for only ten minutes, holding whatever petals and pleats the decorator's fingers mold into it before it sets.", "options": ["adaptable", "malleable"], "key": "malleable", "pair": "malleable", "why_right": "The tell is <em>the decorator's fingers<\/em> - an outside force gives the fondant its shape; malleable things are changed by others, and this sugar paste changes nothing itself.", "why_wrong": "That word means changing yourself to fit new conditions. The fondant does none of the changing - every petal and pleat comes from the decorator's fingers molding it into shape."}], "display_order": [1, 0, 4, 5, 7, 2, 6, 3], "dimension_order": ["versatile", "malleable", "adjustable"], "dimension_feedback": {"versatile": "Versatile means useful or skilled in many different roles — a versatile player covers several positions. Adaptable is about adjusting rather than multiplying uses: an adaptable tool may do one job while retuning itself to conditions. Versatile counts the roles; adaptable describes the adjusting.", "malleable": "Malleable means easily shaped or reshaped by an outside force, the way warm metal takes whatever form the hammer gives it. An adaptable person or design does the adjusting itself, actively reshaping how it works to fit new conditions. Malleable things are changed by others; adaptable things change themselves.", "adjustable": "Adjustable means built with settings someone can change by hand — an adjustable wrench, an adjustable desk. The change comes from whoever turns the dial. Adaptable goes further: an adaptable system or person responds to new conditions on its own, without waiting to be reset."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a person or thing changing its own approach when conditions change — the adjusting must come from within, not from someone's hand. Try working in words like <i>new conditions<\/i>, <i>shifted<\/i>, <i>on its own<\/i> or <i>retooled<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

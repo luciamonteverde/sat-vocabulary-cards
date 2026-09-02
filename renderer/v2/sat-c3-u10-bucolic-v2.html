@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f93c52a1cc92">
+<meta name="build" content="54265be7acf9">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>bucolic &#8212; SAT Vocabulary, Course 3 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "bucolic", "gradeUrl": "/api/grade", "taskId": "bucolic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses bucolic correctly?", "opts": {"A": "The refinery district felt wonderfully bucolic, with its pipe racks, flare stacks, and the round-the-clock hum of a thousand compressors.", "B": "Downtown at rush hour was pure bucolic bliss: gridlocked taxis, jackhammers, and a subway grate exhaling steam onto the crowd.", "C": "After years downtown, the couple traded their loft for a bucolic little farm where the loudest sound is the well pump.", "D": "The trading floor's bucolic atmosphere of shouting brokers and flashing tickers soothed her like a meadow in June."}, "key": "C", "fb": {"correct": "Right — a small farm so peaceful that the well pump is the loudest thing in earshot is the countryside at its most pleasant: a genuinely bucolic home.", "A": "Pipe racks, flare stacks, and 'the round-the-clock hum' of compressors describe heavy industry. Bucolic means the peaceful charm of the countryside — quiet pastures and hedgerows, not refinery hardware.", "B": "'Gridlocked taxis, jackhammers,' and a steaming subway grate are the city at its noisiest. Bucolic belongs to the countryside — green fields, slow mornings, calm — which downtown at rush hour cannot be.", "D": "'Shouting brokers and flashing tickers' make a trading floor the opposite of pastoral calm. Bucolic describes peaceful rural life; the sentence even has to borrow 'a meadow in June' to fake the feeling."}}, "s3a": {"q": "In this passage, calling the days \"bucolic\" means they were", "opts": {"A": "pleasantly peaceful in a real-countryside way", "B": "so flawless that nothing at all went wrong", "C": "like scenes lifted from a painting rather than a real place", "D": "so empty and dull that the family regretted skipping the theme parks"}, "key": "A", "fb": {"correct": "Right — real countryside, really pleasant: the milking barn, the blackberry lane, the pond at six. Peace, not perfection.", "B": "The passage denies perfection outright — the rooster and the rained-out afternoon — while the peace still holds.", "C": "Nothing is framed as art: it's a working dairy with mud, rain, and a rooster, praised as a place.", "D": "The days won them over — the skeptical daughter's verdict and the silent radio say the opposite of dull."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rural", "B": "idyllic", "C": "pastoral", "D": "bucolic"}, "key": "D", "fb": {"correct": "Right. This is real, pleasant, working countryside — <em>cattle wading at the crossings<\/em>, charm you watch from a moving train, <em>honestly imperfect<\/em> and framed by no artist. Bucolic names exactly that: the peaceful countryside itself, no painting required.", "C": "Pastoral is the countryside as art frames it — shepherds and green hills arranged in a painting, poem, or symphony. This landscape is <em>never staged in a painting or a poem<\/em>; riders watch actual cattle from an actual train.", "B": "Idyllic means blissfully perfect, and this ride openly is not: <em>some mud, some nettles, and one rusting tractor shed<\/em> come with the orchards. The scene is <em>honestly imperfect<\/em> — lovely without being flawless.", "A": "Rural is the plain map-word: it places the line in the countryside and stops there. But the sentence is claiming charm — passengers ride <em>for the view alone<\/em> — and rural promises nothing about whether countryside is pleasant. The stem asks for the most precise word, not merely a true one."}}}, "grid": {"words": ["bucolic", "pastoral", "idyllic", "rural"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The hamlet will never make a guidebook — one shop, no phone signal, a bridge that floods — yet it is thoroughly ____: willow-lined towpaths, hay wagons, geese patrolling the green.", "ks": ["bucolic"], "fb": {"idyllic": "That word means blissfully perfect, and the sentence blocks it at the door: no guidebook, no signal, <em>a bridge that floods<\/em>. The charm survives the flaws — perfection doesn't.", "pastoral": "That word belongs to countryside as art frames it — paintings, poems, symphonies. This is the actual hamlet, geese and all.", "rural": "That word only locates a place on the map and promises nothing about its character. The sentence's whole point is the charm: towpaths, hay wagons, the green."}}, {"s": "The orchard house needs a new roof every decade and the March mud is real, yet the place stays stubbornly ____ — beehives, goat bells, evenings that smell of cut hay.", "ks": ["bucolic"], "fb": {"idyllic": "That word claims bliss without a flaw, and the flaws are listed: a failing roof, <em>the March mud<\/em>. What remains is countryside pleasure, not perfection.", "pastoral": "That word describes the countryside as depicted in art. Nothing here is painted or composed — the goat bells are audible from the porch.", "rural": "That word says only where the house sits. The sentence is about how the place feels — hay-scented evenings — which the map-word never promises."}}, {"s": "Critics heard the symphony's slow movement as ____ — an oboe imitating shepherds' pipes over a drone of distant flocks — the countryside not visited but imagined in sound.", "ks": ["pastoral"], "fb": {"bucolic": "That word praises an actual place — a real lane, real calm. This countryside exists only inside the music: <em>not visited but imagined<\/em>.", "idyllic": "That word claims blissful perfection, and the sentence never grades the mood — it names a tradition: pipes and flocks rendered in sound.", "rural": "That word plots real places on a map. A slow movement has no location; it depicts the countryside rather than sitting in it."}}, {"s": "She remembers that winter in the city as ____ — snow that stayed white, a warm library job, friends two doors down, not one thing going wrong — twenty floors of concrete above the nearest patch of grass.", "ks": ["idyllic"], "fb": {"bucolic": "That word needs real countryside — lanes, meadows, calm. This bliss happens <em>twenty floors of concrete<\/em> up, in the middle of a city.", "pastoral": "That word frames countryside in art — shepherds, flocks, green hills. A city winter with a library job has neither the art nor the countryside.", "rural": "That word locates a place out among the fields, and the sentence is set squarely in a high-rise city."}}, {"s": "Interns still call that newsroom summer ____: real assignments, an editor who taught, storms that ended by five — perfect in a way no season since has managed to match.", "ks": ["idyllic"], "fb": {"bucolic": "That word requires pleasant countryside, and this bliss lives in a newsroom — desks, assignments, an editor.", "pastoral": "That word is for countryside as art presents it. Nothing is depicted here; a real summer job is being remembered as flawless.", "rural": "That word maps countryside places. A newsroom summer has no fields in it — what the sentence claims is perfection."}}, {"s": "The grant targets ____ counties — defined bluntly as those with fewer than ten residents per square mile — whether their landscapes happen to be charming or bleak.", "ks": ["rural"], "fb": {"bucolic": "That word carries a promise of charm — and this sentence deliberately withholds it: the counties may be <em>charming or bleak<\/em>. Only the geography matters to the grant.", "idyllic": "That word claims blissful perfection. A population-density cutoff makes no claim about bliss at all.", "pastoral": "That word describes countryside in art. A grant criterion counting residents per square mile is a map fact, not a painting."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Put your sentence in real countryside and let the reader feel the calm — name something that can be heard or smelled there. Try working in a word like <i>lane<\/i>, <i>meadow<\/i>, <i>hay<\/i> or <i>quiet<\/i>."}};
+  var CFG = {"word": "bucolic", "gradeUrl": "/api/grade", "taskId": "bucolic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses bucolic correctly?", "opts": {"A": "The refinery district felt wonderfully bucolic, with its pipe racks, flare stacks, and the round-the-clock hum of a thousand compressors.", "B": "Downtown at rush hour was pure bucolic bliss: gridlocked taxis, jackhammers, and a subway grate exhaling steam onto the crowd.", "C": "After years downtown, the couple traded their loft for a bucolic little farm where the loudest sound is the well pump.", "D": "The trading floor's bucolic atmosphere of shouting brokers and flashing tickers soothed her like a meadow in June."}, "key": "C", "fb": {"correct": "Right — a small farm so peaceful that the well pump is the loudest thing in earshot is the countryside at its most pleasant: a genuinely bucolic home.", "A": "Pipe racks, flare stacks, and 'the round-the-clock hum' of compressors describe heavy industry. Bucolic means the peaceful charm of the countryside — quiet pastures and hedgerows, not refinery hardware.", "B": "'Gridlocked taxis, jackhammers,' and a steaming subway grate are the city at its noisiest. Bucolic belongs to the countryside — green fields, slow mornings, calm — which downtown at rush hour cannot be.", "D": "'Shouting brokers and flashing tickers' make a trading floor the opposite of pastoral calm. Bucolic describes peaceful rural life; the sentence even has to borrow 'a meadow in June' to fake the feeling."}}, "s3a": {"q": "In this passage, calling the days \"bucolic\" means they were", "opts": {"A": "pleasantly peaceful in a real-countryside way", "B": "so flawless that nothing at all went wrong", "C": "like scenes lifted from a painting rather than a real place", "D": "so empty and dull that the family regretted skipping the theme parks"}, "key": "A", "fb": {"correct": "Right — real countryside, really pleasant: the milking barn, the blackberry lane, the pond at six. Peace, not perfection.", "B": "The passage denies perfection outright — the rooster and the rained-out afternoon — while the peace still holds.", "C": "Nothing is framed as art: it's a working dairy with mud, rain, and a rooster, praised as a place.", "D": "The days won them over — the skeptical daughter's verdict and the silent radio say the opposite of dull."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rural", "B": "idyllic", "C": "pastoral", "D": "bucolic"}, "key": "D", "fb": {"correct": "Right. This is real, pleasant, working countryside — <em>cattle wading at the crossings<\/em>, charm you watch from a moving train, <em>honestly imperfect<\/em> and framed by no artist. Bucolic names exactly that: the peaceful countryside itself, no painting required.", "C": "Pastoral is the countryside as art frames it — shepherds and green hills arranged in a painting, poem, or symphony. This landscape is <em>never staged in a painting or a poem<\/em>; riders watch actual cattle from an actual train.", "B": "Idyllic means blissfully perfect, and this ride openly is not: <em>some mud, some nettles, and one rusting tractor shed<\/em> come with the orchards. The scene is <em>honestly imperfect<\/em> — lovely without being flawless.", "A": "Rural is the plain map-word: it places the line in the countryside and stops there. But the sentence is claiming charm — passengers ride <em>for the view alone<\/em> — and rural promises nothing about whether countryside is pleasant. The stem asks for the most precise word, not merely a true one."}}}, "pairwise": {"rows": [{"sentence": "The hamlet will never make a guidebook — one shop, no phone signal, a bridge that floods — yet it is thoroughly ____: willow-lined towpaths, hay wagons, geese patrolling the green.", "options": ["bucolic", "pastoral"], "key": "bucolic", "pair": "pastoral", "why_right": "The tell is <em>willow-lined towpaths<\/em> - this is a real hamlet you can walk, the place and its calm, not the countryside as a painting or poem frames it.", "why_wrong": "That word belongs to countryside as art frames it — paintings, poems, symphonies. This is the actual hamlet, geese and all."}, {"sentence": "Critics heard the symphony's slow movement as ____ — an oboe imitating shepherds' pipes over a drone of distant flocks — the countryside not visited but imagined in sound.", "options": ["bucolic", "pastoral"], "key": "pastoral", "pair": "pastoral", "why_right": "The tell is <em>not visited but imagined<\/em> - the countryside here is arranged inside a symphony, the countryside as art frames it, rather than a real place you could walk.", "why_wrong": "That word praises an actual place — a real lane, real calm. This countryside exists only inside the music: <em>not visited but imagined<\/em>."}, {"sentence": "Visitors kept asking which painter had staged the dairy lane, but nothing was staged — the ____ calm of grazing cows and a slow millstream was just the working farm going about its day.", "options": ["bucolic", "pastoral"], "key": "bucolic", "pair": "pastoral", "why_right": "The tell is <em>nothing was staged<\/em> - no painter frames this; it is a real farm lane going about its day, the pleasant place itself, which needs no frame and so is not a depiction.", "why_wrong": "That word belongs to the countryside as art frames it — a painting, poem, or symphony. Nothing here is staged; the calm is a real lane going about its day, not a depiction."}, {"sentence": "The orchard house needs a new roof every decade and the March mud is real, yet the place stays stubbornly ____ — beehives, goat bells, evenings that smell of cut hay.", "options": ["bucolic", "idyllic"], "key": "bucolic", "pair": "idyllic", "why_right": "The tell is <em>the March mud is real<\/em> - a failing roof and real mud rule out blissful perfection, yet the pleasant countryside life survives, which is bucolic and not a flawless idyll.", "why_wrong": "That word claims bliss without a flaw, and the flaws are listed: a failing roof, <em>the March mud<\/em>. What remains is countryside pleasure, not perfection."}, {"sentence": "She remembers that winter in the city as ____ — snow that stayed white, a warm library job, friends two doors down, not one thing going wrong — twenty floors of concrete above the nearest patch of grass.", "options": ["bucolic", "idyllic"], "key": "idyllic", "pair": "idyllic", "why_right": "The tell is <em>twenty floors of concrete<\/em> - the bliss is real but there is no countryside at all, and idyllic can attach to anything at all, unlike the country-only word.", "why_wrong": "That word needs real countryside — lanes, meadows, calm. This bliss happens <em>twenty floors of concrete<\/em> up, in the middle of a city."}, {"sentence": "The whole conference weekend was ____ — every talk landed, the food was flawless, old friends everywhere — though the hotel sat between a freeway ramp and a parking structure downtown.", "options": ["bucolic", "idyllic"], "key": "idyllic", "pair": "idyllic", "why_right": "The tell is <em>between a freeway ramp and a parking structure<\/em> - flawless bliss with no countryside anywhere, and idyllic can attach to anything at all, unlike the country-only word.", "why_wrong": "That word needs real countryside — lanes, meadows, farms. This flawless weekend happens downtown, hemmed by a freeway ramp and a parking structure, with no country in sight."}, {"sentence": "The reunion always lands on Uncle Theo's ____ smallholding — apple rows, a duck pond, woodsmoke at dusk — even though the well runs dry and the nearest doctor is forty miles off.", "options": ["bucolic", "idyllic"], "key": "bucolic", "pair": "idyllic", "why_right": "The tell is <em>the well runs dry<\/em> - a dry well and a distant doctor rule out blissful perfection, but the pleasant, peaceful life of the countryside survives, which is bucolic.", "why_wrong": "That word means blissfully perfect, and this place is not — the well runs dry and the doctor is forty miles off. What survives the flaws is real countryside pleasure."}, {"sentence": "The grant targets ____ counties — defined bluntly as those with fewer than ten residents per square mile — whether their landscapes happen to be charming or bleak.", "options": ["bucolic", "rural"], "key": "rural", "pair": "rural", "why_right": "The tell is <em>charming or bleak<\/em> - the map-word only counts countryside and says nothing about whether it is pleasant, so bleak land still qualifies, unlike the pleasant-only word.", "why_wrong": "That word carries a promise of charm — and this sentence deliberately withholds it: the counties may be <em>charming or bleak<\/em>. Only the geography matters to the grant."}], "display_order": [4, 2, 6, 1, 3, 0, 5, 7], "dimension_order": ["pastoral", "idyllic", "rural"], "dimension_feedback": {"pastoral": "Pastoral is the countryside as art frames it — shepherds, flocks, and green hills arranged in a painting, poem, or symphony. Bucolic praises the pleasant, peaceful countryside itself, no frame required: a real lane with real sheep bells. Pastoral describes the depiction; bucolic describes the place and its calm.", "idyllic": "Idyllic means blissfully perfect, and it can attach to anything at all — a beach week, a childhood, a summer job. Bucolic is bliss of one particular kind: the pleasant, peaceful life of the countryside. A bucolic valley is usually idyllic, but an idyllic penthouse is nowhere near bucolic.", "rural": "Rural is the plain map-word — it stops well short of bucolic, promising countryside but saying nothing about whether the countryside is pleasant."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Put your sentence in real countryside and let the reader feel the calm — name something that can be heard or smelled there. Try working in a word like <i>lane<\/i>, <i>meadow<\/i>, <i>hay<\/i> or <i>quiet<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

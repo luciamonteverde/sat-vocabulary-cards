@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="283d354aab47">
+<meta name="build" content="8d9d4175f76a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>expiate &#8212; SAT Vocabulary, Course 3 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "expiate", "gradeUrl": "/api/grade", "taskId": "expiate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses expiate correctly?", "opts": {"A": "The head chef expiated the curdled sauce with lemon juice until the sweetness finally balanced.", "B": "She expiated the final chapter of her thesis on the train, checking every footnote twice.", "C": "The mayor expiated the new marble fountain with a short speech and a very long ribbon.", "D": "No apology would serve, so the driver expiated his recklessness by funding the crossing guard."}, "key": "D", "fb": {"correct": "Correct. Expiate means to make amends for a wrong through real acts — the driver pays his moral debt by funding the crossing guard, since words alone cannot.", "A": "Rescuing 'the curdled sauce with lemon juice' is kitchen skill, not penance. Expiation is moral repayment: a person atones for something wrong they did. A sauce may need saving, but it carries no guilt.", "B": "Checking 'every footnote twice' on the train is careful polishing of finished work. To expiate, you must first have done wrong and then work the debt off through amends — diligent scholarship has nothing to atone for.", "C": "Opening a fountain 'with a short speech and a very long ribbon' is a dedication ceremony. Expiating always answers a misdeed — paying down guilt through action. A celebration has no wrong behind it to make up for."}}, "s3a": {"q": "In this passage, what does it mean that Brant was working to \"expiate\" a wrong?", "opts": {"A": "He was settling the moral debt of his overloading with payment after payment.", "B": "He was donating to charity to be admired.", "C": "He was obeying a court order to fund the stations.", "D": "He was buying back his public reputation."}, "key": "A", "fb": {"correct": "Right -- eleven stations, one per year of overloading, logged in a 'debt-book': the wrong itself being paid down, entry by entry.", "B": "Those who knew him said the opposite -- 'he was not giving charity'; the stations answered a debt, not a taste for admiration.", "C": "The inquiry fined him 'barely a week's profit' and the law 'was finished with Brant' -- no court required anything more.", "D": "The account was one 'only he still kept' -- a private settling of the wrong, not a campaign for public favor."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "atone", "B": "apologize", "C": "redeem", "D": "expiate"}, "key": "D", "fb": {"correct": "Right. His acts fix on the wrong itself and pay it down deed by deed — <em>negotiated its surrender at ruinous cost to his estate<\/em>, <em>carried it up the terraces himself<\/em> — with the debt <em>owed to the temple, not to his name<\/em>. That settling of a moral account is exactly what expiate names.", "C": "To redeem is to rescue the person — to win back standing and favor, sometimes with one shining act. This man refused that rescue: <em>when collectors' circles offered to readmit him he refused<\/em>, and he insisted the debt was <em>owed to the temple, not to his name<\/em>.", "A": "Atoning fits loosely — it is the general word for making amends, and a change of heart alone can count as atoning. But the stem asks for the most precise choice, and this account is all outward payment: <em>at ruinous cost to his estate<\/em>, <em>carried it up the terraces himself<\/em>. The narrower word for amends made in deeds fits better.", "B": "An apology costs a sentence of regret, and this account contains none: <em>He published no statement of regret<\/em>. Decades of labor and expense, offered without a public word, are something other than an apology."}}}, "grid": {"words": ["expiate", "redeem", "atone", "apologize"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The retired quarry owner spent his last summers replanting the hillside he had stripped, laboring season by season to ____ the damage.", "ks": ["expiate"], "fb": {"redeem": "That word rescues the person, buying back his good name, often with one shining act; this sentence stays fixed on the damage, paid down season by season.", "atone": "The general amends word can be satisfied by a change of heart alone -- and it takes 'for.' This sentence demands the outward payment: labor, season after season, aimed at the wrong itself.", "apologize": "Words of regret cost one sentence and a moment; replanting a hillside across many summers is payment in acts."}}, {"s": "Under the old custom, a herdsman who let fire escape into a neighbor's field had to ____ the harm with three seasons of unpaid labor.", "ks": ["expiate"], "fb": {"redeem": "Nothing here buys back anyone's good name -- the custom prices the harm itself, and it is the harm that gets paid down.", "atone": "A change of heart would not satisfy this custom; it demands three seasons of outward payment, fixed against the wrong itself.", "apologize": "One sentence of regret would not begin to cover it -- the custom bills the harm at three seasons of labor."}}, {"s": "One flawless harvest-festival performance was enough to ____ the disgraced tenor in the eyes of the whole opera house.", "ks": ["redeem"], "fb": {"expiate": "That word settles the offense itself, paid down act by act; here a single shining performance rescues the man in everyone's eyes.", "atone": "No amends are being made for anything -- one brilliant night restores him to favor; that is rescue, not repayment.", "apologize": "No word of regret is spoken; a performance, not a sentence of humility, wins back the house."}}, {"s": "A season of tireless charity work did much to ____ the senator's reputation after the expenses scandal.", "ks": ["redeem"], "fb": {"expiate": "The object is his reputation -- a name bought back into favor -- not the wrong itself being paid down act by act.", "atone": "The sentence is about recovering his standing, not making amends to anyone he harmed.", "apologize": "No spoken regret appears; months of work, not a sentence of humility, repair his name."}}, {"s": "The innkeeper never spoke of the man he had turned away in the storm, but friends called his gentler last years one long attempt to ____ for it.", "ks": ["atone"], "fb": {"expiate": "No labor, cost, or gift is named -- his amends live in a gentler way of living, and a change of heart counts only for the general word.", "redeem": "He seeks nobody's favor and no restored name -- he never spoke of the man; this is private amends, not public rescue.", "apologize": "He never says a word -- and that word costs exactly one sentence of spoken regret, which he never offers."}}, {"s": "Cornered by the reporters he had misled, the press officer would only ____, offering a single stiff sentence of regret and nothing more.", "ks": ["apologize"], "fb": {"atone": "'Nothing more' -- no amends follow in heart or deed; a single stiff sentence of regret is all he gives, and making amends means more than words.", "redeem": "One stiff sentence rescues no one's good name -- and that word needs something to restore, which he never attempts.", "expiate": "That word pays for a wrong with real acts over time; his one sentence costs a moment's breath and nothing else."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a wrong being paid for with real acts over time -- more than sorry words, and aimed at the wrong itself. Work in words like <i>debt<\/i>, <i>repay<\/i>, <i>years<\/i> or <i>labor<\/i>."}};
+  var CFG = {"word": "expiate", "gradeUrl": "/api/grade", "taskId": "expiate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses expiate correctly?", "opts": {"A": "The head chef expiated the curdled sauce with lemon juice until the sweetness finally balanced.", "B": "She expiated the final chapter of her thesis on the train, checking every footnote twice.", "C": "The mayor expiated the new marble fountain with a short speech and a very long ribbon.", "D": "No apology would serve, so the driver expiated his recklessness by funding the crossing guard."}, "key": "D", "fb": {"correct": "Correct. Expiate means to make amends for a wrong through real acts — the driver pays his moral debt by funding the crossing guard, since words alone cannot.", "A": "Rescuing 'the curdled sauce with lemon juice' is kitchen skill, not penance. Expiation is moral repayment: a person atones for something wrong they did. A sauce may need saving, but it carries no guilt.", "B": "Checking 'every footnote twice' on the train is careful polishing of finished work. To expiate, you must first have done wrong and then work the debt off through amends — diligent scholarship has nothing to atone for.", "C": "Opening a fountain 'with a short speech and a very long ribbon' is a dedication ceremony. Expiating always answers a misdeed — paying down guilt through action. A celebration has no wrong behind it to make up for."}}, "s3a": {"q": "In this passage, what does it mean that Brant was working to \"expiate\" a wrong?", "opts": {"A": "He was settling the moral debt of his overloading with payment after payment.", "B": "He was donating to charity to be admired.", "C": "He was obeying a court order to fund the stations.", "D": "He was buying back his public reputation."}, "key": "A", "fb": {"correct": "Right -- eleven stations, one per year of overloading, logged in a 'debt-book': the wrong itself being paid down, entry by entry.", "B": "Those who knew him said the opposite -- 'he was not giving charity'; the stations answered a debt, not a taste for admiration.", "C": "The inquiry fined him 'barely a week's profit' and the law 'was finished with Brant' -- no court required anything more.", "D": "The account was one 'only he still kept' -- a private settling of the wrong, not a campaign for public favor."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "atone", "B": "apologize", "C": "redeem", "D": "expiate"}, "key": "D", "fb": {"correct": "Right. His acts fix on the wrong itself and pay it down deed by deed — <em>negotiated its surrender at ruinous cost to his estate<\/em>, <em>carried it up the terraces himself<\/em> — with the debt <em>owed to the temple, not to his name<\/em>. That settling of a moral account is exactly what expiate names.", "C": "To redeem is to rescue the person — to win back standing and favor, sometimes with one shining act. This man refused that rescue: <em>when collectors' circles offered to readmit him he refused<\/em>, and he insisted the debt was <em>owed to the temple, not to his name<\/em>.", "A": "Atoning fits loosely — it is the general word for making amends, and a change of heart alone can count as atoning. But the stem asks for the most precise choice, and this account is all outward payment: <em>at ruinous cost to his estate<\/em>, <em>carried it up the terraces himself<\/em>. The narrower word for amends made in deeds fits better.", "B": "An apology costs a sentence of regret, and this account contains none: <em>He published no statement of regret<\/em>. Decades of labor and expense, offered without a public word, are something other than an apology."}}}, "pairwise": {"rows": [{"sentence": "The retired quarry owner spent his last summers replanting the hillside he had stripped, laboring season by season to ____ the damage.", "options": ["expiate", "redeem"], "key": "expiate", "pair": "redeem", "why_right": "The tell is <em>the damage<\/em> - the object is the wrong itself, paid down act by act across his last summers; the card's word for settling the offense, not rescuing the man.", "why_wrong": "That word rescues the person, buying back his good name, often with one shining act; this sentence stays fixed on the damage, paid down season by season."}, {"sentence": "One flawless harvest-festival performance was enough to ____ the disgraced tenor in the eyes of the whole opera house.", "options": ["expiate", "redeem"], "key": "redeem", "pair": "redeem", "why_right": "The tell is <em>the disgraced tenor<\/em> - the object is a person restored to favor by one shining act; the other word takes the wrong itself, never the person, as its object.", "why_wrong": "That word settles the offense itself, paid down act by act; here a single shining performance rescues the man in everyone's eyes."}, {"sentence": "A season of tireless charity work did much to ____ the senator's reputation after the expenses scandal.", "options": ["expiate", "redeem"], "key": "redeem", "pair": "redeem", "why_right": "The tell is <em>the senator's reputation<\/em> - a good name bought back into favor is the object here, not a wrong being paid down act by act.", "why_wrong": "The object is his reputation -- a name bought back into favor -- not the wrong itself being paid down act by act."}, {"sentence": "Under the old custom, a herdsman who let fire escape into a neighbor's field had to ____ the harm with three seasons of unpaid labor.", "options": ["expiate", "atone"], "key": "expiate", "pair": "atone", "why_right": "The tell is <em>three seasons of unpaid labor<\/em> - a priced outward payment aimed at the harm itself; the word that takes the wrong as its object and settles the account in acts.", "why_wrong": "A change of heart would not satisfy this custom; it demands three seasons of outward payment, fixed against the wrong itself."}, {"sentence": "The innkeeper never spoke of the man he had turned away in the storm, but friends called his gentler last years one long attempt to ____ for it.", "options": ["expiate", "atone"], "key": "atone", "pair": "atone", "why_right": "The tell is <em>his gentler last years<\/em> - amends made through a change of heart, with no labor, cost, or gift named, and the general word's own 'for' frame.", "why_wrong": "No labor, cost, or gift is named -- his amends live in a gentler way of living, and a change of heart counts only for the general word."}, {"sentence": "Cornered by the reporters he had misled, the press officer would only ____, offering a single stiff sentence of regret and nothing more.", "options": ["expiate", "apologize"], "key": "apologize", "pair": "apologize", "why_right": "The tell is <em>a single stiff sentence of regret<\/em> - words costing a moment's humility and nothing more; no payment in acts ever follows, so the one-sentence word is the fit.", "why_wrong": "That word pays for a wrong with real acts over time; his one sentence costs a moment's breath and nothing else."}, {"sentence": "The shipping line's regrets over the wreck survive in the archive; the harbormaster's log uses a harder word, '____,' beside ten years of salvage paid by the owners.", "options": ["expiate", "apologize"], "key": "expiate", "pair": "apologize", "why_right": "The tell is <em>ten years of salvage paid by the owners<\/em> - payment in real acts over time toward the wrong itself; the regrets were already on file and cost a sentence.", "why_wrong": "That word means offering words of regret -- one sentence and a moment's humility, already in the archive here; the log's word prices ten years of paid salvage, payment in acts."}, {"sentence": "The minutes record no statement from the treasurer, only the word the chairman chose for his six years of triple repayment: '____.'", "options": ["expiate", "apologize"], "key": "expiate", "pair": "apologize", "why_right": "The tell is <em>no statement<\/em> - not a word of regret anywhere, only six years of triple repayment: the wrong itself paid down in real acts over time.", "why_wrong": "That word is spoken regret costing one sentence and a moment's humility; the minutes record no statement at all -- what the chairman named was six years of payment in acts."}], "display_order": [7, 2, 5, 0, 3, 6, 1, 4], "dimension_order": ["redeem", "atone", "apologize"], "dimension_feedback": {"redeem": "To redeem is to buy back your good name, sometimes with a single shining act that restores you to favor. Expiate stays fixed on the wrong itself: you pay the moral debt down, act by act, until the account is settled. Redeem rescues the person; expiate settles the offense.", "atone": "To atone is the general word for making amends — you atone for a wrong, and a change of heart alone can count. Expiate leans harder on the outward payment: the labor, cost, or gift that settles the account. You expiate a wrong; the person you injured is never its object.", "apologize": "An apology costs one sentence and a moment's humility; apologize stops far short of expiate, which pays for the wrong with real acts over time."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a wrong being paid for with real acts over time -- more than sorry words, and aimed at the wrong itself. Work in words like <i>debt<\/i>, <i>repay<\/i>, <i>years<\/i> or <i>labor<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

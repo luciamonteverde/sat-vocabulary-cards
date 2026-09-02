@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4085077a4364">
+<meta name="build" content="8dd532da5b20">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>encapsulate &#8212; SAT Vocabulary, Course 3 Unit 20</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "encapsulate", "gradeUrl": "/api/grade", "taskId": "encapsulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses encapsulate correctly?", "opts": {"A": "The committee encapsulated its findings by reading all nine hundred pages aloud over three evenings.", "B": "The orchestra encapsulated the symphony by performing it twice through without an intermission.", "C": "The mediator encapsulated six hours of shouting in one calm sentence that both sides signed.", "D": "He encapsulated his suitcase until the zippers strained and the lid would no longer close."}, "key": "C", "fb": {"correct": "Correct! One calm sentence that holds six hours of argument — complete, with nothing essential lost — is encapsulation: the whole matter sealed into a small container.", "A": "Reading 'all nine hundred pages aloud' over several evenings compresses nothing — it delivers the full bulk. Encapsulating means boiling something down to its essentials in a brief form.", "B": "Performing the symphony 'twice through' doubles the material instead of condensing it. To encapsulate is to shrink a whole down to a compact summary that still keeps everything essential.", "D": "Stuffing a suitcase 'until the zippers strained' is cramming, not summarizing. Encapsulate deals with ideas: expressing the heart of a matter in a few well-chosen words."}}, "s3a": {"q": "In this passage, 'encapsulate' most nearly means", "opts": {"A": "to hold something's essentials complete in a compact form", "B": "to decorate a uniform with an official emblem", "C": "to keep a mission's details secret from the public", "D": "to reduce costs by simplifying a design"}, "key": "A", "fb": {"correct": "Right -- the patch must hold 'the entire mission... inside a circle three inches wide', with 'nothing... missing' and 'nothing... spare'.", "B": "Decoration is what the patch physically is -- the word names what the design must do: carry the whole mission, complete, in a tiny space.", "C": "Nothing is hidden -- the point is the opposite: everything essential is present 'for anyone who knew how to look'.", "D": "Cost never comes up. The forty rejected drafts show the standard was completeness in a small space, not cheapness."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "summarize", "B": "trim", "C": "distill", "D": "encapsulate"}, "key": "D", "fb": {"correct": "Right. One line closes the whole subject — <em>the profession, the masterpiece, and the sweep of an architect's whole career<\/em> — <em>with nothing that matters missing<\/em>. That sealed completeness is exactly what encapsulate promises.", "C": "Distill names the refining process — boiling a longer work down, for hours, until only essence remains. No such process happened here: the line was composed <em>in a single evening<\/em>, and <em>there was never a longer tribute for it to be cut down from<\/em>.", "A": "Summarize makes a weaker promise: main points, with the rest allowed to drop away. The epitaph is credited with more than main points — it leaves a reader <em>with nothing that matters missing<\/em>.", "B": "Trim only snips the loose edges, leaving a piece nearly as long as it was. Fitting <em>an entire life's work<\/em> into a single sentence is the opposite of edge-snipping."}}}, "grid": {"words": ["encapsulate", "distill", "summarize", "trim"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Asked for a slogan, the mayor's speechwriter found five words that manage to ____ her whole record -- schools, sewers, and the balanced budget all folded in, nothing a voter needed left out.", "ks": ["encapsulate"], "fb": {"summarize": "Almost -- but that word makes the weaker promise: main points, with omissions allowed. These five words hold the <em>whole record<\/em>, <em>nothing a voter needed left out<\/em>, which is the stronger claim.", "distill": "That word names the hours of refining -- the boiling-down itself. The sentence points at the finished, sealed result: five words with everything folded in.", "trim": "That word snips loose edges and leaves the piece essentially as long as it was. A whole record reduced to five words is a different order of compression."}}, {"s": "It took the memoirist three drafts to ____ forty years of lab notebooks, patiently boiling four hundred pages down to the ninety that held only what mattered.", "ks": ["distill"], "fb": {"encapsulate": "That word names a sealed result -- a whole subject closed into a phrase or image. Ninety pages is a leaner book, and the sentence is about the long, patient refining that produced it.", "summarize": "That word shortens to the main points and may happily drop the rest. Three patient drafts working toward <em>only what mattered<\/em> is refining toward essence, which the card names differently.", "trim": "That word snips the loose edges and leaves the length roughly alone. Four hundred pages became ninety."}}, {"s": "The minutes ____ two hours of debate in six brisk bullet points, skipping two amendments entirely and both apologies.", "ks": ["summarize"], "fb": {"encapsulate": "That word makes the stronger promise -- the whole subject, nothing essential missing. These minutes <em>skip two amendments entirely<\/em>.", "distill": "That word is a patient refining toward essence. Six brisk bullets that drop whole amendments are a quick cut to the main points.", "trim": "That word leaves the piece nearly as long as before, minus its loose edges. Two hours became six bullet points."}}, {"s": "Editors challenged each science writer to ____ a century of climate research in a single caption, without losing anything a general reader truly needs.", "ks": ["encapsulate"], "fb": {"summarize": "That word would let the writer drop things -- summaries 'may cheerfully leave things out'. The challenge is stricter: the whole century, <em>without losing anything a general reader truly needs<\/em>.", "distill": "That word names the refining work itself -- you could spend a month at it. The challenge names the target: everything essential closed, intact, into one caption.", "trim": "Snipping loose edges wouldn't get a century of research into a caption -- this is compression of the whole subject, not tidying."}}, {"s": "The columnist agreed to ____ her essay by a few lines so it would clear the page break, leaving every argument exactly where it stood.", "ks": ["trim"], "fb": {"encapsulate": "That word closes a whole subject into a few compact words. Here the essay keeps its full length and shape, minus <em>a few lines<\/em> at the edges.", "distill": "Nothing is being refined toward its essence -- <em>every argument<\/em> stays <em>exactly where it stood<\/em>. Only the loose edges go.", "summarize": "No shorter restatement is being produced -- the piece survives whole, just a few lines lighter."}}, {"s": "The playwright spent the whole workshop trying to ____ a decade of small-town gossip, running scene after scene through rewrites until only the essential feud remained.", "ks": ["distill"], "fb": {"encapsulate": "That word names the sealed, compact result -- a whole subject in a phrase or image. The sentence is about the refining itself, and what emerges is still a full play.", "summarize": "That word produces a brief restatement of something. Nothing is restated here -- the play itself is boiled down, rewrite by rewrite, toward its essence.", "trim": "Loose-edge snipping leaves a piece essentially as it was. Running <em>scene after scene through rewrites<\/em> until one feud remains is refining, not tidying."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a whole subject held complete in something small -- and the completeness has to be visible to the reader. Try working in a word like <i>whole<\/i>, <i>single<\/i>, <i>phrase<\/i> or <i>entire<\/i>."}};
+  var CFG = {"word": "encapsulate", "gradeUrl": "/api/grade", "taskId": "encapsulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses encapsulate correctly?", "opts": {"A": "The committee encapsulated its findings by reading all nine hundred pages aloud over three evenings.", "B": "The orchestra encapsulated the symphony by performing it twice through without an intermission.", "C": "The mediator encapsulated six hours of shouting in one calm sentence that both sides signed.", "D": "He encapsulated his suitcase until the zippers strained and the lid would no longer close."}, "key": "C", "fb": {"correct": "Correct! One calm sentence that holds six hours of argument — complete, with nothing essential lost — is encapsulation: the whole matter sealed into a small container.", "A": "Reading 'all nine hundred pages aloud' over several evenings compresses nothing — it delivers the full bulk. Encapsulating means boiling something down to its essentials in a brief form.", "B": "Performing the symphony 'twice through' doubles the material instead of condensing it. To encapsulate is to shrink a whole down to a compact summary that still keeps everything essential.", "D": "Stuffing a suitcase 'until the zippers strained' is cramming, not summarizing. Encapsulate deals with ideas: expressing the heart of a matter in a few well-chosen words."}}, "s3a": {"q": "In this passage, 'encapsulate' most nearly means", "opts": {"A": "to hold something's essentials complete in a compact form", "B": "to decorate a uniform with an official emblem", "C": "to keep a mission's details secret from the public", "D": "to reduce costs by simplifying a design"}, "key": "A", "fb": {"correct": "Right -- the patch must hold 'the entire mission... inside a circle three inches wide', with 'nothing... missing' and 'nothing... spare'.", "B": "Decoration is what the patch physically is -- the word names what the design must do: carry the whole mission, complete, in a tiny space.", "C": "Nothing is hidden -- the point is the opposite: everything essential is present 'for anyone who knew how to look'.", "D": "Cost never comes up. The forty rejected drafts show the standard was completeness in a small space, not cheapness."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "summarize", "B": "trim", "C": "distill", "D": "encapsulate"}, "key": "D", "fb": {"correct": "Right. One line closes the whole subject — <em>the profession, the masterpiece, and the sweep of an architect's whole career<\/em> — <em>with nothing that matters missing<\/em>. That sealed completeness is exactly what encapsulate promises.", "C": "Distill names the refining process — boiling a longer work down, for hours, until only essence remains. No such process happened here: the line was composed <em>in a single evening<\/em>, and <em>there was never a longer tribute for it to be cut down from<\/em>.", "A": "Summarize makes a weaker promise: main points, with the rest allowed to drop away. The epitaph is credited with more than main points — it leaves a reader <em>with nothing that matters missing<\/em>.", "B": "Trim only snips the loose edges, leaving a piece nearly as long as it was. Fitting <em>an entire life's work<\/em> into a single sentence is the opposite of edge-snipping."}}}, "pairwise": {"rows": [{"sentence": "Asked for a slogan, the mayor's speechwriter found five words that manage to ____ her whole record -- schools, sewers, and the balanced budget all folded in, nothing a voter needed left out.", "options": ["encapsulate", "distill"], "key": "encapsulate", "pair": "distill", "why_right": "The tell is <em>found five words<\/em> - the search is over and these are the kept words, the sealed result the card names; the refining that produced them is the rival word's territory.", "why_wrong": "That word names the hours of refining -- the boiling-down itself. The sentence points at the finished, sealed result: five words with everything folded in."}, {"sentence": "It took the memoirist three drafts to ____ forty years of lab notebooks, patiently boiling four hundred pages down to the ninety that held only what mattered.", "options": ["encapsulate", "distill"], "key": "distill", "pair": "distill", "why_right": "The tell is <em>patiently boiling four hundred pages down<\/em> - the sentence names the slow refining process itself, and its product is a ninety-page book, not a whole subject sealed into a phrase.", "why_wrong": "That word names a sealed result -- a whole subject closed into a phrase or image. Ninety pages is a leaner book, and the sentence is about the long, patient refining that produced it."}, {"sentence": "The playwright spent the whole workshop trying to ____ a decade of small-town gossip, running scene after scene through rewrites until only the essential feud remained.", "options": ["encapsulate", "distill"], "key": "distill", "pair": "distill", "why_right": "The tell is <em>running scene after scene through rewrites<\/em> - the refining itself, rewrite by rewrite toward essence, and what emerges is still a full play rather than a sealed phrase or image.", "why_wrong": "That word names the sealed, compact result -- a whole subject in a phrase or image. The sentence is about the refining itself, and what emerges is still a full play."}, {"sentence": "The committee spent a year boiling the town's founding story down draft by draft; the six words finally cut into the gate ____ the whole tale.", "options": ["encapsulate", "distill"], "key": "encapsulate", "pair": "distill", "why_right": "The tell is <em>finally cut into the gate<\/em> - the boiling down belongs to the committee's year; the six kept words hold the sealed result, which the card calls encapsulated.", "why_wrong": "That word names the refining process itself, the boiling down that took the committee a year. The blank belongs to the six kept words, and the card says the line you finally keep is encapsulated."}, {"sentence": "The minutes ____ two hours of debate in six brisk bullet points, skipping two amendments entirely and both apologies.", "options": ["encapsulate", "summarize"], "key": "summarize", "pair": "summarize", "why_right": "The tell is <em>skipping two amendments entirely<\/em> - substantive parts are openly left out, which the card allows a summary to do and forbids to the word promising the whole subject intact.", "why_wrong": "That word makes the stronger promise -- the whole subject, nothing essential missing. These minutes <em>skip two amendments entirely<\/em>."}, {"sentence": "Four words the intern coined now ____ the entire eighty-slide onboarding deck, every policy in it intact, and the deck itself was quietly retired.", "options": ["encapsulate", "trim"], "key": "encapsulate", "pair": "trim", "why_right": "The tell is <em>the deck itself was quietly retired<\/em> - eighty slides closed whole into four words is total compression, not loose edges snipped from a piece that stays essentially as long.", "why_wrong": "That word snips loose edges and leaves the piece essentially as long as it was. Eighty slides folded into four words, with the deck retired, is a different order of compression."}, {"sentence": "Nine lines on the grandmother's recipe card manage to ____ a whole afternoon of technique, the folding and the resting included, so a first-timer misses nothing.", "options": ["encapsulate", "trim"], "key": "encapsulate", "pair": "trim", "why_right": "The tell is <em>so a first-timer misses nothing<\/em> - a whole afternoon of technique closed intact into nine lines is the whole subject in compact form, not a piece trimmed at its edges.", "why_wrong": "That word merely snips the loose edges and leaves the piece essentially as long as it was. Nine lines holding an entire afternoon of technique is the whole subject sealed compact."}, {"sentence": "The grant office asked the lab to ____ its proposal before the deadline; the postdoc struck two repeated sentences, left all forty pages otherwise as they were, and sent the same binder back.", "options": ["encapsulate", "trim"], "key": "trim", "pair": "trim", "why_right": "The tell is <em>left all forty pages otherwise as they were<\/em> - two sentences struck and the same binder returned is edge-snipping; the piece stays essentially as long, nothing sealed into few words.", "why_wrong": "That word closes a whole subject, intact, into a few compact words. Striking two sentences and sending back the same forty-page binder leaves the piece essentially as it was."}], "display_order": [1, 6, 2, 7, 0, 5, 4, 3], "dimension_order": ["distill", "summarize", "trim"], "dimension_feedback": {"distill": "Distill means to boil a subject down until only its essence remains — it names the refining process itself. Encapsulate names the sealed result: the essence closed, whole and intact, into a phrase or image. You distill for hours; the line you finally keep is encapsulated.", "summarize": "Summarize means to shorten something to its main points, and a summary may cheerfully leave things out. Encapsulate makes a stronger promise: the whole subject, nothing essential missing, held in a few words. Every encapsulation summarizes; plenty of summaries capture only part of the story.", "trim": "Trim merely snips the loose edges — the piece stays essentially as long as it was; it stops far short of encapsulate."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show a whole subject held complete in something small -- and the completeness has to be visible to the reader. Try working in a word like <i>whole<\/i>, <i>single<\/i>, <i>phrase<\/i> or <i>entire<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

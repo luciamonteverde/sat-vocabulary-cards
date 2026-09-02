@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9f19768372c6">
+<meta name="build" content="61310da277b2">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>covet &#8212; SAT Vocabulary, Course 3 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "covet", "gradeUrl": "/api/grade", "taskId": "covet", "minWords": 12, "items": {"s1": {"q": "Which sentence uses covet correctly?", "opts": {"A": "Every apprentice in the shop covets the master's German chisels, though none would dare ask to borrow them.", "B": "She coveted the spare room into a painting studio over one long weekend, rollers and drop cloths everywhere.", "C": "The squirrels coveted acorns under the porch all through October, then forgot half their hiding spots by January.", "D": "He covets his transcripts to three universities every fall and tracks each envelope like a hawk."}, "key": "A", "fb": {"correct": "Correct — the apprentices want those particular chisels, the master's own, and the wanting has envy in it: covet is envious desire for what belongs to another.", "B": "She 'coveted the spare room into a painting studio' — the verb this sentence wants is converted. Covet is envious desire for something that belongs to somebody else; look for longing, not remodeling.", "C": "Squirrels burying 'acorns under the porch' are storing their own food — no envy, no other owner involved. To covet is to crave what belongs to somebody else; look for jealous wanting.", "D": "He 'covets his transcripts to three universities' — meaning sends, which covet never means. Covet is wanting, enviously, what another person owns; look for desire tinged with envy, not paperwork in the mail."}}, "s3a": {"q": "As it is used in the passage, 'covets' most nearly means", "opts": {"A": "resents Mrs. Reyes without wanting the plot itself at all", "B": "wants the specific plot another gardener holds", "C": "admires the garden's best plot from a polite distance", "D": "hopes quietly to inherit the plot someday"}, "key": "B", "fb": {"correct": "Yes — 'I don't want a plot like it. I want that one': desire fixed on the very plot that is Mrs. Reyes's.", "A": "He plainly does want it — the app, the fence, the sighing. The wanting is the whole comedy.", "C": "Polite distance doesn't measure a neighbor's sunlight from the fence line.", "D": "No inheritance is anywhere in the passage — plots pass by waiting list, and the holder isn't leaving."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "envy", "B": "covet", "C": "crave", "D": "begrudge"}, "key": "A", "fb": {"correct": "Right. Envy is minding that something is another's, even with nothing wanted and nothing disputed: <em>I want nothing of his<\/em>, the narrator says, and <em>he earned it, hour by patient hour<\/em> — yet the feeling <em>simply sits<\/em>, fed by <em>watching him<\/em>.", "B": "To covet is to want the very thing that belongs to someone else — the coveter starts clearing a shelf for it. This narrator forecloses that in one stroke: <em>I want nothing of his — not the bench, not his clients, not even the steadiness<\/em>.", "C": "To crave is to want something intensely — sleep, salt, daylight — with no owner in the picture. Here the owner is the entire point: the feeling comes from <em>watching him<\/em>, and it is no appetite at all, since it <em>simply sits, asking for nothing<\/em>.", "D": "To begrudge is to resent someone's having or enjoying something — a protest that desert dissolves. The narrator grants the desert completely: <em>he earned it, hour by patient hour<\/em>. What survives that concession is the quieter sting of <em>watching him<\/em>, not a protest that he has it."}}}, "grid": {"words": ["covet", "crave", "envy", "begrudge"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Every morning the apprentice finds a reason to pass the master jeweler's bench and eye the engraved loupe he has begun to ____ — hers specifically, not one like it from a catalog.", "ks": ["covet"], "fb": {"crave": "A craving is for a kind of thing — sleep, salt, a loupe in general. <em>Hers specifically, not one like it<\/em> puts an owner squarely in the frame.", "envy": "That feeling can sit and stew without wanting the object at all. This apprentice wants the thing itself, daily and specifically.", "begrudge": "That resentment stops at minding. His has a destination: <em>that<\/em> loupe, on his own bench."}}, {"s": "The committee chair has come to ____ the corner office her retiring colleague still occupies, asking twice this month exactly when it will come free.", "ks": ["covet"], "fb": {"crave": "An appetite has no address. This desire does: one specific office, currently somebody else's.", "envy": "Resenting that he has it would be enough for that word. She has gone further — she is counting the days until it is hers.", "begrudge": "Minding that he has it is where that word ends. <em>Asking twice this month<\/em> when it comes free is wanting, out loud."}}, {"s": "After three weeks of dorm-cafeteria dinners, the whole floor had begun to ____ fresh vegetables — any vegetables at all, from anywhere, belonging to no one.", "ks": ["crave"], "fb": {"covet": "That word points at the one with an owner — a specific possession minded and wanted. <em>Any vegetables at all, from anywhere<\/em> is ownerless appetite.", "envy": "Resentment needs a person who has something. There is no such person here — only three weeks of steam-table dinners.", "begrudge": "Nobody's enjoyment is being minded. The team's feeling aims at food, not at anyone who has food."}}, {"s": "After a month of night shifts, what her body seemed to ____ most was ordinary daylight — not anyone's in particular, just sunlight itself.", "ks": ["crave"], "fb": {"covet": "Sunlight has no owner to resent, and that word cannot work without one.", "envy": "That feeling looks at a person who has something. Here there is only a tired body and a missing sun.", "begrudge": "There is no one whose having anything is minded — the wanting is the entire feeling."}}, {"s": "Watching the transfer student collect yet another prize, Dara caught herself starting to ____ him — not wanting the medals themselves, just minding, more each time, that they were his.", "ks": ["envy", "begrudge"], "fb": {"covet": "That word wants the object itself, owner and all, and would already be making room for it. Dara explicitly does <em>not want the medals<\/em>.", "crave": "A craving is aimed at a thing — food, sleep, medals in general. Dara's feeling is aimed at the fact that <em>they were his<\/em>."}}, {"s": "The miners have pensions of their own on the way, and not one can find it in himself to ____ the retiring foreman's early one — thirty years underground, they all agree, earned it.", "ks": ["begrudge", "envy"], "fb": {"covet": "That word would mean wanting the foreman's pension for one's own. The crew have <em>pensions of their own on the way<\/em> — wanting his is not the issue; minding it would be.", "crave": "Nothing here is an appetite for a thing. The sentence weighs a feeling about <em>his<\/em> having something — resentment, or the lack of it."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must aim the wanting at one specific thing that belongs to someone else — not a general wish for that kind of thing. Try working in a word like <i>hers<\/i>, <i>his<\/i>, <i>neighbor's<\/i> or <i>specifically<\/i>."}};
+  var CFG = {"word": "covet", "gradeUrl": "/api/grade", "taskId": "covet", "minWords": 12, "items": {"s1": {"q": "Which sentence uses covet correctly?", "opts": {"A": "Every apprentice in the shop covets the master's German chisels, though none would dare ask to borrow them.", "B": "She coveted the spare room into a painting studio over one long weekend, rollers and drop cloths everywhere.", "C": "The squirrels coveted acorns under the porch all through October, then forgot half their hiding spots by January.", "D": "He covets his transcripts to three universities every fall and tracks each envelope like a hawk."}, "key": "A", "fb": {"correct": "Correct — the apprentices want those particular chisels, the master's own, and the wanting has envy in it: covet is envious desire for what belongs to another.", "B": "She 'coveted the spare room into a painting studio' — the verb this sentence wants is converted. Covet is envious desire for something that belongs to somebody else; look for longing, not remodeling.", "C": "Squirrels burying 'acorns under the porch' are storing their own food — no envy, no other owner involved. To covet is to crave what belongs to somebody else; look for jealous wanting.", "D": "He 'covets his transcripts to three universities' — meaning sends, which covet never means. Covet is wanting, enviously, what another person owns; look for desire tinged with envy, not paperwork in the mail."}}, "s3a": {"q": "As it is used in the passage, 'covets' most nearly means", "opts": {"A": "resents Mrs. Reyes without wanting the plot itself at all", "B": "wants the specific plot another gardener holds", "C": "admires the garden's best plot from a polite distance", "D": "hopes quietly to inherit the plot someday"}, "key": "B", "fb": {"correct": "Yes — 'I don't want a plot like it. I want that one': desire fixed on the very plot that is Mrs. Reyes's.", "A": "He plainly does want it — the app, the fence, the sighing. The wanting is the whole comedy.", "C": "Polite distance doesn't measure a neighbor's sunlight from the fence line.", "D": "No inheritance is anywhere in the passage — plots pass by waiting list, and the holder isn't leaving."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "envy", "B": "covet", "C": "crave", "D": "begrudge"}, "key": "A", "fb": {"correct": "Right. Envy is minding that something is another's, even with nothing wanted and nothing disputed: <em>I want nothing of his<\/em>, the narrator says, and <em>he earned it, hour by patient hour<\/em> — yet the feeling <em>simply sits<\/em>, fed by <em>watching him<\/em>.", "B": "To covet is to want the very thing that belongs to someone else — the coveter starts clearing a shelf for it. This narrator forecloses that in one stroke: <em>I want nothing of his — not the bench, not his clients, not even the steadiness<\/em>.", "C": "To crave is to want something intensely — sleep, salt, daylight — with no owner in the picture. Here the owner is the entire point: the feeling comes from <em>watching him<\/em>, and it is no appetite at all, since it <em>simply sits, asking for nothing<\/em>.", "D": "To begrudge is to resent someone's having or enjoying something — a protest that desert dissolves. The narrator grants the desert completely: <em>he earned it, hour by patient hour<\/em>. What survives that concession is the quieter sting of <em>watching him<\/em>, not a protest that he has it."}}}, "pairwise": {"rows": [{"sentence": "Every morning the apprentice finds a reason to pass the master jeweler's bench and eye the engraved loupe he has begun to ____ — hers specifically, not one like it from a catalog.", "options": ["covet", "crave"], "key": "covet", "pair": "crave", "why_right": "The tell is <em>hers specifically<\/em> - a craving names a kind of thing with no owner in the picture; this desire fixes on one owned loupe and minds who has it.", "why_wrong": "A craving is for a kind of thing — sleep, salt, a loupe in general. <em>Hers specifically, not one like it<\/em> puts an owner squarely in the frame."}, {"sentence": "After three weeks of dorm-cafeteria dinners, the whole floor had begun to ____ fresh vegetables — any vegetables at all, from anywhere, belonging to no one.", "options": ["covet", "crave"], "key": "crave", "pair": "crave", "why_right": "The tell is <em>belonging to no one<\/em> - an intense want for a kind of thing with no owner anywhere in the picture; there is nobody whose vegetables anyone minds.", "why_wrong": "That word points at the one with an owner — a specific possession minded and wanted. <em>Any vegetables at all, from anywhere<\/em> is ownerless appetite."}, {"sentence": "After a month of night shifts, what her body seemed to ____ most was ordinary daylight — not anyone's in particular, just sunlight itself.", "options": ["covet", "crave"], "key": "crave", "pair": "crave", "why_right": "The tell is <em>not anyone's in particular<\/em> - sunlight has no owner, so this is bodily wanting of a kind of thing; the rival needs a possession with an owner.", "why_wrong": "Sunlight has no owner to resent, and that word cannot work without one."}, {"sentence": "Watching the transfer student collect yet another prize, Dara caught herself starting to ____ him — not wanting the medals themselves, just minding, more each time, that they were his.", "options": ["covet", "envy"], "key": "envy", "pair": "envy", "why_right": "The tell is <em>not wanting the medals themselves<\/em> - Dara resents that another person has them and wants nothing for herself, resentment that sits and stews without the wanting covet requires.", "why_wrong": "That word wants the object itself, owner and all, and would already be making room for it. Dara explicitly does <em>not want the medals<\/em>."}, {"sentence": "Every vendor at the Saturday market resents that the covered stall went to Bram — but Ilse alone seems to ____ it, already sketching her jars laid out beneath its roof.", "options": ["covet", "envy"], "key": "covet", "pair": "envy", "why_right": "The tell is <em>Ilse alone<\/em> - every vendor already resents that Bram has the stall, so resentment cannot be what sets her apart; her sketches add the wanting to the resentment.", "why_wrong": "That word means resenting that another person has something, and every vendor at the market feels exactly that; Ilse alone goes further, sketching the stall as her own — the wanting."}, {"sentence": "The committee chair has come to ____ the corner office her retiring colleague still occupies, asking twice this month exactly when it will come free.", "options": ["covet", "begrudge"], "key": "covet", "pair": "begrudge", "why_right": "The tell is <em>asking twice this month<\/em> - the chair is not minding that he has the office; she is arranging to have it herself, wanting in motion, past where resentment stops.", "why_wrong": "Minding that he has it is where that word ends. <em>Asking twice this month<\/em> when it comes free is wanting, out loud."}, {"sentence": "Oskar never wanted the lake house — he turns green on a dock — yet since the will was read he has seemed to ____ his cousin's ownership, minding every summer she spends there.", "options": ["covet", "begrudge"], "key": "begrudge", "pair": "begrudge", "why_right": "The tell is <em>never wanted the lake house<\/em> - Oskar resents his cousin's having it and nothing more, a feeling that stops at resentment; covet would have him want the house himself.", "why_wrong": "That word means wanting the very thing that belongs to someone else, minding who has it. Oskar wants no part of the house — he only minds that his cousin has it."}, {"sentence": "Anselm has long seemed to ____ the retired typesetter's press — minding every month it stays his — and has now priced a trailer to haul it home.", "options": ["covet", "begrudge"], "key": "covet", "pair": "begrudge", "why_right": "The tell is <em>priced a trailer to haul it home<\/em> - minding that the old man has it is only the start; wanting that press himself is the step begrudge never takes.", "why_wrong": "That word means resenting that someone has or enjoys something, and the feeling stops there. Anselm's does not stop — he is pricing a trailer to bring the press home."}], "display_order": [6, 1, 7, 4, 0, 5, 2, 3], "dimension_order": ["crave", "envy", "begrudge"], "dimension_feedback": {"crave": "To crave is to want something intensely — sleep, salt, adventure — with no owner anywhere in the picture. Covet fixes on a possession that already belongs to somebody else and minds who has it. A craving names a kind of thing; covet points at the one with an owner.", "envy": "Envy is resenting that another person has something; you may feel it without wanting the thing itself at all. Covet adds the wanting to the resentment: envious desire aimed at taking that very possession for your own. Envy can sit and stew; covet starts making room.", "begrudge": "To begrudge is to resent that someone has or enjoys something, and the feeling stops at resentment. Covet goes one step further: besides minding that they have it, you want that very thing for yourself. You can begrudge a rival's promotion without wanting the job at all."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must aim the wanting at one specific thing that belongs to someone else — not a general wish for that kind of thing. Try working in a word like <i>hers<\/i>, <i>his<\/i>, <i>neighbor's<\/i> or <i>specifically<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

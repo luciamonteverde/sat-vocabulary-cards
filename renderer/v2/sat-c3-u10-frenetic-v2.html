@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4f9c1edef7e0">
+<meta name="build" content="19bd7080a2fd">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>frenetic &#8212; SAT Vocabulary, Course 3 Unit 10</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "frenetic", "gradeUrl": "/api/grade", "taskId": "frenetic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses frenetic correctly?", "opts": {"A": "The archive's frenetic reading room stayed hushed from open to close, each scholar slowly turning pages beneath a single steady lamp by the tall windows.", "B": "He grew frenetic with quiet satisfaction as he reviewed the finished ledger, leaning back in his chair without moving for the better part of an hour.", "C": "Preview night on the convention floor was frenetic — crews wheeling crates at a run, banners rising and falling, forklifts beeping through half-built booths.", "D": "The honor guard's frenetic drill was flawless precisely because every step, turn, and salute landed exactly on the same rehearsed beat, hour after hour."}, "key": "C", "fb": {"correct": "Correct! Frenetic means fast-moving and energetic in a wild, scattered, barely controlled way, so it's the correct answer because crews running, banners rising and falling, and forklifts weaving through half-built booths is exactly that spraying, plan-outrunning energy.", "A": "Not quite! Frenetic means fast-moving and energetic in a wild, scattered way, so it's not the correct choice here because a hushed room of slowly turning pages has no rushing energy in it at all.", "B": "Not quite! Frenetic means fast-moving and energetic in a wild, scattered way, so it's not the correct choice here because quiet satisfaction in a motionless chair is a feeling at rest — frenetic needs motion, and plenty of it.", "D": "Not quite! Frenetic means fast-moving and energetic in a wild, scattered, barely controlled way, so it's not the correct choice here because a drill in which every step lands exactly on the beat is speed under perfect control — the opposite of scattered."}}, "s3a": {"q": "In this passage, calling the auction \"frenetic\" means it is", "opts": {"A": "wildly scattered, yet still doing its job", "B": "dangerously fast for the workers wading between the crates", "C": "an uncontrolled free-for-all in which the excitement swallows the sales", "D": "busy but orderly, with each sale politely waiting its turn"}, "key": "A", "fb": {"correct": "Right — buyers wading, three sales at once, numbers over numbers — and still every lot priced, marked, and lifted once.", "B": "Speed and danger aren't the point — the chalkboard's order is; nobody is measuring velocity or injuries.", "C": "The board rules that out: every lot gets a price, every price a mark. The wildness never swallows the work.", "D": "Orderly turn-taking is exactly what the scene lacks — three sales at once, numbers shouted over numbers."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hectic", "B": "frenetic", "C": "breakneck", "D": "frenzied"}, "key": "B", "fb": {"correct": "Right. The motion is scattered and barely controlled — <em>spare parts fanned across the floor<\/em>, calls flying mid-sprint — yet still aimed at getting something done, and it gets done, match after match. That mix of wildness and purpose is exactly what frenetic names.", "D": "Frenzied means whipped into uncontrolled excitement, with no aim left beyond the excitement itself. This crew's wildness is pointed at something and reaches it — <em>the team has made every match on time all season<\/em> — so frenzied overshoots what the pit actually shows.", "C": "Breakneck is about one thing only: dangerous speed, which can be perfectly controlled the whole way. Speed is not what needs naming here — disorder is. <em>A visitor sees pure chaos<\/em>: parts scattered, repairs overlapping. Breakneck says nothing about any of that.", "A": "Hectic is a packed, demanding stretch that still more or less keeps its shape. This scene has tipped past that — <em>three repairs running at once on one machine<\/em>, parts fanned across the floor, chaos to a visitor's eye. Hectic understates how far the busyness has come loose."}}}, "grid": {"words": ["frenetic", "frenzied", "breakneck", "hectic"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The scene change is ____ — dressers sprinting with costumes, stagehands hauling scenery in the dark, cues shouted over cues — and the curtain still rises on time.", "ks": ["frenetic"], "fb": {"frenzied": "That word tips into uncontrolled excitement — a mob, feeding sharks — motion with the mind gone. This crew is out of breath, not out of purpose: <em>the curtain still rises on time<\/em>.", "breakneck": "That word is about dangerous speed alone, and a run at speed can stay perfectly controlled. This is scatter — costumes, scenery, <em>cues shouted over cues<\/em> — not one fast line.", "hectic": "That word is a packed stretch that still more or less keeps its schedule. Sprinting in the dark while cues collide has tipped well past packed."}}, {"s": "When the gates gave way, the bargain-day crowd turned ____ — grabbing, trampling, deaf to every announcement — one creature with no aim except more.", "ks": ["frenzied"], "fb": {"frenetic": "That word keeps a working aim inside the wildness — the job still gets done. This crowd has no job left, <em>no aim except more<\/em>; the mind has left the motion.", "breakneck": "That word measures dangerous speed alone, and a run at speed can stay perfectly controlled. What breaks down here is control itself — a crowd <em>deaf to every announcement<\/em>.", "hectic": "That word is a busy stretch that still follows its plan. A trampling crowd is not busy — it is out of control."}}, {"s": "Election night in the county office is ____ every year: phones on both shoulders, runners with tally sheets, corrections shouted across the room — and by morning the count is done and correct.", "ks": ["frenetic"], "fb": {"frenzied": "That word means the mind has gone out of the motion — mobs, feeding sharks. Here the wildness still works: <em>by morning the count is done and correct<\/em>.", "breakneck": "That word is one thing only: dangerous speed, possibly under perfect control. This room isn't fast in a line — it scatters, with <em>corrections shouted across the room<\/em>.", "hectic": "That word describes a packed night that still follows its schedule. Phones on both shoulders and shouted corrections have tipped past packed into wild."}}, {"s": "By the third day of the gold rumor, trading in the little stock turned ____ — orders piling on orders, prices meaning nothing, brokers buying simply because others were buying.", "ks": ["frenzied"], "fb": {"frenetic": "That word keeps an aim inside the scramble — the work still gets done. This buying has no aim left: <em>prices meaning nothing<\/em>.", "breakneck": "That word measures dangerous speed under whatever control. The problem here isn't the pace — it's that the excitement has swallowed the judgment.", "hectic": "That word is a demanding stretch that still follows its plan. Buying <em>simply because others were buying<\/em> is not a plan — it's a stampede."}}, {"s": "The courier took the mountain descent at ____ speed — sixty on gravel switchbacks — yet her line through every corner was smooth, chosen, and exactly the same lap after lap.", "ks": ["breakneck"], "fb": {"frenetic": "That word adds disorder to speed — motion scattering as the plan slips. Nothing scatters here: her line is <em>smooth, chosen, and exactly the same<\/em>.", "frenzied": "That word means excitement has taken the controls. These controls are firmly held — the danger is all in the speed itself.", "hectic": "That word describes a crowded, demanding stretch of time. This is a single run measured in speed, not a schedule bursting at the seams."}}, {"s": "Tax season at the little firm is ____ — twelve-hour days, calendars double-booked, lunch eaten standing up — but every filing still goes out on the day it was promised.", "ks": ["hectic"], "fb": {"frenetic": "That word needs wildness — motion scattering in every direction. This office is merely packed: double-booked, yes, but <em>every filing still goes out on the day it was promised<\/em>.", "frenzied": "That word is uncontrolled excitement, minds gone. Twelve-hour days at a desk are exhausting, not out of control.", "breakneck": "That word means dangerous speed. Nothing here is fast — it's full: long days and stacked calendars."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs wild, scattered motion that is still aimed at a job — energy past tidy, but short of madness. Try working in a word like <i>sprinting<\/i>, <i>shouting<\/i>, <i>somehow<\/i> or <i>on time<\/i>."}};
+  var CFG = {"word": "frenetic", "gradeUrl": "/api/grade", "taskId": "frenetic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses frenetic correctly?", "opts": {"A": "The archive's frenetic reading room stayed hushed from open to close, each scholar slowly turning pages beneath a single steady lamp by the tall windows.", "B": "He grew frenetic with quiet satisfaction as he reviewed the finished ledger, leaning back in his chair without moving for the better part of an hour.", "C": "Preview night on the convention floor was frenetic — crews wheeling crates at a run, banners rising and falling, forklifts beeping through half-built booths.", "D": "The honor guard's frenetic drill was flawless precisely because every step, turn, and salute landed exactly on the same rehearsed beat, hour after hour."}, "key": "C", "fb": {"correct": "Correct! Frenetic means fast-moving and energetic in a wild, scattered, barely controlled way, so it's the correct answer because crews running, banners rising and falling, and forklifts weaving through half-built booths is exactly that spraying, plan-outrunning energy.", "A": "Not quite! Frenetic means fast-moving and energetic in a wild, scattered way, so it's not the correct choice here because a hushed room of slowly turning pages has no rushing energy in it at all.", "B": "Not quite! Frenetic means fast-moving and energetic in a wild, scattered way, so it's not the correct choice here because quiet satisfaction in a motionless chair is a feeling at rest — frenetic needs motion, and plenty of it.", "D": "Not quite! Frenetic means fast-moving and energetic in a wild, scattered, barely controlled way, so it's not the correct choice here because a drill in which every step lands exactly on the beat is speed under perfect control — the opposite of scattered."}}, "s3a": {"q": "In this passage, calling the auction \"frenetic\" means it is", "opts": {"A": "wildly scattered, yet still doing its job", "B": "dangerously fast for the workers wading between the crates", "C": "an uncontrolled free-for-all in which the excitement swallows the sales", "D": "busy but orderly, with each sale politely waiting its turn"}, "key": "A", "fb": {"correct": "Right — buyers wading, three sales at once, numbers over numbers — and still every lot priced, marked, and lifted once.", "B": "Speed and danger aren't the point — the chalkboard's order is; nobody is measuring velocity or injuries.", "C": "The board rules that out: every lot gets a price, every price a mark. The wildness never swallows the work.", "D": "Orderly turn-taking is exactly what the scene lacks — three sales at once, numbers shouted over numbers."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hectic", "B": "frenetic", "C": "breakneck", "D": "frenzied"}, "key": "B", "fb": {"correct": "Right. The motion is scattered and barely controlled — <em>spare parts fanned across the floor<\/em>, calls flying mid-sprint — yet still aimed at getting something done, and it gets done, match after match. That mix of wildness and purpose is exactly what frenetic names.", "D": "Frenzied means whipped into uncontrolled excitement, with no aim left beyond the excitement itself. This crew's wildness is pointed at something and reaches it — <em>the team has made every match on time all season<\/em> — so frenzied overshoots what the pit actually shows.", "C": "Breakneck is about one thing only: dangerous speed, which can be perfectly controlled the whole way. Speed is not what needs naming here — disorder is. <em>A visitor sees pure chaos<\/em>: parts scattered, repairs overlapping. Breakneck says nothing about any of that.", "A": "Hectic is a packed, demanding stretch that still more or less keeps its shape. This scene has tipped past that — <em>three repairs running at once on one machine<\/em>, parts fanned across the floor, chaos to a visitor's eye. Hectic understates how far the busyness has come loose."}}}, "pairwise": {"rows": [{"sentence": "The scene change is ____ — dressers sprinting with costumes, stagehands hauling scenery in the dark, cues shouted over cues — and the curtain still rises on time.", "options": ["frenetic", "frenzied"], "key": "frenetic", "pair": "frenzied", "why_right": "The tell is <em>the curtain still rises on time<\/em> - the scatter is loud but the job still gets done, which the card ties to the workplace word, not to the rival whose motion has lost its mind.", "why_wrong": "That word tips into uncontrolled excitement — a mob, feeding sharks — motion with the mind gone. This crew is out of breath, not out of purpose: <em>the curtain still rises on time<\/em>."}, {"sentence": "By the third day of the gold rumor, trading in the little stock turned ____ — orders piling on orders, prices meaning nothing, brokers buying simply because others were buying.", "options": ["frenetic", "frenzied"], "key": "frenzied", "pair": "frenzied", "why_right": "The tell is <em>prices meaning nothing<\/em> - excitement has swallowed the judgment and no aim is left, which the card ties to the mind-gone word, not to its still-aimed workplace cousin.", "why_wrong": "That word keeps an aim inside the scramble — the work still gets done. This buying has no aim left: <em>prices meaning nothing<\/em>."}, {"sentence": "When the singer finally stepped out, the lone superfan went ____ — clutching the barrier, sobbing, snapping photos of the ceiling — every move rehearsed for weeks simply gone.", "options": ["frenetic", "frenzied"], "key": "frenzied", "pair": "frenzied", "why_right": "The tell is <em>every move rehearsed for weeks simply gone<\/em> - the plan is gone and the excitement has taken over, which the card calls the mind-gone word, not the cousin that keeps a working aim.", "why_wrong": "That word keeps a working aim inside the wildness — the job still gets done. Nothing is getting done here; the plan is gone and the excitement has taken the controls, which is the wilder word's mark."}, {"sentence": "Election night in the county office is ____ every year: phones on both shoulders, runners with tally sheets, corrections shouted across the room — and by morning the count is done and correct.", "options": ["frenetic", "breakneck"], "key": "frenetic", "pair": "breakneck", "why_right": "The tell is <em>corrections shouted across the room<\/em> - the motion scatters in every direction rather than running one fast line, which the card ties to this word, not to the speed-only rival.", "why_wrong": "That word is one thing only: dangerous speed, possibly under perfect control. This room isn't fast in a line — it scatters, with <em>corrections shouted across the room<\/em>."}, {"sentence": "The courier took the mountain descent at ____ speed — sixty on gravel switchbacks — yet her line through every corner was smooth, chosen, and exactly the same lap after lap.", "options": ["frenetic", "breakneck"], "key": "breakneck", "pair": "breakneck", "why_right": "The tell is <em>smooth, chosen, and exactly the same<\/em> - the speed is dangerous but perfectly controlled with nothing scattering, which the card ties to the speed-only word, not to the disordered rival.", "why_wrong": "That word adds disorder to speed — motion scattering as the plan slips. Nothing scatters here: her line is <em>smooth, chosen, and exactly the same<\/em>."}, {"sentence": "Tax season at the little firm is ____ — twelve-hour days, calendars double-booked, lunch eaten standing up — but every filing still goes out on the day it was promised.", "options": ["frenetic", "hectic"], "key": "hectic", "pair": "hectic", "why_right": "The tell is <em>every filing still goes out on the day it was promised<\/em> - the office is merely packed and on schedule, which the card ties to this milder word, not to the wild, scattered rival.", "why_wrong": "That word needs wildness — motion scattering in every direction. This office is merely packed: double-booked, yes, but <em>every filing still goes out on the day it was promised<\/em>."}, {"sentence": "The wedding morning turned ____ when the caterer canceled — the planner sprinting between three phones, hems re-pinned on the stairs, the timeline torn up and improvised minute by minute.", "options": ["frenetic", "hectic"], "key": "frenetic", "pair": "hectic", "why_right": "The tell is <em>the timeline torn up and improvised minute by minute<\/em> - the schedule is gone, which the milder word keeps; the card reserves this word for motion that outruns the plan.", "why_wrong": "That word is a packed stretch that still keeps its schedule. Nothing here keeps a schedule — the timeline is torn up and improvised, which is the wild, barely controlled word, not the merely busy one."}, {"sentence": "The distribution center went ____ on its busiest shipping day — forklifts weaving between pallets, pickers calling out bays that no longer matched the map, the plan abandoned by ten.", "options": ["frenetic", "hectic"], "key": "frenetic", "pair": "hectic", "why_right": "The tell is <em>the plan abandoned by ten<\/em> - the schedule has collapsed rather than merely filling up, which the card reserves for the wild, scattered word over the milder busy one.", "why_wrong": "That word means a packed stretch that still follows its schedule. This floor has no schedule left — the plan is abandoned and the bays no longer match the map, which is the wild, barely controlled word."}], "display_order": [2, 5, 4, 6, 1, 7, 3, 0], "dimension_order": ["frenzied", "breakneck", "hectic"], "dimension_feedback": {"frenzied": "Frenzied means whipped into uncontrolled excitement — the crowd, the mob, the feeding sharks. Frenetic is its everyday workplace cousin: the same wildness of motion, but usually still aimed at getting something done. A frenetic kitchen is out of breath, not out of its mind.", "breakneck": "Breakneck is about one thing only: dangerous speed. A breakneck descent can be perfectly controlled the whole way down. Frenetic adds disorder to the speed — motion scattering in every direction as the plan loses its grip.", "hectic": "Hectic is milder than frenetic — a packed, demanding stretch that still more or less follows its schedule, before the wildness sets in."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs wild, scattered motion that is still aimed at a job — energy past tidy, but short of madness. Try working in a word like <i>sprinting<\/i>, <i>shouting<\/i>, <i>somehow<\/i> or <i>on time<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

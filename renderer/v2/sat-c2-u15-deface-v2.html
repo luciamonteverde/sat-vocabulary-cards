@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="a8852a81cd2b">
+<meta name="build" content="6a158efc83de">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>deface &#8212; SAT Vocabulary, Course 2 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "deface", "gradeUrl": "/api/grade", "taskId": "deface", "minWords": 12, "items": {"s1": {"q": "Which sentence uses deface correctly?", "opts": {"A": "The wrecking crew defaced the condemned cinema down to a bare gravel lot in one loud afternoon.", "B": "A blown transformer defaced the festival's closing night, and the fireworks never left their crates.", "C": "Acid-etched initials defaced every window on the new tram line within a month of its opening.", "D": "The toddler's breath defaced the bakery window with fog that faded before anyone crossed the room."}, "key": "C", "fb": {"correct": "Correct. Acid-etched initials injure the windows' appearance while the windows stay in place — deface in the exact sense.", "A": "Levelling a building to gravel destroys it outright. Defacing spoils the appearance of something that remains.", "B": "A cancelled finale ruins an event, not a surface. Defacing marks the look of a physical thing.", "D": "Fog that fades in seconds leaves no mark. Defacing damages the appearance lastingly."}}, "s3a": {"q": "As used in this passage, \"deface\" most nearly means:", "opts": {"A": "to ruin the look of a surface while the thing itself keeps working", "B": "to weaken a structure invisibly from the inside until it finally fails", "C": "to leave a faint mark that wipes off easily", "D": "to shatter something beyond repair"}, "key": "A", "fb": {"correct": "Right — the chief's own contrast: the window still keeps out the rain, but it carries the scratched signature forever. Function survives; the look does not.", "B": "The passage says the opposite twice — the panes are not broken, and nothing about a scratched car is actually weaker.", "C": "A key-scratch in glass is permanent — the signature stays forever; only the sacrificial film is wipeable, and it exists to absorb the damage.", "D": "Almost none of the replaced panes are broken; smashing is exactly what the chief says people wrongly assume."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mar", "B": "smudge", "C": "deface", "D": "disfigure"}, "key": "C", "fb": {"correct": "Right. The bills carry a lasting, visible injury — <em>stamping a red slogan across each one in indelible ink<\/em> — while <em>its engraving unaltered beneath the stamp<\/em> shows the thing itself still whole and still working. An ugly permanent mark on something otherwise intact is exactly what deface names.", "D": "Disfigure is the deeper injury, where the form itself is changed for good. But <em>every bill still folds, spends, and scans exactly as printed<\/em>, <em>its engraving unaltered beneath the stamp<\/em>: the note itself is exactly what it was. The harm here never reaches the thing's form.", "A": "Mar is the general spoiler — it can spoil a mood, an evening, a finish, and sometimes only slightly. Nothing in the passage makes it false, but the question asks for the most precise word, and a word that covers a spoiled evening as easily as a spoiled bill is the looser fit. The passage shows something stricter: <em>stamping a red slogan across each one in indelible ink<\/em>.", "B": "A smudge is the smallest mark a thing can take, gone with one wipe. Here <em>the ink defeats every cleaning method they have tried<\/em> — whatever this is, it does not wipe away."}}}, "grid": {"words": ["deface", "disfigure", "mar", "smudge"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "To scratch initials into the courthouse doors is to ____ them, the notice warns — not a mood or an evening spoiled, but lasting injury to the look of a surface, with the oak beneath as solid as ever.", "ks": ["deface"], "fb": {"disfigure": "The doors themselves are fine — <em>the oak beneath as solid as ever<\/em>. That word is for a form permanently reshaped, reading differently ever after.", "mar": "The sentence rules the general spoiler out itself — <em>not a mood or an evening spoiled<\/em> — this offense lives strictly on a visible surface.", "smudge": "A faint blur wipes away. This is <em>lasting injury<\/em> cut into the wood."}}, {"s": "Whoever inked a mustache on the lobby portrait managed to ____ it: the canvas beneath is whole and still itself, wearing one ugly mark that defies every solvent.", "ks": ["deface"], "fb": {"disfigure": "The painting is <em>whole and still itself<\/em> — nothing about its form has changed. One ugly mark sits on top of it.", "mar": "That word can spoil almost anything, even a mood, and sometimes only slightly. This sentence is about one permanent ugly mark on a visible surface — the stricter offense.", "smudge": "Something that <em>defies every solvent<\/em> is no faint, wipeable blur."}}, {"s": "The acid went past surface harm and began to ____ the statue outright: the nose ran, the jawline slumped, and the face now reads as someone else's for good.", "ks": ["disfigure"], "fb": {"deface": "The sentence says the damage <em>went past surface harm<\/em> — the statue's very shape changed, which is deeper than an injured surface.", "mar": "This is not a spoiled finish or evening; the face <em>now reads as someone else's for good<\/em> — the form itself is remade.", "smudge": "No cloth wipes this away — <em>the nose ran, the jawline slumped<\/em>; the stone itself moved."}}, {"s": "Surgeons warned that untreated scar tissue would ____ his hand permanently, drawing the fingers into a shape no glove maker had a pattern for.", "ks": ["disfigure"], "fb": {"deface": "That word puts an ugly mark on a surface while the thing stays whole underneath. Here the hand's very <em>shape<\/em> is being pulled into something new.", "mar": "That word can spoil a finish or an evening, sometimes slightly. This is a body <em>permanently<\/em> reshaped.", "smudge": "There is no blur to wipe away — the fingers are being drawn into a different shape for good."}}, {"s": "One shrill argument at the rehearsal dinner was enough to ____ the whole weekend, though by Monday nobody could point to any damage you could actually see.", "ks": ["mar"], "fb": {"deface": "That word needs a visible surface bearing the damage. Here <em>no damage you could actually see<\/em> exists — the harm fell on a weekend.", "disfigure": "Nothing physical was reshaped or even touched; a mood was spoiled, not a form.", "smudge": "There is no surface here at all, and nothing to wipe — the casualty was the weekend itself."}}, {"s": "Handled without gloves, the display case picks up fingerprints that ____ its glass for a moment — the faintest blur a surface can suffer, gone the instant the cloth passes over.", "ks": ["smudge"], "fb": {"deface": "That word's mark <em>will not wipe away<\/em>. This one is <em>gone the instant the cloth passes over<\/em>.", "disfigure": "The case's form never changes — a breath of blur sits on the glass for a moment.", "mar": "Nothing ends up spoiled: the blur is <em>the faintest a surface can suffer<\/em> and vanishes with one pass of the cloth."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a visible surface whose look is wrecked while the thing itself survives and works. Try working in words like <i>scratched<\/i>, <i>spray-painted<\/i>, <i>surface<\/i> or <i>still stands<\/i>."}};
+  var CFG = {"word": "deface", "gradeUrl": "/api/grade", "taskId": "deface", "minWords": 12, "items": {"s1": {"q": "Which sentence uses deface correctly?", "opts": {"A": "The wrecking crew defaced the condemned cinema down to a bare gravel lot in one loud afternoon.", "B": "A blown transformer defaced the festival's closing night, and the fireworks never left their crates.", "C": "Acid-etched initials defaced every window on the new tram line within a month of its opening.", "D": "The toddler's breath defaced the bakery window with fog that faded before anyone crossed the room."}, "key": "C", "fb": {"correct": "Correct. Acid-etched initials injure the windows' appearance while the windows stay in place — deface in the exact sense.", "A": "Levelling a building to gravel destroys it outright. Defacing spoils the appearance of something that remains.", "B": "A cancelled finale ruins an event, not a surface. Defacing marks the look of a physical thing.", "D": "Fog that fades in seconds leaves no mark. Defacing damages the appearance lastingly."}}, "s3a": {"q": "As used in this passage, \"deface\" most nearly means:", "opts": {"A": "to ruin the look of a surface while the thing itself keeps working", "B": "to weaken a structure invisibly from the inside until it finally fails", "C": "to leave a faint mark that wipes off easily", "D": "to shatter something beyond repair"}, "key": "A", "fb": {"correct": "Right — the chief's own contrast: the window still keeps out the rain, but it carries the scratched signature forever. Function survives; the look does not.", "B": "The passage says the opposite twice — the panes are not broken, and nothing about a scratched car is actually weaker.", "C": "A key-scratch in glass is permanent — the signature stays forever; only the sacrificial film is wipeable, and it exists to absorb the damage.", "D": "Almost none of the replaced panes are broken; smashing is exactly what the chief says people wrongly assume."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mar", "B": "smudge", "C": "deface", "D": "disfigure"}, "key": "C", "fb": {"correct": "Right. The bills carry a lasting, visible injury — <em>stamping a red slogan across each one in indelible ink<\/em> — while <em>its engraving unaltered beneath the stamp<\/em> shows the thing itself still whole and still working. An ugly permanent mark on something otherwise intact is exactly what deface names.", "D": "Disfigure is the deeper injury, where the form itself is changed for good. But <em>every bill still folds, spends, and scans exactly as printed<\/em>, <em>its engraving unaltered beneath the stamp<\/em>: the note itself is exactly what it was. The harm here never reaches the thing's form.", "A": "Mar is the general spoiler — it can spoil a mood, an evening, a finish, and sometimes only slightly. Nothing in the passage makes it false, but the question asks for the most precise word, and a word that covers a spoiled evening as easily as a spoiled bill is the looser fit. The passage shows something stricter: <em>stamping a red slogan across each one in indelible ink<\/em>.", "B": "A smudge is the smallest mark a thing can take, gone with one wipe. Here <em>the ink defeats every cleaning method they have tried<\/em> — whatever this is, it does not wipe away."}}}, "pairwise": {"rows": [{"sentence": "To scratch initials into the courthouse doors is to ____ them, the notice warns — not a mood or an evening spoiled, but lasting injury to the look of a surface, with the oak beneath as solid as ever.", "options": ["deface", "disfigure"], "key": "deface", "pair": "disfigure", "why_right": "The tell is <em>the oak beneath as solid as ever<\/em> - the injury lives in how a visible surface looks while the thing itself stays whole; nothing about the doors' form is remade.", "why_wrong": "The doors themselves are fine — <em>the oak beneath as solid as ever<\/em>. That word is for a form permanently reshaped, reading differently ever after."}, {"sentence": "The acid went past surface harm and began to ____ the statue outright: the nose ran, the jawline slumped, and the face now reads as someone else's for good.", "options": ["deface", "disfigure"], "key": "disfigure", "pair": "disfigure", "why_right": "The tell is <em>went past surface harm<\/em> - the statue's very shape changed for good and now reads as someone else's, the deeper injury rather than a mark on a whole surface.", "why_wrong": "The sentence says the damage <em>went past surface harm<\/em> — the statue's very shape changed, which is deeper than an injured surface."}, {"sentence": "A botched pressure-wash left the museum's limestone front ____ for good: broad pale streaks that no treatment can lift, though the stone beneath is as sound as the day it was cut.", "options": ["deface", "disfigure"], "key": "deface", "pair": "disfigure", "why_right": "The tell is <em>as sound as the day it was cut<\/em> - the harm sits in how the surface looks, one lasting blemish on a front that is still whole and still itself.", "why_wrong": "That word is the deeper injury - a form marred for good so the shape reads differently ever after. This stone is as sound as ever; only the front's look is hurt."}, {"sentence": "Whoever inked a mustache on the lobby portrait managed to ____ it: the canvas beneath is whole and still itself, wearing one ugly mark that defies every solvent.", "options": ["deface", "smudge"], "key": "deface", "pair": "smudge", "why_right": "The tell is <em>defies every solvent<\/em> - one ugly permanent mark on a surface is this word's exact territory; the faint wipeable blur is a far milder word's.", "why_wrong": "Something that <em>defies every solvent<\/em> is no faint, wipeable blur."}, {"sentence": "Handled without gloves, the display case picks up fingerprints that ____ its glass for a moment — the faintest blur a surface can suffer, gone the instant the cloth passes over.", "options": ["deface", "smudge"], "key": "smudge", "pair": "smudge", "why_right": "The tell is <em>gone the instant the cloth passes over<\/em> - the smallest insult a surface can take, wiped away in one pass, nothing like a mark that will not wipe away.", "why_wrong": "That word's mark <em>will not wipe away<\/em>. This one is <em>gone the instant the cloth passes over<\/em>."}, {"sentence": "Groundskeepers warned that stray bottle rockets would ____ the pier's new boardwalk, every burst leaving a black scorch star that no amount of scrubbing has ever lifted.", "options": ["deface", "smudge"], "key": "deface", "pair": "smudge", "why_right": "The tell is <em>no amount of scrubbing has ever lifted<\/em> - a lasting injury to how the boardwalk looks, far past the faint blur that goes with one wipe.", "why_wrong": "That word is the smallest insult a surface can take, gone with one wipe. A scorch star that survives every scrubbing is lasting injury to the boardwalk's face."}, {"sentence": "One shrill argument at the rehearsal dinner was enough to ____ the whole weekend, though by Monday nobody could point to any damage you could actually see.", "options": ["deface", "mar"], "key": "mar", "pair": "mar", "why_right": "The tell is <em>any damage you could actually see<\/em> - there is none, and the general spoiler can spoil an event or a mood with no surface involved at all.", "why_wrong": "That word needs a visible surface bearing the damage. Here <em>no damage you could actually see<\/em> exists — the harm fell on a weekend."}, {"sentence": "Graduates said the bribery headline, breaking that same morning, managed to ____ the whole ceremony, though nothing anyone could point to on the stage or in the program looked any different.", "options": ["deface", "mar"], "key": "mar", "pair": "mar", "why_right": "The tell is <em>nothing anyone could point to<\/em> - the spoiling fell on an occasion rather than on any visible surface, exactly the general spoiler's territory.", "why_wrong": "That word needs a physical surface you can see, its look injured. The stage and the program look exactly as they did; what was spoiled is the occasion itself."}], "display_order": [1, 5, 2, 7, 4, 0, 3, 6], "dimension_order": ["disfigure", "mar", "smudge"], "dimension_feedback": {"disfigure": "Disfigure is the deeper injury — a face or form marred for good, so the shape itself reads differently ever after. Deface can be one ugly mark on a surface; the thing underneath is still whole and still itself.", "mar": "Mar is the general spoiler: it can spoil an event, a mood, a finish — almost anything, and sometimes only slightly. Deface is stricter: it needs a physical surface you can see, and it injures the way that surface looks.", "smudge": "A smudge is far milder than defacement — the smallest insult a surface can take, gone with one wipe; to deface something leaves a mark that will not wipe away."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a visible surface whose look is wrecked while the thing itself survives and works. Try working in words like <i>scratched<\/i>, <i>spray-painted<\/i>, <i>surface<\/i> or <i>still stands<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

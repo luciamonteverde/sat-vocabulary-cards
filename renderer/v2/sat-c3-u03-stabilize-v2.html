@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="70b0f811f405">
+<meta name="build" content="ffd1caf46e61">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>stabilize &#8212; SAT Vocabulary, Course 3 Unit 3</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "stabilize", "gradeUrl": "/api/grade", "taskId": "stabilize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses stabilize correctly?", "opts": {"A": "She stabilized the last slice of pie for herself before the guests arrived.", "B": "The senate stabilized the new appeals judge by a narrow two-vote margin.", "C": "The bakery stabilized its cash flow by adding a wholesale account.", "D": "Volunteers stabilized the raffle tickets at both doors before the drawing."}, "key": "C", "fb": {"correct": "Correct. The wholesale account makes the bakery's cash flow steady and keeps it from lurching worse each month — steadying and holding is exactly what stabilize means.", "A": "Here stabilize stands in for grabbing: 'the last slice of pie for herself' is being claimed, not made steady. Look for something shaky or worsening that gets held steady and kept from slipping.", "B": "A 'narrow two-vote margin' is how a senate confirms an appointment — a vote settles who gets the job, it steadies nothing. Stabilize needs something wobbly or worsening being held firm.", "D": "Handing out 'the raffle tickets at both doors' is distributing them, not steadying them. Stabilize means stopping something from wobbling or getting worse — find a shaky situation being held firm."}}, "s3a": {"q": "As used in this passage, what does it mean to stabilize the patient?", "opts": {"A": "To keep his condition from getting any worse", "B": "To cure his injuries completely during the flight itself", "C": "To fasten him safely to the stretcher for the ride", "D": "To monitor his vital signs without treating him"}, "key": "A", "fb": {"correct": "Right -- the crew's job is 'to keep the patient from getting worse': decline halted, cure deferred.", "B": "The passage rules that out twice: the crew's job 'was never to cure anything,' and the real fix 'waits ninety miles away.'", "C": "Nothing in the passage is about straps or fastening -- the fight is against a worsening condition, not a shifting body.", "D": "The crew treats constantly -- 'fluids in, pressure held.' Watching alone would let the numbers keep falling."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "anchor", "B": "brace", "C": "secure", "D": "stabilize"}, "key": "D", "fb": {"correct": "Right. The paint was already failing, and the whole commission is <em>to stop that slow loss where it stands<\/em> — arresting a decline rather than undoing it — which is exactly what it means to stabilize something.", "C": "To secure is to fasten a sound thing in place, against movement or theft. But <em>The mural is not going anywhere<\/em> — nothing on the wall is loose, and no one fears thieves; the plaster's problem is that it is failing.", "A": "To anchor is to hold something at a fixed spot, typically by weighing it down. Position was never in doubt here: <em>it is simply going away<\/em>, flake by flake, and no weight can hold powdering paint together.", "B": "To brace is to put support in place before the blow lands. This blow landed long ago — the plaster <em>had been lifting and powdering a little more each winter<\/em> — so there is nothing left to prepare for."}}}, "grid": {"words": ["stabilize", "secure", "anchor", "brace"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "After the currency lost a tenth of its value in a week, the central bank spent its reserves to ____ it -- not to regain the lost ground, just to stop the slide.", "ks": ["stabilize"], "fb": {"secure": "That word fastens a sound thing so it cannot move or be taken -- locks, knots, bolts. This currency is not being fastened; its fall is being halted.", "anchor": "That word fixes something in one place, usually with sheer weight. A sliding value has no place to be pinned to -- the fight is against decline.", "brace": "That word gets support in position before the blow lands. This blow landed a week ago -- the work is arresting a slide already underway."}}, {"s": "Wildlife officers spent five years trying to ____ the crane population -- not to grow it yet, just to stop the yearly losses.", "ks": ["stabilize"], "fb": {"secure": "That word ties a sound thing down so it cannot move or be taken. A shrinking flock is failing, not loose -- the work is halting the decline.", "anchor": "That word pins something to a spot, usually with weight. There is no spot and no weight here -- only numbers that need to stop falling.", "brace": "That word readies support before the hit. These losses have run for years -- the officers are arresting trouble already in motion."}}, {"s": "Hours before the typhoon made landfall, shop owners nailed lumber at angles to ____ their storefront windows against the coming wind.", "ks": ["brace"], "fb": {"stabilize": "That word halts a decline already underway. Nothing here is failing yet -- the wind has not even arrived; this is support set before the blow.", "secure": "That word fastens a thing so it cannot move or be taken -- knots, locks, bolts. These windows are not loose; they are being given support to take an impact.", "anchor": "That word pins something in place with weight. Angled lumber is not pinning the windows anywhere -- it is standing ready to take the wind's push."}}, {"s": "Movers wedged planks beneath the old staircase to ____ it for the piano's descent -- support in place before a single extra pound came onto the treads.", "ks": ["brace"], "fb": {"stabilize": "That word stops something that is already getting worse. The staircase is fine -- the point is the load that has not yet arrived.", "secure": "That word ties or locks a thing so it cannot move or be taken. The staircase is going nowhere; it is being given strength for what is coming.", "anchor": "That word fixes a thing in one spot, usually by weight. The planks are not pinning the staircase down -- they are readying it to take weight."}}, {"s": "Commuters ____ their bikes to the station racks with heavy chain locks, since a dozen had been taken by thieves that spring.", "ks": ["secure"], "fb": {"stabilize": "That word halts a decline -- a failing patient, a sliding market. These bikes are in perfect shape; the worry is that they will vanish.", "anchor": "That word pins a thing in place, usually with sheer weight, so it cannot drift. A chain lock answers theft, not drift.", "brace": "That word adds support before an impact. No blow is coming for these bikes -- the danger is that they walk away."}}, {"s": "Ground crews ____ the display balloon with water barrels at each corner of its base, so it held its exact spot over the painted target all afternoon.", "ks": ["anchor"], "fb": {"secure": "That word fastens -- locks, knots, bolts, a line tied fast. Nothing here is tied at all; barrels of water hold the spot by weight alone.", "stabilize": "That word arrests a decline -- something failing made steady. The balloon is in perfect health; the only question is where it sits.", "brace": "That word sets support to take a coming blow. No impact is expected -- the barrels exist to keep one thing in one place."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something failing being made steady -- the getting-worse stopped, even if nothing is fixed yet. Try working in a word like <i>decline<\/i>, <i>slide<\/i>, <i>steady<\/i> or <i>no worse<\/i>."}};
+  var CFG = {"word": "stabilize", "gradeUrl": "/api/grade", "taskId": "stabilize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses stabilize correctly?", "opts": {"A": "She stabilized the last slice of pie for herself before the guests arrived.", "B": "The senate stabilized the new appeals judge by a narrow two-vote margin.", "C": "The bakery stabilized its cash flow by adding a wholesale account.", "D": "Volunteers stabilized the raffle tickets at both doors before the drawing."}, "key": "C", "fb": {"correct": "Correct. The wholesale account makes the bakery's cash flow steady and keeps it from lurching worse each month — steadying and holding is exactly what stabilize means.", "A": "Here stabilize stands in for grabbing: 'the last slice of pie for herself' is being claimed, not made steady. Look for something shaky or worsening that gets held steady and kept from slipping.", "B": "A 'narrow two-vote margin' is how a senate confirms an appointment — a vote settles who gets the job, it steadies nothing. Stabilize needs something wobbly or worsening being held firm.", "D": "Handing out 'the raffle tickets at both doors' is distributing them, not steadying them. Stabilize means stopping something from wobbling or getting worse — find a shaky situation being held firm."}}, "s3a": {"q": "As used in this passage, what does it mean to stabilize the patient?", "opts": {"A": "To keep his condition from getting any worse", "B": "To cure his injuries completely during the flight itself", "C": "To fasten him safely to the stretcher for the ride", "D": "To monitor his vital signs without treating him"}, "key": "A", "fb": {"correct": "Right -- the crew's job is 'to keep the patient from getting worse': decline halted, cure deferred.", "B": "The passage rules that out twice: the crew's job 'was never to cure anything,' and the real fix 'waits ninety miles away.'", "C": "Nothing in the passage is about straps or fastening -- the fight is against a worsening condition, not a shifting body.", "D": "The crew treats constantly -- 'fluids in, pressure held.' Watching alone would let the numbers keep falling."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "anchor", "B": "brace", "C": "secure", "D": "stabilize"}, "key": "D", "fb": {"correct": "Right. The paint was already failing, and the whole commission is <em>to stop that slow loss where it stands<\/em> — arresting a decline rather than undoing it — which is exactly what it means to stabilize something.", "C": "To secure is to fasten a sound thing in place, against movement or theft. But <em>The mural is not going anywhere<\/em> — nothing on the wall is loose, and no one fears thieves; the plaster's problem is that it is failing.", "A": "To anchor is to hold something at a fixed spot, typically by weighing it down. Position was never in doubt here: <em>it is simply going away<\/em>, flake by flake, and no weight can hold powdering paint together.", "B": "To brace is to put support in place before the blow lands. This blow landed long ago — the plaster <em>had been lifting and powdering a little more each winter<\/em> — so there is nothing left to prepare for."}}}, "pairwise": {"rows": [{"sentence": "After the currency lost a tenth of its value in a week, the central bank spent its reserves to ____ it -- not to regain the lost ground, just to stop the slide.", "options": ["stabilize", "anchor"], "key": "stabilize", "pair": "anchor", "why_right": "The tell is <em>just to stop the slide<\/em> - the fight is a value in decline, condition rather than location; nothing is pinned to a place with weight, a fall is being halted.", "why_wrong": "That word fixes something in one place, usually with sheer weight. A sliding value has no place to be pinned to -- the fight is against decline."}, {"sentence": "Weekly tutoring sessions began to ____ his slipping grades -- no honor roll yet, but the string of falling marks finally leveled off.", "options": ["stabilize", "anchor"], "key": "stabilize", "pair": "anchor", "why_right": "The tell is <em>finally leveled off<\/em> - a decline is halted with no improvement claimed, this word's exact job; anchoring needs a place and a weight, and grades have neither.", "why_wrong": "That word fixes a thing in one place, usually with sheer weight. Grades have no spot to be pinned to -- the fight here is a string of falling marks."}, {"sentence": "Ground crews ____ the display balloon with water barrels at each corner of its base, so it held its exact spot over the painted target all afternoon.", "options": ["stabilize", "anchor"], "key": "anchor", "pair": "anchor", "why_right": "The tell is <em>water barrels at each corner<\/em> - sheer weight holding one thing in one exact place all afternoon, with nothing failing and nothing fastened.", "why_wrong": "That word arrests a decline -- something failing made steady. The balloon is in perfect health; the only question is where it sits."}, {"sentence": "Wildlife officers spent five years trying to ____ the crane population -- not to grow it yet, just to stop the yearly losses.", "options": ["stabilize", "brace"], "key": "stabilize", "pair": "brace", "why_right": "The tell is <em>just to stop the yearly losses<\/em> - the losses are already running and are being arrested; bracing readies support for a blow that has not yet landed.", "why_wrong": "That word readies support before the hit. These losses have run for years -- the officers are arresting trouble already in motion."}, {"sentence": "Hours before the typhoon made landfall, shop owners nailed lumber at angles to ____ their storefront windows against the coming wind.", "options": ["stabilize", "brace"], "key": "brace", "pair": "brace", "why_right": "The tell is <em>against the coming wind<\/em> - support is set hours before the blow lands, the card's exact ground for this word; nothing is failing or getting worse yet.", "why_wrong": "That word halts a decline already underway. Nothing here is failing yet -- the wind has not even arrived; this is support set before the blow."}, {"sentence": "Movers wedged planks beneath the old staircase to ____ it for the piano's descent -- support in place before a single extra pound came onto the treads.", "options": ["stabilize", "brace"], "key": "brace", "pair": "brace", "why_right": "The tell is <em>before a single extra pound<\/em> - the support goes in ahead of a known coming load, a shelf readied for heavy books; no decline is underway to arrest.", "why_wrong": "That word stops something that is already getting worse. The staircase is fine -- the point is the load that has not yet arrived."}, {"sentence": "Engineers drove willow stakes and matting into the slumping riverbank to ____ it -- each spring had taken another foot, and the goal was to stop the loss, not reclaim it.", "options": ["stabilize", "secure"], "key": "stabilize", "pair": "secure", "why_right": "The tell is <em>each spring had taken another foot<\/em> - a failing bank in ongoing decline is being made steady so the loss stops; securing wants a sound thing to fasten.", "why_wrong": "That word fastens a sound thing so it cannot move or be taken -- locks, knots, bolts. This riverbank is failing, and the work is halting its decline, not locking it down."}, {"sentence": "Festival crews ____ the generator trailers overnight with hitch locks and wheel clamps, after two had vanished from the lot last summer.", "options": ["stabilize", "secure"], "key": "secure", "pair": "secure", "why_right": "The tell is <em>hitch locks and wheel clamps<\/em> - sound trailers are being fastened so they cannot move or be taken; nothing is failing, and no decline needs halting.", "why_wrong": "That word halts a decline -- a failing patient, a sliding market. These trailers are sound; the fear is theft, and locks and clamps answer theft."}], "display_order": [2, 4, 6, 1, 5, 7, 3, 0], "dimension_order": ["anchor", "brace", "secure"], "dimension_feedback": {"anchor": "To anchor is to fix something firmly in one place, usually with sheer weight — a tent staked down, a bookcase bolted to the wall. Stabilizing is about condition rather than location: a failing patient, market, or porch stops getting worse. Anchoring holds a position; to stabilize is to halt a decline.", "brace": "To brace something is to add support before the blow — you brace a shelf for heavy books or yourself for impact. Stabilizing answers a different problem: something already wobbling or worsening gets made steady so it stops sliding further. Bracing prepares for trouble; to stabilize is to arrest trouble already underway.", "secure": "To secure something is to fasten it so it cannot move or be taken — locks, knots, bolts, a boat tied fast to the dock. Stabilizing fights a different enemy: decline. Something failing gets made steady so it stops getting worse. You secure a sound thing in place; you stabilize a failing one."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show something failing being made steady -- the getting-worse stopped, even if nothing is fixed yet. Try working in a word like <i>decline<\/i>, <i>slide<\/i>, <i>steady<\/i> or <i>no worse<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

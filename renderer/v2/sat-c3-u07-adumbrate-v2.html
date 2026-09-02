@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6c7586bfdc82">
+<meta name="build" content="81cffbb8adfb">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>adumbrate &#8212; SAT Vocabulary, Course 3 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "adumbrate", "gradeUrl": "/api/grade", "taskId": "adumbrate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses adumbrate correctly?", "opts": {"A": "The intern adumbrated the report word for word, reading every one of its forty pages aloud to the room.", "B": "Lena adumbrated her essay one final time, correcting every comma and checking each citation twice.", "C": "The architect's first charcoal study adumbrated the museum: a single low sweep of roof, no more.", "D": "The chef adumbrated the sauce over low heat until it thickened enough to coat the back of a spoon."}, "key": "C", "fb": {"correct": "Correct. The charcoal study traces only the building's dimmest outline — one sweep of roof, nothing filled in — which is exactly what adumbrate means: to sketch out in a vague way.", "A": "Reciting a report 'word for word,' all forty pages of it, delivers total completeness — every detail spoken aloud. Adumbrating runs the opposite way: it gives only a faint, partial outline and deliberately leaves the rest unsaid.", "B": "Correcting 'every comma' and double-checking citations is proofreading — polish applied after the writing is finished. To adumbrate is to rough out the barest early hint of a thing, a hazy outline, not a finishing pass.", "D": "Thickening a sauce 'over low heat' until it coats a spoon is cooking, closer to reduced. Adumbrate lives in sketches and plans — tracing a dim, incomplete outline of something. A simmering pot outlines nothing at all."}}, "s3a": {"q": "As it is used in the passage, \"adumbrate\" most nearly means", "opts": {"A": "to outline dimly on purpose, withholding detail", "B": "to deny that a work exists at all until its premiere night", "C": "to explain a finished piece patiently, measure by measure", "D": "to promise more than a work can deliver"}, "key": "A", "fb": {"correct": "Right — her notes 'trace the finale's shape in the dimmest possible line' while 'every detail stayed locked in the score': a deliberate, shadowed outline.", "B": "She never hides the symphony's existence — she writes a public note about it; what she withholds is detail.", "C": "Measure-by-measure explanation is the opposite of her habit; the note gives a dim line, not an analysis.", "D": "No promise is broken — the finale 'landed exactly as designed'; the note's vagueness is a method, not a boast."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "prefigure", "B": "sketch", "C": "foreshadow", "D": "adumbrate"}, "key": "C", "fb": {"correct": "Right. To foreshadow is to plant an early hint inside a story so the later event feels prepared when it arrives — a cracked cup at the wedding, then <em>the poisoning that shatters the household two panels later<\/em>.", "D": "Adumbrate traces only the dimmest outline of a thing and keeps its details dark on purpose. This detail is the opposite of dim — <em>woven as finely and fully as the bride's own face<\/em>, with <em>nothing about it left vague<\/em> — and what it points to is a coming event, not a plan's own veiled shape.", "B": "To sketch the poisoning, the weaver would have had to rough the scene itself out somewhere. The first panel does no such thing: in it, <em>a servant holds a cracked cup<\/em> — a finished detail, not a rough draft of anything.", "A": "Prefigure fits an early sign that nobody intended, a signal read only in hindsight. Intent is the one thing this passage documents: <em>The cartoons record the master weaver's instruction to add it expressly<\/em>."}}}, "grid": {"words": ["adumbrate", "sketch", "prefigure", "foreshadow"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "In her funding pitch the architect would do no more than ____ the pavilion — a raked roofline, a suggestion of glass — keeping every measurement deliberately dark until the contract was signed.", "ks": ["adumbrate"], "fb": {"sketch": "A plain rough version hides nothing — but this outline is kept dim on purpose, every measurement withheld until signing, which calls for the shadier, more deliberate word.", "prefigure": "That word names an unintended early sign; this architect chooses exactly what to show and what to keep dark.", "foreshadow": "Nothing hints at a separate coming event — the outline is of the building itself, given now, dimly and on purpose."}}, {"s": "Rather than release the treaty's text, the ministers chose to ____ its terms for the press: broad zones of withdrawal, unnamed guarantors, dates left carefully vague.", "ks": ["adumbrate"], "fb": {"sketch": "A rough working version would happily include the specifics; here the specifics are exactly what is being kept dark, on purpose.", "prefigure": "Nothing here is an accidental early sign — the ministers choose what to reveal and what stays dark.", "foreshadow": "No story is planting hints of a later event; the outline traces the agreement itself, dimly and by choice."}}, {"s": "Readers on a second pass see how the novelist uses the broken lighthouse lamp of chapter one to ____ the shipwreck that ends the book.", "ks": ["foreshadow"], "fb": {"adumbrate": "That word traces the dim outline of the thing itself — a plan, a design. This lamp instead plants a hint of a different, later event: a storyteller's move.", "prefigure": "An author who places the lamp on purpose is not an accident of history; the unintended-signal word does not fit deliberate craft.", "sketch": "Nothing is being roughed out; a single image is planted so a later disaster feels prepared when it comes."}}, {"s": "Film students learn how a director will ____ the betrayal an hour before it happens: a handshake held a beat too long, a toast that no one returns.", "ks": ["foreshadow"], "fb": {"adumbrate": "The handshake and the toast do not outline any plan or design — they point at a separate event still to come, which is the storyteller's word.", "prefigure": "Deliberate craft rules out the word for signals nobody meant to send; the director places each hint.", "sketch": "Nothing is roughed out in broad strokes; two tiny moments are planted so the later betrayal feels prepared."}}, {"s": "Historians note that the village's shared granaries would ____ the cooperative movement that swept the region a century later, though no farmer of that era imagined any such thing.", "ks": ["prefigure"], "fb": {"foreshadow": "A planted hint needs a planter, and the sentence rules one out: no farmer imagined what was coming. This is a sign only hindsight can read.", "adumbrate": "That word requires someone choosing to give a shadowy outline; here nobody chose anything — the early resemblance was unmeant.", "sketch": "The villagers were storing grain, not roughing out a version of a future movement; nothing is drafted at all."}}, {"s": "Asked for the ending on live radio, the screenwriter cheerfully proceeded to ____ the final act in broad strokes, hiding nothing from the callers.", "ks": ["sketch"], "fb": {"adumbrate": "Nothing is kept dark — she hides nothing and answers everyone; the shadowy, secret-keeping word has no work to do here.", "prefigure": "This is a person deliberately giving a rough version right now, not an unmeant early sign read later in hindsight.", "foreshadow": "She does not plant a hint and walk away — she lays the ending out in broad strokes for all to hear."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone deliberately giving only a dim outline while keeping the details dark — not accidentally hinting. Try working in a word like <i>outline<\/i>, <i>vague<\/i>, <i>deliberately<\/i> or <i>details<\/i>."}};
+  var CFG = {"word": "adumbrate", "gradeUrl": "/api/grade", "taskId": "adumbrate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses adumbrate correctly?", "opts": {"A": "The intern adumbrated the report word for word, reading every one of its forty pages aloud to the room.", "B": "Lena adumbrated her essay one final time, correcting every comma and checking each citation twice.", "C": "The architect's first charcoal study adumbrated the museum: a single low sweep of roof, no more.", "D": "The chef adumbrated the sauce over low heat until it thickened enough to coat the back of a spoon."}, "key": "C", "fb": {"correct": "Correct. The charcoal study traces only the building's dimmest outline — one sweep of roof, nothing filled in — which is exactly what adumbrate means: to sketch out in a vague way.", "A": "Reciting a report 'word for word,' all forty pages of it, delivers total completeness — every detail spoken aloud. Adumbrating runs the opposite way: it gives only a faint, partial outline and deliberately leaves the rest unsaid.", "B": "Correcting 'every comma' and double-checking citations is proofreading — polish applied after the writing is finished. To adumbrate is to rough out the barest early hint of a thing, a hazy outline, not a finishing pass.", "D": "Thickening a sauce 'over low heat' until it coats a spoon is cooking, closer to reduced. Adumbrate lives in sketches and plans — tracing a dim, incomplete outline of something. A simmering pot outlines nothing at all."}}, "s3a": {"q": "As it is used in the passage, \"adumbrate\" most nearly means", "opts": {"A": "to outline dimly on purpose, withholding detail", "B": "to deny that a work exists at all until its premiere night", "C": "to explain a finished piece patiently, measure by measure", "D": "to promise more than a work can deliver"}, "key": "A", "fb": {"correct": "Right — her notes 'trace the finale's shape in the dimmest possible line' while 'every detail stayed locked in the score': a deliberate, shadowed outline.", "B": "She never hides the symphony's existence — she writes a public note about it; what she withholds is detail.", "C": "Measure-by-measure explanation is the opposite of her habit; the note gives a dim line, not an analysis.", "D": "No promise is broken — the finale 'landed exactly as designed'; the note's vagueness is a method, not a boast."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "prefigure", "B": "sketch", "C": "foreshadow", "D": "adumbrate"}, "key": "C", "fb": {"correct": "Right. To foreshadow is to plant an early hint inside a story so the later event feels prepared when it arrives — a cracked cup at the wedding, then <em>the poisoning that shatters the household two panels later<\/em>.", "D": "Adumbrate traces only the dimmest outline of a thing and keeps its details dark on purpose. This detail is the opposite of dim — <em>woven as finely and fully as the bride's own face<\/em>, with <em>nothing about it left vague<\/em> — and what it points to is a coming event, not a plan's own veiled shape.", "B": "To sketch the poisoning, the weaver would have had to rough the scene itself out somewhere. The first panel does no such thing: in it, <em>a servant holds a cracked cup<\/em> — a finished detail, not a rough draft of anything.", "A": "Prefigure fits an early sign that nobody intended, a signal read only in hindsight. Intent is the one thing this passage documents: <em>The cartoons record the master weaver's instruction to add it expressly<\/em>."}}}, "pairwise": {"rows": [{"sentence": "In her funding pitch the architect would do no more than ____ the pavilion — a raked roofline, a suggestion of glass — keeping every measurement deliberately dark until the contract was signed.", "options": ["adumbrate", "foreshadow"], "key": "adumbrate", "pair": "foreshadow", "why_right": "The tell is <em>a raked roofline, a suggestion of glass<\/em> - adumbrate traces the dim outline of the thing itself, the pavilion now; foreshadow would need a planted hint of a separate event to come.", "why_wrong": "Nothing hints at a separate coming event — the outline is of the building itself, given now, dimly and on purpose."}, {"sentence": "Readers on a second pass see how the novelist uses the broken lighthouse lamp of chapter one to ____ the shipwreck that ends the book.", "options": ["adumbrate", "foreshadow"], "key": "foreshadow", "pair": "foreshadow", "why_right": "The tell is <em>the broken lighthouse lamp of chapter one<\/em> - foreshadow plants an early hint inside a story of a separate event to come; adumbrate would outline a plan's own shape, not a later wreck.", "why_wrong": "That word traces the dim outline of the thing itself — a plan, a design. This lamp instead plants a hint of a different, later event: a storyteller's move."}, {"sentence": "Film students learn how a director will ____ the betrayal an hour before it happens: a handshake held a beat too long, a toast that no one returns.", "options": ["adumbrate", "foreshadow"], "key": "foreshadow", "pair": "foreshadow", "why_right": "The tell is <em>a handshake held a beat too long<\/em> - foreshadow plants small hints inside a story that point at a separate event to come; adumbrate instead outlines a plan or design itself.", "why_wrong": "The handshake and the toast do not outline any plan or design — they point at a separate event still to come, which is the storyteller's word."}, {"sentence": "Rather than release the treaty's text, the ministers chose to ____ its terms for the press: broad zones of withdrawal, unnamed guarantors, dates left carefully vague.", "options": ["adumbrate", "prefigure"], "key": "adumbrate", "pair": "prefigure", "why_right": "The tell is <em>the ministers chose to<\/em> - adumbrate is a deliberate outline of the thing itself; prefigure names an unintended early sign of a separate later event that no one meant to give.", "why_wrong": "Nothing here is an accidental early sign — the ministers choose what to reveal and what stays dark."}, {"sentence": "Pressed for the tasting menu, the chef would only ____ it for the food critics, hinting at smoke, citrus, and something cold, and refused on purpose to name a finished dish.", "options": ["adumbrate", "prefigure"], "key": "adumbrate", "pair": "prefigure", "why_right": "The tell is <em>refused on purpose to name a finished dish<\/em> - adumbrate is a deliberate dim outline of the thing itself; prefigure would need an unmeant sign of some separate later event.", "why_wrong": "That word names an early sign nobody intended, read only in hindsight and pointing at a separate later thing. Here the chef deliberately outlines the menu itself, choosing what to keep dark."}, {"sentence": "Historians note that the village's shared granaries would ____ the cooperative movement that swept the region a century later, though no farmer of that era imagined any such thing.", "options": ["adumbrate", "prefigure"], "key": "prefigure", "pair": "prefigure", "why_right": "The tell is <em>no farmer of that era imagined any such thing<\/em> - prefigure is an unmeant early sign read only in hindsight; adumbrate needs someone deliberately choosing to give a dim outline.", "why_wrong": "That word requires someone choosing to give a shadowy outline; here nobody chose anything — the early resemblance was unmeant."}, {"sentence": "Given the memorial commission, the sculptor would ____ her design in bare terms, a rising curve and a single figure, refusing on purpose to reveal what it would say.", "options": ["adumbrate", "sketch"], "key": "adumbrate", "pair": "sketch", "why_right": "The tell is <em>refusing on purpose to reveal what it would say<\/em> - adumbrate keeps the details dark on purpose; sketch is a plain rough version with no hint of shadow or secrecy.", "why_wrong": "That word means an open rough version that hides nothing. Here the sculptor gives only the barest terms and refuses on purpose to reveal the rest, which is the shadowed, deliberate word."}, {"sentence": "Asked for the ending on live radio, the screenwriter cheerfully proceeded to ____ the final act in broad strokes, hiding nothing from the callers.", "options": ["adumbrate", "sketch"], "key": "sketch", "pair": "sketch", "why_right": "The tell is <em>hiding nothing from the callers<\/em> - sketch is an open rough version with no hint of shadow or secrecy; adumbrate keeps its details dark on purpose, which nothing here does.", "why_wrong": "Nothing is kept dark — she hides nothing and answers everyone; the shadowy, secret-keeping word has no work to do here."}], "display_order": [1, 4, 6, 3, 2, 7, 5, 0], "dimension_order": ["foreshadow", "prefigure", "sketch"], "dimension_feedback": {"foreshadow": "To foreshadow is to plant an early hint of what is coming, usually inside a story, so the later event feels prepared when it arrives. Adumbrate points at the thing itself: it sketches a plan's or design's own outline now, dimly and on purpose, rather than hinting at a separate later event.", "prefigure": "To prefigure is to be an early sign of something that comes later, without anyone intending the signal — a rough drawing can prefigure a finished masterpiece. Adumbrate is deliberate: whoever gives the shadowy outline chooses to give it, and chooses what stays dark.", "sketch": "To sketch is to give a rough version of anything — a plan, a face, a chapter — with no hint of shadow or secrecy about it. Adumbrate is narrower and more deliberate: it traces only the dimmest outline and keeps the details dark on purpose."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone deliberately giving only a dim outline while keeping the details dark — not accidentally hinting. Try working in a word like <i>outline<\/i>, <i>vague<\/i>, <i>deliberately<\/i> or <i>details<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

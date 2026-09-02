@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="e7d536f34470">
+<meta name="build" content="bcb585fe4767">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>authenticate &#8212; SAT Vocabulary, Course 3 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "authenticate", "gradeUrl": "/api/grade", "taskId": "authenticate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses authenticate correctly?", "opts": {"A": "The registrar authenticated the class picnic by adding it to the official school calendar.", "B": "The archive authenticated the diary by dating its ink and paper to the 1680s.", "C": "The chef authenticated the bland stew with extra chilies until it finally tasted right to him.", "D": "The principal authenticated the field trip the moment the last permission slip arrived."}, "key": "B", "fb": {"correct": "Correct! Dating the ink and paper proves the diary really is what it claims to be — testing genuineness itself is exactly what authenticate means.", "A": "Adding a picnic 'to the official school calendar' schedules an event; nothing about its genuineness is examined. Authenticate means to establish with evidence that something is real — look for a test of realness.", "C": "The chef is adjusting flavor, adding 'extra chilies until it finally tasted right.' That is seasoning, not verification — authenticate means confirming that something genuinely is what it claims to be.", "D": "Approving a trip once 'the last permission slip arrived' is authorization, a green light. To authenticate is to verify genuineness — proving a thing is real, not clearing an activity to proceed."}}, "s3a": {"q": "As it is used in the passage, \"authenticate\" most nearly means", "opts": {"A": "to prove an object really is what it claims to be", "B": "to repair and restore a damaged object for display", "C": "to set a fair market price on any item donated to the museum", "D": "to write the official exhibit label for it"}, "key": "A", "fb": {"correct": "Right — stitching against photographs, dye against era samples, the tag run to its factory: testing that proves the jersey \"was exactly what the note said it was.\"", "B": "Nothing is repaired — the jersey goes from garbage bag to lobby unchanged; only its story gets tested.", "C": "No one prices anything; the lab work is about what the jersey is, not what it is worth.", "D": "The placard comes after — it records the tests. The word names the testing itself."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "authenticate", "B": "confirm", "C": "eyeball", "D": "certify"}, "key": "A", "fb": {"correct": "Right. The bottle already had papers; what it lacked was proof of what it actually was. Testing the object itself — <em>The glass was matched to the decade's molds, the liquid dated by isotope<\/em> — until it is shown to be genuinely what it claims is exactly what authenticate names.", "B": "To confirm is to check that a fact holds, and no fact here is in doubt: <em>Nobody doubted that the bottle had crossed the ocean<\/em>. The lab's question is about the object's identity — <em>what the thing itself was<\/em> — which is a different job from checking whether something happened.", "D": "To certify is to issue the official paperwork, and this bottle already has its papers: <em>a dealer's stamped seal declaring it prewar Burgundy<\/em>. The lab sets out to do exactly what that seal could not — <em>a seal is only paper and paper can lie<\/em>.", "C": "To eyeball something is a quick once-over that settles nothing, and the passage rules that out in so many words: <em>A glance could never settle that, and the lab did not glance<\/em>. Isotope dating and mold-matching are the opposite of a once-over."}}}, "grid": {"words": ["authenticate", "confirm", "certify", "eyeball"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The auction house spent a month on the violin — varnish sampled, grain measured against period instruments — to ____ it: to prove the thing really was what its label claimed.", "ks": ["authenticate"], "fb": {"confirm": "That word checks that a fact holds — a date, a rumor, a booking. This question is about what the violin <em>is<\/em>, and the tests answer it.", "certify": "That word issues the paperwork afterward — a seal declaring a standard met. This sentence is the month of testing that comes first.", "eyeball": "A quick once-over settles nothing. <em>A month<\/em> of varnish and grain work is the full proof."}}, {"s": "Before the letter could hang in the exhibit, two archivists worked to ____ it, running ink and paper analyses to show the page was genuinely what it purported to be.", "ks": ["authenticate"], "fb": {"confirm": "You check that something happened with that word. The question here is what the page itself <em>is<\/em>.", "certify": "That word is the stamp at the end of the process. These archivists are doing the proving, not issuing papers.", "eyeball": "That is the lightest look there is. Ink and paper analyses are weeks of real testing."}}, {"s": "One call to the airline was enough to ____ that the 6 a.m. flight still ran on Sundays — the fact checked out, and nothing about any object was in question.", "ks": ["confirm"], "fb": {"authenticate": "That word tests whether an object is genuinely what it claims to be. A flight schedule is a fact, not a thing with an identity to prove.", "certify": "No office, no seal, no signed standard — just a call and a checked fact.", "eyeball": "That word needs an object in front of you. A schedule question is settled by asking, and this one <em>checked out<\/em>."}}, {"s": "Reporters held the story until a second source could ____ the rumor that the cannery would close — whether the thing was true was the whole question.", "ks": ["confirm"], "fb": {"authenticate": "That word proves what an object is. A rumor is not an object — it is a claim that is either true or not.", "certify": "That word means official paperwork declaring a standard met. A second source is a check, not a seal.", "eyeball": "There is nothing here to glance at — the work is checking whether a claim holds."}}, {"s": "Only after the inspection passes can the county ____ the elevator — a stamped notice on the cab wall declaring that the safety standard has been met.", "ks": ["certify"], "fb": {"authenticate": "That word proves an object is genuine. Nobody doubts this is an elevator — the county is issuing official approval that a standard is met.", "confirm": "Checking that a fact holds needs no stamp. The <em>stamped notice<\/em> is the official act itself — paperwork, not a phone call.", "eyeball": "A glance settles nothing and signs nothing. This is the opposite end: an official stamp after a passed inspection."}}, {"s": "Rushed at the door, the bouncer could only ____ each license — a two-second once-over, good enough to keep the line moving and proof of nothing.", "ks": ["eyeball"], "fb": {"authenticate": "That word means real testing that proves a thing genuine. A <em>two-second once-over<\/em> proves nothing at all.", "confirm": "Even checking a fact means settling it. This glance is <em>proof of nothing<\/em> — it just keeps the line moving.", "certify": "That word comes with a stamp and a declared standard. A doorway glance issues nothing."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an object whose identity is in question, and real testing that proves it genuine — not a quick glance, and not paperwork after the fact. Try working in a word like <i>tested<\/i>, <i>genuine<\/i>, <i>proved<\/i> or <i>forgery<\/i>."}};
+  var CFG = {"word": "authenticate", "gradeUrl": "/api/grade", "taskId": "authenticate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses authenticate correctly?", "opts": {"A": "The registrar authenticated the class picnic by adding it to the official school calendar.", "B": "The archive authenticated the diary by dating its ink and paper to the 1680s.", "C": "The chef authenticated the bland stew with extra chilies until it finally tasted right to him.", "D": "The principal authenticated the field trip the moment the last permission slip arrived."}, "key": "B", "fb": {"correct": "Correct! Dating the ink and paper proves the diary really is what it claims to be — testing genuineness itself is exactly what authenticate means.", "A": "Adding a picnic 'to the official school calendar' schedules an event; nothing about its genuineness is examined. Authenticate means to establish with evidence that something is real — look for a test of realness.", "C": "The chef is adjusting flavor, adding 'extra chilies until it finally tasted right.' That is seasoning, not verification — authenticate means confirming that something genuinely is what it claims to be.", "D": "Approving a trip once 'the last permission slip arrived' is authorization, a green light. To authenticate is to verify genuineness — proving a thing is real, not clearing an activity to proceed."}}, "s3a": {"q": "As it is used in the passage, \"authenticate\" most nearly means", "opts": {"A": "to prove an object really is what it claims to be", "B": "to repair and restore a damaged object for display", "C": "to set a fair market price on any item donated to the museum", "D": "to write the official exhibit label for it"}, "key": "A", "fb": {"correct": "Right — stitching against photographs, dye against era samples, the tag run to its factory: testing that proves the jersey \"was exactly what the note said it was.\"", "B": "Nothing is repaired — the jersey goes from garbage bag to lobby unchanged; only its story gets tested.", "C": "No one prices anything; the lab work is about what the jersey is, not what it is worth.", "D": "The placard comes after — it records the tests. The word names the testing itself."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "authenticate", "B": "confirm", "C": "eyeball", "D": "certify"}, "key": "A", "fb": {"correct": "Right. The bottle already had papers; what it lacked was proof of what it actually was. Testing the object itself — <em>The glass was matched to the decade's molds, the liquid dated by isotope<\/em> — until it is shown to be genuinely what it claims is exactly what authenticate names.", "B": "To confirm is to check that a fact holds, and no fact here is in doubt: <em>Nobody doubted that the bottle had crossed the ocean<\/em>. The lab's question is about the object's identity — <em>what the thing itself was<\/em> — which is a different job from checking whether something happened.", "D": "To certify is to issue the official paperwork, and this bottle already has its papers: <em>a dealer's stamped seal declaring it prewar Burgundy<\/em>. The lab sets out to do exactly what that seal could not — <em>a seal is only paper and paper can lie<\/em>.", "C": "To eyeball something is a quick once-over that settles nothing, and the passage rules that out in so many words: <em>A glance could never settle that, and the lab did not glance<\/em>. Isotope dating and mold-matching are the opposite of a once-over."}}}, "pairwise": {"rows": [{"sentence": "One call to the airline was enough to ____ that the 6 a.m. flight still ran on Sundays — the fact checked out, and nothing about any object was in question.", "options": ["authenticate", "confirm"], "key": "confirm", "pair": "confirm", "why_right": "The tell is <em>the fact checked out<\/em> - confirm checks that a fact holds, and a flight schedule is a fact to verify, not an object whose identity has to be proved genuine.", "why_wrong": "That word tests whether an object is genuinely what it claims to be. A flight schedule is a fact, not a thing with an identity to prove."}, {"sentence": "Reporters held the story until a second source could ____ the rumor that the cannery would close — whether the thing was true was the whole question.", "options": ["authenticate", "confirm"], "key": "confirm", "pair": "confirm", "why_right": "The tell is <em>whether the thing was true<\/em> - confirm settles whether a claim holds, and a rumor is a claim that is true or not, not an object with an identity to prove genuine.", "why_wrong": "That word proves what an object is. A rumor is not an object — it is a claim that is either true or not."}, {"sentence": "The auction house spent a month on the violin — varnish sampled, grain measured against period instruments — to ____ it: to prove the thing really was what its label claimed.", "options": ["authenticate", "confirm"], "key": "authenticate", "pair": "confirm", "why_right": "The tell is <em>what its label claimed<\/em> - the question is the violin's own identity, and a month of testing to prove it genuine is authenticate's job, not checking a fact.", "why_wrong": "That word checks that a fact holds — a date, a rumor, a booking. This question is about what the violin <em>is<\/em>, and the tests answer it."}, {"sentence": "Only after the inspection passes can the county ____ the elevator — a stamped notice on the cab wall declaring that the safety standard has been met.", "options": ["authenticate", "certify"], "key": "certify", "pair": "certify", "why_right": "The tell is <em>a stamped notice<\/em> - certify is the official act of issuing paperwork that a standard is met, not testing whether the elevator is genuinely what it claims to be.", "why_wrong": "That word proves an object is genuine. Nobody doubts this is an elevator — the county is issuing official approval that a standard is met."}, {"sentence": "A conservation lab spent weeks trying to ____ the disputed canvas — dating the linen weave and matching the pigments to prove the painting was genuinely old.", "options": ["authenticate", "certify"], "key": "authenticate", "pair": "certify", "why_right": "The tell is <em>dating the linen weave<\/em> - this is the hands-on testing that proves the canvas genuinely old, the work authenticate names, done long before any office issues a seal.", "why_wrong": "That word means issuing the official seal and signature after a standard is met. The lab here is doing the proving itself — the testing that comes first, long before any paperwork."}, {"sentence": "Rushed at the door, the bouncer could only ____ each license — a two-second once-over, good enough to keep the line moving and proof of nothing.", "options": ["authenticate", "eyeball"], "key": "eyeball", "pair": "eyeball", "why_right": "The tell is <em>a two-second once-over<\/em> - eyeball is the lightest check of all, a glance that settles nothing, the opposite of testing that proves a thing genuine.", "why_wrong": "That word means real testing that proves a thing genuine. A <em>two-second once-over<\/em> proves nothing at all."}, {"sentence": "Before the letter could hang in the exhibit, two archivists worked to ____ it, running ink and paper analyses to show the page was genuinely what it purported to be.", "options": ["authenticate", "eyeball"], "key": "authenticate", "pair": "eyeball", "why_right": "The tell is <em>ink and paper analyses<\/em> - weeks of real testing to prove the page genuine, which is authenticate; a light glance would settle nothing about what the letter is.", "why_wrong": "That is the lightest look there is. Ink and paper analyses are weeks of real testing."}, {"sentence": "A rare-coin house will not list a gold doubloon until its assayers ____ it — weighing the metal, reading the die marks, and matching the wear to known 1715 strikes.", "options": ["authenticate", "eyeball"], "key": "authenticate", "pair": "eyeball", "why_right": "The tell is <em>reading the die marks<\/em> - a full battery of tests to prove the coin a genuine strike, which is authenticate, not a quick glance that settles nothing.", "why_wrong": "That word is the lightest check there is — a quick once-over that settles nothing. Weighing the metal and reading the die marks is the full testing authenticate names."}], "display_order": [0, 6, 1, 7, 3, 5, 4, 2], "dimension_order": ["confirm", "certify", "eyeball"], "dimension_feedback": {"confirm": "To confirm is to check that a fact holds — a reservation, a rumor, a date. Authenticate goes to identity itself: it names the testing that proves an object is genuinely what it claims to be. You confirm that something happened; you authenticate what a thing is.", "certify": "To certify is to issue the official paperwork — a seal and a signature declaring that a standard is met. Authenticate is the testing that comes first and proves the object real; a lab authenticates the manuscript, and an office then certifies the finding.", "eyeball": "To eyeball a signature is the lightest check of all — a quick once-over that settles nothing, far milder than authenticate."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an object whose identity is in question, and real testing that proves it genuine — not a quick glance, and not paperwork after the fact. Try working in a word like <i>tested<\/i>, <i>genuine<\/i>, <i>proved<\/i> or <i>forgery<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

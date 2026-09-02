@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="456bcf0a7f21">
+<meta name="build" content="7c47b7ba8ebe">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>canny &#8212; SAT Vocabulary, Course 2 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "canny", "gradeUrl": "/api/grade", "taskId": "canny", "minWords": 12, "items": {"s1": {"q": "Which sentence uses canny correctly?", "opts": {"A": "The canny buyer waited until the boat show's last afternoon, when dealers would rather cut prices than haul stock home.", "B": "With the stove lit and rain drumming on the roof, the little cabin felt canny and safe, and nobody wanted to be first out the door.", "C": "Her canny penmanship looped across the chalkboard in perfect spirals, each letter a small work of art the class hated to erase.", "D": "A canny gust of wind slammed the barn door shut an instant before anyone in the yard could reach the latch."}, "key": "A", "fb": {"correct": "Correct. Waiting for the hour when dealers would rather cut a price than haul stock home — a sharp read of the other side, played carefully — is shrewd and careful in practical matters: canny.", "B": "Snug is what this cabin is — it 'felt canny and safe' by the stove, reaching for cozy. Canny is a quality of judgment: a person sizing up a practical situation sharply.", "C": "Penmanship looping in 'perfect spirals' displays artistry and a steady hand. Canny is not about beautiful execution; it names shrewd practical judgment — reading a situation and playing it well.", "D": "A gust that 'slammed the barn door' has force but no mind. Canny requires a thinker — someone weighing a practical situation and choosing the shrewd move on purpose."}}, "s3a": {"q": "As it is used in the passage, what does \"canny\" most nearly mean?", "opts": {"A": "willing to spend whatever a signed first edition finally costs", "B": "sharp about practical advantage while risking very little", "C": "too timid to make any offer until the other dealers have all gone home", "D": "fortunate in what the unsorted boxes happen to hold"}, "key": "B", "fb": {"correct": "Right — she reads the room, waits out the overpaying, bids only on what nobody valued, and never breaks her cap: sharp, and careful with it.", "A": "The cap is the point — 'she has never once broken the cap.' Whatever-it-costs is the opposite of her method.", "C": "Timing isn't timidity: she waits because late, unsorted boxes are where the advantage is. The waiting is the strategy.", "D": "Luck delivers the first edition, but the passage is about the method that puts her in front of the box at the right price."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "shrewd", "B": "canny", "C": "savvy", "D": "sensible"}, "key": "D", "fb": {"correct": "Right. The rule guards against a famous, well-documented danger and claims nothing cleverer — it <em>plays no angle and banks no quiet edge<\/em>, and its point is open to anyone from day one. Sensible is the word for exactly that: sound, ordinary prudence.", "B": "Canny adds a careful, self-protecting sharpness — hedged risks, an advantage quietly banked. This ritual has none of that: <em>the double reading plays no angle and banks no quiet edge<\/em>.", "A": "Shrewd praises seeing what others miss. Nothing here is hidden: <em>mix-ups between look-alike drug names are the best-documented error in the field<\/em>, so the rule rewards no special insight.", "C": "Savvy is insider fluency, earned over years inside one particular trade. This rule needs none of it: <em>a trainee grasps its point on the first morning<\/em>."}}}, "grid": {"words": ["canny", "shrewd", "savvy", "sensible"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Rather than bid against the developers, the ____ farmer quietly optioned the one access road they would need, risked almost nothing, and waited for them to come to her.", "ks": ["canny"], "fb": {"shrewd": "Sharp, yes — but the sentence's whole point is what she avoided: no bidding war, almost no risk, the advantage banked quietly. The word you chose can describe a bold gamble; this move is the opposite of bold.", "savvy": "Nothing here comes from years inside real estate — no insider know-how is claimed. This is careful judgment applied to a brand-new situation.", "sensible": "Optioning the one road the developers must have goes far past avoiding obvious mistakes — it's an angle most people would never see."}}, {"s": "Every deal the ____ first-time producer signs carries a quiet exit clause: she keeps the upside when a show succeeds and loses next to nothing when one folds.", "ks": ["canny"], "fb": {"savvy": "She's on her first production — no years in the trade, no insider fluency to draw on. The word you chose has to be earned scene by scene.", "shrewd": "Look at the shape of the move: every deal hedged, nothing ventured that can't be recovered. The word you chose allows for boldness; this contract-writing is built to avoid it.", "sensible": "Exit clauses in every deal, upside kept and downside capped — that's engineering an advantage, not just steering around obvious mistakes."}}, {"s": "The ____ gamble paid off: new to the fashion world, she had read the shift in taste before the veterans did and staked the whole marketing budget on one unknown designer.", "ks": ["shrewd"], "fb": {"canny": "An all-in stake is the tell: the word you chose hedges, risks little, and quietly banks its advantage. Betting the whole budget is precisely the boldness it avoids.", "savvy": "She's new to this world — the read came from sharp judgment, not from years of insider experience.", "sensible": "The move courts exactly the risk that word exists to avoid — prudence doesn't stake everything on an unknown."}}, {"s": "After two decades running club tours, the ____ manager knew which promoters padded expenses and which venues never paid on time.", "ks": ["savvy"], "fb": {"canny": "The sentence credits everything to twenty years on the road — accumulated know-how, not portable judgment meeting a new situation. The word you chose needs no résumé; this one is all résumé.", "shrewd": "No angle is being read here — she simply knows these facts from long experience. Sharp judgment can't tell you which venue pays late; time in the trade can.", "sensible": "Knowing which promoters pad expenses isn't prudence — it's specialist knowledge from years inside the business."}}, {"s": "Only someone as ____ as a twenty-year floor trader would have recognized that the odd order pattern meant a fund was quietly unwinding its position.", "ks": ["savvy"], "fb": {"canny": "The sentence rules your word out itself: only twenty years on the floor makes this visible. Careful, portable judgment — however sharp — hasn't seen these patterns before.", "shrewd": "This isn't an angle a sharp outsider could spot; the sentence ties the recognition to two decades of floor experience.", "sensible": "Sound judgment avoids mistakes; it doesn't read the signature of a fund unwinding. That takes years inside the trade."}}, {"s": "Nothing about the plan was clever; it was simply ____ — pay off the loan first, keep three months' rent in reserve, and skip whatever they could not afford.", "ks": ["sensible"], "fb": {"canny": "'Nothing about the plan was clever' closes the door — the word you chose reads angles and banks quiet advantages, and this plan has none to read.", "shrewd": "Paying the loan first and keeping a reserve is the move everyone can see. The word you chose sees what others miss.", "savvy": "No trade, no scene, no insider knowledge — just the precautions anyone could list."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show both halves: a smart angle AND caution — your person should gain an edge while risking little. Try working in a word like <i>quietly<\/i>, <i>hedge<\/i>, <i>waited<\/i> or <i>without risking<\/i>."}};
+  var CFG = {"word": "canny", "gradeUrl": "/api/grade", "taskId": "canny", "minWords": 12, "items": {"s1": {"q": "Which sentence uses canny correctly?", "opts": {"A": "The canny buyer waited until the boat show's last afternoon, when dealers would rather cut prices than haul stock home.", "B": "With the stove lit and rain drumming on the roof, the little cabin felt canny and safe, and nobody wanted to be first out the door.", "C": "Her canny penmanship looped across the chalkboard in perfect spirals, each letter a small work of art the class hated to erase.", "D": "A canny gust of wind slammed the barn door shut an instant before anyone in the yard could reach the latch."}, "key": "A", "fb": {"correct": "Correct. Waiting for the hour when dealers would rather cut a price than haul stock home — a sharp read of the other side, played carefully — is shrewd and careful in practical matters: canny.", "B": "Snug is what this cabin is — it 'felt canny and safe' by the stove, reaching for cozy. Canny is a quality of judgment: a person sizing up a practical situation sharply.", "C": "Penmanship looping in 'perfect spirals' displays artistry and a steady hand. Canny is not about beautiful execution; it names shrewd practical judgment — reading a situation and playing it well.", "D": "A gust that 'slammed the barn door' has force but no mind. Canny requires a thinker — someone weighing a practical situation and choosing the shrewd move on purpose."}}, "s3a": {"q": "As it is used in the passage, what does \"canny\" most nearly mean?", "opts": {"A": "willing to spend whatever a signed first edition finally costs", "B": "sharp about practical advantage while risking very little", "C": "too timid to make any offer until the other dealers have all gone home", "D": "fortunate in what the unsorted boxes happen to hold"}, "key": "B", "fb": {"correct": "Right — she reads the room, waits out the overpaying, bids only on what nobody valued, and never breaks her cap: sharp, and careful with it.", "A": "The cap is the point — 'she has never once broken the cap.' Whatever-it-costs is the opposite of her method.", "C": "Timing isn't timidity: she waits because late, unsorted boxes are where the advantage is. The waiting is the strategy.", "D": "Luck delivers the first edition, but the passage is about the method that puts her in front of the box at the right price."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "shrewd", "B": "canny", "C": "savvy", "D": "sensible"}, "key": "D", "fb": {"correct": "Right. The rule guards against a famous, well-documented danger and claims nothing cleverer — it <em>plays no angle and banks no quiet edge<\/em>, and its point is open to anyone from day one. Sensible is the word for exactly that: sound, ordinary prudence.", "B": "Canny adds a careful, self-protecting sharpness — hedged risks, an advantage quietly banked. This ritual has none of that: <em>the double reading plays no angle and banks no quiet edge<\/em>.", "A": "Shrewd praises seeing what others miss. Nothing here is hidden: <em>mix-ups between look-alike drug names are the best-documented error in the field<\/em>, so the rule rewards no special insight.", "C": "Savvy is insider fluency, earned over years inside one particular trade. This rule needs none of it: <em>a trainee grasps its point on the first morning<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The ____ gamble paid off: new to the fashion world, she had read the shift in taste before the veterans did and staked the whole marketing budget on one unknown designer.", "options": ["canny", "shrewd"], "key": "shrewd", "pair": "shrewd", "why_right": "The tell is <em>staked the whole marketing budget<\/em> - sharp judgment that read the shift before the veterans, backing a bold all-in move the card allows this word and denies its hedging cousin.", "why_wrong": "An all-in stake is the tell: the word you chose hedges, risks little, and quietly banks its advantage. Betting the whole budget is precisely the boldness it avoids."}, {"sentence": "The ____ curator gambled the museum's entire acquisition budget on a single unattributed canvas, having seen before any rival what the auction house itself had missed.", "options": ["canny", "shrewd"], "key": "shrewd", "pair": "shrewd", "why_right": "The tell is <em>gambled the museum's entire acquisition budget<\/em> - sharp judgment backing a bold, all-in move, which the card allows this word and denies its careful, hedging cousin.", "why_wrong": "That word hedges, risks little, and quietly banks the advantage. Betting an entire budget on one canvas is exactly the boldness it rarely shows -- sharp, yes, but nothing about it is careful."}, {"sentence": "Every deal the ____ first-time producer signs carries a quiet exit clause: she keeps the upside when a show succeeds and loses next to nothing when one folds.", "options": ["canny", "savvy"], "key": "canny", "pair": "savvy", "why_right": "The tell is <em>a quiet exit clause<\/em> - every deal hedged so she risks little and quietly banks the upside, careful practical judgment that needs no years inside the trade.", "why_wrong": "She's on her first production — no years in the trade, no insider fluency to draw on. The word you chose has to be earned scene by scene."}, {"sentence": "Only someone as ____ as a twenty-year floor trader would have recognized that the odd order pattern meant a fund was quietly unwinding its position.", "options": ["canny", "savvy"], "key": "savvy", "pair": "savvy", "why_right": "The tell is <em>twenty-year floor trader<\/em> - the recognition is credited to years inside one trade, insider fluency no outsider's careful judgment could supply.", "why_wrong": "The sentence rules your word out itself: only twenty years on the floor makes this visible. Careful, portable judgment — however sharp — hasn't seen these patterns before."}, {"sentence": "At her first livestock auction, the ____ newcomer bid through a proxy, set a hard ceiling in advance, and left with the best ram at half the expected price.", "options": ["canny", "savvy"], "key": "canny", "pair": "savvy", "why_right": "The tell is <em>her first livestock auction<\/em> - careful, sharp-eyed judgment traveling to a situation its owner has never met, hedged with a proxy and a preset ceiling; no years inside the trade are claimed.", "why_wrong": "That word is insider fluency earned from years inside one particular scene, the way a roadie knows tours. A newcomer at her first auction has no résumé to draw on -- only portable, careful judgment."}, {"sentence": "Rather than bid against the developers, the ____ farmer quietly optioned the one access road they would need, risked almost nothing, and waited for them to come to her.", "options": ["canny", "sensible"], "key": "canny", "pair": "sensible", "why_right": "The tell is <em>quietly optioned the one access road<\/em> - an angle most people would never notice, played with almost no risk and the advantage quietly banked, far past avoiding obvious mistakes.", "why_wrong": "Optioning the one road the developers must have goes far past avoiding obvious mistakes — it's an angle most people would never see."}, {"sentence": "Nothing about the plan was clever; it was simply ____ — pay off the loan first, keep three months' rent in reserve, and skip whatever they could not afford.", "options": ["canny", "sensible"], "key": "sensible", "pair": "sensible", "why_right": "The tell is <em>nothing about the plan was clever<\/em> - cleverness is denied outright, leaving the obvious right moves done properly, which is exactly this word's rung on the card's scale.", "why_wrong": "'Nothing about the plan was clever' closes the door — the word you chose reads angles and banks quiet advantages, and this plan has none to read."}, {"sentence": "The ____ bookseller signed only after adding first refusal on the shop next door, quietly betting the block would fill long before her own rent came due.", "options": ["canny", "sensible"], "key": "canny", "pair": "sensible", "why_right": "The tell is <em>quietly betting the block would fill<\/em> - this reads an angle and a timing most people would never notice, which the card puts past merely avoiding the obvious mistakes.", "why_wrong": "That word avoids the obvious mistakes -- checking the rent, reading the lease. Securing first refusal because the block is about to fill is an angle read, and reading angles goes further than prudence."}], "display_order": [6, 2, 7, 0, 3, 5, 4, 1], "dimension_order": ["shrewd", "savvy", "sensible"], "dimension_feedback": {"shrewd": "Shrewd praises sharp judgment — a shrewd reader of people and situations sees the angle others miss. Canny takes that sharpness and adds a careful, self-protecting streak: it hedges, risks little, and quietly banks the advantage. A shrewd move can be bold; a canny one rarely is.", "savvy": "Savvy is insider fluency — the practical know-how you earn from years inside one particular scene or trade, the way a roadie or a day trader knows their world. Canny needs no résumé: it is careful, sharp-eyed practical judgment that travels, working in situations its owner has never met before.", "sensible": "A sensible buyer avoids the obvious mistakes; a canny one goes further, reading angles and timing that most people never notice."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show both halves: a smart angle AND caution — your person should gain an edge while risking little. Try working in a word like <i>quietly<\/i>, <i>hedge<\/i>, <i>waited<\/i> or <i>without risking<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

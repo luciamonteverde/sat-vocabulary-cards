@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6cf2a638c6a9">
+<meta name="build" content="eabace536a78">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>connive &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "connive", "gradeUrl": "/api/grade", "taskId": "connive", "minWords": 12, "items": {"s1": {"q": "A charity raffle's top prize keeps going to relatives of the organizers, and an investigation begins. Which person is conniving?", "opts": {"A": "Aaron notices the pattern but says nothing and keeps selling tickets.", "B": "Bea secretly agrees with the ticket-counter to set aside winning stubs for her cousin.", "C": "Carlos quietly prints fake raffle tickets for himself at home, telling no one.", "D": "Dina corners the organizers in front of the whole crowd, loudly demanding a prize for her nephew."}, "key": "B", "fb": {"correct": "Exactly. A private arrangement with the ticket-counter to steer prizes toward a relative is two people scheming in secret, and that partnership is what connive requires.", "A": "Aaron 'notices the pattern but says nothing.' Silently suspecting a scheme is not the same as joining one — conniving requires plotting together. Ask who made a hidden, insider-to-insider deal to rig the outcome.", "C": "Carlos is cheating, but entirely alone — he 'tells no one.' A lone schemer plots; conniving means secretly cooperating with someone else. Look for the pair working together behind the scenes.", "D": "Dina's demand is improper, but she makes it 'in front of the whole crowd' — nothing about it is hidden. Conniving is cooperation kept secret; find the person who struck a private arrangement with an insider."}}, "s3a": {"q": "In this passage, saying the conductors agreed to connive means they", "opts": {"A": "invented the counterfeit-ticket scheme and directed it themselves", "B": "secretly helped the fraud along without running it", "C": "had no idea the punched tickets were fake", "D": "reported the fraud too late"}, "key": "B", "fb": {"correct": "Right — they never touched the press and took only a small cut; their part was quiet, secret help: punching the counterfeits and declining to see.", "A": "The printer ran off the ticket books; the conductors never touched the press. Their role was smaller and quieter.", "C": "The judge's point was the opposite — the scheme worked because it had helpful eyes willing to close. They knew.", "D": "Nobody reported anything; an auditor caught it by weighing punch confetti."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "plot", "B": "collude", "C": "connive", "D": "condone"}, "key": "D", "fb": {"correct": "Right. Management knew, helped nothing, agreed to nothing, and simply let the taking pass without protest, year after year. Accepting wrongdoing without lifting a hand for it is exactly the card's line for this word.", "C": "To connive is to give a scheme quiet, secret help. These managers <em>lent the practice no covert hand<\/em>, and the taking itself was <em>carried on in the open<\/em> — there was no secrecy for anyone to serve.", "B": "Colluding takes a partnership — two sides secretly working the wrong together. Management <em>struck no bargain with the men<\/em>; the custom ran on its own, with no agreement behind it.", "A": "To plot is to design the harm yourself. The custom belonged to the miners, and management <em>simply raised no objection<\/em> — planning nothing, hiding nothing, adding nothing."}}}, "grid": {"words": ["connive", "collude", "plot", "condone"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Two orderlies quietly agreed to ____ with the night visitor, leaving the side door unlatched and entering nothing in the log.", "ks": ["connive"], "fb": {"collude": "That word makes the partners equals, working the scheme together. These two design nothing and run nothing — they quietly let it happen.", "plot": "That word is about designing the harmful plan, and one person can do it alone. The orderlies invent nothing; the sentence needs a word for secretly helping someone else's scheme.", "condone": "That word merely accepts wrongdoing without protest. An unlatched door and a silent logbook are active, secret assistance."}}, {"s": "The scorekeeper designed none of it, yet officials found she had chosen to ____ with the fixers, letting bad totals stand unchallenged.", "ks": ["connive"], "fb": {"collude": "That word means working the scheme as a full partner. She keeps her distance from the running of it — her contribution is to look away at the right moments.", "plot": "The sentence says she <em>designed none of it<\/em> — that word points at planning the harm, which someone else did.", "condone": "That word would fit if she merely tolerated what she saw. Coordinating with the fixers in secret is a step further — quiet help."}}, {"s": "Regulators proved the rival contractors would secretly ____ before each auction, splitting territories and taking turns winning for years.", "ks": ["collude"], "fb": {"connive": "That word keeps a shade of passivity — helping along or looking the other way. These firms are equal partners running the fraud together.", "plot": "That word is for designing harm, and a single schemer can do it alone. This is two equals executing a standing arrangement year after year.", "condone": "That word means accepting wrongdoing without protest. The firms are not bystanders to the fraud; they are its two authors."}}, {"s": "Investigators charged the inspector and the shipper together, saying the pair would ____ on every manifest, each forging half the paperwork.", "ks": ["collude"], "fb": {"connive": "That word carries passivity — coordinating quietly to let a wrong happen. Each of these two forges half the paperwork; both hands are fully in.", "plot": "That word points at planning something harmful, possibly alone. This pair is not sketching a plan; they are executing the fraud together on every manifest.", "condone": "That word merely tolerates wrongdoing. Forging documents is committing it."}}, {"s": "Alone in the archive, the disgraced curator began to ____ his revenge, sketching how each gallery alarm could be disabled.", "ks": ["plot"], "fb": {"connive": "The sentence says he worked <em>alone<\/em>. That word needs partners — people secretly cooperating — and there is no one here to cooperate with.", "collude": "That word is a joint effort by definition: secret partners working a scheme together. An empty archive holds no partners.", "condone": "That word means letting someone else's wrongdoing pass without protest. Nothing here is someone else's — the scheme is entirely his."}}, {"s": "The chair knew about the padded expense reports and, to everyone's frustration, openly chose to ____ them, waving each one through without comment.", "ks": ["condone"], "fb": {"connive": "That word means secretly cooperating in the scheme. Her tolerance is out in the open and involves no coordination — she simply lets it pass.", "collude": "That word needs a hidden partnership. She partners with no one; she just declines to object.", "plot": "That word is for designing harm in secret. She invented nothing and hides nothing — she merely waves the reports through."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs at least two people and a scheme kept out of sight — show someone quietly helping wrongdoing along rather than stopping it. Try working in words like <i>secretly<\/i>, <i>looked away<\/i>, <i>scheme<\/i> or <i>together<\/i>."}};
+  var CFG = {"word": "connive", "gradeUrl": "/api/grade", "taskId": "connive", "minWords": 12, "items": {"s1": {"q": "A charity raffle's top prize keeps going to relatives of the organizers, and an investigation begins. Which person is conniving?", "opts": {"A": "Aaron notices the pattern but says nothing and keeps selling tickets.", "B": "Bea secretly agrees with the ticket-counter to set aside winning stubs for her cousin.", "C": "Carlos quietly prints fake raffle tickets for himself at home, telling no one.", "D": "Dina corners the organizers in front of the whole crowd, loudly demanding a prize for her nephew."}, "key": "B", "fb": {"correct": "Exactly. A private arrangement with the ticket-counter to steer prizes toward a relative is two people scheming in secret, and that partnership is what connive requires.", "A": "Aaron 'notices the pattern but says nothing.' Silently suspecting a scheme is not the same as joining one — conniving requires plotting together. Ask who made a hidden, insider-to-insider deal to rig the outcome.", "C": "Carlos is cheating, but entirely alone — he 'tells no one.' A lone schemer plots; conniving means secretly cooperating with someone else. Look for the pair working together behind the scenes.", "D": "Dina's demand is improper, but she makes it 'in front of the whole crowd' — nothing about it is hidden. Conniving is cooperation kept secret; find the person who struck a private arrangement with an insider."}}, "s3a": {"q": "In this passage, saying the conductors agreed to connive means they", "opts": {"A": "invented the counterfeit-ticket scheme and directed it themselves", "B": "secretly helped the fraud along without running it", "C": "had no idea the punched tickets were fake", "D": "reported the fraud too late"}, "key": "B", "fb": {"correct": "Right — they never touched the press and took only a small cut; their part was quiet, secret help: punching the counterfeits and declining to see.", "A": "The printer ran off the ticket books; the conductors never touched the press. Their role was smaller and quieter.", "C": "The judge's point was the opposite — the scheme worked because it had helpful eyes willing to close. They knew.", "D": "Nobody reported anything; an auditor caught it by weighing punch confetti."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "plot", "B": "collude", "C": "connive", "D": "condone"}, "key": "D", "fb": {"correct": "Right. Management knew, helped nothing, agreed to nothing, and simply let the taking pass without protest, year after year. Accepting wrongdoing without lifting a hand for it is exactly the card's line for this word.", "C": "To connive is to give a scheme quiet, secret help. These managers <em>lent the practice no covert hand<\/em>, and the taking itself was <em>carried on in the open<\/em> — there was no secrecy for anyone to serve.", "B": "Colluding takes a partnership — two sides secretly working the wrong together. Management <em>struck no bargain with the men<\/em>; the custom ran on its own, with no agreement behind it.", "A": "To plot is to design the harm yourself. The custom belonged to the miners, and management <em>simply raised no objection<\/em> — planning nothing, hiding nothing, adding nothing."}}}, "pairwise": {"rows": [{"sentence": "Two orderlies quietly agreed to ____ with the night visitor, leaving the side door unlatched and entering nothing in the log.", "options": ["connive", "plot"], "key": "connive", "pair": "plot", "why_right": "The tell is <em>leaving the side door unlatched<\/em> - the orderlies design nothing; they secretly help someone else's scheme along, which the card gives connive rather than the planning word.", "why_wrong": "That word is about designing the harmful plan, and one person can do it alone. The orderlies invent nothing; the sentence needs a word for secretly helping someone else's scheme."}, {"sentence": "The scorekeeper designed none of it, yet officials found she had chosen to ____ with the fixers, letting bad totals stand unchallenged.", "options": ["connive", "collude"], "key": "connive", "pair": "collude", "why_right": "The tell is <em>letting bad totals stand unchallenged<\/em> - her part is quiet passivity inside the fixers' scheme, the shade the card gives connive, not equals working the fraud together.", "why_wrong": "That word means working the scheme as a full partner. She keeps her distance from the running of it — her contribution is to look away at the right moments."}, {"sentence": "Regulators proved the rival contractors would secretly ____ before each auction, splitting territories and taking turns winning for years.", "options": ["connive", "collude"], "key": "collude", "pair": "collude", "why_right": "The tell is <em>taking turns winning<\/em> - the two firms work the fraud as full equals year after year, the equal secret partnership the card names collude.", "why_wrong": "That word keeps a shade of passivity — helping along or looking the other way. These firms are equal partners running the fraud together."}, {"sentence": "Investigators charged the inspector and the shipper together, saying the pair would ____ on every manifest, each forging half the paperwork.", "options": ["connive", "collude"], "key": "collude", "pair": "collude", "why_right": "The tell is <em>each forging half the paperwork<\/em> - both hands are fully in, an equal active partnership, where connive would keep a shade of passivity.", "why_wrong": "That word carries passivity — coordinating quietly to let a wrong happen. Each of these two forges half the paperwork; both hands are fully in."}, {"sentence": "Long after the floor emptied each night, the passed-over engineer stayed behind to ____, filling a private file with ways to make the new lead's project fail.", "options": ["connive", "plot"], "key": "plot", "pair": "plot", "why_right": "The tell is <em>filling a private file<\/em> - he designs the harm entirely alone, and the card says a plot can be one person's work while connive requires company.", "why_wrong": "That word requires company - secretly cooperating with others in a scheme. The floor is empty and the file is private; there is no one here to cooperate with."}, {"sentence": "The ranger drew none of the poachers' plans; her part, prosecutors said, was to ____ with them, radioing false patrol routes on the nights their trucks came in.", "options": ["connive", "plot"], "key": "connive", "pair": "plot", "why_right": "The tell is <em>drew none of the poachers' plans<\/em> - she designs nothing and only helps their scheme along in secret, which is connive's territory, not the planning word's.", "why_wrong": "That word means designing the harmful plan, and one schemer can do it alone. She drew up no part of the scheme; her secret help came over the radio, not the drawing board."}, {"sentence": "The proctor did more than look away from the cheating ring: term after term he would quietly ____, re-seating its members together and steering monitors elsewhere.", "options": ["connive", "condone"], "key": "connive", "pair": "condone", "why_right": "The tell is <em>steering monitors elsewhere<\/em> - he gives the ring active, secret help term after term, which the card puts past condone's mere acceptance without protest.", "why_wrong": "That word merely accepts wrongdoing without protest - looking away and leaving it at that. Re-seating the ring and steering monitors away is active, secret assistance."}, {"sentence": "The league director knew about the padded rosters and would openly ____, shrugging at each complaint from opposing teams and changing no rule.", "options": ["connive", "condone"], "key": "condone", "pair": "condone", "why_right": "The tell is <em>shrugging at each complaint<\/em> - his tolerance is open and gives no secret help, the mere acceptance without protest the card assigns to condone.", "why_wrong": "That word means secretly cooperating in the scheme. Nothing here is secret and no help is given - he only tolerates the practice, out loud, and changes nothing."}], "display_order": [2, 0, 3, 7, 5, 6, 4, 1], "dimension_order": ["collude", "plot", "condone"], "dimension_feedback": {"collude": "Collude means to cooperate secretly in wrongdoing, and it is the closest partner to connive — both involve a hidden, dishonest joint effort. Connive keeps a shade of passivity: people who connive may simply coordinate quietly to let the wrong thing happen, where colluding partners work the scheme as equals.", "plot": "Plot means to plan something harmful in secret, and a plot can be one person's work alone. Connive requires company: to connive is to cooperate secretly with others, helping a scheme along rather than merely designing it. A lone saboteur plots; the guard who quietly assists him connives.", "condone": "Condone is weaker than connive: someone who condones wrongdoing merely accepts it without protest, while someone who connives actively helps the scheme along in secret."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs at least two people and a scheme kept out of sight — show someone quietly helping wrongdoing along rather than stopping it. Try working in words like <i>secretly<\/i>, <i>looked away<\/i>, <i>scheme<\/i> or <i>together<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

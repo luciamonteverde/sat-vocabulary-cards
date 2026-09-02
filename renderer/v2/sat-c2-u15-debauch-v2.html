@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4bd9d1567e30">
+<meta name="build" content="e6d86028add2">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>debauch &#8212; SAT Vocabulary, Course 2 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "debauch", "gradeUrl": "/api/grade", "taskId": "debauch", "minWords": 12, "items": {"s1": {"q": "Which sentence uses debauch correctly?", "opts": {"A": "The regent's enemies sent musicians, vintages, and flatterers to debauch the young king before he could grow into his crown.", "B": "Hackers debauched the museum's ticketing system overnight, and by nine the refund queue stretched around the block.", "C": "The tannery's runoff debauched the creek below the mill until even the hardiest fish were gone by August.", "D": "The copy editor debauched the manuscript of its stray errors before the second printing went out to the shops."}, "key": "A", "fb": {"correct": "Correct. Musicians, vintages, and flatterers are pleasures aimed at unmaking the young king's character — ruin by indulgence, which is debauch.", "B": "Hackers breaking 'the museum's ticketing system' commit sabotage against software. A computer has no morals to corrupt and no appetites to tempt. Debauch works on people, luring them into indulgence until their character gives way.", "C": "Runoff that left 'even the hardiest fish' gone by August is pollution — the physical fouling of water. Debauch corrupts a person's character by drawing them into pleasure and excess; it does not poison waterways.", "D": "Clearing a manuscript 'of its stray errors' is careful editing — it improves the text. That is close to the opposite of moral ruin. Debauch means leading a person into indulgence until their character is corrupted."}}, "s3a": {"q": "As used in this passage, \"debauch\" most nearly means:", "opts": {"A": "to defeat a garrison through repeated attacks", "B": "to corrupt slowly through piled-on pleasures", "C": "to lure a soldier once, in a way he could still refuse", "D": "to punish idle soldiers harshly"}, "key": "B", "fb": {"correct": "Right — the city ruins soldiers not by force but by wine, races, and bought substitutes, a steady diet of pleasures that dissolves discipline year over year.", "A": "The chronicler's whole point is that no enemy or attack was needed — the city did it with comforts.", "C": "The passage says the opposite: each single luxury could have been refused. It was the accumulation that did the damage.", "D": "Nobody punishes the garrison; the soldiers are indulged, and the indulgence itself is the ruin."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "debauch", "B": "tempt", "C": "deprave", "D": "lead astray"}, "key": "A", "fb": {"correct": "Right. No one was forced and no single lure did the damage — <em>nothing was ever demanded of them, only offered, night after night<\/em> — until appetite finished the job. Debauch names exactly that: corruption by a steady diet of indulgence.", "C": "Deprave names the finished state — someone made bad through and through, by whatever means, force and cruelty included. This passage turns on the means: <em>her generosity accomplished what no hardship ever had<\/em>, and cruelty was never in play.", "D": "To lead someone astray covers small, recoverable lapses — a curfew missed, an assignment skipped. Here <em>the studios stood empty while the dining hall never did<\/em>: whole working habits dissolved, far beyond a wrong turn.", "B": "Tempt is one dangled lure, and a temptation can still be refused. These painters faced a nightly succession of them — <em>only offered, night after night<\/em> — and it is the accumulation, not any single offer, that did the damage."}}}, "grid": {"words": ["debauch", "deprave", "lead astray", "tempt"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The heir's new companions set out to ____ him by comfort alone — a richer table every week, later nights, softer excuses — until the appetites they fed began giving the orders.", "ks": ["debauch"], "fb": {"deprave": "That word names the finished state — rotten through, however it was reached. This sentence is all about the route: <em>a richer table every week<\/em>, appetites fed until they rule.", "lead astray": "Skipped homework is that phrase's range. This is a campaign — <em>a richer table every week<\/em> — until appetite itself gives the orders.", "tempt": "A single dangled lure can be refused. This is <em>a richer table every week, later nights<\/em> — a steady diet, not one offer."}}, {"s": "Veterans of the gold camps swore the saloons could ____ a careful man in one winter — easy credit, nightly games, free whiskey — until his thrift and his promise were both gone.", "ks": ["debauch"], "fb": {"deprave": "That word describes the end state however it was reached. The sentence lingers on the how: <em>easy credit, nightly games, free whiskey<\/em> — pleasure doing the corrupting.", "lead astray": "That roomy phrase covers missed curfews. Here <em>thrift and promise were both gone<\/em> — a character dissolved in indulgence.", "tempt": "One refusable lure is that word's whole territory. A saloon winter is a steady <em>diet<\/em> of them."}}, {"s": "Three years in the smugglers' crew did not merely coarsen the boy; hard usage and cruelty seemed to ____ him entirely, until no appeal to conscience found anything left to grip.", "ks": ["deprave"], "fb": {"debauch": "That word corrupts through <em>pleasure<\/em> — comfort and excess laid on. This boy was ruined by <em>hard usage and cruelty<\/em>, the opposite of coddling.", "lead astray": "Far more than a wrong turn: <em>no appeal to conscience found anything left to grip<\/em>.", "tempt": "No lure was dangled and nothing could be refused; three years of cruelty finished the work."}}, {"s": "The lobbyist dangled exactly one prize — courtside seats — hoping to ____ an inspector famous for straight answers; she glanced at the tickets and said no.", "ks": ["tempt"], "fb": {"debauch": "That word needs indulgence laid on until appetite takes charge. Here there is <em>exactly one prize<\/em>, offered once.", "deprave": "Nobody's character is touched, let alone rotted through — <em>she glanced at the tickets and said no<\/em>.", "lead astray": "She never took a single step off the path; something was dangled, and she declined it."}}, {"s": "One free dessert on the tasting menu was all the chef used to ____ diners toward the pricier pairing — a single lure, nothing more, and half of them still declined.", "ks": ["tempt"], "fb": {"debauch": "That word needs a steady diet of indulgence until appetite rules. This is <em>one free dessert<\/em>.", "deprave": "No character is being rotted through over a dinner menu — <em>a single lure, nothing more<\/em>.", "lead astray": "Nobody wanders off any path; diners get one open nudge toward a menu choice, and <em>half of them still declined<\/em>."}}, {"s": "The forged map was enough to ____ three otherwise levelheaded expeditions, each wandering a valley too far north before doubling back, embarrassed but quite unharmed.", "ks": ["lead astray"], "fb": {"debauch": "That word ruins character through pleasure. These crews came home <em>embarrassed but quite unharmed<\/em>.", "deprave": "No one's morals were touched — the cost was a wrong valley and a red face.", "tempt": "Nothing was dangled for anyone to want; a forged map misdirected them, and desire had no part in it."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show character worn down by repeated pleasures — a pattern, not one slip. Make the pattern visible with words like <i>night after night<\/i>, <i>indulgence<\/i>, <i>appetite<\/i> or <i>until<\/i>."}};
+  var CFG = {"word": "debauch", "gradeUrl": "/api/grade", "taskId": "debauch", "minWords": 12, "items": {"s1": {"q": "Which sentence uses debauch correctly?", "opts": {"A": "The regent's enemies sent musicians, vintages, and flatterers to debauch the young king before he could grow into his crown.", "B": "Hackers debauched the museum's ticketing system overnight, and by nine the refund queue stretched around the block.", "C": "The tannery's runoff debauched the creek below the mill until even the hardiest fish were gone by August.", "D": "The copy editor debauched the manuscript of its stray errors before the second printing went out to the shops."}, "key": "A", "fb": {"correct": "Correct. Musicians, vintages, and flatterers are pleasures aimed at unmaking the young king's character — ruin by indulgence, which is debauch.", "B": "Hackers breaking 'the museum's ticketing system' commit sabotage against software. A computer has no morals to corrupt and no appetites to tempt. Debauch works on people, luring them into indulgence until their character gives way.", "C": "Runoff that left 'even the hardiest fish' gone by August is pollution — the physical fouling of water. Debauch corrupts a person's character by drawing them into pleasure and excess; it does not poison waterways.", "D": "Clearing a manuscript 'of its stray errors' is careful editing — it improves the text. That is close to the opposite of moral ruin. Debauch means leading a person into indulgence until their character is corrupted."}}, "s3a": {"q": "As used in this passage, \"debauch\" most nearly means:", "opts": {"A": "to defeat a garrison through repeated attacks", "B": "to corrupt slowly through piled-on pleasures", "C": "to lure a soldier once, in a way he could still refuse", "D": "to punish idle soldiers harshly"}, "key": "B", "fb": {"correct": "Right — the city ruins soldiers not by force but by wine, races, and bought substitutes, a steady diet of pleasures that dissolves discipline year over year.", "A": "The chronicler's whole point is that no enemy or attack was needed — the city did it with comforts.", "C": "The passage says the opposite: each single luxury could have been refused. It was the accumulation that did the damage.", "D": "Nobody punishes the garrison; the soldiers are indulged, and the indulgence itself is the ruin."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "debauch", "B": "tempt", "C": "deprave", "D": "lead astray"}, "key": "A", "fb": {"correct": "Right. No one was forced and no single lure did the damage — <em>nothing was ever demanded of them, only offered, night after night<\/em> — until appetite finished the job. Debauch names exactly that: corruption by a steady diet of indulgence.", "C": "Deprave names the finished state — someone made bad through and through, by whatever means, force and cruelty included. This passage turns on the means: <em>her generosity accomplished what no hardship ever had<\/em>, and cruelty was never in play.", "D": "To lead someone astray covers small, recoverable lapses — a curfew missed, an assignment skipped. Here <em>the studios stood empty while the dining hall never did<\/em>: whole working habits dissolved, far beyond a wrong turn.", "B": "Tempt is one dangled lure, and a temptation can still be refused. These painters faced a nightly succession of them — <em>only offered, night after night<\/em> — and it is the accumulation, not any single offer, that did the damage."}}}, "pairwise": {"rows": [{"sentence": "The heir's new companions set out to ____ him by comfort alone — a richer table every week, later nights, softer excuses — until the appetites they fed began giving the orders.", "options": ["debauch", "tempt"], "key": "debauch", "pair": "tempt", "why_right": "The tell is <em>a richer table every week<\/em> - a sustained campaign of comfort, the steady diet of indulgence that debauches; a temptation is one dangled lure that can still be refused.", "why_wrong": "A single dangled lure can be refused. This is <em>a richer table every week, later nights<\/em> — a steady diet, not one offer."}, {"sentence": "Veterans of the gold camps swore the saloons could ____ a careful man in one winter — easy credit, nightly games, free whiskey — until his thrift and his promise were both gone.", "options": ["debauch", "lead astray"], "key": "debauch", "pair": "lead astray", "why_right": "The tell is <em>his thrift and his promise were both gone<\/em> - a character dissolved in a winter of indulgence, the far end of the road; the gentle phrase covers only minor missteps.", "why_wrong": "That roomy phrase covers missed curfews. Here <em>thrift and promise were both gone<\/em> — a character dissolved in indulgence."}, {"sentence": "Three years in the smugglers' crew did not merely coarsen the boy; hard usage and cruelty seemed to ____ him entirely, until no appeal to conscience found anything left to grip.", "options": ["debauch", "deprave"], "key": "deprave", "pair": "deprave", "why_right": "The tell is <em>hard usage and cruelty<\/em> - the finished, through-and-through corruption reached without a single pleasure; the indulgence word needs comfort laid on, and no one coddled this boy.", "why_wrong": "That word corrupts through <em>pleasure<\/em> — comfort and excess laid on. This boy was ruined by <em>hard usage and cruelty<\/em>, the opposite of coddling."}, {"sentence": "The lobbyist dangled exactly one prize — courtside seats — hoping to ____ an inspector famous for straight answers; she glanced at the tickets and said no.", "options": ["debauch", "tempt"], "key": "tempt", "pair": "tempt", "why_right": "The tell is <em>exactly one prize<\/em> - a single dangled lure, glanced at and refused; debauching takes a steady diet of indulgence, and nobody's character was touched here.", "why_wrong": "That word needs indulgence laid on until appetite takes charge. Here there is <em>exactly one prize<\/em>, offered once."}, {"sentence": "One free dessert on the tasting menu was all the chef used to ____ diners toward the pricier pairing — a single lure, nothing more, and half of them still declined.", "options": ["debauch", "tempt"], "key": "tempt", "pair": "tempt", "why_right": "The tell is <em>a single lure, nothing more<\/em> - one refusable dessert dangled toward a menu choice; no steady diet of indulgence remakes anyone's character over a dinner.", "why_wrong": "That word needs a steady diet of indulgence until appetite rules. This is <em>one free dessert<\/em>."}, {"sentence": "The forged map was enough to ____ three otherwise levelheaded expeditions, each wandering a valley too far north before doubling back, embarrassed but quite unharmed.", "options": ["debauch", "lead astray"], "key": "lead astray", "pair": "lead astray", "why_right": "The tell is <em>embarrassed but quite unharmed<\/em> - a recoverable wrong turn is the gentle phrase's range; no indulgence appears and no one's morals dissolve in a wrong valley.", "why_wrong": "That word ruins character through pleasure. These crews came home <em>embarrassed but quite unharmed<\/em>."}, {"sentence": "The agency's way with each new signing was to ____ him slowly -- courtesy car, comped suites, friends on the payroll -- never one bribe to refuse, just comfort arriving weekly.", "options": ["debauch", "tempt"], "key": "debauch", "pair": "tempt", "why_right": "The tell is <em>never one bribe to refuse<\/em> - the single refusable lure is denied outright; what remains is a steady weekly diet of comfort, the indulgence route that debauches.", "why_wrong": "That word is a single dangled lure that can still be refused - one dessert, one shortcut. This is comfort laid on weekly with nothing to refuse, a steady diet doing the corrupting."}, {"sentence": "One tour with the band was enough to ____ the new bass player: by the last city he had gambled away his advance, his ring, and the last of his scruples.", "options": ["debauch", "lead astray"], "key": "debauch", "pair": "lead astray", "why_right": "The tell is <em>the last of his scruples<\/em> - morals dissolved outright in excess, the far end of the road; the gentle, roomy phrase stops at skipped homework and missed curfews.", "why_wrong": "That phrase is gentle and roomy - its range is a skipped homework night or a missed curfew. A man whose scruples are gambled away has reached the far end of that road."}], "display_order": [3, 5, 4, 7, 6, 1, 0, 2], "dimension_order": ["deprave", "lead astray", "tempt"], "dimension_feedback": {"deprave": "To deprave someone is to make them morally bad through and through — the finished corruption, however it was reached. Debauch names one particular route there: pleasure and indulgence laid on until appetite does the damage that force never could.", "lead astray": "Lead astray: To lead someone astray is the gentle, roomy phrase — the friend led astray may only have skipped homework or missed a curfew. Debauch is the far end of that same road: morals dissolved outright in pleasure and excess.", "tempt": "Tempt is far milder than debauch — a temptation is a single dangled lure, one dessert or one shortcut, and it can still be refused; debauching someone takes a steady diet of indulgence."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show character worn down by repeated pleasures — a pattern, not one slip. Make the pattern visible with words like <i>night after night<\/i>, <i>indulgence<\/i>, <i>appetite<\/i> or <i>until<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

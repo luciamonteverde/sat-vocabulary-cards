@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="37cca994b8e0">
+<meta name="build" content="d99b75feae10">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pacification &#8212; SAT Vocabulary, Course 2 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pacification", "gradeUrl": "/api/grade", "taskId": "pacification", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pacification correctly?", "opts": {"A": "After years of silence, the two sisters managed a tearful pacification at the family reunion, trading photographs and old stories late into the night.", "B": "Centuries of wind and rain have worked a slow pacification on the whole ridgeline, rounding its jagged peaks into gentle hills that barely trouble the horizon.", "C": "Negotiations alone could not finish the pacification of the delta; it took two years of river convoys and rebuilt bridges before the last militias disbanded.", "D": "The city council pointed proudly to its pacification of the garment district, where decades of unbroken good order meant no officer had ever filed a report."}, "key": "C", "fb": {"correct": "Correct! Pacification means the process of restoring calm and order to a restive region, so it's the correct answer because the delta's unrest was real, the calming was carried out by those with the authority to end it, and the work counted as finished only when the last militias disbanded and order held.", "A": "Not quite! Pacification means an authority restoring order to a restive crowd or region, so it's not the correct choice here because two sisters warmly making up are equals mending a private bond — that is reconciliation, and nobody here held authority or faced unrest.", "B": "Not quite! Pacification means bringing angry people back to calm and order, so it's not the correct choice here because a ridgeline has no anger to settle — wind wearing rock smooth is weathering, not the ending of any unrest.", "D": "Not quite! Pacification means ending unrest that already exists, so it's not the correct choice here because the garment district was never disturbed in the first place — decades of good order leave nothing to pacify."}}, "s3a": {"q": "As used in this passage, \"pacification\" refers to", "opts": {"A": "the peaceful settling of a disagreement through patient goodwill on both sides", "B": "an effort to end unrest and restore order by whatever mix of tools it took", "C": "the soldiers' apology for the burned storehouses", "D": "a food-aid program organized by the traders"}, "key": "B", "fb": {"correct": "Right — the goal was \"restoring calm and order,\" and the tools ran \"from persuasion to concessions to force.\"", "A": "Goodwill on both sides is nowhere in the letters — this was done by one side to a region, and quiet, not friendship, was the finish line.", "C": "No apology appears anywhere in the passage; the burned storehouses were one of the campaign's tools.", "D": "Food shipments were only one item on the list, alongside roadblocks and burned storehouses."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "soothing", "B": "conciliation", "C": "appeasement", "D": "pacification"}, "key": "D", "fb": {"correct": "Right. An authority set out to restore order using persuasion, concession, and force together, and counted the work complete once quiet returned — <em>asked for nothing more<\/em> — mended feelings or not. That whole effort is what this word names.", "C": "That word means buying quiet by giving the angry side what it demands, and the calm lasts only as long as the gifts keep coming. This warden gave — but also compelled: <em>ringleaders transferred out by bus at dawn<\/em> is force, not a concession, and no gift at all.", "B": "That word repairs a relationship: both sides soften, goodwill returns, and the mending itself is the point. Here one authority acted on a restive institution, officials <em>asked for nothing more<\/em> than order, and <em>the resentment had not ended<\/em>. Nothing mutual was mended.", "A": "That word sits at the smallest scale — a warm word settling one person's mood for an evening. The passage spans an institution: <em>three cell blocks<\/em> at the start, <em>a quiet yard by spring<\/em> at the end, and months of effort in between."}}}, "grid": {"words": ["pacification", "appeasement", "conciliation", "soothing"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The governor's ____ of the riot-torn docks mixed every tool at once — wage talks by day, curfews and patrols by night — and was declared finished the moment the streets fell quiet, grudges or no grudges.", "ks": ["pacification"], "fb": {"appeasement": "Gifts alone are not what happened here — there were <em>curfews and patrols by night<\/em>. Your word buys quiet by giving the angry side what it demands, and nothing else.", "conciliation": "Nobody's feelings were mended — the job was <em>declared finished the moment the streets fell quiet, grudges or no grudges<\/em>. Your word requires goodwill on both sides.", "soothing": "This is <em>the riot-torn docks<\/em> — a whole district in open unrest, far past settling one person's mood."}}, {"s": "Military historians still argue whether the ____ of the highlands deserved the name 'restoring order': it took two seasons of blockades, amnesty offers, and burned granaries before the region went quiet.", "ks": ["pacification"], "fb": {"appeasement": "Your word works by handing the angry side what it demands. <em>Blockades<\/em> and <em>burned granaries<\/em> are the opposite of gifts.", "conciliation": "No one here softens claims in a spirit of goodwill — the campaign simply grinds on <em>before the region went quiet<\/em>. Mended feelings never enter it.", "soothing": "Two seasons and a whole <em>region<\/em> — your word settles one ruffled person for an evening, not unrest at this scale."}}, {"s": "Each time the mob gathered at the palace gates, the regent tried ____ again — grain from the royal stores, a hated tax forgiven — and each time the quiet lasted only until the grain ran out.", "ks": ["appeasement"], "fb": {"pacification": "Order is never actually restored — <em>the quiet lasted only until the grain ran out<\/em>. What happened is quiet purchased with gifts, again and again.", "conciliation": "The two sides never meet in goodwill — the regent just hands over <em>grain from the royal stores<\/em>. A repaired relationship is nowhere in sight.", "soothing": "A mob <em>at the palace gates<\/em> is open unrest — this is far past one person's ruffled mood."}}, {"s": "Critics called the league's new policy plain ____: every time the loudest owners threatened a breakaway, they were handed a bigger share of the broadcast money, and the threats always came back the next spring.", "ks": ["appeasement"], "fb": {"pacification": "Nothing gets settled — <em>the threats always came back the next spring<\/em>. This is quiet rented with concessions, not order restored.", "conciliation": "The owners give up nothing and soften nothing; they are simply <em>handed a bigger share<\/em>. Goodwill never enters the deal.", "soothing": "No one is calming anyone here — the league is buying silence with <em>broadcast money<\/em>, and only until spring."}}, {"s": "After a decade of lawsuits, the two families chose ____ instead: each side dropped half its claims over the orchard boundary, and by harvest they were lending each other ladders again.", "ks": ["conciliation"], "fb": {"pacification": "No authority restores order over anyone — <em>each side dropped half its claims<\/em>, and the prize is the repaired friendship, not mere quiet.", "appeasement": "This is not one side buying off the other — <em>each side<\/em> gave ground, and what they got back was the relationship, not a truce that lasts while the gifts do.", "soothing": "More than a mood is mended here — a decade of lawsuits ends and the families are <em>lending each other ladders again<\/em>."}}, {"s": "Ten minutes of ____ from her sister — a cup of tea, a few kind words — settled the bride's pre-wedding jitters for the evening.", "ks": ["soothing"], "fb": {"pacification": "One nervous bride, one evening — your word takes on open unrest across a whole crowd or region.", "appeasement": "The bride demanded nothing and was bought with nothing — <em>a cup of tea, a few kind words<\/em> is comfort, not concession.", "conciliation": "No quarrel is being mended between two sides — there is only one person here, and she is just nervous."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an angry crowd or restive place brought back to order by some authority — and it should hint at the means. Try working in a word like <i>crowd<\/i>, <i>unrest<\/i>, <i>order<\/i> or <i>troops<\/i>."}};
+  var CFG = {"word": "pacification", "gradeUrl": "/api/grade", "taskId": "pacification", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pacification correctly?", "opts": {"A": "After years of silence, the two sisters managed a tearful pacification at the family reunion, trading photographs and old stories late into the night.", "B": "Centuries of wind and rain have worked a slow pacification on the whole ridgeline, rounding its jagged peaks into gentle hills that barely trouble the horizon.", "C": "Negotiations alone could not finish the pacification of the delta; it took two years of river convoys and rebuilt bridges before the last militias disbanded.", "D": "The city council pointed proudly to its pacification of the garment district, where decades of unbroken good order meant no officer had ever filed a report."}, "key": "C", "fb": {"correct": "Correct! Pacification means the process of restoring calm and order to a restive region, so it's the correct answer because the delta's unrest was real, the calming was carried out by those with the authority to end it, and the work counted as finished only when the last militias disbanded and order held.", "A": "Not quite! Pacification means an authority restoring order to a restive crowd or region, so it's not the correct choice here because two sisters warmly making up are equals mending a private bond — that is reconciliation, and nobody here held authority or faced unrest.", "B": "Not quite! Pacification means bringing angry people back to calm and order, so it's not the correct choice here because a ridgeline has no anger to settle — wind wearing rock smooth is weathering, not the ending of any unrest.", "D": "Not quite! Pacification means ending unrest that already exists, so it's not the correct choice here because the garment district was never disturbed in the first place — decades of good order leave nothing to pacify."}}, "s3a": {"q": "As used in this passage, \"pacification\" refers to", "opts": {"A": "the peaceful settling of a disagreement through patient goodwill on both sides", "B": "an effort to end unrest and restore order by whatever mix of tools it took", "C": "the soldiers' apology for the burned storehouses", "D": "a food-aid program organized by the traders"}, "key": "B", "fb": {"correct": "Right — the goal was \"restoring calm and order,\" and the tools ran \"from persuasion to concessions to force.\"", "A": "Goodwill on both sides is nowhere in the letters — this was done by one side to a region, and quiet, not friendship, was the finish line.", "C": "No apology appears anywhere in the passage; the burned storehouses were one of the campaign's tools.", "D": "Food shipments were only one item on the list, alongside roadblocks and burned storehouses."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "soothing", "B": "conciliation", "C": "appeasement", "D": "pacification"}, "key": "D", "fb": {"correct": "Right. An authority set out to restore order using persuasion, concession, and force together, and counted the work complete once quiet returned — <em>asked for nothing more<\/em> — mended feelings or not. That whole effort is what this word names.", "C": "That word means buying quiet by giving the angry side what it demands, and the calm lasts only as long as the gifts keep coming. This warden gave — but also compelled: <em>ringleaders transferred out by bus at dawn<\/em> is force, not a concession, and no gift at all.", "B": "That word repairs a relationship: both sides soften, goodwill returns, and the mending itself is the point. Here one authority acted on a restive institution, officials <em>asked for nothing more<\/em> than order, and <em>the resentment had not ended<\/em>. Nothing mutual was mended.", "A": "That word sits at the smallest scale — a warm word settling one person's mood for an evening. The passage spans an institution: <em>three cell blocks<\/em> at the start, <em>a quiet yard by spring<\/em> at the end, and months of effort in between."}}}, "pairwise": {"rows": [{"sentence": "The governor's ____ of the riot-torn docks mixed every tool at once — wage talks by day, curfews and patrols by night — and was declared finished the moment the streets fell quiet, grudges or no grudges.", "options": ["pacification", "appeasement"], "key": "pacification", "pair": "appeasement", "why_right": "The tell is <em>curfews and patrols by night<\/em> - force is in the governor's mix, and appeasement only ever buys quiet with gifts; the wide word covers persuasion, concession, and force together.", "why_wrong": "Gifts alone are not what happened here — there were <em>curfews and patrols by night<\/em>. Your word buys quiet by giving the angry side what it demands, and nothing else."}, {"sentence": "Each time the mob gathered at the palace gates, the regent tried ____ again — grain from the royal stores, a hated tax forgiven — and each time the quiet lasted only until the grain ran out.", "options": ["pacification", "appeasement"], "key": "appeasement", "pair": "appeasement", "why_right": "The tell is <em>the quiet lasted only until the grain ran out<\/em> - order is never actually restored; quiet is only rented with gifts, which is appeasement to the letter.", "why_wrong": "Order is never actually restored — <em>the quiet lasted only until the grain ran out<\/em>. What happened is quiet purchased with gifts, again and again."}, {"sentence": "Critics called the league's new policy plain ____: every time the loudest owners threatened a breakaway, they were handed a bigger share of the broadcast money, and the threats always came back the next spring.", "options": ["pacification", "appeasement"], "key": "appeasement", "pair": "appeasement", "why_right": "The tell is <em>the threats always came back the next spring<\/em> - nothing is ever settled; each demand is simply paid off, and calm bought with gifts that keeps expiring is appeasement.", "why_wrong": "Nothing gets settled — <em>the threats always came back the next spring<\/em>. This is quiet rented with concessions, not order restored."}, {"sentence": "Military historians still argue whether the ____ of the highlands deserved the name 'restoring order': it took two seasons of blockades, amnesty offers, and burned granaries before the region went quiet.", "options": ["pacification", "conciliation"], "key": "pacification", "pair": "conciliation", "why_right": "The tell is <em>before the region went quiet<\/em> - quiet, not mended feelings, is the finish line, and it is imposed on a region by force and amnesty; conciliation needs goodwill on both sides.", "why_wrong": "No one here softens claims in a spirit of goodwill — the campaign simply grinds on <em>before the region went quiet<\/em>. Mended feelings never enter it."}, {"sentence": "After a decade of lawsuits, the two families chose ____ instead: each side dropped half its claims over the orchard boundary, and by harvest they were lending each other ladders again.", "options": ["pacification", "conciliation"], "key": "conciliation", "pair": "conciliation", "why_right": "The tell is <em>each side dropped half its claims<\/em> - two parties soften toward each other and the friendship itself is repaired; no authority imposes quiet on anyone here.", "why_wrong": "No authority restores order over anyone — <em>each side dropped half its claims<\/em>, and the prize is the repaired friendship, not mere quiet."}, {"sentence": "The warden's swift ____ of the cell-block protest - ringleaders transferred at dawn, extra yard time announced by noon - restored quiet within a day, though the grievances that sparked it went unanswered.", "options": ["pacification", "conciliation"], "key": "pacification", "pair": "conciliation", "why_right": "The tell is <em>the grievances that sparked it went unanswered<\/em> - quiet returned with nothing mended; an authority restoring order is done once quiet returns, while conciliation needs both sides to soften.", "why_wrong": "That word mends a dispute through goodwill - each side softens and the relationship is repaired. Here one authority transfers ringleaders and buys quiet while the grievances stay unanswered."}, {"sentence": "The rail strike's ____ took the ministry a full month - back-pay offers posted at every depot, troops stationed along the junctions - before freight finally moved again from coast to coast.", "options": ["pacification", "soothing"], "key": "pacification", "pair": "soothing", "why_right": "The tell is <em>from coast to coast<\/em> - this is open unrest at full national scale, ended by a mix of concession and troops, and soothing only ever settles one person's ruffled mood.", "why_wrong": "That word is the mildest rung - a warm word settling one person's mood for an evening. A month-long national strike, met with back pay and troops, is unrest at full scale."}, {"sentence": "Ten minutes of ____ from her sister — a cup of tea, a few kind words — settled the bride's pre-wedding jitters for the evening.", "options": ["pacification", "soothing"], "key": "soothing", "pair": "soothing", "why_right": "The tell is <em>a cup of tea, a few kind words<\/em> - one nervous person's mood settled for an evening by warmth, the mildest rung; the wide word takes on unrest across a crowd or region.", "why_wrong": "One nervous bride, one evening — your word takes on open unrest across a whole crowd or region."}], "display_order": [3, 1, 6, 0, 5, 7, 2, 4], "dimension_order": ["appeasement", "conciliation", "soothing"], "dimension_feedback": {"appeasement": "Appeasement buys quiet by giving the angry side what it demands — the calm lasts only as long as the gifts do. Pacification is wider: it names the whole effort of restoring order, whatever mix of persuasion, concession, or force that takes.", "conciliation": "Conciliation mends a dispute through goodwill — each side softens its claims and the relationship itself is repaired. Pacification is done by an authority to a restive crowd or region, and it counts as complete once quiet returns, mended feelings or not.", "soothing": "Soothing is the mildest rung: a warm word settles one person's ruffled mood for an evening, while pacification sets out to end open unrest across a whole crowd or region."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an angry crowd or restive place brought back to order by some authority — and it should hint at the means. Try working in a word like <i>crowd<\/i>, <i>unrest<\/i>, <i>order<\/i> or <i>troops<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

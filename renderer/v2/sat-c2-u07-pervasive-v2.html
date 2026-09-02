@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="2e344fb3edeb">
+<meta name="build" content="e1c8f5c0e6f9">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pervasive &#8212; SAT Vocabulary, Course 2 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pervasive", "gradeUrl": "/api/grade", "taskId": "pervasive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pervasive correctly?", "opts": {"A": "Test-week anxiety was pervasive at Lakeview High, surfacing in hallway jokes, lunch tables, even the art studio.", "B": "The building's pervasive leak turned out to be confined to a single pipe joint beneath the kitchen sink.", "C": "One pervasive clap of thunder rattled the windows at midnight and was gone before the dog barked.", "D": "Her brand-new rain jacket proved pervasive on the trail, soaking through completely before the end of the first mile."}, "key": "A", "fb": {"correct": "Correct! Pervasive means spread through every part of a whole. The anxiety here has soaked through the school — hallways, lunch tables, even the art studio — which is exactly the everywhere-within claim the word makes.", "B": "Not quite! Confined to a single pipe joint is the opposite of spread throughout — the sentence itself does the disqualifying. A pervasive leak would announce itself on every floor.", "C": "Not quite! One clap of thunder is a single event, over in a second. Pervasive describes what has settled through every part of something, not a jolt that arrives once and vanishes.", "D": "Not quite! A jacket that soaks through is permeable — it lets things pass in. Pervasive belongs to the thing that spreads (the rain, a smell, a mood), never to the failed barrier it spreads through."}}, "s3a": {"q": "In this passage, what does \"pervasive\" most nearly mean?", "opts": {"A": "present in every part of the water they examined", "B": "concentrated near the busiest ports and shipping lanes", "C": "increasing steadily from one year to the next", "D": "harmful to creatures in the sea"}, "key": "A", "fb": {"correct": "Right -- 'every one of the 114 samples,' from ports to gyres to trench mud: nowhere they looked was without it.", "B": "That is what the crew expected and did not find -- the fibers turned up as readily a thousand miles from any coast.", "C": "The survey is a snapshot of one voyage, not a trend over years; its finding is where the fibers were -- everywhere.", "D": "Harm may follow, but the passage never measures it; the word describes the fibers' reach, not their effects."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pervasive", "B": "rampant", "C": "recurring", "D": "entrenched"}, "key": "B", "fb": {"correct": "Right. This is growth caught in motion — <em>the fleet had tripled<\/em>, the map was <em>adding neighborhoods faster than the council could schedule hearings<\/em>, and nothing has checked it yet.", "A": "Pervasive says the spreading is finished — the thing is already in every part of the whole. This map still has gaps: <em>east-side districts remain untouched for now<\/em>. A word for completed saturation cannot describe a city the scooters have not fully reached.", "D": "Entrenched is about grip — dug in so firmly that removal is nearly impossible. These machines <em>arrived in Denton in March<\/em>, and <em>no rule yet governs where the machines may park<\/em>: nothing has had time to dig in, and no one has tried to dislodge them and failed.", "C": "Recurring describes something that keeps coming back in particular moments and is gone in between. The scooters never leave and never pause: <em>each week's count comes in higher than the last<\/em>."}}}, "grid": {"words": ["pervasive", "rampant", "entrenched", "recurring"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Nautical slang is ____ at the academy -- not spreading anymore, simply everywhere: menus, dorm nicknames, whistle commands, the librarian's shelving notes.", "ks": ["pervasive"], "fb": {"rampant": "Rampant is spread caught in motion -- fast, unchecked, still gaining ground. This slang has nowhere left to gain: 'not spreading anymore, simply everywhere.'", "entrenched": "Entrenched is about grip -- dug in, nearly impossible to remove. Nobody here is trying to remove anything; the sentence measures reach, corner to corner.", "recurring": "Recurring means returning at particular moments. This slang never leaves, so it never has to return -- it is in every corner at once."}}, {"s": "Investigators concluded the accounting shortcuts were ____, present in all forty branch offices they audited, with not one department clean.", "ks": ["pervasive"], "fb": {"rampant": "Rampant is spreading still in motion -- gaining ground as you watch. The audit found a finished fact: every branch, every department, already reached.", "entrenched": "Entrenched means dug in so firmly that removal is nearly impossible. The auditors say nothing about removal -- their finding is that no corner of the firm was untouched.", "recurring": "Recurring describes what comes back at particular moments. These shortcuts were not periodic visitors; they were in every office at once."}}, {"s": "The gift-card scam is ____ across the county this month -- dozens of new reports a day, spreading faster than the sheriff's warnings can keep up with.", "ks": ["rampant"], "fb": {"pervasive": "That word says the spreading is finished -- the thing already fills every part. This scam is still on the move, adding dozens of new victims a day.", "entrenched": "Entrenched is a grip that will not let go of the ground it holds. The scam is not holding ground -- it is taking new ground faster than warnings travel.", "recurring": "Recurring comes and goes, returning at particular moments. Nothing here leaves and returns; one spread keeps accelerating."}}, {"s": "Voles are ____ in the lower fields this spring -- unchecked by the hawks, their burrows pushing into two new pastures a week.", "ks": ["rampant"], "fb": {"pervasive": "That word describes a finished spread -- present in every part already. These voles are still expanding, two new pastures a week.", "entrenched": "Entrenched is dug in, holding its corner against removal. The voles' story is advance -- new ground weekly, nothing about holding or being dug out.", "recurring": "Recurring returns at intervals -- back, gone, back again. This is one continuous push outward, gaining ground every week."}}, {"s": "The seniority rule is so ____ at the plant that three straight managers have tried to remove it from the contract and given up; it holds its one clause and will not budge.", "ks": ["entrenched"], "fb": {"pervasive": "That word measures reach -- into every part of a whole. This rule occupies exactly one clause; its power is that nobody can pry it out.", "rampant": "Rampant is fast, unchecked spreading. This rule has not moved an inch in years -- its whole story is grip.", "recurring": "Recurring describes what comes back at particular moments. The rule never went anywhere; three managers in a row failed to move it."}}, {"s": "The flicker in the stage lights is ____ rather than constant -- gone for weeks, then back for two nights, then gone again.", "ks": ["recurring"], "fb": {"pervasive": "That word means present in every part, every moment, with no need to come back. This flicker is absent for weeks at a stretch.", "rampant": "Rampant means spreading unchecked, gaining ground. A fault that vanishes for weeks is not gaining anything -- it is coming and going.", "entrenched": "Entrenched means dug in and immovable. This fault moves constantly -- out for weeks, back for two nights, out again."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show something present in every part of a whole, not just common -- name the parts so the reader can count the coverage. Try working in a word like <i>every<\/i>, <i>even<\/i>, <i>corner<\/i> or <i>throughout<\/i>."}};
+  var CFG = {"word": "pervasive", "gradeUrl": "/api/grade", "taskId": "pervasive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses pervasive correctly?", "opts": {"A": "Test-week anxiety was pervasive at Lakeview High, surfacing in hallway jokes, lunch tables, even the art studio.", "B": "The building's pervasive leak turned out to be confined to a single pipe joint beneath the kitchen sink.", "C": "One pervasive clap of thunder rattled the windows at midnight and was gone before the dog barked.", "D": "Her brand-new rain jacket proved pervasive on the trail, soaking through completely before the end of the first mile."}, "key": "A", "fb": {"correct": "Correct! Pervasive means spread through every part of a whole. The anxiety here has soaked through the school — hallways, lunch tables, even the art studio — which is exactly the everywhere-within claim the word makes.", "B": "Not quite! Confined to a single pipe joint is the opposite of spread throughout — the sentence itself does the disqualifying. A pervasive leak would announce itself on every floor.", "C": "Not quite! One clap of thunder is a single event, over in a second. Pervasive describes what has settled through every part of something, not a jolt that arrives once and vanishes.", "D": "Not quite! A jacket that soaks through is permeable — it lets things pass in. Pervasive belongs to the thing that spreads (the rain, a smell, a mood), never to the failed barrier it spreads through."}}, "s3a": {"q": "In this passage, what does \"pervasive\" most nearly mean?", "opts": {"A": "present in every part of the water they examined", "B": "concentrated near the busiest ports and shipping lanes", "C": "increasing steadily from one year to the next", "D": "harmful to creatures in the sea"}, "key": "A", "fb": {"correct": "Right -- 'every one of the 114 samples,' from ports to gyres to trench mud: nowhere they looked was without it.", "B": "That is what the crew expected and did not find -- the fibers turned up as readily a thousand miles from any coast.", "C": "The survey is a snapshot of one voyage, not a trend over years; its finding is where the fibers were -- everywhere.", "D": "Harm may follow, but the passage never measures it; the word describes the fibers' reach, not their effects."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "pervasive", "B": "rampant", "C": "recurring", "D": "entrenched"}, "key": "B", "fb": {"correct": "Right. This is growth caught in motion — <em>the fleet had tripled<\/em>, the map was <em>adding neighborhoods faster than the council could schedule hearings<\/em>, and nothing has checked it yet.", "A": "Pervasive says the spreading is finished — the thing is already in every part of the whole. This map still has gaps: <em>east-side districts remain untouched for now<\/em>. A word for completed saturation cannot describe a city the scooters have not fully reached.", "D": "Entrenched is about grip — dug in so firmly that removal is nearly impossible. These machines <em>arrived in Denton in March<\/em>, and <em>no rule yet governs where the machines may park<\/em>: nothing has had time to dig in, and no one has tried to dislodge them and failed.", "C": "Recurring describes something that keeps coming back in particular moments and is gone in between. The scooters never leave and never pause: <em>each week's count comes in higher than the last<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Nautical slang is ____ at the academy -- not spreading anymore, simply everywhere: menus, dorm nicknames, whistle commands, the librarian's shelving notes.", "options": ["pervasive", "rampant"], "key": "pervasive", "pair": "rampant", "why_right": "The tell is <em>not spreading anymore, simply everywhere<\/em> - the spreading is finished and the slang already sits in every part of academy life, from menus to shelving notes.", "why_wrong": "Rampant is spread caught in motion -- fast, unchecked, still gaining ground. This slang has nowhere left to gain: 'not spreading anymore, simply everywhere.'"}, {"sentence": "The gift-card scam is ____ across the county this month -- dozens of new reports a day, spreading faster than the sheriff's warnings can keep up with.", "options": ["pervasive", "rampant"], "key": "rampant", "pair": "rampant", "why_right": "The tell is <em>dozens of new reports a day<\/em> - the scam is growth caught in motion, still gaining ground faster than warnings travel, not a finished spread filling every part.", "why_wrong": "That word says the spreading is finished -- the thing already fills every part. This scam is still on the move, adding dozens of new victims a day."}, {"sentence": "Voles are ____ in the lower fields this spring -- unchecked by the hawks, their burrows pushing into two new pastures a week.", "options": ["pervasive", "rampant"], "key": "rampant", "pair": "rampant", "why_right": "The tell is <em>pushing into two new pastures a week<\/em> - unchecked spread still gaining ground; the voles are nowhere near everywhere yet, so the word for motion wins.", "why_wrong": "That word describes a finished spread -- present in every part already. These voles are still expanding, two new pastures a week."}, {"sentence": "The seniority rule is so ____ at the plant that three straight managers have tried to remove it from the contract and given up; it holds its one clause and will not budge.", "options": ["pervasive", "entrenched"], "key": "entrenched", "pair": "entrenched", "why_right": "The tell is <em>it holds its one clause and will not budge<\/em> - grip, not reach: dug in against three managers' removal attempts while occupying a single corner of the contract.", "why_wrong": "That word measures reach -- into every part of a whole. This rule occupies exactly one clause; its power is that nobody can pry it out."}, {"sentence": "Investigators concluded the accounting shortcuts were ____, present in all forty branch offices they audited, with not one department clean.", "options": ["pervasive", "entrenched"], "key": "pervasive", "pair": "entrenched", "why_right": "The tell is <em>not one department clean<\/em> - the finding measures reach into every part of the firm, all forty branches at once, not a grip on some corner resisting removal.", "why_wrong": "Entrenched means dug in so firmly that removal is nearly impossible. The auditors say nothing about removal -- their finding is that no corner of the firm was untouched."}, {"sentence": "A week after the craft fair, glitter is still ____ in the hall -- piano felt, curtain hems, the minute-book's spine -- though one pass of the vacuum lifts it from any single spot.", "options": ["pervasive", "entrenched"], "key": "pervasive", "pair": "entrenched", "why_right": "The tell is <em>one pass of the vacuum lifts it<\/em> - nothing here is dug in or hard to remove; the claim is reach, glitter present in every corner of the hall.", "why_wrong": "That word means dug in so firmly that removal is nearly impossible. A speck any vacuum pass can lift has no grip at all; its only power is being in every corner."}, {"sentence": "The flicker in the stage lights is ____ rather than constant -- gone for weeks, then back for two nights, then gone again.", "options": ["pervasive", "recurring"], "key": "recurring", "pair": "recurring", "why_right": "The tell is <em>gone for weeks, then back for two nights<\/em> - the flicker keeps coming back at particular moments and leaves in between, nothing soaked into every moment.", "why_wrong": "That word means present in every part, every moment, with no need to come back. This flicker is absent for weeks at a stretch."}, {"sentence": "Highway noise is ____ in the apartment -- under the morning radio, behind dinner conversation, inside the quietest hour of the night -- never louder, never gone.", "options": ["pervasive", "recurring"], "key": "pervasive", "pair": "recurring", "why_right": "The tell is <em>never louder, never gone<\/em> - the noise has soaked into every moment, morning through midnight, so it never leaves and never needs to return.", "why_wrong": "That word describes what comes back at particular moments and is absent in between. This noise sits under the radio, behind dinner, inside the night's quietest hour -- it never leaves."}], "display_order": [3, 1, 6, 2, 4, 7, 5, 0], "dimension_order": ["rampant", "entrenched", "recurring"], "dimension_feedback": {"rampant": "spreading fast and unchecked, still gaining ground — rampant is growth caught in motion. Pervasive says the spreading is finished: the thing is already in every part of the whole.", "entrenched": "dug in so firmly that removal is nearly impossible — entrenched is about grip, not reach. A pervasive attitude fills every corner; an entrenched one refuses to leave the corner it holds.", "recurring": "Recurring is weaker than pervasive: a recurring worry keeps coming back in particular moments, while a pervasive one has soaked into every moment and doesn't need to return."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show something present in every part of a whole, not just common -- name the parts so the reader can count the coverage. Try working in a word like <i>every<\/i>, <i>even<\/i>, <i>corner<\/i> or <i>throughout<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

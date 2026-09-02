@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="c054f81dd68a">
+<meta name="build" content="ee8578744136">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>parasitic &#8212; SAT Vocabulary, Course 1 Unit 23</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "parasitic", "gradeUrl": "/api/grade", "taskId": "parasitic", "minWords": 12, "items": {"s1": {"q": "Four relationships are described in a field guide. Which one is parasitic?", "opts": {"A": "Bees carry pollen between apple blossoms and take nectar in exchange, so the orchard and the hive both gain.", "B": "Two wolves in a pack hunt together and share the kill between them, each eating more than either could alone.", "C": "A tick fastens to a deer for a week, drawing blood and passing on a fever, and gives the deer nothing.", "D": "An egret follows a plough to catch the insects it turns up, harming neither the field nor the farmer."}, "key": "C", "fb": {"correct": "Correct. The tick takes a week of blood and leaves a fever behind, gaining at the deer's expense and giving it nothing back, which is what parasitic means.", "A": "Bees 'take nectar in exchange' for carrying pollen, so the orchard and the hive both come out ahead. That trade is mutualism — a parasite benefits one-sidedly, at real cost to its host.", "B": "Two pack-mates that 'share the kill between them' are cooperating as equals; each gains, and neither is a host. Parasitism needs one organism profiting while the other pays the price.", "D": "The egret profits from the plough while 'harming neither the field nor the farmer.' Benefit without cost is commensalism, not parasitism — look for the animal whose gain leaves its host worse off."}}, "s3a": {"q": "In this passage, calling the arrangement parasitic means that", "opts": {"A": "the crab and the barnacle each gain something from sharing one shell", "B": "the barnacle rides along without doing the crab any measurable harm", "C": "the barnacle hunts down and eats crabs for food", "D": "the barnacle lives off the crab and returns nothing"}, "key": "D", "fb": {"correct": "Right -- Sacculina takes a share of every meal for years, and the crab gets no defense, no cleaning, no food in return.", "A": "Nothing flows back to the crab -- the passage lists what Sacculina supplies: no defense, no cleaning, no food.", "B": "The harm is concrete: the crab stops molting and stops growing because its energy is going to the barnacle.", "C": "The crab is never killed or eaten; it is kept alive so the barnacle can go on feeding off it for years."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "dependent", "B": "leeching", "C": "parasitic", "D": "exploitative"}, "key": "C", "fb": {"correct": "Right. One species lives on another's care and gives nothing back: the warbler <em>feeds the intruding chick tirelessly<\/em> while her own eggs go <em>over the rim<\/em>. A one-sided arrangement in which the host bears the whole cost is exactly what the biologist's word names.", "B": "Leeching is the vivid, accusing word — the charge you level at someone draining a person or a system a little at a time. This sentence reports a neutral scientific judgment: <em>ornithologists class<\/em> the arrangement, and a label that <em>takes a whole summer to earn<\/em> is a finding, not an accusation.", "D": "Exploitative means taking unfair advantage in human dealings — an exploitative contract or employer. This arrangement is <em>between the two species<\/em> of bird; no wage, bargain, or contract appears anywhere in it.", "A": "Dependent claims only that one creature needs another, and stops there. The passage insists on more: the chick has <em>shouldered her eggs over the rim<\/em>, and <em>every insect she carries home builds a bird that is not hers<\/em> — the warbler is not merely needed; she pays."}}}, "grid": {"words": ["parasitic", "leeching", "exploitative", "dependent"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The wasp larva grows inside the caterpillar that will never recover from it, feeding on its host's tissues and giving nothing back -- a textbook ____ arrangement.", "ks": ["parasitic"], "fb": {"dependent": "Needing another creature is only half the sentence. The other half is the price: the caterpillar <em>will never recover<\/em>, and gets <em>nothing back<\/em>.", "exploitative": "That word charges a person or an institution with unfair dealing -- a contract, an employer. A larva in a caterpillar calls for the biologist's term.", "leeching": "That accusing word pictures something drained a little at a time. Here the host is being consumed from the inside -- and the sentence is written as biology, not accusation."}}, {"s": "Botanists finally classed the ghost pipe as ____: rootless and leaf-white, it taps the forest's fungal network and drains sugars the fungi made, returning nothing.", "ks": ["parasitic"], "fb": {"dependent": "Plenty of plants need partners and give something back. The ghost pipe <em>drains sugars... returning nothing<\/em> -- the cost to the host is what the classification records.", "exploitative": "Botanists do not class species as unfair employers; that word lives in human dealings. A plant living off a fungal host takes the biologist's term.", "leeching": "That is the everyday, accusing word for a slow drain. A formal classification -- <em>botanists finally classed<\/em> -- wants the neutral scientific term."}}, {"s": "Adult clownfish are wholly ____ on their host anemone for shelter, yet the anemone loses nothing by the bargain and even gains a bodyguard.", "ks": ["dependent"], "fb": {"parasitic": "That word adds a cost the host must pay. This host <em>loses nothing by the bargain<\/em> -- the relationship is need without harm.", "leeching": "A slow drain is exactly what the anemone is not suffering: it <em>even gains a bodyguard<\/em>.", "exploitative": "Unfair advantage would need a loser. The bargain here leaves the anemone whole -- and better guarded than before."}}, {"s": "By ninety she was entirely ____ on her neighbours for shopping and lifts, though she repaid every favour from her garden and her kitchen.", "ks": ["dependent"], "fb": {"parasitic": "That word needs a host paying the bill. Her neighbours are <em>repaid... from her garden and her kitchen<\/em> -- help given and returned.", "leeching": "A slow, one-way drain is the opposite of favours answered from <em>her garden and her kitchen<\/em>.", "exploitative": "Unfair advantage requires someone shortchanged. Every favour here comes back."}}, {"s": "The audit called the manager's scheme frankly ____: month by month, small transfers drained the charity's account into his own, never enough at once to trip an alarm.", "ks": ["leeching"], "fb": {"parasitic": "That is the biologist's word for organisms living on hosts. An auditor describing slow theft reaches for the everyday, accusing word instead.", "exploitative": "That word condemns unfair terms out in the open -- a one-sided contract, sweatshop wages. This scheme's essence is the covert drip: <em>small transfers... never enough at once to trip an alarm<\/em>.", "dependent": "Need is not the charge: nothing here says the manager relied on the charity for anything."}}, {"s": "Regulators shut the internship scheme down as plainly ____: sixty-hour weeks, unpaid, sold on the promise of future jobs that never materialized.", "ks": ["exploitative"], "fb": {"parasitic": "That is the biologist's word for life feeding on a host. Regulators judging a hiring scheme are naming unfair dealing between people.", "leeching": "Nothing here drips away covertly: the unfairness is in the open terms -- <em>sixty-hour weeks, unpaid<\/em>.", "dependent": "Interns may have needed the jobs, but the word in the gap describes the scheme -- and what the regulators condemned was its unfairness, not anybody's need."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a host and a cost: one side feeds or profits, the other pays and gets nothing back. Try working in a word like <i>host<\/i>, <i>drains<\/i>, <i>expense<\/i> or <i>nothing in return<\/i>."}};
+  var CFG = {"word": "parasitic", "gradeUrl": "/api/grade", "taskId": "parasitic", "minWords": 12, "items": {"s1": {"q": "Four relationships are described in a field guide. Which one is parasitic?", "opts": {"A": "Bees carry pollen between apple blossoms and take nectar in exchange, so the orchard and the hive both gain.", "B": "Two wolves in a pack hunt together and share the kill between them, each eating more than either could alone.", "C": "A tick fastens to a deer for a week, drawing blood and passing on a fever, and gives the deer nothing.", "D": "An egret follows a plough to catch the insects it turns up, harming neither the field nor the farmer."}, "key": "C", "fb": {"correct": "Correct. The tick takes a week of blood and leaves a fever behind, gaining at the deer's expense and giving it nothing back, which is what parasitic means.", "A": "Bees 'take nectar in exchange' for carrying pollen, so the orchard and the hive both come out ahead. That trade is mutualism — a parasite benefits one-sidedly, at real cost to its host.", "B": "Two pack-mates that 'share the kill between them' are cooperating as equals; each gains, and neither is a host. Parasitism needs one organism profiting while the other pays the price.", "D": "The egret profits from the plough while 'harming neither the field nor the farmer.' Benefit without cost is commensalism, not parasitism — look for the animal whose gain leaves its host worse off."}}, "s3a": {"q": "In this passage, calling the arrangement parasitic means that", "opts": {"A": "the crab and the barnacle each gain something from sharing one shell", "B": "the barnacle rides along without doing the crab any measurable harm", "C": "the barnacle hunts down and eats crabs for food", "D": "the barnacle lives off the crab and returns nothing"}, "key": "D", "fb": {"correct": "Right -- Sacculina takes a share of every meal for years, and the crab gets no defense, no cleaning, no food in return.", "A": "Nothing flows back to the crab -- the passage lists what Sacculina supplies: no defense, no cleaning, no food.", "B": "The harm is concrete: the crab stops molting and stops growing because its energy is going to the barnacle.", "C": "The crab is never killed or eaten; it is kept alive so the barnacle can go on feeding off it for years."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "dependent", "B": "leeching", "C": "parasitic", "D": "exploitative"}, "key": "C", "fb": {"correct": "Right. One species lives on another's care and gives nothing back: the warbler <em>feeds the intruding chick tirelessly<\/em> while her own eggs go <em>over the rim<\/em>. A one-sided arrangement in which the host bears the whole cost is exactly what the biologist's word names.", "B": "Leeching is the vivid, accusing word — the charge you level at someone draining a person or a system a little at a time. This sentence reports a neutral scientific judgment: <em>ornithologists class<\/em> the arrangement, and a label that <em>takes a whole summer to earn<\/em> is a finding, not an accusation.", "D": "Exploitative means taking unfair advantage in human dealings — an exploitative contract or employer. This arrangement is <em>between the two species<\/em> of bird; no wage, bargain, or contract appears anywhere in it.", "A": "Dependent claims only that one creature needs another, and stops there. The passage insists on more: the chick has <em>shouldered her eggs over the rim<\/em>, and <em>every insect she carries home builds a bird that is not hers<\/em> — the warbler is not merely needed; she pays."}}}, "pairwise": {"rows": [{"sentence": "The wasp larva grows inside the caterpillar that will never recover from it, feeding on its host's tissues and giving nothing back -- a textbook ____ arrangement.", "options": ["parasitic", "dependent"], "key": "parasitic", "pair": "dependent", "why_right": "The tell is <em>will never recover<\/em> - the host pays, and pays everything; mere need says nothing about cost, and cost is this sentence's whole point.", "why_wrong": "Needing another creature is only half the sentence. The other half is the price: the caterpillar <em>will never recover<\/em>, and gets <em>nothing back<\/em>."}, {"sentence": "Botanists finally classed the ghost pipe as ____: rootless and leaf-white, it taps the forest's fungal network and drains sugars the fungi made, returning nothing.", "options": ["parasitic", "leeching"], "key": "parasitic", "pair": "leeching", "why_right": "The tell is <em>Botanists finally classed<\/em> - a formal classification takes the biologist's term for the whole arrangement: an organism draining a host and returning nothing.", "why_wrong": "That is the everyday, accusing word for a slow drain. A formal classification -- <em>botanists finally classed<\/em> -- wants the neutral scientific term."}, {"sentence": "Adult clownfish are wholly ____ on their host anemone for shelter, yet the anemone loses nothing by the bargain and even gains a bodyguard.", "options": ["parasitic", "dependent"], "key": "dependent", "pair": "dependent", "why_right": "The tell is <em>loses nothing by the bargain<\/em> - the host pays no cost, so only the need is left, which is exactly what the plainer word claims.", "why_wrong": "That word adds a cost the host must pay. This host <em>loses nothing by the bargain<\/em> -- the relationship is need without harm."}, {"sentence": "By ninety she was entirely ____ on her neighbours for shopping and lifts, though she repaid every favour from her garden and her kitchen.", "options": ["parasitic", "dependent"], "key": "dependent", "pair": "dependent", "why_right": "The tell is <em>repaid every favour<\/em> - need for help with nothing taken at anyone's expense, so the plain need-word fits and the host-pays word cannot.", "why_wrong": "That word needs a host paying the bill. Her neighbours are <em>repaid... from her garden and her kitchen<\/em> -- help given and returned."}, {"sentence": "The audit called the manager's scheme frankly ____: month by month, small transfers drained the charity's account into his own, never enough at once to trip an alarm.", "options": ["parasitic", "leeching"], "key": "leeching", "pair": "leeching", "why_right": "The tell is <em>never enough at once to trip an alarm<\/em> - a covert drain, a little at a time, named in the everyday accusing register an audit uses about people.", "why_wrong": "That is the biologist's word for organisms living on hosts. An auditor describing slow theft reaches for the everyday, accusing word instead."}, {"sentence": "Regulators shut the internship scheme down as plainly ____: sixty-hour weeks, unpaid, sold on the promise of future jobs that never materialized.", "options": ["parasitic", "exploitative"], "key": "exploitative", "pair": "exploitative", "why_right": "The tell is <em>sixty-hour weeks, unpaid<\/em> - unfair advantage taken in an open human dealing, the word's home ground of contracts and employers rather than organisms and hosts.", "why_wrong": "That is the biologist's word for life feeding on a host. Regulators judging a hiring scheme are naming unfair dealing between people."}, {"sentence": "Half the trout the fisheries crew netted carried a lamprey, fastened on for months and unmistakably ____: the host feeds it, weakens, and gains nothing whatever in return.", "options": ["parasitic", "exploitative"], "key": "parasitic", "pair": "exploitative", "why_right": "The tell is <em>the host feeds it, weakens, and gains nothing<\/em> - an organism fastened to a living host and profiting at its expense, biology rather than any human dealing.", "why_wrong": "That word charges people with unfair dealing - a contract, an employer. A lamprey fastened to a trout is biology: an organism living on its host at the host's expense."}, {"sentence": "Bee inspectors blame the hive's decline on ____ mites that slip between the workers' plates, sip their fat stores, and leave each bee weaker for every day they stay.", "options": ["parasitic", "exploitative"], "key": "parasitic", "pair": "exploitative", "why_right": "The tell is <em>leave each bee weaker for every day they stay<\/em> - an organism living on a host at the host's cost, the biologist's arrangement, not unfair terms between people.", "why_wrong": "That word belongs to human dealings and needs someone dealt with unfairly. Mites living on bees and sipping their fat stores are the biologist's arrangement of organism and host."}], "display_order": [6, 0, 7, 1, 3, 4, 2, 5], "dimension_order": ["dependent", "leeching", "exploitative"], "dimension_feedback": {"dependent": "Dependent says only that one organism needs another, while parasitic adds that the host pays the cost of that need.", "leeching": "Leeching is the vivid, accusing word for draining a person or system a little at a time, the way a leech draws blood. Parasitic is the biologist's term for the whole arrangement: one organism living on or in a host and profiting at that host's cost.", "exploitative": "Exploitative means taking unfair advantage of another for gain, and it belongs to human dealings -- an exploitative contract or employer. Parasitic names a biological relationship: an organism physically living on or in its host and feeding at the host's expense."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a host and a cost: one side feeds or profits, the other pays and gets nothing back. Try working in a word like <i>host<\/i>, <i>drains<\/i>, <i>expense<\/i> or <i>nothing in return<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

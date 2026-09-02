@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="e7d05bf4c961">
+<meta name="build" content="386534c94e98">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>appraise &#8212; SAT Vocabulary, Course 2 Unit 18</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "appraise", "gradeUrl": "/api/grade", "taskId": "appraise", "minWords": 12, "items": {"s1": {"q": "Which sentence uses appraise correctly?", "opts": {"A": "Guests appraised the birthday girl with two full choruses of 'Happy Birthday' as the cake finally arrived.", "B": "The mechanic appraised the engine oil up to the fill line and checked the wipers before closing the hood.", "C": "We appraised the thermostat a couple of degrees because the hallway felt cold to everyone at dinner.", "D": "After the hailstorm, the insurer appraised the damage street by street before writing a single check."}, "key": "D", "fb": {"correct": "Correct. Putting careful figures on the storm's damage before paying out — assessing worth, which is appraising.", "A": "Serenading 'the birthday girl' with choruses is celebration — the sentence hears praise inside appraise. Appraising has no applause in it: it means putting a considered value on something, the way an expert prices an estate.", "B": "Bringing oil 'up to the fill line' is topping up a level — routine maintenance, with nothing being valued. To appraise is to judge what something is worth; look for value being weighed.", "C": "Nudging 'the thermostat a couple of degrees' is adjusting a setting — the sentence wanted raised, or simply turned up. Appraise is about judging value, not changing temperature; nothing here gets an estimate put on it."}}, "s3a": {"q": "As it is used in the passage, what does it mean to \"appraise\" the ring?", "opts": {"A": "to admire a valuable object at length", "B": "to set an official value that others can rely on", "C": "to advertise an item before an auction", "D": "to insure a piece of estate jewelry against theft or loss"}, "key": "B", "fb": {"correct": "Right -- two days of testing ends in a signed figure that the catalog, the buyers and the insurer all act on.", "A": "She examines it closely, but admiration is not the job -- the job ends in a number.", "C": "The catalog uses her figure; producing the catalog is someone else's work.", "D": "The insurer relies on her number; she doesn't sell the policy."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "size up", "B": "gauge", "C": "appraise", "D": "eyeball"}, "key": "A", "fb": {"correct": "Right. This is the quick, unofficial read — <em>a single homeroom period<\/em>, and <em>She writes nothing down and reports to no one<\/em> — which is exactly what sizing a class up means: the fast, informal judgment that ends where paperwork begins.", "C": "Appraise is the accountable version of this read — worth weighed slowly enough to defend, with a signature under the figure and someone ready to act on it. This read is the opposite kind: <em>She writes nothing down and reports to no one<\/em>, and it takes <em>a single homeroom period<\/em>.", "B": "To gauge is to estimate a measure — depth, mood, risk. The passage closes that reading off directly: <em>Nor is she estimating some single quantity — the room's mood, its reading level<\/em>. Reading people whole is not taking a measurement.", "D": "To eyeball is the mildest of these looks — a by-eye guess from across the room, nothing examined. Her read is fast but anything but shallow: she <em>takes in each student whole<\/em>, and <em>by October the verdicts have proved right<\/em>. A glance-level guess earns no such track record."}}}, "grid": {"words": ["appraise", "gauge", "size up", "eyeball"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The bank would not lend against the violin until a certified expert could ____ it and put a defensible number in writing.", "ks": ["appraise"], "fb": {"gauge": "An estimate of measure -- depth, mood, risk -- needs no signature. The bank demands <em>a defensible number in writing<\/em>: the for-the-record verb.", "size up": "That is a ten-second read with nothing written down. Lenders act on paper, not on a glance.", "eyeball": "That verb names a rough value guessed from across the room. Nothing guessed at that distance gets a loan approved."}}, {"s": "The insurer refused to settle until someone licensed could ____ the water-damaged stock and enter a signed figure on the claim.", "ks": ["appraise"], "fb": {"gauge": "You can estimate a measure without signing anything -- that is the point of that verb. This sentence needs worth assessed for the record.", "size up": "The bouncer's verb: seconds, informal, nothing on file. An insurance claim runs on signatures.", "eyeball": "A glance from across the counter produces no <em>signed figure<\/em>. The claim file needs the accountable verb."}}, {"s": "Wading in first, the guide used her paddle to ____ the river's depth before waving the loaded canoes forward.", "ks": ["gauge"], "fb": {"appraise": "That verb fixes worth carefully enough to sign. A river's depth, checked with a paddle so the canoes can pass, is an estimate nobody signs.", "size up": "That is the read you give a stranger at the door -- persons, in seconds. Depth is a measure, and measures get estimated.", "eyeball": "That means guessing by eye from a distance. She is hip-deep with a paddle, actually probing."}}, {"s": "Pollsters spent the week trying to ____ voter anger over the toll increase, and admitted any number they produced was only an estimate.", "ks": ["gauge"], "fb": {"appraise": "That verb ends in a defensible, signed valuation. These pollsters concede their number is <em>only an estimate<\/em> of a mood.", "size up": "Ten seconds and a look -- that is what that verb does, and it does it to people. Measuring a public mood over a week is estimation.", "eyeball": "That is a by-eye guess at something in front of you. Public anger isn't visible across a room; it has to be estimated."}}, {"s": "Across the poker table, Ruiz needed ten seconds to ____ the newcomer: loose shirt, steady hands, altogether too calm to be a tourist.", "ks": ["size up"], "fb": {"appraise": "That verb weighs worth carefully enough to defend under a signature. Ruiz spends <em>ten seconds<\/em> and writes nothing.", "gauge": "That estimates a measure -- depth, patience, risk. Ruiz is reading a whole person: the quick informal once-over.", "eyeball": "By-eye guessing is for amounts and values. What Ruiz reads -- <em>steady hands, altogether too calm<\/em> -- is a person's nerve."}}, {"s": "Too busy to unlock the case, the pawnbroker would ____ a watch from across the counter and name a rough range before touching it.", "ks": ["eyeball"], "fb": {"appraise": "That verb crosses the room, pulls the records, and signs its number. This one never even <em>touches<\/em> the watch.", "gauge": "That verb estimates a measure -- how deep, how angry, how risky. Naming a price band <em>from across the counter<\/em> is the rougher at-a-glance read.", "size up": "That is how you read a stranger -- nerve, manner, threat. The pawnbroker is pricing an object, not reading a person."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a valuation official enough that someone will act on it -- not a casual guess. Try working in a word like <i>licensed<\/i>, <i>signed<\/i>, <i>report<\/i> or <i>lender<\/i>."}};
+  var CFG = {"word": "appraise", "gradeUrl": "/api/grade", "taskId": "appraise", "minWords": 12, "items": {"s1": {"q": "Which sentence uses appraise correctly?", "opts": {"A": "Guests appraised the birthday girl with two full choruses of 'Happy Birthday' as the cake finally arrived.", "B": "The mechanic appraised the engine oil up to the fill line and checked the wipers before closing the hood.", "C": "We appraised the thermostat a couple of degrees because the hallway felt cold to everyone at dinner.", "D": "After the hailstorm, the insurer appraised the damage street by street before writing a single check."}, "key": "D", "fb": {"correct": "Correct. Putting careful figures on the storm's damage before paying out — assessing worth, which is appraising.", "A": "Serenading 'the birthday girl' with choruses is celebration — the sentence hears praise inside appraise. Appraising has no applause in it: it means putting a considered value on something, the way an expert prices an estate.", "B": "Bringing oil 'up to the fill line' is topping up a level — routine maintenance, with nothing being valued. To appraise is to judge what something is worth; look for value being weighed.", "C": "Nudging 'the thermostat a couple of degrees' is adjusting a setting — the sentence wanted raised, or simply turned up. Appraise is about judging value, not changing temperature; nothing here gets an estimate put on it."}}, "s3a": {"q": "As it is used in the passage, what does it mean to \"appraise\" the ring?", "opts": {"A": "to admire a valuable object at length", "B": "to set an official value that others can rely on", "C": "to advertise an item before an auction", "D": "to insure a piece of estate jewelry against theft or loss"}, "key": "B", "fb": {"correct": "Right -- two days of testing ends in a signed figure that the catalog, the buyers and the insurer all act on.", "A": "She examines it closely, but admiration is not the job -- the job ends in a number.", "C": "The catalog uses her figure; producing the catalog is someone else's work.", "D": "The insurer relies on her number; she doesn't sell the policy."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "size up", "B": "gauge", "C": "appraise", "D": "eyeball"}, "key": "A", "fb": {"correct": "Right. This is the quick, unofficial read — <em>a single homeroom period<\/em>, and <em>She writes nothing down and reports to no one<\/em> — which is exactly what sizing a class up means: the fast, informal judgment that ends where paperwork begins.", "C": "Appraise is the accountable version of this read — worth weighed slowly enough to defend, with a signature under the figure and someone ready to act on it. This read is the opposite kind: <em>She writes nothing down and reports to no one<\/em>, and it takes <em>a single homeroom period<\/em>.", "B": "To gauge is to estimate a measure — depth, mood, risk. The passage closes that reading off directly: <em>Nor is she estimating some single quantity — the room's mood, its reading level<\/em>. Reading people whole is not taking a measurement.", "D": "To eyeball is the mildest of these looks — a by-eye guess from across the room, nothing examined. Her read is fast but anything but shallow: she <em>takes in each student whole<\/em>, and <em>by October the verdicts have proved right<\/em>. A glance-level guess earns no such track record."}}}, "pairwise": {"rows": [{"sentence": "The bank would not lend against the violin until a certified expert could ____ it and put a defensible number in writing.", "options": ["appraise", "gauge"], "key": "appraise", "pair": "gauge", "why_right": "The tell is <em>a defensible number in writing<\/em> - appraise assesses worth for the record, carefully enough to defend under a signature, which is exactly what the bank demands before lending.", "why_wrong": "An estimate of measure -- depth, mood, risk -- needs no signature. The bank demands <em>a defensible number in writing<\/em>: the for-the-record verb."}, {"sentence": "The insurer refused to settle until someone licensed could ____ the water-damaged stock and enter a signed figure on the claim.", "options": ["appraise", "size up"], "key": "appraise", "pair": "size up", "why_right": "The tell is <em>a signed figure<\/em> - appraise is the slow, accountable valuation, worth weighed carefully enough to defend, and a licensed name goes under the number on the claim.", "why_wrong": "The bouncer's verb: seconds, informal, nothing on file. An insurance claim runs on signatures."}, {"sentence": "Across the poker table, Ruiz needed ten seconds to ____ the newcomer: loose shirt, steady hands, altogether too calm to be a tourist.", "options": ["appraise", "size up"], "key": "size up", "pair": "size up", "why_right": "The tell is <em>ten seconds<\/em> - sizing up is the quick, informal read of a person, done in moments with nothing written; Ruiz reads nerve and manner, not worth for any record.", "why_wrong": "That verb weighs worth carefully enough to defend under a signature. Ruiz spends <em>ten seconds<\/em> and writes nothing."}, {"sentence": "Too busy to unlock the case, the pawnbroker would ____ a watch from across the counter and name a rough range before touching it.", "options": ["appraise", "eyeball"], "key": "eyeball", "pair": "eyeball", "why_right": "The tell is <em>a rough range before touching it<\/em> - eyeballing judges value from a distance with no records pulled and no signature to stand behind; the careful, accountable look never happens.", "why_wrong": "That verb crosses the room, pulls the records, and signs its number. This one never even <em>touches<\/em> the watch."}, {"sentence": "The revenue office allowed the museum's deduction only after a qualified valuer agreed to ____ the donated landscape and sign her figure.", "options": ["appraise", "gauge"], "key": "appraise", "pair": "gauge", "why_right": "The tell is <em>sign her figure<\/em> - the card calls appraising gauging for the record: worth assessed carefully enough that the tax office will act on the signed number.", "why_wrong": "That word names an estimate of a measure that nobody expects you to sign - depth, mood, risk. A figure signed for the revenue office is worth fixed for the record."}, {"sentence": "The rare-book dealer pulled sale records for an hour before she would ____ the atlas, and the figure she printed was hers to defend.", "options": ["appraise", "eyeball"], "key": "appraise", "pair": "eyeball", "why_right": "The tell is <em>pulled sale records<\/em> - appraising crosses the room, pulls the records, and stands behind the number; an hour of files and a defended printed figure is that verb exactly.", "why_wrong": "That word means guessing value from across the room with no records pulled. An hour in the files and a printed figure she must defend is the opposite of a by-eye guess."}, {"sentence": "Before sending the junior dinghies out, the sailing instructor watched the whitecaps to ____ the wind; nobody asked her to log a reading.", "options": ["appraise", "gauge"], "key": "gauge", "pair": "gauge", "why_right": "The tell is <em>nobody asked her to log a reading<\/em> - gauging estimates a measure like wind with real attention, and nobody expects you to sign the result; nothing here fixes worth for a record.", "why_wrong": "That word fixes the worth of something carefully enough to sign and defend. Wind strength is a measure, not a value, and her quick unlogged read puts nothing on any record."}, {"sentence": "A seasoned horse trader can ____ a buyer before the first word: boots, posture, a glance at the teeth, and nothing of it goes on paper.", "options": ["appraise", "size up"], "key": "size up", "pair": "size up", "why_right": "The tell is <em>before the first word<\/em> - sizing up is the quick, informal read of a person, over in moments with nothing written down; the trader reads a buyer, not worth for any record.", "why_wrong": "That word is the slow, accountable version - worth weighed carefully enough to defend, often with a signature under it. A read finished before the first word puts nothing on paper."}], "display_order": [0, 2, 3, 6, 1, 4, 7, 5], "dimension_order": ["gauge", "size up", "eyeball"], "dimension_feedback": {"gauge": "To gauge something is to estimate its measure — depth, mood, risk — with or without numbers, and nobody expects you to sign the result. To appraise is to gauge for the record: worth assessed carefully enough that someone will act on the figure. You gauge the crowd's patience; you appraise the estate.", "size up": "Size up is the quick, informal read — a bouncer sizes up the line, a scout sizes up a rival, all in seconds and nothing written down. Appraise is the slow, accountable version: worth weighed carefully enough to defend, often with a signature under it. Sizing up ends where appraising begins.", "eyeball": "To eyeball is milder than to appraise — value judged from across the room, no records pulled, no signature checked; appraising crosses the room, pulls the records, and stands behind the number."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a valuation official enough that someone will act on it -- not a casual guess. Try working in a word like <i>licensed<\/i>, <i>signed<\/i>, <i>report<\/i> or <i>lender<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="90034a6db2a5">
+<meta name="build" content="0aede694be98">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>excavate &#8212; SAT Vocabulary, Course 3 Unit 23</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "excavate", "gradeUrl": "/api/grade", "taskId": "excavate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses excavate correctly?", "opts": {"A": "Volunteers excavated the collapsed root cellar one barrow of rubble at a time until the steps reappeared.", "B": "The dentist excavated her afternoon appointment to Friday because the drill was being serviced.", "C": "He excavated the final chapter of his thesis in a single sleepless weekend before the deadline.", "D": "They excavated the paper banners from the gym ceiling an hour before the reunion dance began."}, "key": "A", "fb": {"correct": "Correct! The volunteers dig the rubble out and carry it away, barrow by barrow — digging plus removal is exactly what excavate promises.", "B": "Moving an appointment 'to Friday' is rescheduling; no soil is disturbed. Excavate means to dig something out of the ground and haul the material away — the sentence needs actual earth being removed.", "C": "Writing a chapter 'in a single sleepless weekend' produces new pages; nothing buried is uncovered. To excavate is to dig down and remove what the ground holds — look for shovels, not keyboards.", "D": "Pulling banners down 'from the gym ceiling' removes decorations from above. Excavation works in the opposite direction: digging material up and out of the ground beneath — no digging means no excavating."}}, "s3a": {"q": "In this passage, working to \"excavate the slope\" means the crew set out to", "opts": {"A": "dig the hillside out methodically and haul the material away", "B": "search the washed-out surface of the hill for bones the spring rains had exposed", "C": "lift the skeleton free in a single afternoon of work", "D": "seal off the entire site permanently so that nothing at all could be removed from it"}, "key": "A", "fb": {"correct": "Right — the passage is all method and removal: a terrace, a grid, numbered blocks, sixty tons winched onto flatbeds.", "B": "The crew does far more than look at the surface — they cut a terrace and take the rock itself down in blocks.", "C": "'Nothing about the work was quick' — the job runs from midsummer to September, and the skeleton stays encased even then.", "D": "The point of the work is removal — sixty tons of stone leave the site on flatbeds."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "excavate", "B": "unearth", "C": "scoop", "D": "exhume"}, "key": "B", "fb": {"correct": "Right. The whole story is the find — a hidden thing suddenly brought into someone's hands after two centuries — and unearth is the word that watches the discovery rather than the digging.", "A": "Excavate spotlights methodical digging on a serious scale, with spoil carted off a gridded site. This was nothing of the kind: there was <em>no site to grid, no soil to cart away<\/em> — ten minutes with a chisel is a lucky moment, not an operation.", "D": "Exhume is the word English keeps for undoing a burial — remains, a grave, usually a legal order behind it. What came out of this floor was <em>a drawstring purse of colonial coins<\/em>, with <em>no permit to seek<\/em> and no grave in sight.", "C": "Scoop names the smallest gesture — loose material lifted in a second. This bundle sat in <em>packed rubble<\/em> and gave way only after ten minutes of <em>prying with a chisel<\/em>, far more resistance than any one-second lift of loose soil."}}}, "grid": {"words": ["excavate", "unearth", "exhume", "scoop"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Before the tower could rise, crews had to ____ forty feet of clay for the foundation, trucking the spoil across town day after day for four months.", "ks": ["excavate"], "fb": {"unearth": "That word spotlights a find brought to light — a coin suddenly in your hand. There is no find here at all, only clay hauled away for months.", "exhume": "English reserves that word for undoing a burial, usually a body under legal order. A construction pit has no grave in it.", "scoop": "That is the smallest gesture — a single quick lift of loose material. Forty feet of clay over four months is heavy, methodical work at scale."}}, {"s": "This season the team will ____ the villa's courtyard one square meter at a time, carting every barrow of soil to the sieves before the autumn rains arrive.", "ks": ["excavate"], "fb": {"unearth": "That word belongs to the find — the coin or fossil suddenly in your hand. Here the object is the site itself and a season of methodical carting.", "exhume": "That word undoes a burial — a grave, usually a body, usually a legal order. A villa courtyard is a work site, not a grave.", "scoop": "One quick lift of loose soil is that word's whole range. Square-by-square work for a season, barrow after barrow, is an operation."}}, {"s": "Clearing brambles behind the schoolhouse, volunteers managed to ____ a medieval boundary stone no map had recorded — suddenly there it was, under a foot of leaf litter.", "ks": ["unearth"], "fb": {"excavate": "That word names methodical, large-scale digging with the spoil removed. These volunteers were pulling brambles; the stone simply came to light.", "exhume": "That word is for undoing a burial — a grave, usually a body, usually a legal order. This is a boundary marker under leaf litter.", "scoop": "That word lifts a little loose material in a second. The point here is a discovery — something hidden brought suddenly to light."}}, {"s": "Sorting the estate's papers, the intern managed to ____ a letter misfiled since 1911 — the one document that settled the authorship dispute in an afternoon.", "ks": ["unearth"], "fb": {"excavate": "That word is for methodical digging and hauling at scale — pits, foundations, sites. One letter coming to light in a filing box is a find, not an operation.", "exhume": "English reserves that word for undoing a burial. Nothing here was ever in a grave — only misfiled since 1911.", "scoop": "That is one quick lift of loose soil. The sentence is about a discovery — a hidden letter finally brought to light."}}, {"s": "After the appeal succeeded, the coroner was authorized to ____ the painter's remains from the marked plot in the cathedral yard so the disputed cause of death could be retested.", "ks": ["exhume"], "fb": {"excavate": "That is the general working word for digging material out at scale — pits, foundations, whole sites. Undoing one burial under legal order takes the graveside word.", "unearth": "That word spotlights a find brought to light. Nothing is found here — <em>the marked plot<\/em> was known all along; this is a legal procedure.", "scoop": "One quick lift of loose material is that word's whole size. Opening a grave under a coroner's authority is a solemn, ordered act."}}, {"s": "Kneeling at the seed tray, she used one cupped hand to ____ a shallow hollow in the potting mix — a second's work before each bulb went in.", "ks": ["scoop"], "fb": {"excavate": "That word means methodical digging and removal at a serious scale. One cupped hand and <em>a second's work<\/em> is the opposite end of that scale.", "unearth": "That word brings a hidden find to light. Nothing is discovered in a seed tray — soil is just being moved aside for planting.", "exhume": "That word undoes a burial, usually a body under legal order. Planting bulbs in potting mix is as far from a grave as digging gets."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs digging that is methodical and big — and the material has to go somewhere. Show the scale and the removal: try working in a word like <i>tons<\/i>, <i>site<\/i>, <i>hauled<\/i> or <i>layer by layer<\/i>."}};
+  var CFG = {"word": "excavate", "gradeUrl": "/api/grade", "taskId": "excavate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses excavate correctly?", "opts": {"A": "Volunteers excavated the collapsed root cellar one barrow of rubble at a time until the steps reappeared.", "B": "The dentist excavated her afternoon appointment to Friday because the drill was being serviced.", "C": "He excavated the final chapter of his thesis in a single sleepless weekend before the deadline.", "D": "They excavated the paper banners from the gym ceiling an hour before the reunion dance began."}, "key": "A", "fb": {"correct": "Correct! The volunteers dig the rubble out and carry it away, barrow by barrow — digging plus removal is exactly what excavate promises.", "B": "Moving an appointment 'to Friday' is rescheduling; no soil is disturbed. Excavate means to dig something out of the ground and haul the material away — the sentence needs actual earth being removed.", "C": "Writing a chapter 'in a single sleepless weekend' produces new pages; nothing buried is uncovered. To excavate is to dig down and remove what the ground holds — look for shovels, not keyboards.", "D": "Pulling banners down 'from the gym ceiling' removes decorations from above. Excavation works in the opposite direction: digging material up and out of the ground beneath — no digging means no excavating."}}, "s3a": {"q": "In this passage, working to \"excavate the slope\" means the crew set out to", "opts": {"A": "dig the hillside out methodically and haul the material away", "B": "search the washed-out surface of the hill for bones the spring rains had exposed", "C": "lift the skeleton free in a single afternoon of work", "D": "seal off the entire site permanently so that nothing at all could be removed from it"}, "key": "A", "fb": {"correct": "Right — the passage is all method and removal: a terrace, a grid, numbered blocks, sixty tons winched onto flatbeds.", "B": "The crew does far more than look at the surface — they cut a terrace and take the rock itself down in blocks.", "C": "'Nothing about the work was quick' — the job runs from midsummer to September, and the skeleton stays encased even then.", "D": "The point of the work is removal — sixty tons of stone leave the site on flatbeds."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "excavate", "B": "unearth", "C": "scoop", "D": "exhume"}, "key": "B", "fb": {"correct": "Right. The whole story is the find — a hidden thing suddenly brought into someone's hands after two centuries — and unearth is the word that watches the discovery rather than the digging.", "A": "Excavate spotlights methodical digging on a serious scale, with spoil carted off a gridded site. This was nothing of the kind: there was <em>no site to grid, no soil to cart away<\/em> — ten minutes with a chisel is a lucky moment, not an operation.", "D": "Exhume is the word English keeps for undoing a burial — remains, a grave, usually a legal order behind it. What came out of this floor was <em>a drawstring purse of colonial coins<\/em>, with <em>no permit to seek<\/em> and no grave in sight.", "C": "Scoop names the smallest gesture — loose material lifted in a second. This bundle sat in <em>packed rubble<\/em> and gave way only after ten minutes of <em>prying with a chisel<\/em>, far more resistance than any one-second lift of loose soil."}}}, "pairwise": {"rows": [{"sentence": "Clearing brambles behind the schoolhouse, volunteers managed to ____ a medieval boundary stone no map had recorded — suddenly there it was, under a foot of leaf litter.", "options": ["excavate", "unearth"], "key": "unearth", "pair": "unearth", "why_right": "The tell is <em>suddenly there it was<\/em> - a hidden find brought to light under leaf litter, with no methodical digging and no spoil carried away; the spotlight is on the find, not on any labor.", "why_wrong": "That word names methodical, large-scale digging with the spoil removed. These volunteers were pulling brambles; the stone simply came to light."}, {"sentence": "Sorting the estate's papers, the intern managed to ____ a letter misfiled since 1911 — the one document that settled the authorship dispute in an afternoon.", "options": ["excavate", "unearth"], "key": "unearth", "pair": "unearth", "why_right": "The tell is <em>a letter misfiled since 1911<\/em> - a hidden thing suddenly brought to light, the card's find-in-your-hand ground, with no ground broken and nothing dug out and carried away.", "why_wrong": "That word is for methodical digging and hauling at scale — pits, foundations, sites. One letter coming to light in a filing box is a find, not an operation."}, {"sentence": "This season the team will ____ the villa's courtyard one square meter at a time, carting every barrow of soil to the sieves before the autumn rains arrive.", "options": ["excavate", "unearth"], "key": "excavate", "pair": "unearth", "why_right": "The tell is <em>the villa's courtyard<\/em> - the object is the site itself, worked square by square with every barrow of soil carried off to the sieves; you unearth a treasure, but you excavate the site around it.", "why_wrong": "That word belongs to the find — the coin or fossil suddenly in your hand. Here the object is the site itself and a season of methodical carting."}, {"sentence": "After the appeal succeeded, the coroner was authorized to ____ the painter's remains from the marked plot in the cathedral yard so the disputed cause of death could be retested.", "options": ["excavate", "exhume"], "key": "exhume", "pair": "exhume", "why_right": "The tell is <em>the painter's remains<\/em> - a body raised from a marked grave under a coroner's authority, the one act English reserves this word for; no site is worked and no spoil is carried off.", "why_wrong": "That is the general working word for digging material out at scale — pits, foundations, whole sites. Undoing one burial under legal order takes the graveside word."}, {"sentence": "Before the drains could go in, masons had to ____ two centuries of silt from the flooded crypt — hauling it up the stair in buckets all winter.", "options": ["excavate", "exhume"], "key": "excavate", "pair": "exhume", "why_right": "The tell is <em>two centuries of silt<\/em> - material dug out and hauled away by the bucket for a whole winter, the general working word for removal at scale; no burial is undone and no body comes up.", "why_wrong": "That word is reserved for undoing a burial — a grave opened, usually a body, usually under legal order. Nothing here was ever buried; the masons are clearing centuries of silt from a floor."}, {"sentence": "Kneeling at the seed tray, she used one cupped hand to ____ a shallow hollow in the potting mix — a second's work before each bulb went in.", "options": ["excavate", "scoop"], "key": "scoop", "pair": "scoop", "why_right": "The tell is <em>a second's work<\/em> - one cupped hand lifting a little loose potting mix is the smallest gesture on the card's scale; nothing methodical, nothing carried away, nothing done at scale.", "why_wrong": "That word means methodical digging and removal at a serious scale. One cupped hand and <em>a second's work<\/em> is the opposite end of that scale."}, {"sentence": "To carry the coast road round the headland, gangs had to ____ a ledge into the cliff — blasting by day, wheeling rubble off by night, for two summers.", "options": ["excavate", "scoop"], "key": "excavate", "pair": "scoop", "why_right": "The tell is <em>for two summers<\/em> - a ledge blasted out of solid cliff with its rubble wheeled away season after season is methodical, large-scale digging and removal, not one quick lift of loose soil.", "why_wrong": "That word is the smallest gesture — a trowel of loose soil lifted in a second. Blasting a ledge out of a cliff and wheeling the rubble off for two summers is an operation at scale."}, {"sentence": "Each March every farm on the plain sends hands to ____ the irrigation channels, shoveling a winter's mud onto the banks before the fields are sown.", "options": ["excavate", "scoop"], "key": "excavate", "pair": "scoop", "why_right": "The tell is <em>a winter's mud<\/em> - a whole season's silt shoveled out of every channel and heaped on the banks by many hands is the methodical, large-scale digging and removal the card assigns to this word.", "why_wrong": "That word lifts one trowel of loose soil in a second. A winter's mud shoveled from every channel on the plain, farm after farm, is digging and removal on a serious scale."}], "display_order": [2, 6, 1, 7, 4, 0, 3, 5], "dimension_order": ["unearth", "exhume", "scoop"], "dimension_feedback": {"unearth": "To unearth is to dig something up and bring it to light — the spotlight is on the find, the coin or fossil suddenly in your hand. Excavate spotlights the labor instead: methodical digging on a serious scale, with the spoil removed and carried away. You unearth a treasure; you excavate the site around it.", "exhume": "To exhume is to dig up from a grave, specifically — the word English reserves for undoing a burial, usually a body and usually under legal order. Excavate is the general working word for digging material out and removing it at scale: pits, foundations, whole buried cities.", "scoop": "Scoop is the smallest gesture, nowhere near excavate — a trowel of loose soil lifted in a second, nothing like the methodical, large-scale digging and removal that excavating names."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs digging that is methodical and big — and the material has to go somewhere. Show the scale and the removal: try working in a word like <i>tons<\/i>, <i>site<\/i>, <i>hauled<\/i> or <i>layer by layer<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

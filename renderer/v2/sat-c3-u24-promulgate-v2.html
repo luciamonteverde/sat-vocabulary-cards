@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="79020a33241a">
+<meta name="build" content="9244f460a00e">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>promulgate &#8212; SAT Vocabulary, Course 3 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "promulgate", "gradeUrl": "/api/grade", "taskId": "promulgate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses promulgate correctly?", "opts": {"A": "The twins promulgated a secret handshake that no one else in the whole neighborhood was ever allowed to learn.", "B": "She promulgated the sourdough starter overnight in the warmest corner of the pantry beside the stove.", "C": "The scouts promulgated the shallow stream behind the campsite, filtering ten liters of water by noon.", "D": "The new charter takes effect only after the governor promulgates it, publishing the full text in the official gazette."}, "key": "D", "fb": {"correct": "Yes — the governor formally publishes the charter's full text so the public officially knows it. That official proclamation is promulgation.", "A": "Keeping 'a secret handshake' from the entire neighborhood is concealment — promulgating runs the other way. It means formally announcing something so the entire community learns of it. Look for a rule or decree broadcast openly.", "B": "Letting dough rise 'in the warmest corner of the pantry' is baking preparation; nothing gets announced to anybody. To promulgate is to formally declare a law or rule so all can know it. Find a proclamation, not fermentation.", "C": "Filtering 'ten liters of water by noon' treats a stream — no announcement reaches anyone. Promulgation is the formal declaration of a rule or decision to everyone it concerns. Look for a law being made known to all."}}, "s3a": {"q": "In this passage, to promulgate a rule means to", "opts": {"A": "draft it and win the board's approval", "B": "officially publish it to the public until people are presumed to know it", "C": "begin writing tickets to enforce it", "D": "quietly file it in the official records"}, "key": "B", "fb": {"correct": "Right -- the passage separates March's approval from the campaign of register, mailings, and notices. That spreading of the official word is the act the word names.", "A": "Approval happened in March, and the passage says that was 'only the beginning' -- the word names what came after.", "C": "Enforcement began only in June, after the campaign; the commissioner treats spreading the word as the precondition for tickets, not the same thing.", "D": "The commissioner says a rule in a filing cabinet 'binds no one' -- quiet filing is the opposite of the public campaign the word names."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "decree", "B": "post", "C": "promulgate", "D": "proclaim"}, "key": "B", "fb": {"correct": "Right. One handwritten sheet on a door <em>where all forty regulars pass on their way to the water<\/em> is the modest, fit-to-scale gesture the moment calls for — to post the notice, nothing more.", "C": "To promulgate is for an authority to formally push a rule out until the whole public is presumed to know it. She <em>holds no office<\/em>, and there was <em>no formal campaign to spread the word<\/em> — official machinery is exactly what this scene does without.", "D": "To proclaim is to announce something grandly — balconies, trumpets, banner type. This was the opposite: <em>no banner headlines<\/em>, just one quiet sheet where the regulars already walk.", "A": "To decree is to command by one's own authority — the order itself. But <em>the rule was the department's to make, not hers<\/em>; she issues nothing and merely relays it."}}}, "grid": {"words": ["promulgate", "proclaim", "decree", "post"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Once the council votes, the clerk must ____ the new noise rule: print it in the register, mail a copy to every household, and run it in the paper until residents are presumed to know it.", "ks": ["promulgate"], "fb": {"proclaim": "Grand announcing needs no register and no mailing list -- enthusiasm is enough for that word. This sentence is about an office formally putting a rule on the record until the public is presumed to know it.", "decree": "The council already issued the command when it voted. What the clerk does next is spread the official word of it -- your word names the ruling itself, not the broadcasting.", "post": "That word is the minimum gesture -- one sheet on one board. A register entry, a mailing to every household, and a newspaper run go far beyond it."}}, {"s": "No agency may enforce a regulation it has failed to ____; a rule kept in a drawer binds no one until the public it governs has been formally given the word.", "ks": ["promulgate"], "fb": {"proclaim": "A balcony announcement has no legal weight, however grand. The sentence needs the formal act an office performs so a rule can bind its public -- flair is not the point.", "decree": "The rule in the drawer has already been commanded into existence. What it lacks is the official spreading that makes the public answerable to it; issuing it again is not the missing step.", "post": "Pinning one sheet to one board would not make a whole public answerable. The missing act reaches everyone the rule governs, formally and on the record."}}, {"s": "From the parade float, the mayor was delighted to ____ the town's championship season to anyone within earshot -- pure celebration, with no paperwork behind it.", "ks": ["proclaim"], "fb": {"promulgate": "A championship season is not a law or a rule, and a parade float is not an office: there is no legal record here to put before the public, only good news told loudly.", "decree": "No order is issued and nothing is commanded to be so -- the season already happened. The mayor is telling news, not exercising authority.", "post": "Nothing is pinned anywhere. The mayor is telling the news aloud to a crowd, the opposite of the one-sheet-on-one-board gesture."}}, {"s": "Anyone with a loud voice and a rooftop can ____ the end of winter; it takes no office and no seal, only enthusiasm.", "ks": ["proclaim"], "fb": {"promulgate": "That word needs office and legal machinery -- an authority putting a rule on the record. 'No office and no seal' rules it out, and winter's end is nobody's regulation.", "decree": "Commanding by authority would mean ordering that something now be so. Announcing that spring has arrived orders nothing and needs no authority at all.", "post": "Leaving one sheet on one board is the quiet minimum. A rooftop shout is its loud opposite."}}, {"s": "Invoking emergency powers, the governor moved to ____ a dusk-to-dawn curfew -- the order itself, binding the moment she signed it, however long word might take to spread.", "ks": ["decree"], "fb": {"promulgate": "That word names the broadcasting of a rule already made -- spreading the official word until the public knows it. This sentence sets the spreading aside and points at the signing of the order itself.", "proclaim": "Announcing, however grandly, binds no one. This curfew takes force 'the moment she signed it,' which is command, not announcement.", "post": "One sheet on one board could never impose a curfew. The sentence is about an authority ordering that something now be so."}}, {"s": "The intern's whole plan for telling the building about the elevator outage was to ____ a single page beside the mailboxes and hope tenants glanced at it.", "ks": ["post"], "fb": {"promulgate": "That is the full legal machinery -- registers, formal records, a public presumed to know. One page by the mailboxes is the minimum gesture, not the maximum one.", "proclaim": "Grand, loud announcing is exactly what the intern is not doing. A sheet someone might glance at is the quietest possible way to tell people.", "decree": "No one is commanding anything -- the elevator is simply broken. There is no order here for an authority to issue."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an authority formally spreading a rule or law to the whole public -- not just sharing news. Try working in a word like <i>official<\/i>, <i>register<\/i>, <i>every household<\/i> or <i>law<\/i>."}};
+  var CFG = {"word": "promulgate", "gradeUrl": "/api/grade", "taskId": "promulgate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses promulgate correctly?", "opts": {"A": "The twins promulgated a secret handshake that no one else in the whole neighborhood was ever allowed to learn.", "B": "She promulgated the sourdough starter overnight in the warmest corner of the pantry beside the stove.", "C": "The scouts promulgated the shallow stream behind the campsite, filtering ten liters of water by noon.", "D": "The new charter takes effect only after the governor promulgates it, publishing the full text in the official gazette."}, "key": "D", "fb": {"correct": "Yes — the governor formally publishes the charter's full text so the public officially knows it. That official proclamation is promulgation.", "A": "Keeping 'a secret handshake' from the entire neighborhood is concealment — promulgating runs the other way. It means formally announcing something so the entire community learns of it. Look for a rule or decree broadcast openly.", "B": "Letting dough rise 'in the warmest corner of the pantry' is baking preparation; nothing gets announced to anybody. To promulgate is to formally declare a law or rule so all can know it. Find a proclamation, not fermentation.", "C": "Filtering 'ten liters of water by noon' treats a stream — no announcement reaches anyone. Promulgation is the formal declaration of a rule or decision to everyone it concerns. Look for a law being made known to all."}}, "s3a": {"q": "In this passage, to promulgate a rule means to", "opts": {"A": "draft it and win the board's approval", "B": "officially publish it to the public until people are presumed to know it", "C": "begin writing tickets to enforce it", "D": "quietly file it in the official records"}, "key": "B", "fb": {"correct": "Right -- the passage separates March's approval from the campaign of register, mailings, and notices. That spreading of the official word is the act the word names.", "A": "Approval happened in March, and the passage says that was 'only the beginning' -- the word names what came after.", "C": "Enforcement began only in June, after the campaign; the commissioner treats spreading the word as the precondition for tickets, not the same thing.", "D": "The commissioner says a rule in a filing cabinet 'binds no one' -- quiet filing is the opposite of the public campaign the word names."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "decree", "B": "post", "C": "promulgate", "D": "proclaim"}, "key": "B", "fb": {"correct": "Right. One handwritten sheet on a door <em>where all forty regulars pass on their way to the water<\/em> is the modest, fit-to-scale gesture the moment calls for — to post the notice, nothing more.", "C": "To promulgate is for an authority to formally push a rule out until the whole public is presumed to know it. She <em>holds no office<\/em>, and there was <em>no formal campaign to spread the word<\/em> — official machinery is exactly what this scene does without.", "D": "To proclaim is to announce something grandly — balconies, trumpets, banner type. This was the opposite: <em>no banner headlines<\/em>, just one quiet sheet where the regulars already walk.", "A": "To decree is to command by one's own authority — the order itself. But <em>the rule was the department's to make, not hers<\/em>; she issues nothing and merely relays it."}}}, "pairwise": {"rows": [{"sentence": "Once the council votes, the clerk must ____ the new noise rule: print it in the register, mail a copy to every household, and run it in the paper until residents are presumed to know it.", "options": ["promulgate", "proclaim"], "key": "promulgate", "pair": "proclaim", "why_right": "The tell is <em>print it in the register<\/em> - an office puts a rule on the record and pushes it out until the public is presumed to know; legal machinery, not grand announcing.", "why_wrong": "Grand announcing needs no register and no mailing list -- enthusiasm is enough for that word. This sentence is about an office formally putting a rule on the record until the public is presumed to know it."}, {"sentence": "From the parade float, the mayor was delighted to ____ the town's championship season to anyone within earshot -- pure celebration, with no paperwork behind it.", "options": ["promulgate", "proclaim"], "key": "proclaim", "pair": "proclaim", "why_right": "The tell is <em>no paperwork behind it<\/em> - a championship season is news told loudly from a float, needing no office and no record; grand public announcing is all that is happening here.", "why_wrong": "A championship season is not a law or a rule, and a parade float is not an office: there is no legal record here to put before the public, only good news told loudly."}, {"sentence": "No agency may enforce a regulation it has failed to ____; a rule kept in a drawer binds no one until the public it governs has been formally given the word.", "options": ["promulgate", "decree"], "key": "promulgate", "pair": "decree", "why_right": "The tell is <em>a rule kept in a drawer<\/em> - the regulation already exists, so commanding it is not the missing step; it lacks the official spreading that makes its public answerable.", "why_wrong": "The rule in the drawer has already been commanded into existence. What it lacks is the official spreading that makes the public answerable to it; issuing it again is not the missing step."}, {"sentence": "Invoking emergency powers, the governor moved to ____ a dusk-to-dawn curfew -- the order itself, binding the moment she signed it, however long word might take to spread.", "options": ["promulgate", "decree"], "key": "decree", "pair": "decree", "why_right": "The tell is <em>however long word might take to spread<\/em> - the spreading is set aside on purpose; what the governor does is command by authority, the ruling itself binding at her signature.", "why_wrong": "That word names the broadcasting of a rule already made -- spreading the official word until the public knows it. This sentence sets the spreading aside and points at the signing of the order itself."}, {"sentence": "Owners had voted the offside rule in weeks earlier; the league still had to ____ it, printing it in three bulletins so no club could plead ignorance.", "options": ["promulgate", "decree"], "key": "promulgate", "pair": "decree", "why_right": "The tell is <em>voted the offside rule in weeks earlier<\/em> - the command already exists; what the league still owes is spreading the official word until no club can plead ignorance.", "why_wrong": "That word is the command itself, the ruling that something now be so, and the owners gave it when they voted. Printing the text in three bulletins spreads the word rather than commanding."}, {"sentence": "The intern's whole plan for telling the building about the elevator outage was to ____ a single page beside the mailboxes and hope tenants glanced at it.", "options": ["promulgate", "post"], "key": "post", "pair": "post", "why_right": "The tell is <em>a single page beside the mailboxes<\/em> - one sheet in one spot that tenants might glance at is the minimum gesture; nothing formal or far-reaching is put before a public.", "why_wrong": "That is the full legal machinery -- registers, formal records, a public presumed to know. One page by the mailboxes is the minimum gesture, not the maximum one."}, {"sentence": "Before a ranger writes one ticket, the park service must ____ its drone ban through the official gazette, every entry permit, and the visitors' information line.", "options": ["promulgate", "post"], "key": "promulgate", "pair": "post", "why_right": "The tell is <em>every entry permit<\/em> - an official ban pushed through a gazette, every permit and the information line reaches the whole public it governs; one sheet on one board falls far short.", "why_wrong": "That word is the minimum gesture, one sheet on one board. A ban carried through the official gazette, every entry permit and the information line before any ticket is written is formal, far-reaching publication."}, {"sentence": "The only word of the new practice night was a slip the tower captain chose to ____ inside the belfry door, at knee height, and all forty ringers turned up on the old night as usual.", "options": ["promulgate", "post"], "key": "post", "pair": "post", "why_right": "The tell is <em>turned up on the old night<\/em> - one slip inside one door at knee height is the minimum gesture; ringers who missed the change entirely are no public presumed to know.", "why_wrong": "That word is an authority formally putting a rule before its public until all are presumed to know it. One slip inside the belfry door, missed by every ringer, is the minimum gesture."}], "display_order": [2, 7, 3, 0, 5, 1, 4, 6], "dimension_order": ["proclaim", "decree", "post"], "dimension_feedback": {"proclaim": "To proclaim is to announce something publicly and grandly — from a balcony, in banner type. Promulgate adds legal machinery to the moment: an authority formally puts a law or rule on the record before the public. A love of trumpets is enough to proclaim; only office lets you promulgate.", "decree": "To decree is to command by authority: the ruling itself, the order that something now be so. To promulgate is to spread the official word of a law or rule until the public is presumed to know it. A decree commands; promulgation broadcasts what was commanded.", "post": "To post a notice is the minimum gesture — one sheet on one board; it stops far short of promulgate."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an authority formally spreading a rule or law to the whole public -- not just sharing news. Try working in a word like <i>official<\/i>, <i>register<\/i>, <i>every household<\/i> or <i>law<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

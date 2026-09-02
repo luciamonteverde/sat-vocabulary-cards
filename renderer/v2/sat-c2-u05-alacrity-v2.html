@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="39d1c33612e0">
+<meta name="build" content="e4add73f5860">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>alacrity &#8212; SAT Vocabulary, Course 2 Unit 5</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "alacrity", "gradeUrl": "/api/grade", "taskId": "alacrity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses alacrity correctly?", "opts": {"A": "The auditor arrived with his usual alacrity: nine o'clock sharp, face blank, coat folded over his arm exactly as always.", "B": "Asked to clear the gutters, Theo agreed with alacrity - no complaint at all, just a long sigh and a start postponed until after lunch.", "C": "Nadia's alacrity for the charity 5K filled every conversation for a month, though she never signed up or laced a shoe.", "D": "Offered the chance to run the morning drills, the young coach accepted with alacrity, jogging to the field while still buttoning her jacket."}, "key": "D", "fb": {"correct": "Right - the coach doesn't just accept: she's jogging to the field before her jacket is buttoned. Quickness plus visible delight is exactly what alacrity names.", "A": "Punctual with a blank face is promptness without the cheer. Alacrity carries both.", "B": "A sigh and a slow walk is compliance without eagerness. Alacrity is brisk and willing.", "C": "A month of talk and no entry is enthusiasm that never acted. Alacrity shows in moving promptly."}}, "s3a": {"q": "In this passage, \"alacrity\" most nearly means", "opts": {"A": "long experience at answering emergency calls", "B": "cheerful eagerness shown in prompt action", "C": "nervous haste under the pressure of a page", "D": "quiet pride in serving the town"}, "key": "B", "fb": {"correct": "Right - the grin, the laced boots, the teasing on the way to the truck: gladness and promptness arriving together.", "A": "Ruth is experienced, but the chiefs are naming her manner of answering - grinning and instant - not her years of service.", "C": "Nothing about her is nervous; she arrives teasing the crew. The speed comes with delight, not dread.", "D": "She may feel that too, but the word points at what the crew can see: the glad, immediate response itself."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "readiness", "B": "enthusiasm", "C": "alacrity", "D": "eagerness"}, "key": "A", "fb": {"correct": "Right. This is being equipped to act — <em>runbooks printed, passwords sealed in envelopes, spare parts shelved and labeled<\/em> — whether or not anyone feels a shred of joy about the job, and the passage strips the joy out on purpose.", "C": "Alacrity is quickness that shows delight — springing forward gladly the instant the call comes. Here <em>The pace is brisk but joyless<\/em>: the speed is drilled, and no gladness comes with it, so the cheerful word overclaims.", "D": "Eagerness is the wanting itself, and the wanting is exactly what is missing: <em>Nobody hopes the real outage ever comes<\/em>.", "B": "Enthusiasm is excited, energetic interest, and it often spends itself in talk — but <em>the sessions run without a trace of excitement<\/em>. Nothing about these drills is thrilled."}}}, "grid": {"words": ["alacrity", "eagerness", "readiness", "enthusiasm"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "When the director asked who could stay late to strike the set, Priya was on her feet with ____ before he finished the sentence, grinning as she reached for the toolbox.", "ks": ["alacrity"], "fb": {"eagerness": "That word is the wanting itself, and it can burn quietly while you never leave your chair. Priya is <em>on her feet before he finished<\/em> - the desire has already become glad motion.", "readiness": "That word means prepared - bags packed, plan in hand - with no joy required. Nothing here is about preparation; the sentence turns on the <em>grinning<\/em>, instant spring.", "enthusiasm": "That word is excited interest, and it can spend itself entirely in talk. Priya's excitement is spent in movement - up at once, toolbox in hand."}}, {"s": "Asked to cover the Sunday shift, Marco said yes with such ____ - halfway to the door, humming - that the manager wondered if he had hoped all week for the call.", "ks": ["alacrity"], "fb": {"eagerness": "That names the desire itself - Marco may well have felt it all week without anyone knowing. What the manager sees is the desire made visible: <em>halfway to the door, humming<\/em>.", "readiness": "That word would mean he was prepared for the shift - schedule cleared, plans made - whether or not he felt any joy. The sentence shows no preparation, only glad speed.", "enthusiasm": "That word is energetic interest and often lives in talk. Marco says one word and moves; the excitement is all in the immediate, cheerful motion."}}, {"s": "All spring a quiet ____ for the exchange program built in Dana, who reread the brochure nightly yet never once raised her hand when volunteers were called.", "ks": ["eagerness"], "fb": {"alacrity": "That word is desire made visible in prompt, cheerful action. Dana <em>never once raised her hand<\/em> - the wanting stays in the chair.", "readiness": "That word means being prepared to act - packed, planned, set. Rereading a brochure prepares nothing; it is pure wanting.", "enthusiasm": "That word is excited, energetic interest, often spilling into talk. Dana's feeling is <em>quiet<\/em> and private - a longing, not a buzz."}}, {"s": "Wei's ____ for the apprenticeship ran deep - she told no one, but the wanting kept her awake - though month after month it never moved her to apply.", "ks": ["eagerness"], "fb": {"alacrity": "That word is wanting made visible in immediate, glad movement. Wei's wanting moves nothing - <em>month after month it never moved her to apply<\/em>.", "readiness": "That word would mean she stood prepared - forms filled, portfolio set. Nothing is prepared here; the feeling only keeps her awake.", "enthusiasm": "That word is excited interest that usually shows - in talk, in energy. Wei <em>told no one<\/em>; hers is desire held silently."}}, {"s": "By dawn the search team waited in a state of flat, professional ____: packs weighed, routes marked, radios checked - though none of them relished the job ahead.", "ks": ["readiness"], "fb": {"alacrity": "That word means springing forward gladly the instant the call comes. This team is <em>flat<\/em> about a job <em>none of them relished<\/em> - what they have is packs, routes, and radios.", "eagerness": "That word is strong desire for the thing. The sentence rules desire out - nobody wants this job; they are simply prepared for it.", "enthusiasm": "That word is excited, energetic interest. <em>Flat, professional<\/em> is its opposite; only the preparation is complete."}}, {"s": "Tomas talks about the community garden with endless ____ - seed catalogs, soil charts, heritage tomatoes - yet somehow has never spent a single Saturday there with a trowel.", "ks": ["enthusiasm"], "fb": {"alacrity": "That word means the excitement shows up as immediate, cheerful movement. Tomas has <em>never spent a single Saturday there<\/em> - his excitement lives entirely in conversation.", "eagerness": "That word is a strong desire to do or get something. Tomas shows no drive to do anything - the catalogs and charts are the pleasure itself.", "readiness": "That word would mean he stood prepared - tools bought, beds planned. Nothing is prepared; there is only endless, cheerful talk."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone moving the instant they are asked - and glad about it. Speed alone is not enough; let the pleasure show. Try working in a word like <i>instantly<\/i>, <i>grinning<\/i>, <i>sprang<\/i> or <i>before<\/i>."}};
+  var CFG = {"word": "alacrity", "gradeUrl": "/api/grade", "taskId": "alacrity", "minWords": 12, "items": {"s1": {"q": "Which sentence uses alacrity correctly?", "opts": {"A": "The auditor arrived with his usual alacrity: nine o'clock sharp, face blank, coat folded over his arm exactly as always.", "B": "Asked to clear the gutters, Theo agreed with alacrity - no complaint at all, just a long sigh and a start postponed until after lunch.", "C": "Nadia's alacrity for the charity 5K filled every conversation for a month, though she never signed up or laced a shoe.", "D": "Offered the chance to run the morning drills, the young coach accepted with alacrity, jogging to the field while still buttoning her jacket."}, "key": "D", "fb": {"correct": "Right - the coach doesn't just accept: she's jogging to the field before her jacket is buttoned. Quickness plus visible delight is exactly what alacrity names.", "A": "Punctual with a blank face is promptness without the cheer. Alacrity carries both.", "B": "A sigh and a slow walk is compliance without eagerness. Alacrity is brisk and willing.", "C": "A month of talk and no entry is enthusiasm that never acted. Alacrity shows in moving promptly."}}, "s3a": {"q": "In this passage, \"alacrity\" most nearly means", "opts": {"A": "long experience at answering emergency calls", "B": "cheerful eagerness shown in prompt action", "C": "nervous haste under the pressure of a page", "D": "quiet pride in serving the town"}, "key": "B", "fb": {"correct": "Right - the grin, the laced boots, the teasing on the way to the truck: gladness and promptness arriving together.", "A": "Ruth is experienced, but the chiefs are naming her manner of answering - grinning and instant - not her years of service.", "C": "Nothing about her is nervous; she arrives teasing the crew. The speed comes with delight, not dread.", "D": "She may feel that too, but the word points at what the crew can see: the glad, immediate response itself."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "readiness", "B": "enthusiasm", "C": "alacrity", "D": "eagerness"}, "key": "A", "fb": {"correct": "Right. This is being equipped to act — <em>runbooks printed, passwords sealed in envelopes, spare parts shelved and labeled<\/em> — whether or not anyone feels a shred of joy about the job, and the passage strips the joy out on purpose.", "C": "Alacrity is quickness that shows delight — springing forward gladly the instant the call comes. Here <em>The pace is brisk but joyless<\/em>: the speed is drilled, and no gladness comes with it, so the cheerful word overclaims.", "D": "Eagerness is the wanting itself, and the wanting is exactly what is missing: <em>Nobody hopes the real outage ever comes<\/em>.", "B": "Enthusiasm is excited, energetic interest, and it often spends itself in talk — but <em>the sessions run without a trace of excitement<\/em>. Nothing about these drills is thrilled."}}}, "pairwise": {"rows": [{"sentence": "All spring a quiet ____ for the exchange program built in Dana, who reread the brochure nightly yet never once raised her hand when volunteers were called.", "options": ["alacrity", "eagerness"], "key": "eagerness", "pair": "eagerness", "why_right": "The tell is <em>never once raised her hand<\/em> - the desire burns all spring without moving her, and wanting that stays in the chair is the wanting itself, not glad action.", "why_wrong": "That word is desire made visible in prompt, cheerful action. Dana <em>never once raised her hand<\/em> - the wanting stays in the chair."}, {"sentence": "Wei's ____ for the apprenticeship ran deep - she told no one, but the wanting kept her awake - though month after month it never moved her to apply.", "options": ["alacrity", "eagerness"], "key": "eagerness", "pair": "eagerness", "why_right": "The tell is <em>it never moved her to apply<\/em> - a strong desire that converts into no action at all is the wanting itself, exactly what this word names.", "why_wrong": "That word is wanting made visible in immediate, glad movement. Wei's wanting moves nothing - <em>month after month it never moved her to apply<\/em>."}, {"sentence": "Everyone had known for a year how badly Suri wanted the archive job, so what impressed the registrar was her ____: hired Friday, she was shelving folios by eight on Monday, humming.", "options": ["alacrity", "eagerness"], "key": "alacrity", "pair": "eagerness", "why_right": "The tell is <em>shelving folios by eight on Monday, humming<\/em> - the long-known wanting has become immediate, cheerful action, and that visible glad speed is what impressed, not the desire itself.", "why_wrong": "That word is the wanting itself, and Suri's wanting was old news - <em>everyone had known for a year<\/em>. What impressed was the desire made visible in glad, instant work."}, {"sentence": "By dawn the search team waited in a state of flat, professional ____: packs weighed, routes marked, radios checked - though none of them relished the job ahead.", "options": ["alacrity", "readiness"], "key": "readiness", "pair": "readiness", "why_right": "The tell is <em>packs weighed, routes marked, radios checked<\/em> - everything here is preparation, held with no joy at all, and being set to act needs no delight.", "why_wrong": "That word means springing forward gladly the instant the call comes. This team is <em>flat<\/em> about a job <em>none of them relished<\/em> - what they have is packs, routes, and radios."}, {"sentence": "Asked to cover the Sunday shift, Marco said yes with such ____ - halfway to the door, humming - that the manager wondered if he had hoped all week for the call.", "options": ["alacrity", "readiness"], "key": "alacrity", "pair": "readiness", "why_right": "The tell is <em>halfway to the door, humming<\/em> - the yes turns instantly into visible, cheerful motion, speed that itself shows the delight rather than mere preparation.", "why_wrong": "That word would mean he was prepared for the shift - schedule cleared, plans made - whether or not he felt any joy. The sentence shows no preparation, only glad speed."}, {"sentence": "The rush order landed a day early - no plates prepped, no plan drawn - yet the caterers turned up at six with ____, laughing as they tied on aprons.", "options": ["alacrity", "readiness"], "key": "alacrity", "pair": "readiness", "why_right": "The tell is <em>laughing as they tied on aprons<\/em> - caught unprepared, the crew still answers at once and gladly, and that cheerful promptness needs no packed bags or plan.", "why_wrong": "That word means prepared to act - bags packed, plan in hand - and the sentence rules it out flatly: <em>no plates prepped, no plan drawn<\/em>. What shows instead is glad, immediate speed."}, {"sentence": "Tomas talks about the community garden with endless ____ - seed catalogs, soil charts, heritage tomatoes - yet somehow has never spent a single Saturday there with a trowel.", "options": ["alacrity", "enthusiasm"], "key": "enthusiasm", "pair": "enthusiasm", "why_right": "The tell is <em>never spent a single Saturday there<\/em> - excited, energetic interest that spends itself entirely in talk, never in movement, is exactly this word's territory.", "why_wrong": "That word means the excitement shows up as immediate, cheerful movement. Tomas has <em>never spent a single Saturday there<\/em> - his excitement lives entirely in conversation."}, {"sentence": "Ken had talked up the beach cleanup for weeks, so nobody doubted his interest; the surprise was his ____ on the morning itself - first out of the van, grabbing bags, delighted.", "options": ["alacrity", "enthusiasm"], "key": "alacrity", "pair": "enthusiasm", "why_right": "The tell is <em>first out of the van, grabbing bags, delighted<\/em> - the excitement finally shows up as immediate, cheerful movement, which is narrower than weeks of energetic talk.", "why_wrong": "That word is excited, energetic interest, and it can spend itself entirely in talk - Ken's did, for weeks, so it could surprise no one. The surprise is excitement become instant, glad movement."}], "display_order": [0, 4, 2, 6, 3, 7, 5, 1], "dimension_order": ["eagerness", "readiness", "enthusiasm"], "dimension_feedback": {"eagerness": "Eagerness is the wanting itself - a strong desire to do or get something that can burn quietly while you never move from your chair. Alacrity is eagerness made visible in action: you are up at once, and the speed itself shows the delight.", "readiness": "Readiness means you are prepared to act - bags packed, plan in hand - whether or not you feel any joy about the job. Alacrity adds the missing feeling: not just standing ready, but springing forward cheerfully the instant the request comes.", "enthusiasm": "Enthusiasm is excited, energetic interest, and it can spend itself entirely in talk about the thing. Alacrity is narrower: the excitement has to show up as immediate, cheerful movement. An enthusiastic fan chats about the club all day; a fan with alacrity is first in line to volunteer."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone moving the instant they are asked - and glad about it. Speed alone is not enough; let the pleasure show. Try working in a word like <i>instantly<\/i>, <i>grinning<\/i>, <i>sprang<\/i> or <i>before<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

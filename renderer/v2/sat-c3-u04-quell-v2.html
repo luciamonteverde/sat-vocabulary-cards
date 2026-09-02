@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6c31e2e72d38">
+<meta name="build" content="631b2810ebd1">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>quell &#8212; SAT Vocabulary, Course 3 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "quell", "gradeUrl": "/api/grade", "taskId": "quell", "minWords": 12, "items": {"s1": {"q": "Which sentence uses quell correctly?", "opts": {"A": "The night nurses quelled the thermometer readings every hour and logged them on the chart.", "B": "The counselor quelled the cabin uprising by reassigning every flashlight to the duty desk.", "C": "The gardener quelled the rose beds with a rich foam of fertilizer at the first sign of spring.", "D": "Tom quelled his new skateboard down the library steps while his friends filmed the attempt."}, "key": "B", "fb": {"correct": "Right — the counselor used her authority to put down the cabin uprising, and the disturbance ended. Putting down a disturbance by force or authority is what quell means.", "A": "Nurses noting 'thermometer readings every hour' are keeping a medical log — there is no unrest to calm. Quell needs a disturbance being put down by someone with force or authority behind them.", "C": "Feeding the roses 'a rich foam of fertilizer' encourages growth; flowers are not rebelling. Quell means putting down a disturbance through force or authority — look for unrest being stamped out, not plants being tended.", "D": "Riding a skateboard 'down the library steps' is a stunt; the sentence wants a verb like rode or launched. Quell always takes a disturbance or a surging feeling as its object and calms it with authority."}}, "s3a": {"q": "In this passage, what does it mean that the sheriff quelled the disturbance?", "opts": {"A": "He ended the unrest using force and official authority.", "B": "He soothed the crowd with patient reassurance.", "C": "He canceled an official order before it took effect.", "D": "He wrestled individual depositors to the ground."}, "key": "A", "fb": {"correct": "Right. A cordon of deputies plus an emergency order is authority backed by force, and it put the live disturbance down.", "B": "The passage rules that out: the tellers' reassurances only sharpened the crowd's edge, and soothing words were plainly not going to be enough.", "C": "No order was canceled -- the sheriff imposed one, freezing withdrawals until morning.", "D": "No depositor was tackled. The crowd as a whole was moved back block by block; the target was the disturbance, not any one person."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "subdue", "B": "quash", "C": "calm", "D": "quell"}, "key": "D", "fb": {"correct": "Right. A live disturbance was ended by authority — <em>the mace carried down the aisle and a one-hour suspension<\/em> — and ended as a disturbance: <em>not a single member was removed from the floor<\/em>, yet <em>the vote resumed in ordinary quiet<\/em>. That is precisely what it means to quell an uproar.", "A": "To subdue is to bring people under control by force — rioters pinned, an intruder wrestled to the ground. But <em>not a single member was removed from the floor<\/em>: no one was seized or restrained. What the mace and the suspension ended was the outbreak, not the members.", "B": "Quash is official power exercised on paper — an indictment, an order, a proposed rule struck down before it takes effect. Nothing here was a measure: <em>members pounded desks, papers flew over the rail<\/em>, live trouble that no ruling could strike from a record.", "C": "Calming leans on patience and a gentle voice, nothing more. That route was tried and failed — <em>the speaker's pleas and gavel both went unheard<\/em> — and order returned only with <em>the mace carried down the aisle and a one-hour suspension<\/em>."}}}, "grid": {"words": ["quell", "subdue", "quash", "calm"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "It took the warden and forty guards to ____ the uprising in the exercise yard before it spread to the cell blocks.", "ks": ["quell"], "fb": {"subdue": "That word wants people as its object -- rioters wrestled under control one by one. This sentence acts on the disturbance itself, the whole uprising.", "quash": "That word ends things on paper -- indictments, orders, proposed rules -- by official signature. Nothing here is a document; the trouble is alive and moving.", "calm": "Soothing words and patience are that word's tools. Forty guards moving into a yard is force under authority, the opposite of gentle."}}, {"s": "Only the harbormaster's armed patrol could ____ the mutiny aboard the quarantined freighter, and order returned by nightfall.", "ks": ["quell"], "fb": {"subdue": "That word brings people under control -- sailors pinned and restrained. The sentence is about ending the disturbance itself, the mutiny as a whole.", "quash": "That word stamps out official measures -- a subpoena, a rule -- with a stroke of authority on paper. A mutiny in progress is not paperwork.", "calm": "That word works by gentleness -- a low voice, patience, no force at all. An armed patrol is the other end of the scale."}}, {"s": "The appellate panel voted to ____ the lower court's order, striking it from the record before it could take effect.", "ks": ["quash"], "fb": {"quell": "That word puts down live trouble -- riots, mutinies, waves of fear -- while it moves. A written order sits on paper; it doesn't surge or spread.", "subdue": "That word wrestles a person or a crowd under control. No one here is even touched; three judges act on a document.", "calm": "There is nothing here to soothe -- no fear, no crowd. A ruling is erased by the authority above it, which is not gentleness."}}, {"s": "League officials moved to ____ the proposed rule change before the owners could even schedule a vote on it.", "ks": ["quash"], "fb": {"quell": "That word needs live trouble in motion -- an uproar, a panic, a mutiny. A proposed rule sits in a binder waiting for a vote.", "subdue": "That word forces people under control. The officials never touch anyone; they kill an item of business.", "calm": "Nothing here is agitated or afraid. A measure is stopped cold by the people with power over it -- paperwork, not patience."}}, {"s": "It took three flight attendants to ____ the drunken passenger, pinning his arms to the seat until the plane could land.", "ks": ["subdue"], "fb": {"quell": "That word puts down the disturbance itself -- the uproar, the panic -- by authority. These attendants act on a person, holding him down bodily.", "quash": "That word kills official measures on paper. There is no paperwork at ten thousand meters -- only a struggling passenger.", "calm": "A soothing voice might have been tried first. Pinning arms to a seat is physical force, well past that word's gentle reach."}}, {"s": "With slow movements and a steady voice, the handler was able to ____ the spooked horse before the parade moved on.", "ks": ["calm"], "fb": {"quell": "That word wants a disturbance put down by someone with force or authority behind them. A steady voice and slow hands carry neither -- this is pure gentleness.", "subdue": "That word overpowers -- arms pinned, a struggle won. The handler never fights the horse at all.", "quash": "That word is for indictments and rules killed on paper by an official. There is no paper and no official here -- just a nervous animal."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a live disturbance -- an uproar, a panic, a revolt -- being put down by someone with power behind them. Try working in a word like <i>guards<\/i>, <i>order<\/i>, or <i>uproar<\/i>."}};
+  var CFG = {"word": "quell", "gradeUrl": "/api/grade", "taskId": "quell", "minWords": 12, "items": {"s1": {"q": "Which sentence uses quell correctly?", "opts": {"A": "The night nurses quelled the thermometer readings every hour and logged them on the chart.", "B": "The counselor quelled the cabin uprising by reassigning every flashlight to the duty desk.", "C": "The gardener quelled the rose beds with a rich foam of fertilizer at the first sign of spring.", "D": "Tom quelled his new skateboard down the library steps while his friends filmed the attempt."}, "key": "B", "fb": {"correct": "Right — the counselor used her authority to put down the cabin uprising, and the disturbance ended. Putting down a disturbance by force or authority is what quell means.", "A": "Nurses noting 'thermometer readings every hour' are keeping a medical log — there is no unrest to calm. Quell needs a disturbance being put down by someone with force or authority behind them.", "C": "Feeding the roses 'a rich foam of fertilizer' encourages growth; flowers are not rebelling. Quell means putting down a disturbance through force or authority — look for unrest being stamped out, not plants being tended.", "D": "Riding a skateboard 'down the library steps' is a stunt; the sentence wants a verb like rode or launched. Quell always takes a disturbance or a surging feeling as its object and calms it with authority."}}, "s3a": {"q": "In this passage, what does it mean that the sheriff quelled the disturbance?", "opts": {"A": "He ended the unrest using force and official authority.", "B": "He soothed the crowd with patient reassurance.", "C": "He canceled an official order before it took effect.", "D": "He wrestled individual depositors to the ground."}, "key": "A", "fb": {"correct": "Right. A cordon of deputies plus an emergency order is authority backed by force, and it put the live disturbance down.", "B": "The passage rules that out: the tellers' reassurances only sharpened the crowd's edge, and soothing words were plainly not going to be enough.", "C": "No order was canceled -- the sheriff imposed one, freezing withdrawals until morning.", "D": "No depositor was tackled. The crowd as a whole was moved back block by block; the target was the disturbance, not any one person."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "subdue", "B": "quash", "C": "calm", "D": "quell"}, "key": "D", "fb": {"correct": "Right. A live disturbance was ended by authority — <em>the mace carried down the aisle and a one-hour suspension<\/em> — and ended as a disturbance: <em>not a single member was removed from the floor<\/em>, yet <em>the vote resumed in ordinary quiet<\/em>. That is precisely what it means to quell an uproar.", "A": "To subdue is to bring people under control by force — rioters pinned, an intruder wrestled to the ground. But <em>not a single member was removed from the floor<\/em>: no one was seized or restrained. What the mace and the suspension ended was the outbreak, not the members.", "B": "Quash is official power exercised on paper — an indictment, an order, a proposed rule struck down before it takes effect. Nothing here was a measure: <em>members pounded desks, papers flew over the rail<\/em>, live trouble that no ruling could strike from a record.", "C": "Calming leans on patience and a gentle voice, nothing more. That route was tried and failed — <em>the speaker's pleas and gavel both went unheard<\/em> — and order returned only with <em>the mace carried down the aisle and a one-hour suspension<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The state's highest court quietly moved to ____ the fraud conviction, erasing the guilty verdict months after the courtroom had emptied.", "options": ["quell", "quash"], "key": "quash", "pair": "quash", "why_right": "The tell is <em>erasing the guilty verdict<\/em> - quash uses official power to kill a measure on paper, and a settled conviction is exactly that, not a disturbance still moving.", "why_wrong": "That word puts down live trouble while it moves -- a riot, an uproar, a panic. A conviction on the record sits settled and inert; nothing here is surging or spreading to be put down."}, {"sentence": "When the verdict was read, the gallery erupted into a shoving, shouting mass, and bailiffs rushed forward to ____ the tumult.", "options": ["quell", "quash"], "key": "quell", "pair": "quash", "why_right": "The tell is <em>shoving, shouting mass<\/em> - this is live trouble in motion put down by force, and quell ends trouble while quash only kills measures on paper.", "why_wrong": "That word stamps out things on paper -- an indictment, a subpoena, a ruling -- by official power. A gallery erupting into a shoving mass is not a document; it is live trouble in motion."}, {"sentence": "A furious crowd surged against the constables' line, and mounted officers charged in to ____ the disturbance before the square emptied.", "options": ["quell", "calm"], "key": "quell", "pair": "calm", "why_right": "The tell is <em>mounted officers charged in<\/em> - quelling comes with force and authority behind it, while calming is gentler still, only soothing words and patience with no force at all.", "why_wrong": "That word settles a crowd gently -- soothing words, patience, a low voice, no force at all. Mounted officers charging into a surging crowd is the opposite: authority backed by force."}, {"sentence": "Only the harbormaster's armed patrol could ____ the mutiny aboard the quarantined freighter, and order returned by nightfall.", "options": ["quell", "calm"], "key": "quell", "pair": "calm", "why_right": "The tell is <em>armed patrol<\/em> - quelling comes with force or authority behind it, while calming a crowd is gentler, only soothing words and patience with no force at all.", "why_wrong": "That word works by gentleness -- a low voice, patience, no force at all. An armed patrol is the other end of the scale."}, {"sentence": "The appellate panel voted to ____ the lower court's order, striking it from the record before it could take effect.", "options": ["quell", "quash"], "key": "quash", "pair": "quash", "why_right": "The tell is <em>striking it from the record<\/em> - quash stamps something out decisively with official power, and a court order killed on paper is a measure, not a live disturbance.", "why_wrong": "That word puts down live trouble -- riots, mutinies, waves of fear -- while it moves. A written order sits on paper; it doesn't surge or spread."}, {"sentence": "It took the warden and forty guards to ____ the uprising in the exercise yard before it spread to the cell blocks.", "options": ["quell", "subdue"], "key": "quell", "pair": "subdue", "why_right": "The tell is <em>the uprising<\/em> - quell points at the disturbance rather than the people, and the object here is the whole uprising, not individual prisoners wrestled down.", "why_wrong": "That word wants people as its object -- rioters wrestled under control one by one. This sentence acts on the disturbance itself, the whole uprising."}, {"sentence": "It took three flight attendants to ____ the drunken passenger, pinning his arms to the seat until the plane could land.", "options": ["quell", "subdue"], "key": "subdue", "pair": "subdue", "why_right": "The tell is <em>pinning his arms<\/em> - subdue brings a person under control by force, wrestling him down, while quell would act on the disturbance itself, not one struggling man.", "why_wrong": "That word puts down the disturbance itself -- the uproar, the panic -- by authority. These attendants act on a person, holding him down bodily."}, {"sentence": "With slow movements and a steady voice, the handler was able to ____ the spooked horse before the parade moved on.", "options": ["quell", "calm"], "key": "calm", "pair": "calm", "why_right": "The tell is <em>slow movements and a steady voice<\/em> - calming works by gentleness alone, with no force or authority behind it, while quell would need exactly that force.", "why_wrong": "That word wants a disturbance put down by someone with force or authority behind them. A steady voice and slow hands carry neither -- this is pure gentleness."}], "display_order": [7, 4, 2, 5, 1, 3, 6, 0], "dimension_order": ["subdue", "quash", "calm"], "dimension_feedback": {"subdue": "To subdue is to bring a person or group under control by force — the rioters, the intruder, the crowd itself are wrestled down. Quell points at the disturbance rather than the people: an uproar, a mutiny, a wave of fear put down by someone with authority. You subdue the mob; you quell the riot.", "quash": "To quash is to stamp something out decisively with official power — an indictment, a subpoena, a proposed rule can all be quashed by whoever has the authority to kill it on paper. Quell belongs to live disturbances: riots, mutinies, panics put down while they are still moving. Quash ends measures; quell ends trouble.", "calm": "Calming a crowd is gentler than quelling it — soothing words and patience, with no force or authority behind them."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a live disturbance -- an uproar, a panic, a revolt -- being put down by someone with power behind them. Try working in a word like <i>guards<\/i>, <i>order<\/i>, or <i>uproar<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

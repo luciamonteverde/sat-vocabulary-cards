@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="ab74ae2e7f5e">
+<meta name="build" content="29fc8dcfd1cf">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>immutable &#8212; SAT Vocabulary, Course 2 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "immutable", "gradeUrl": "/api/grade", "taskId": "immutable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses immutable correctly?", "opts": {"A": "The paper's style guide is famously immutable, freshly revised every autumn as the language shifts around it.", "B": "Auditors trusted the ledger because it was immutable: no entry could ever be altered or erased.", "C": "One antihistamine left her immutable for the whole overnight flight, snoring gently over the wing.", "D": "Stop being so immutable, his sister laughed — you have sulked since breakfast over one burnt slice of toast."}, "key": "B", "fb": {"correct": "Correct. Entries no one — however senior — can ever alter or erase are unchangeable by design: immutable.", "A": "Revision 'every autumn' means this guide is updated constantly — the opposite of the word. Immutable things stay fixed permanently; a document rewritten each year never holds still for long.", "C": "Sleeping 'gently over the wing' for a whole flight is being knocked out by medicine — the writer wants immobile or sedated. Immutable belongs to things no one can modify, not a napping passenger.", "D": "Teasing someone who has 'sulked since breakfast' calls him childish — the word wanted here is immature, a look-alike. Immutable is about permanence: a rule or record that nothing can rewrite."}}, "s3a": {"q": "In this passage, calling the law of gravity \"immutable\" means that it", "opts": {"A": "has never yet been broken in an experiment", "B": "cannot be altered by any decision or power", "C": "was approved long ago by a larger majority", "D": "applies only inside the museum's marble run"}, "key": "B", "fb": {"correct": "Right — the unanimous vote passes and moves nothing: 'no majority, however large, can move it.'", "A": "The demonstration isn't about gravity's track record — it's about whether any decision could move it. The vote can't.", "C": "No vote of any size stands behind gravity — that is exactly the contrast Ms. Ide is drawing.", "D": "Gravity governs the marbles everywhere; it is the class's own rules that reach only as far as their run."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "immutable", "B": "permanent", "C": "unchangeable", "D": "settled"}, "key": "D", "fb": {"correct": "Right — settled: the question has been decided on the evidence in hand, while the door deliberately stays open, since new evidence could reopen it someday. Every other option promises more than the foundation itself is willing to claim.", "A": "Immutable is the word for what no power anywhere can alter — physical constants, the finished past. This entry has no such standing: <em>a single unpublished letter could put the question back on the table<\/em>. What can be reopened is not beyond all alteration.", "C": "Unchangeable makes the same hard claim in plainer dress: it cannot be altered by anyone. The catalogue's own procedures refuse that claim — <em>the foundation's rules let any entry be revised<\/em> — and a rule with a rewrite process built in breaks the word.", "B": "Permanent promises duration: this will last from now on. The passage expects otherwise — <em>Nobody claims the entry will stand forever<\/em>, and in this field attributions are revisited every generation. The question is answered for now, nothing more."}}}, "grid": {"words": ["immutable", "unchangeable", "permanent", "settled"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Every perpetual-motion pitch dies against the same wall: the conservation laws are ____, beyond the reach of any patent office, prototype, or act of Congress.", "ks": ["immutable"], "fb": {"permanent": "Lasting isn't the claim here. Plenty of things last that a vote could still overturn — the sentence says no power can touch these laws at all.", "settled": "A settled matter is one nobody currently disputes — it could still be reopened. The sentence says nothing could ever reopen this.", "unchangeable": "Right claim, wrong register: for the laws of physics the card reserves the more formal of these two words — the plainer one lives with stubborn timetables and house rules."}}, {"s": "Whatever new digs uncover, what the rock already holds is ____ — no grant, theory, or wish can make the Cretaceous have gone differently.", "ks": ["immutable"], "fb": {"permanent": "That word only promises the record will last. The sentence claims something stronger — that nothing can make the past have gone otherwise.", "settled": "Debates about the rock get reopened every season. What the sentence puts beyond reach is the past itself, not a question about it.", "unchangeable": "The claim fits, but the register doesn't: for facts on this scale the card keeps the loftier word, and saves the plain one for supper hours and timetables."}}, {"s": "Archivists letter each crate in ____ ink, formulated to outlast the century — though a chemist with the right solvent could still lift every stroke.", "ks": ["permanent"], "fb": {"immutable": "The solvent clause gives it away: this ink can be undone by someone with the right chemistry, so the no-power-on-earth word overclaims.", "unchangeable": "If a chemist can lift every stroke, it can be altered — the sentence only promises the ink is made to last.", "settled": "Nothing here was ever in dispute — the sentence is about how long ink is designed to endure."}}, {"s": "After two probationary years her posting was made ____, expected to run until retirement — though the service can always reassign staff in an emergency.", "ks": ["permanent"], "fb": {"immutable": "An arrangement the service can undo in an emergency is not beyond all power to alter — the sentence promises expected duration, nothing more.", "unchangeable": "The reassignment clause means it can be altered. What the sentence celebrates is how long the arrangement is meant to run.", "settled": "No question was in dispute here — the sentence is about an arrangement designed to endure for a career."}}, {"s": "Grandfather's six-o'clock supper was ____ in practice: guests, holidays, and forty years of family pleading moved it not one minute.", "ks": ["unchangeable"], "fb": {"immutable": "Save that word for the laws of physics — the card's own examples are mathematical truths and constants. A family supper hour takes the plainer twin.", "permanent": "That word would only say the six-o'clock habit lasted. The sentence is about pressure applied and resisted — forty years of pleading that budged nothing.", "settled": "That word marks a dispute brought to rest that someday could reopen. Nothing here was ever up for debate — it simply could not be budged."}}, {"s": "After a third survey matched the first two, the boundary question was finally ____ — though any neighbor with fresh evidence could reopen it in court.", "ks": ["settled"], "fb": {"immutable": "A matter a court could reopen tomorrow is nowhere near beyond all power to alter.", "unchangeable": "Fresh evidence can still redraw the line — so the it-cannot-be-altered claim fails.", "permanent": "The sentence promises no lasting state — the very next clause explains how the matter could be reopened."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to put the thing beyond anyone's power to alter — not just say that it lasts. Show a force failing to move it: try working in a word like <i>no one<\/i>, <i>vote<\/i>, <i>law<\/i> or <i>never<\/i>."}};
+  var CFG = {"word": "immutable", "gradeUrl": "/api/grade", "taskId": "immutable", "minWords": 12, "items": {"s1": {"q": "Which sentence uses immutable correctly?", "opts": {"A": "The paper's style guide is famously immutable, freshly revised every autumn as the language shifts around it.", "B": "Auditors trusted the ledger because it was immutable: no entry could ever be altered or erased.", "C": "One antihistamine left her immutable for the whole overnight flight, snoring gently over the wing.", "D": "Stop being so immutable, his sister laughed — you have sulked since breakfast over one burnt slice of toast."}, "key": "B", "fb": {"correct": "Correct. Entries no one — however senior — can ever alter or erase are unchangeable by design: immutable.", "A": "Revision 'every autumn' means this guide is updated constantly — the opposite of the word. Immutable things stay fixed permanently; a document rewritten each year never holds still for long.", "C": "Sleeping 'gently over the wing' for a whole flight is being knocked out by medicine — the writer wants immobile or sedated. Immutable belongs to things no one can modify, not a napping passenger.", "D": "Teasing someone who has 'sulked since breakfast' calls him childish — the word wanted here is immature, a look-alike. Immutable is about permanence: a rule or record that nothing can rewrite."}}, "s3a": {"q": "In this passage, calling the law of gravity \"immutable\" means that it", "opts": {"A": "has never yet been broken in an experiment", "B": "cannot be altered by any decision or power", "C": "was approved long ago by a larger majority", "D": "applies only inside the museum's marble run"}, "key": "B", "fb": {"correct": "Right — the unanimous vote passes and moves nothing: 'no majority, however large, can move it.'", "A": "The demonstration isn't about gravity's track record — it's about whether any decision could move it. The vote can't.", "C": "No vote of any size stands behind gravity — that is exactly the contrast Ms. Ide is drawing.", "D": "Gravity governs the marbles everywhere; it is the class's own rules that reach only as far as their run."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "immutable", "B": "permanent", "C": "unchangeable", "D": "settled"}, "key": "D", "fb": {"correct": "Right — settled: the question has been decided on the evidence in hand, while the door deliberately stays open, since new evidence could reopen it someday. Every other option promises more than the foundation itself is willing to claim.", "A": "Immutable is the word for what no power anywhere can alter — physical constants, the finished past. This entry has no such standing: <em>a single unpublished letter could put the question back on the table<\/em>. What can be reopened is not beyond all alteration.", "C": "Unchangeable makes the same hard claim in plainer dress: it cannot be altered by anyone. The catalogue's own procedures refuse that claim — <em>the foundation's rules let any entry be revised<\/em> — and a rule with a rewrite process built in breaks the word.", "B": "Permanent promises duration: this will last from now on. The passage expects otherwise — <em>Nobody claims the entry will stand forever<\/em>, and in this field attributions are revisited every generation. The question is answered for now, nothing more."}}}, "pairwise": {"rows": [{"sentence": "Every perpetual-motion pitch dies against the same wall: the conservation laws are ____, beyond the reach of any patent office, prototype, or act of Congress.", "options": ["immutable", "unchangeable"], "key": "immutable", "pair": "unchangeable", "why_right": "The tell is <em>beyond the reach of any patent office, prototype, or act of Congress<\/em> - laws of physics are the formal word's home register, alongside constants and mathematical truths.", "why_wrong": "Right claim, wrong register: for the laws of physics the card reserves the more formal of these two words — the plainer one lives with stubborn timetables and house rules."}, {"sentence": "Surveyors can remeasure forever: that a flat triangle's angles sum to a straight line is ____, a truth of mathematics with no rewrite process behind it.", "options": ["immutable", "unchangeable"], "key": "immutable", "pair": "unchangeable", "why_right": "The tell is <em>a truth of mathematics with no rewrite process behind it<\/em> - exactly the register the card gives the formal word; the plainer twin lives with stubborn timetables and house rules.", "why_wrong": "That word makes the same hard claim in plainer dress - the card sends it to stubborn timetables and house rules, and keeps the loftier twin for mathematical truths like this one."}, {"sentence": "Grandfather's six-o'clock supper was ____ in practice: guests, holidays, and forty years of family pleading moved it not one minute.", "options": ["immutable", "unchangeable"], "key": "unchangeable", "pair": "unchangeable", "why_right": "The tell is <em>moved it not one minute<\/em> - a stubborn everyday timetable that pressure cannot budge takes the plain-dress word; the card saves the loftier twin for constants and mathematical truths.", "why_wrong": "Save that word for the laws of physics — the card's own examples are mathematical truths and constants. A family supper hour takes the plainer twin."}, {"sentence": "Whatever new digs uncover, what the rock already holds is ____ — no grant, theory, or wish can make the Cretaceous have gone differently.", "options": ["immutable", "permanent"], "key": "immutable", "pair": "permanent", "why_right": "The tell is <em>no grant, theory, or wish<\/em> - the claim is that nothing can make the past have gone differently, not merely that the record will last.", "why_wrong": "That word only promises the record will last. The sentence claims something stronger — that nothing can make the past have gone otherwise."}, {"sentence": "Archivists letter each crate in ____ ink, formulated to outlast the century — though a chemist with the right solvent could still lift every stroke.", "options": ["immutable", "permanent"], "key": "permanent", "pair": "permanent", "why_right": "The tell is <em>could still lift every stroke<\/em> - change stays possible for the right chemistry, so the claim is duration only: ink formulated to last, not ink beyond all power to alter.", "why_wrong": "The solvent clause gives it away: this ink can be undone by someone with the right chemistry, so the no-power-on-earth word overclaims."}, {"sentence": "After two probationary years her posting was made ____, expected to run until retirement — though the service can always reassign staff in an emergency.", "options": ["immutable", "permanent"], "key": "permanent", "pair": "permanent", "why_right": "The tell is <em>the service can always reassign staff<\/em> - change remains possible at need, so the sentence promises expected duration only, an arrangement meant to run until retirement.", "why_wrong": "An arrangement the service can undo in an emergency is not beyond all power to alter — the sentence promises expected duration, nothing more."}, {"sentence": "After a third survey matched the first two, the boundary question was finally ____ — though any neighbor with fresh evidence could reopen it in court.", "options": ["immutable", "settled"], "key": "settled", "pair": "settled", "why_right": "The tell is <em>could reopen it in court<\/em> - a disputed question brought to rest for now, with a live path back open, which the stronger no-power-anywhere word forbids.", "why_wrong": "A matter a court could reopen tomorrow is nowhere near beyond all power to alter."}, {"sentence": "Rival labs still disagree at the fourth decimal, yet the gravitational constant itself is ____ — no conference of physicists could vote it stronger or weaker.", "options": ["immutable", "settled"], "key": "immutable", "pair": "settled", "why_right": "The tell is <em>Rival labs still disagree at the fourth decimal<\/em> - the question is anything but brought to rest, while the constant itself sits beyond any power to alter or reopen.", "why_wrong": "That word marks a disputed question brought to rest, one that could reopen someday. This dispute is wide open - and the constant itself was never anyone's to change."}], "display_order": [0, 5, 6, 1, 3, 2, 4, 7], "dimension_order": ["unchangeable", "permanent", "settled"], "dimension_feedback": {"unchangeable": "Unchangeable makes the same hard claim in plainer dress: it cannot be altered. Immutable adds register and reach — it is the word for mathematical truths, physical constants, and rules with no rewrite process, where unchangeable can describe a stubborn timetable. Both words break if a committee could ever vote the thing different.", "permanent": "Permanent promises duration — the ink, the record, the appointment will last from now on. It does not say change is impossible; a permanent policy can still be repealed, it is just that nobody expects to. Immutable makes the stronger claim: no power anywhere can change it at all.", "settled": "A settled question could always be reopened someday — settlement is a truce with change; immutable never signed one."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to put the thing beyond anyone's power to alter — not just say that it lasts. Show a force failing to move it: try working in a word like <i>no one<\/i>, <i>vote<\/i>, <i>law<\/i> or <i>never<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

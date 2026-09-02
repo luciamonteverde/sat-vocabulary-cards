@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="0306a4cfd510">
+<meta name="build" content="9d5021aa2041">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>anthology &#8212; SAT Vocabulary, Course 1 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "anthology", "gradeUrl": "/api/grade", "taskId": "anthology", "minWords": 12, "items": {"s1": {"q": "Which of these would count as an anthology?", "opts": {"A": "a five-hundred-page history of Rome written by one retired classics professor", "B": "a dictionary of legal terms arranged alphabetically for law students", "C": "a photo album filled with one family's beach vacation snapshots", "D": "one hardcover book gathering nature poems by two dozen separate poets"}, "key": "D", "fb": {"correct": "Right — one hardcover book gathering nature poems from two dozen separate poets is selected writing by many hands published together: an anthology.", "A": "One retired professor writing alone produces 'a five-hundred-page history' in a single voice — one author, one work. An anthology collects shorter pieces from many different writers into one volume; look for many hands.", "B": "A dictionary 'arranged alphabetically' is a reference tool built from definitions, not chosen pieces of writing. An anthology selects finished works — stories, verse, songs — from many authors and publishes them together.", "C": "Snapshots of 'one family's beach vacation' fail on two counts: photos aren't writings, and a single family isn't a range of authors. An anthology needs written or sung work drawn from many different creators."}}, "s3a": {"q": "As used in the passage, an anthology is", "opts": {"A": "a single volume gathering selected works by many different writers", "B": "a complete collected edition presenting a single poet's entire life work", "C": "a reference book recording facts about poets and their careers", "D": "a locked case of rare books considered too valuable to be lent out to patrons"}, "key": "A", "fb": {"correct": "Right — one book, a hundred and four poets: selected works by many hands, published together.", "B": "The purists wanted that — 'a poet deserves a whole book' — and the librarian bought the opposite: many poets sharing one volume.", "C": "Patrons read poems in it and 'kept turning pages'; nothing suggests a book of facts about the poets.", "D": "The book was ordered to be borrowed, and circulation tripled — the opposite of too valuable to lend."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "treasury", "B": "compilation", "C": "collection", "D": "anthology"}, "key": "D", "fb": {"correct": "Right. Forty poems by <em>forty different poets<\/em>, selected and published together in one volume, with no claim that any of them is a gem — selected writings by many hands is exactly what anthology names.", "C": "Collection is the broadest word for works gathered together — one author's essays would qualify just as well, and this volume's rule <em>against printing two pieces by the same hand<\/em> is the very thing it fails to capture.", "B": "Compilation stresses the labor of assembling material from many sources, and the material can be anything — statistics, film clips. What this volume prints is selected writing offered to readers: <em>forty poems, forty different poets<\/em>, not records pulled into a master sheet.", "A": "Treasury presents gathered works as precious — every piece a gem worth keeping. These judges say the opposite: they <em>resist calling the poems gems<\/em>, and admit some are <em>simply representative<\/em>."}}}, "grid": {"words": ["anthology", "collection", "compilation", "treasury"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Unlike the single-author volumes shelved beside it, this book earns the label ____: thirty stories, thirty bylines, some celebrated and some barely remembered.", "ks": ["anthology"], "fb": {"collection": "This is the broadest word for works gathered together — a single author's essays qualify. The sentence's contrast with <em>single-author volumes<\/em> only works if the word itself requires many voices.", "compilation": "That word is named for the labor of assembling material — statistics, clippings, footage — and says nothing about how many writers a book holds, which is the contrast this sentence draws.", "treasury": "That word presents everything it gathers as precious. A book admitting some pieces are <em>barely remembered<\/em> makes no such claim."}}, {"s": "The museum published a catalog of its entire ____ of nineteenth-century landscape paintings, from the famous oils down to the unlabeled sketches.", "ks": ["collection"], "fb": {"anthology": "That word is a published volume of selected writings by various authors. These are <em>paintings<\/em> — a museum's holdings, not writings.", "compilation": "That word stresses assembling material from many sources into one product. Nothing was worked up from sources here; these are simply the museum's gathered holdings.", "treasury": "That word presents everything in it as precious. Holdings running <em>down to the unlabeled sketches<\/em> make no claim that every piece is a gem."}}, {"s": "The intern's first job was the ____ of every county's election returns — three weeks of pulling scattered numbers out of courthouse files into one ordered master sheet.", "ks": ["compilation"], "fb": {"anthology": "That word is for selected writings by various authors in one published volume. <em>Election returns<\/em> pulled into a <em>master sheet<\/em> are data, not literature.", "collection": "The broad gathering-word names the pile that results. The sentence names a job — <em>three weeks of pulling scattered numbers... into one ordered master sheet<\/em>.", "treasury": "That word presents its contents as gems worth keeping. Courthouse election figures are being organized, not celebrated."}}, {"s": "Bound in gold cloth, the volume is marketed as the ____ of English verse — every poem in it offered as a gem worth memorizing.", "ks": ["treasury"], "fb": {"anthology": "That word claims selected writings by <em>various authors<\/em> — which this sentence never establishes. What it asserts instead is worth: <em>every poem offered as a gem<\/em>.", "collection": "The broadest gathering-word makes no claim of value, so <em>every poem in it offered as a gem worth memorizing<\/em> would hang on nothing.", "compilation": "That word stresses the labor of assembling material from many sources. The sentence's claim is about worth — <em>a gem worth memorizing<\/em> — not assembly work."}}, {"s": "Ask the librarian for the class ____ — the single volume that lets you read all twelve assigned poets without checking out twelve separate books.", "ks": ["anthology"], "fb": {"collection": "The broad word could as easily hold one poet's work, so it cannot promise what the sentence promises — <em>all twelve assigned poets<\/em> inside a single book.", "compilation": "That word's home is material assembled from sources — results, clippings, footage. A reading volume of poems by twelve poets takes the literary label.", "treasury": "That word would present the poems as precious gems. These are simply <em>assigned<\/em> texts for a class; nothing claims they are treasures."}}, {"s": "After the sculptor died, her studio's entire ____ — finished bronzes, plaster tests, even bent tools she had welded into birds — went to the city museum.", "ks": ["collection"], "fb": {"anthology": "That word means selected writings by various authors. Bronzes, plaster tests, and <em>bent tools she had welded into birds<\/em> are one sculptor's objects, not many writers' texts.", "compilation": "That word stresses assembling material from many sources into one product. Nothing here was worked up from sources; it is what one artist left behind.", "treasury": "That word claims everything in it is precious. An estate running to <em>plaster tests<\/em> and <em>bent tools<\/em> is inventory, not celebration."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Show one published book holding chosen work by many hands — a count makes it vivid. Try working in words like <i>selected<\/i>, <i>one volume<\/i>, or <i>different writers<\/i>."}};
+  var CFG = {"word": "anthology", "gradeUrl": "/api/grade", "taskId": "anthology", "minWords": 12, "items": {"s1": {"q": "Which of these would count as an anthology?", "opts": {"A": "a five-hundred-page history of Rome written by one retired classics professor", "B": "a dictionary of legal terms arranged alphabetically for law students", "C": "a photo album filled with one family's beach vacation snapshots", "D": "one hardcover book gathering nature poems by two dozen separate poets"}, "key": "D", "fb": {"correct": "Right — one hardcover book gathering nature poems from two dozen separate poets is selected writing by many hands published together: an anthology.", "A": "One retired professor writing alone produces 'a five-hundred-page history' in a single voice — one author, one work. An anthology collects shorter pieces from many different writers into one volume; look for many hands.", "B": "A dictionary 'arranged alphabetically' is a reference tool built from definitions, not chosen pieces of writing. An anthology selects finished works — stories, verse, songs — from many authors and publishes them together.", "C": "Snapshots of 'one family's beach vacation' fail on two counts: photos aren't writings, and a single family isn't a range of authors. An anthology needs written or sung work drawn from many different creators."}}, "s3a": {"q": "As used in the passage, an anthology is", "opts": {"A": "a single volume gathering selected works by many different writers", "B": "a complete collected edition presenting a single poet's entire life work", "C": "a reference book recording facts about poets and their careers", "D": "a locked case of rare books considered too valuable to be lent out to patrons"}, "key": "A", "fb": {"correct": "Right — one book, a hundred and four poets: selected works by many hands, published together.", "B": "The purists wanted that — 'a poet deserves a whole book' — and the librarian bought the opposite: many poets sharing one volume.", "C": "Patrons read poems in it and 'kept turning pages'; nothing suggests a book of facts about the poets.", "D": "The book was ordered to be borrowed, and circulation tripled — the opposite of too valuable to lend."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "treasury", "B": "compilation", "C": "collection", "D": "anthology"}, "key": "D", "fb": {"correct": "Right. Forty poems by <em>forty different poets<\/em>, selected and published together in one volume, with no claim that any of them is a gem — selected writings by many hands is exactly what anthology names.", "C": "Collection is the broadest word for works gathered together — one author's essays would qualify just as well, and this volume's rule <em>against printing two pieces by the same hand<\/em> is the very thing it fails to capture.", "B": "Compilation stresses the labor of assembling material from many sources, and the material can be anything — statistics, film clips. What this volume prints is selected writing offered to readers: <em>forty poems, forty different poets<\/em>, not records pulled into a master sheet.", "A": "Treasury presents gathered works as precious — every piece a gem worth keeping. These judges say the opposite: they <em>resist calling the poems gems<\/em>, and admit some are <em>simply representative<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Unlike the single-author volumes shelved beside it, this book earns the label ____: thirty stories, thirty bylines, some celebrated and some barely remembered.", "options": ["anthology", "collection"], "key": "anthology", "pair": "collection", "why_right": "The tell is <em>Unlike the single-author volumes<\/em> - the label must itself require many voices for the contrast to hold, and the broad gathering-word covers one writer's essays just as well.", "why_wrong": "This is the broadest word for works gathered together — a single author's essays qualify. The sentence's contrast with <em>single-author volumes<\/em> only works if the word itself requires many voices."}, {"sentence": "The museum published a catalog of its entire ____ of nineteenth-century landscape paintings, from the famous oils down to the unlabeled sketches.", "options": ["anthology", "collection"], "key": "collection", "pair": "collection", "why_right": "The tell is <em>nineteenth-century landscape paintings<\/em> - gathered works of any kind are the broad word's territory; the rival label requires selected writings by various authors in a published volume.", "why_wrong": "That word is a published volume of selected writings by various authors. These are <em>paintings<\/em> — a museum's holdings, not writings."}, {"sentence": "Bound in gold cloth, the volume is marketed as the ____ of English verse — every poem in it offered as a gem worth memorizing.", "options": ["anthology", "treasury"], "key": "treasury", "pair": "treasury", "why_right": "The tell is <em>offered as a gem worth memorizing<\/em> - the marketed label itself claims the contents are precious, this word's defining tone; the rival word claims many authors, never worth.", "why_wrong": "That word claims selected writings by <em>various authors<\/em> — which this sentence never establishes. What it asserts instead is worth: <em>every poem offered as a gem<\/em>."}, {"sentence": "Ask the librarian for the class ____ — the single volume that lets you read all twelve assigned poets without checking out twelve separate books.", "options": ["anthology", "compilation"], "key": "anthology", "pair": "compilation", "why_right": "The tell is <em>read all twelve assigned poets<\/em> - a reading volume of many poets' selected work takes the literary label; the losing word's home is assembled material like results and clippings.", "why_wrong": "That word's home is material assembled from sources — results, clippings, footage. A reading volume of poems by twelve poets takes the literary label."}, {"sentence": "After the sculptor died, her studio's entire ____ — finished bronzes, plaster tests, even bent tools she had welded into birds — went to the city museum.", "options": ["anthology", "collection"], "key": "collection", "pair": "collection", "why_right": "The tell is <em>finished bronzes, plaster tests, even bent tools<\/em> - one maker's gathered objects of any kind, the broad word's whole territory; nothing here is selected writings by various authors.", "why_wrong": "That word means selected writings by various authors. Bronzes, plaster tests, and <em>bent tools she had welded into birds<\/em> are one sculptor's objects, not many writers' texts."}, {"sentence": "The intern's first job was the ____ of every county's election returns — three weeks of pulling scattered numbers out of courthouse files into one ordered master sheet.", "options": ["anthology", "compilation"], "key": "compilation", "pair": "compilation", "why_right": "The tell is <em>pulling scattered numbers out of courthouse files into one ordered master sheet<\/em> - the labor of assembling material from many sources, done on statistics rather than on any writer's work.", "why_wrong": "That word is for selected writings by various authors in one published volume. <em>Election returns<\/em> pulled into a <em>master sheet<\/em> are data, not literature."}, {"sentence": "Reviewers praised the new ____ of Arctic travel writing: twenty-two essays by twenty-two different explorers, selected and published together in one hardcover volume.", "options": ["anthology", "compilation"], "key": "anthology", "pair": "compilation", "why_right": "The tell is <em>twenty-two essays by twenty-two different explorers<\/em> - selected writings by various authors published in one volume take the literary label; compilation's home is statistics and film clips.", "why_wrong": "That word stresses the labor of assembling material from many sources -- statistics, film clips, songs. A published volume of <em>selected<\/em> essays by <em>twenty-two different explorers<\/em> takes the literary label."}, {"sentence": "The ____ of graduation speeches spans ninety years and two hundred speakers, its editors printing the plodding addresses beside the famous ones without comment.", "options": ["anthology", "treasury"], "key": "anthology", "pair": "treasury", "why_right": "The tell is <em>printing the plodding addresses beside the famous ones<\/em> - a volume celebrating nothing makes no claim of preciousness; it is simply selected pieces by many speakers, published together.", "why_wrong": "That word presents everything it gathers as precious -- gems worth keeping, offered with a tone of celebration. <em>Plodding addresses<\/em> printed <em>without comment<\/em> make no such promise."}], "display_order": [1, 5, 7, 6, 4, 3, 2, 0], "dimension_order": ["collection", "compilation", "treasury"], "dimension_feedback": {"collection": "Collection is the broadest word for works gathered together — one author's essays, one museum's paintings, anything assembled at all. An anthology is a specific kind of collection: selected writings by many different authors, published together in one volume. Every anthology is a collection; a collection needs no variety of voices.", "compilation": "Compilation stresses the labor of assembling material from many sources, and the material can be anything — statistics, film clips, songs. An anthology is narrower: a published volume of selected writings by various authors. Call the spreadsheet of election results a compilation; call the book of thirty writers' stories an anthology.", "treasury": "Treasury presents gathered works as precious — a treasury of verse promises gems worth keeping. An anthology makes no claim about value; it is simply selected writings by various authors published in one volume. Treasury adds a tone of celebration that a plain classroom anthology does not carry."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Show one published book holding chosen work by many hands — a count makes it vivid. Try working in words like <i>selected<\/i>, <i>one volume<\/i>, or <i>different writers<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

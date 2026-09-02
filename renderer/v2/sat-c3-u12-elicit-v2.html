@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="edc89bfc4792">
+<meta name="build" content="613ada528fbb">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>elicit &#8212; SAT Vocabulary, Course 3 Unit 12</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "elicit", "gradeUrl": "/api/grade", "taskId": "elicit", "minWords": 12, "items": {"s1": {"q": "Which sentence uses elicit correctly?", "opts": {"A": "The ring elicited copies of the final exam and sold them behind the gym for twenty dollars.", "B": "The principal elicited the new families to a welcome dinner in the cafeteria.", "C": "The exhibit's final room elicited gasps from even the most jaded critics.", "D": "The editor elicited two whole paragraphs to make the article fit the page."}, "key": "C", "fb": {"correct": "Correct! The room draws the gasps out of everyone who walks in — drawing a response forth is exactly what elicit means.", "A": "Selling stolen copies 'behind the gym' is illicit — against the law — and that sound-alike is the trap here. To elicit is to draw a response out of someone; look for a reaction being drawn forth.", "B": "Here elicited stands in for invited — the principal is bringing 'the new families' to a dinner. Eliciting means drawing a response out of people, not extending an invitation.", "D": "Cutting 'two whole paragraphs' so the article fits is deleting text, not eliciting anything. Elicit means to draw a response out of someone — find where something makes people react."}}, "s3a": {"q": "As used in this passage, what does it mean that each move is 'designed to elicit a response'?", "opts": {"A": "Each move comforts the baby until some response happens to appear by itself.", "B": "Each move invites the baby to respond whenever it chooses.", "C": "Each move is a deliberate technique for drawing a specific response out.", "D": "Each move simply records the responses the baby was already making on its own."}, "key": "C", "fb": {"correct": "Right -- design plus drawing-out: 'If the technique is right, the response follows.'", "A": "Comfort isn't the goal -- the strokes and turns are engineered to produce a specific reaction.", "B": "The baby gets no choice: the passage says the nervous system 'cannot help giving' the response.", "D": "The responses aren't already there to record -- they appear only when the technique produces them."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "prompt", "B": "invite", "C": "evoke", "D": "elicit"}, "key": "D", "fb": {"correct": "Right. The answer is drawn out deliberately, by a technique built for the job — <em>the item's phrasing, order, and timing all pull together<\/em> — and elicit names exactly that skillful drawing out.", "C": "Evoke fits feelings, memories, and images that surface on their own. Nothing surfaces by itself here: the answer has to be pulled <em>from someone with no reason to give one<\/em>, by deliberate design.", "A": "A prompt is the single small cue that triggers a response — and the passage says outright that <em>no single cue does the work<\/em>. The whole engineered item does it together.", "B": "To invite an answer is to leave the door open and accept whatever comes. These writers don't wait at the door: <em>When answers stay vague, the writers rework the instrument<\/em> until a usable answer comes out."}}}, "grid": {"words": ["elicit", "evoke", "prompt", "invite"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Socratic teachers answer a student's query with another one, working the whole period to ____ the rule from the class rather than state it.", "ks": ["elicit"], "fb": {"evoke": "Nothing here surfaces on its own. The rule is deliberately worked out of the class -- design, not drift.", "prompt": "A single nudge would be one leading question. This is the whole sustained act of drawing the answer out, exchange after exchange.", "invite": "The teacher doesn't just leave the door open and wait -- the technique actively pulls the rule out of the room."}}, {"s": "Over an hour of gentle, roundabout questions, the caseworker managed to ____ the whole story from the frightened boy.", "ks": ["elicit"], "fb": {"evoke": "The story doesn't well up on its own at some sight or smell -- it is patiently drawn out of a person, which is a different word's work.", "prompt": "One sticky note or one leading question would be a cue. An hour of careful questions is the drawing-out itself.", "invite": "Leaving the door open wouldn't have gotten this story. The caseworker actively, gently works it out of him."}}, {"s": "For many swimmers the smell of chlorine can ____ whole childhood summers -- the diving board, the snack stand, one particular blue sky.", "ks": ["evoke"], "fb": {"elicit": "There's no interviewer and no technique -- nobody is drawing a response out of anyone. The memories arrive on their own.", "prompt": "A cue would push someone to speak or act. This smell triggers nothing anyone does -- only what floods back.", "invite": "No offer is extended and nothing is left open. The past just shows up."}}, {"s": "The set designer wants bare bulbs and folding chairs to ____ a 1936 union hall before a word of the script is spoken.", "ks": ["evoke"], "fb": {"elicit": "No one is questioning or working on a particular person. The chairs summon a picture; they don't draw an answer out of anyone.", "prompt": "Nothing cues an action or an answer. What the props do is call a whole place to mind.", "invite": "The audience isn't asked for anything. The hall simply appears in their heads."}}, {"s": "When the teleprompter froze, one index card held up offstage was enough to ____ the anchor through the closing headline.", "ks": ["prompt"], "fb": {"elicit": "No sustained technique works an answer out of her over time. One card, one nudge, and she's moving again.", "evoke": "No memory or feeling floats up on its own. A deliberate cue points a person at her next line.", "invite": "The card isn't an open offer she may decline at leisure -- it's the trigger that restarts her mid-broadcast."}}, {"s": "The suggestion box by the staff door is there to ____ ideas, not demand them; weeks can pass with nothing inside.", "ks": ["invite"], "fb": {"elicit": "Nothing works ideas out of the staff -- if nobody feels like writing, nothing happens, and 'weeks can pass.' The door is merely open.", "evoke": "An idea dropped in a box is a deliberate act, not a feeling that wells up at a trigger.", "prompt": "There's no moment-to-moment cue here, no nudge aimed at one particular response. Just a standing, refusable offer."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a response being deliberately drawn out of someone -- by a question, a technique, a design -- rather than appearing on its own. Naming the method and the reaction helps: try words like <i>technique<\/i>, <i>from<\/i>, <i>reaction<\/i> or <i>finally<\/i>."}};
+  var CFG = {"word": "elicit", "gradeUrl": "/api/grade", "taskId": "elicit", "minWords": 12, "items": {"s1": {"q": "Which sentence uses elicit correctly?", "opts": {"A": "The ring elicited copies of the final exam and sold them behind the gym for twenty dollars.", "B": "The principal elicited the new families to a welcome dinner in the cafeteria.", "C": "The exhibit's final room elicited gasps from even the most jaded critics.", "D": "The editor elicited two whole paragraphs to make the article fit the page."}, "key": "C", "fb": {"correct": "Correct! The room draws the gasps out of everyone who walks in — drawing a response forth is exactly what elicit means.", "A": "Selling stolen copies 'behind the gym' is illicit — against the law — and that sound-alike is the trap here. To elicit is to draw a response out of someone; look for a reaction being drawn forth.", "B": "Here elicited stands in for invited — the principal is bringing 'the new families' to a dinner. Eliciting means drawing a response out of people, not extending an invitation.", "D": "Cutting 'two whole paragraphs' so the article fits is deleting text, not eliciting anything. Elicit means to draw a response out of someone — find where something makes people react."}}, "s3a": {"q": "As used in this passage, what does it mean that each move is 'designed to elicit a response'?", "opts": {"A": "Each move comforts the baby until some response happens to appear by itself.", "B": "Each move invites the baby to respond whenever it chooses.", "C": "Each move is a deliberate technique for drawing a specific response out.", "D": "Each move simply records the responses the baby was already making on its own."}, "key": "C", "fb": {"correct": "Right -- design plus drawing-out: 'If the technique is right, the response follows.'", "A": "Comfort isn't the goal -- the strokes and turns are engineered to produce a specific reaction.", "B": "The baby gets no choice: the passage says the nervous system 'cannot help giving' the response.", "D": "The responses aren't already there to record -- they appear only when the technique produces them."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "prompt", "B": "invite", "C": "evoke", "D": "elicit"}, "key": "D", "fb": {"correct": "Right. The answer is drawn out deliberately, by a technique built for the job — <em>the item's phrasing, order, and timing all pull together<\/em> — and elicit names exactly that skillful drawing out.", "C": "Evoke fits feelings, memories, and images that surface on their own. Nothing surfaces by itself here: the answer has to be pulled <em>from someone with no reason to give one<\/em>, by deliberate design.", "A": "A prompt is the single small cue that triggers a response — and the passage says outright that <em>no single cue does the work<\/em>. The whole engineered item does it together.", "B": "To invite an answer is to leave the door open and accept whatever comes. These writers don't wait at the door: <em>When answers stay vague, the writers rework the instrument<\/em> until a usable answer comes out."}}}, "pairwise": {"rows": [{"sentence": "Socratic teachers answer a student's query with another one, working the whole period to ____ the rule from the class rather than state it.", "options": ["elicit", "invite"], "key": "elicit", "pair": "invite", "why_right": "The tell is <em>working the whole period<\/em> - the rule is actively drawn out of the class by a sustained technique, far more than leaving the floor open and waiting.", "why_wrong": "The teacher doesn't just leave the door open and wait -- the technique actively pulls the rule out of the room."}, {"sentence": "Over an hour of gentle, roundabout questions, the caseworker managed to ____ the whole story from the frightened boy.", "options": ["elicit", "invite"], "key": "elicit", "pair": "invite", "why_right": "The tell is <em>an hour of gentle, roundabout questions<\/em> - the story is actively worked out of the boy, not merely invited by leaving a door open for him to speak.", "why_wrong": "Leaving the door open wouldn't have gotten this story. The caseworker actively, gently works it out of him."}, {"sentence": "The suggestion box by the staff door is there to ____ ideas, not demand them; weeks can pass with nothing inside.", "options": ["elicit", "invite"], "key": "invite", "pair": "invite", "why_right": "The tell is <em>weeks can pass with nothing inside<\/em> - the box only leaves the door open for ideas; nothing is actively drawn out, which is invite, not elicit.", "why_wrong": "Nothing works ideas out of the staff -- if nobody feels like writing, nothing happens, and 'weeks can pass.' The door is merely open."}, {"sentence": "The ad agency storyboarded every frame to ____ a lump in the throat, reshooting the cut until it landed with a test audience.", "options": ["elicit", "evoke"], "key": "elicit", "pair": "evoke", "why_right": "The tell is <em>reshooting the cut until it landed<\/em> - the emotion here is deliberately engineered, the response a technique was built to produce, which is elicit, not evoke.", "why_wrong": "That word is for feelings, memories, or images that drift up on their own. This lump in the throat was engineered frame by frame to be produced."}, {"sentence": "The smell of floor polish and chalk can ____ a pang of nostalgia in old pupils, welling up on its own before anyone speaks.", "options": ["elicit", "evoke"], "key": "evoke", "pair": "evoke", "why_right": "The tell is <em>welling up on its own<\/em> - the feeling comes up unbidden at a trigger, with no one drawing a response out of anyone, which is evoke rather than elicit.", "why_wrong": "That word needs someone deliberately drawing a response out of a person by design. Here a smell triggers the feeling on its own -- no interviewer, no technique, nobody asked."}, {"sentence": "A distant siren, even in a film, can still ____ a jolt of fear in those who lived through the raids, surfacing before any thought.", "options": ["elicit", "evoke"], "key": "evoke", "pair": "evoke", "why_right": "The tell is <em>surfacing before any thought<\/em> - the fear rises on its own at the sound, unbidden, not a reaction any person is being worked to produce.", "why_wrong": "That word means a response deliberately drawn out of a person by some technique. Here nobody works on anyone -- a siren sounds and the dread simply arrives on its own."}, {"sentence": "One dramatic downbeat can startle a crowd, but it took the conductor a whole slow movement to ____ the hush that had eluded every earlier performance.", "options": ["elicit", "prompt"], "key": "elicit", "pair": "prompt", "why_right": "The tell is <em>a whole slow movement<\/em> - the response is worked out over a sustained stretch, the fuller act of drawing it out, not the single cue that merely startles.", "why_wrong": "That word is the small cue that triggers a response -- one downbeat, one whisper. A hush worked out of a hall across a whole movement is the fuller drawing-out, not a nudge."}, {"sentence": "The date was on the tip of the old clerk's tongue; one glance at the roster was enough to ____ it, and he finished the sentence.", "options": ["elicit", "prompt"], "key": "prompt", "pair": "prompt", "why_right": "The tell is <em>one glance at the roster was enough<\/em> - the date was already there, waiting on a single small trigger, which is prompt, not the sustained drawing-out elicit names.", "why_wrong": "That word is the fuller, skillful drawing-out of a response that must be worked loose. This date was already there -- one glance at the roster set it free."}], "display_order": [1, 3, 2, 5, 7, 4, 0, 6], "dimension_order": ["invite", "evoke", "prompt"], "dimension_feedback": {"invite": "To invite a response is gentler than to elicit one — an invitation leaves the door open, while eliciting actively draws the response out.", "evoke": "Evoke draws out feelings, memories, or images that come up on their own — an old photograph evokes a face, a certain slant of light evokes a winter. Elicit points at people and design: a response deliberately drawn out of someone, the answer or laugh a technique was built to produce.", "prompt": "A prompt is the small cue that triggers a response — a sticky note, a stage whisper, one leading question. Elicit is the fuller act of drawing the response out, often skillfully and by design; the prompt is only the nudge that starts it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a response being deliberately drawn out of someone -- by a question, a technique, a design -- rather than appearing on its own. Naming the method and the reaction helps: try words like <i>technique<\/i>, <i>from<\/i>, <i>reaction<\/i> or <i>finally<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

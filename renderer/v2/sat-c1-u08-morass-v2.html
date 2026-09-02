@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="fb63c93a1b7c">
+<meta name="build" content="87bc608a42ee">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>morass &#8212; SAT Vocabulary, Course 1 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "morass", "gradeUrl": "/api/grade", "taskId": "morass", "minWords": 12, "items": {"s1": {"q": "Maya volunteered to trace her family tree and found the records knotted: three certificates were mislabeled, and two archives had filed her great-grandfather under different spellings of his name. But each error, once spotted, pointed straight to the next fix. Working from the outside in, she unpicked the knots one at a time, every session closing more questions than it opened, and by the end of the week the tree was finished. What had Maya's research turned out to be?", "opts": {"A": "A muddle too small to cost her an evening", "B": "A tangle she could unpick one knot at a time", "C": "A morass of mislabeled and conflicting records", "D": "A nightmare that made the project unbearable"}, "key": "B", "fb": {"correct": "Yes. Knotted records, but each knot could be unpicked from the outside, one at a time, and every session left fewer open questions than the last. A confused mess you can work through strand by strand is a tangle.", "A": "A muddle is a small mix-up — a double-booked meeting — that an afternoon can straighten out. Maya's records took a full week of steady, methodical work across two archives; this was a real knot, not a trivial slip. Find the answer sized to a mess you unpick knot by knot.", "C": "A morass swallows effort: you sink into it, and working harder only pulls you deeper. Maya's week went the opposite way. Each error pointed straight to its fix, every session closed more questions than it opened, and the tree got finished. Records that yield to patient unpicking from the outside are a tangle, not a morass.", "D": "People reach for nightmare when a situation stops feeling merely tangled and starts feeling unbearable. Nothing here is unbearable — Maya makes steady, satisfying progress all week and finishes on schedule. Name the mess that steady work can untie."}}, "s3a": {"q": "In this passage, 'morass' most nearly means what?", "opts": {"A": "a stretch of wet, swampy ground", "B": "a dispute between the district and its software vendor", "C": "an entangling mess that swallows effort", "D": "a schedule mix-up that one afternoon could straighten out"}, "key": "C", "fb": {"correct": "Right — the rollout swallows time and effort, and pushing harder only sinks the office further behind.", "A": "That's the literal sense, but nothing in this passage is wet — the swamp here is made of forms, trainings, and tickets.", "B": "No quarrel with the vendor appears anywhere; the trouble is the self-feeding churn of procedures.", "D": "An afternoon could not touch this — six months of effort went in and the system still had to be scrapped."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "morass", "B": "labyrinth", "C": "snarl", "D": "tangle"}, "key": "D", "fb": {"correct": "Right. The records were a knotted mess of strands, and she unpicked them from the outside — <em>chose one thread, and followed it<\/em>, until <em>every branch sat clearly on the chart<\/em>. A mess that steady unpicking can defeat is exactly this word.", "A": "A morass swallows effort: the harder you work, the deeper you sink. The opposite happens here — <em>each afternoon of steady work teased another line straight<\/em>, and the job <em>never once threatened to swallow her<\/em>.", "B": "A labyrinth is a maze you are lost inside, wandering on your feet with no clear way through. Nobody wanders anywhere in this passage — the historian <em>pinned a long sheet of paper to the wall<\/em> and could see the whole problem in front of her.", "C": "A snarl is a knot that jams one particular spot, and things eventually crawl past it. This confusion was not one spot: <em>three generations of cousins sharing a handful of names<\/em> ran through the entire register."}}}, "grid": {"words": ["morass", "tangle", "labyrinth", "snarl"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The merger slid into a ____ of clashing contracts: every fix the lawyers drafted spawned two new disputes, and a year of effort left both firms deeper in than when they began.", "ks": ["morass"], "fb": {"tangle": "A knotted mess can be picked apart strand by strand from the outside. Here the outside work itself backfires — <em>every fix spawned two new disputes<\/em>.", "labyrinth": "In a maze you wander, lost but upright. These firms aren't wandering — they are sinking, <em>deeper in<\/em> after a year of effort.", "snarl": "A jam blocks one spot and eventually lets things crawl past. This has swallowed the whole merger — there is no single choke point to clear."}}, {"s": "Past the tree line the trail gave out onto a reeking ____ where each step sank over the boot and struggling only settled the hikers deeper.", "ks": ["morass"], "fb": {"tangle": "That word wants something knotted — cords, schedules — that patient hands can unpick. Mud over your boots offers nothing to untie.", "labyrinth": "A maze bewilders you while you stay on your feet. These hikers aren't lost — they're sinking with every step.", "snarl": "That's a jam at one point — traffic at a tunnel mouth — that eventually crawls past. Here the terrain itself has gone soft."}}, {"s": "Her audition calendar was a ____ of overlapping holds and callbacks, but one patient hour with a pencil pulled the strands apart.", "ks": ["tangle"], "fb": {"morass": "That word means a bog that swallows effort — the harder you work, the deeper you sink. Here <em>one patient hour<\/em> actually fixed it.", "labyrinth": "A maze is something you get lost inside. She isn't lost — she's outside the mess, pulling its strands apart.", "snarl": "That word jams one particular spot — a tunnel mouth, one link in a supply chain. Her whole calendar was knotted, and she unpicked it piece by piece."}}, {"s": "Auditors described the fund's ownership as a ____ of shell companies looped through one another, then spent the quarter picking it apart entity by entity.", "ks": ["tangle"], "fb": {"morass": "That word is for the bog where working harder pulls you under. These auditors made steady progress — <em>entity by entity<\/em>.", "labyrinth": "A maze traps the person walking it. The auditors aren't wandering inside anything; they're outside, working the knot loose.", "snarl": "A jam sits at one choke point until things crawl past. This mess is looped through <em>every<\/em> company — and it gets unpicked, not waited out."}}, {"s": "First-time visitors to the ministry get lost in its ____ of corridors and identical anterooms, wandering upright for an hour until a clerk leads them out.", "ks": ["labyrinth"], "fb": {"morass": "That word pulls you downward — a bog that swallows effort. These visitors stay <em>upright<\/em> the whole hour; their problem is direction, not sinking.", "tangle": "A knot is worked loose from the outside. You can't unpick a hallway — you have to walk it, which is exactly the trap here.", "snarl": "A jam stops movement at one point. These visitors never stop moving — they just can't find the way out."}}, {"s": "A fallen barrier at the stadium's north gate caused a ____ in the crowd flow, pinning thousands in place until stewards opened extra turnstiles and the lines inched forward again.", "ks": ["snarl"], "fb": {"morass": "That word swallows whole projects for weeks and offers no firm footing. This was one blocked gate, fixed by opening turnstiles.", "tangle": "A knot means strands twisted together to unpick. Here nothing is intertwined — one fallen barrier plugs one gate.", "labyrinth": "A maze means wandering, lost. These fans know exactly where they are and exactly what is blocking them."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Don't just call the situation messy — show effort being swallowed, so a reader can see that working harder makes it worse. Try working in a word like <i>sank<\/i>, <i>deeper<\/i>, <i>swallowed<\/i> or <i>every attempt<\/i>."}};
+  var CFG = {"word": "morass", "gradeUrl": "/api/grade", "taskId": "morass", "minWords": 12, "items": {"s1": {"q": "Maya volunteered to trace her family tree and found the records knotted: three certificates were mislabeled, and two archives had filed her great-grandfather under different spellings of his name. But each error, once spotted, pointed straight to the next fix. Working from the outside in, she unpicked the knots one at a time, every session closing more questions than it opened, and by the end of the week the tree was finished. What had Maya's research turned out to be?", "opts": {"A": "A muddle too small to cost her an evening", "B": "A tangle she could unpick one knot at a time", "C": "A morass of mislabeled and conflicting records", "D": "A nightmare that made the project unbearable"}, "key": "B", "fb": {"correct": "Yes. Knotted records, but each knot could be unpicked from the outside, one at a time, and every session left fewer open questions than the last. A confused mess you can work through strand by strand is a tangle.", "A": "A muddle is a small mix-up — a double-booked meeting — that an afternoon can straighten out. Maya's records took a full week of steady, methodical work across two archives; this was a real knot, not a trivial slip. Find the answer sized to a mess you unpick knot by knot.", "C": "A morass swallows effort: you sink into it, and working harder only pulls you deeper. Maya's week went the opposite way. Each error pointed straight to its fix, every session closed more questions than it opened, and the tree got finished. Records that yield to patient unpicking from the outside are a tangle, not a morass.", "D": "People reach for nightmare when a situation stops feeling merely tangled and starts feeling unbearable. Nothing here is unbearable — Maya makes steady, satisfying progress all week and finishes on schedule. Name the mess that steady work can untie."}}, "s3a": {"q": "In this passage, 'morass' most nearly means what?", "opts": {"A": "a stretch of wet, swampy ground", "B": "a dispute between the district and its software vendor", "C": "an entangling mess that swallows effort", "D": "a schedule mix-up that one afternoon could straighten out"}, "key": "C", "fb": {"correct": "Right — the rollout swallows time and effort, and pushing harder only sinks the office further behind.", "A": "That's the literal sense, but nothing in this passage is wet — the swamp here is made of forms, trainings, and tickets.", "B": "No quarrel with the vendor appears anywhere; the trouble is the self-feeding churn of procedures.", "D": "An afternoon could not touch this — six months of effort went in and the system still had to be scrapped."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "morass", "B": "labyrinth", "C": "snarl", "D": "tangle"}, "key": "D", "fb": {"correct": "Right. The records were a knotted mess of strands, and she unpicked them from the outside — <em>chose one thread, and followed it<\/em>, until <em>every branch sat clearly on the chart<\/em>. A mess that steady unpicking can defeat is exactly this word.", "A": "A morass swallows effort: the harder you work, the deeper you sink. The opposite happens here — <em>each afternoon of steady work teased another line straight<\/em>, and the job <em>never once threatened to swallow her<\/em>.", "B": "A labyrinth is a maze you are lost inside, wandering on your feet with no clear way through. Nobody wanders anywhere in this passage — the historian <em>pinned a long sheet of paper to the wall<\/em> and could see the whole problem in front of her.", "C": "A snarl is a knot that jams one particular spot, and things eventually crawl past it. This confusion was not one spot: <em>three generations of cousins sharing a handful of names<\/em> ran through the entire register."}}}, "pairwise": {"rows": [{"sentence": "Her audition calendar was a ____ of overlapping holds and callbacks, but one patient hour with a pencil pulled the strands apart.", "options": ["morass", "tangle"], "key": "tangle", "pair": "tangle", "why_right": "The tell is <em>one patient hour with a pencil pulled the strands apart<\/em> - a knotted mess unpicked strand by strand from the outside, and the effort worked instead of sinking her deeper.", "why_wrong": "That word means a bog that swallows effort — the harder you work, the deeper you sink. Here <em>one patient hour<\/em> actually fixed it."}, {"sentence": "Auditors described the fund's ownership as a ____ of shell companies looped through one another, then spent the quarter picking it apart entity by entity.", "options": ["morass", "tangle"], "key": "tangle", "pair": "tangle", "why_right": "The tell is <em>picking it apart entity by entity<\/em> - methodical outside work that bites, loosening the knot strand by strand rather than sinking the auditors deeper for trying.", "why_wrong": "That word is for the bog where working harder pulls you under. These auditors made steady progress — <em>entity by entity<\/em>."}, {"sentence": "Past the tree line the trail gave out onto a reeking ____ where each step sank over the boot and struggling only settled the hikers deeper.", "options": ["morass", "tangle"], "key": "morass", "pair": "tangle", "why_right": "The tell is <em>struggling only settled the hikers deeper<\/em> - a bog swallows effort and pulls you down; there are no knotted strands here for patient hands to unpick.", "why_wrong": "That word wants something knotted — cords, schedules — that patient hands can unpick. Mud over your boots offers nothing to untie."}, {"sentence": "First-time visitors to the ministry get lost in its ____ of corridors and identical anterooms, wandering upright for an hour until a clerk leads them out.", "options": ["morass", "labyrinth"], "key": "labyrinth", "pair": "labyrinth", "why_right": "The tell is <em>wandering upright for an hour<\/em> - bewildered visitors on their feet with no clear way through, lost among passages rather than sinking into anything.", "why_wrong": "That word pulls you downward — a bog that swallows effort. These visitors stay <em>upright<\/em> the whole hour; their problem is direction, not sinking."}, {"sentence": "The merger slid into a ____ of clashing contracts: every fix the lawyers drafted spawned two new disputes, and a year of effort left both firms deeper in than when they began.", "options": ["morass", "labyrinth"], "key": "morass", "pair": "labyrinth", "why_right": "The tell is <em>deeper in than when they began<\/em> - a year of work pulled the firms downward, and sinking under effort is the swamp's signature, not a maze's upright wandering.", "why_wrong": "In a maze you wander, lost but upright. These firms aren't wandering — they are sinking, <em>deeper in<\/em> after a year of effort."}, {"sentence": "The family's flood claim sank into a ____ of adjuster reports and resubmitted forms, and every letter they wrote seemed only to bury the case deeper.", "options": ["morass", "labyrinth"], "key": "morass", "pair": "labyrinth", "why_right": "The tell is <em>every letter they wrote seemed only to bury the case deeper<\/em> - effort pulled them downward into the swamp that swallows time, not sideways through bewildering corridors.", "why_wrong": "That word means a bewildering maze you wander through, lost but on your feet. Nobody here is wandering - the claim is sinking, buried deeper by every attempt to free it."}, {"sentence": "A fallen barrier at the stadium's north gate caused a ____ in the crowd flow, pinning thousands in place until stewards opened extra turnstiles and the lines inched forward again.", "options": ["morass", "snarl"], "key": "snarl", "pair": "snarl", "why_right": "The tell is <em>a fallen barrier at the stadium's north gate<\/em> - one particular spot jammed in a moving flow, and the lines inched past once extra turnstiles opened.", "why_wrong": "That word swallows whole projects for weeks and offers no firm footing. This was one blocked gate, fixed by opening turnstiles."}, {"sentence": "Getting the orchestra's touring visas became a ____ of contradictory embassy requirements that swallowed the whole tour schedule, and after three months of filings not one musician was cleared.", "options": ["morass", "snarl"], "key": "morass", "pair": "snarl", "why_right": "The tell is <em>swallowed the whole tour schedule<\/em> - an entire undertaking gone under with no firm ground anywhere, not one jammed spot that a flow eventually crawls past.", "why_wrong": "That word jams one particular spot in a flow - traffic at a tunnel mouth - and eventually clears. This mess swallowed the whole tour, and three months of filings changed nothing."}], "display_order": [3, 0, 4, 2, 6, 5, 7, 1], "dimension_order": ["tangle", "labyrinth", "snarl"], "dimension_feedback": {"tangle": "A tangle is a knotted, confused mess — cords, schedules, regulations twisted together — that you can set about unpicking strand by strand from the outside. A morass is a bog: you do not unpick it, you sink into it, and working harder only pulls you deeper.", "labyrinth": "A labyrinth is a bewildering maze with no clear way through — but you stay on your feet, wandering and lost. A morass takes you downward: it is the swamp that swallows time and effort. You wander into a labyrinth; you sink into a morass.", "snarl": "A snarl is a knot that jams one particular spot — a traffic snarl, a snarl in the supply chain. It is local, and traffic eventually crawls past it. A morass is the whole terrain gone soft: an entire undertaking swallowed by confusion, with no firm ground anywhere."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Don't just call the situation messy — show effort being swallowed, so a reader can see that working harder makes it worse. Try working in a word like <i>sank<\/i>, <i>deeper<\/i>, <i>swallowed<\/i> or <i>every attempt<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

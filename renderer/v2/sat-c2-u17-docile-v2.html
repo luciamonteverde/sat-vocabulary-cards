@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="43e8eee7496e">
+<meta name="build" content="27a66bc087b9">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>docile &#8212; SAT Vocabulary, Course 2 Unit 17</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "docile", "gradeUrl": "/api/grade", "taskId": "docile", "minWords": 12, "items": {"s1": {"q": "Which sentence uses docile correctly?", "opts": {"A": "The docile cliff face gave the climbing party no trouble at all until the weather turned.", "B": "The chili was docile enough for the kids' table, with barely a tingle of heat in it.", "C": "The docile crowd let the ushers re-seat three entire rows without one word of argument.", "D": "Keep the dough docile in the refrigerator overnight so that it rolls out thin."}, "key": "C", "fb": {"correct": "Correct. A whole crowd re-seated without argument is a group easily led and managed — docile in the exact sense.", "A": "Easy terrain that 'gave the climbing party no trouble' is a forgiving route, nothing more. Docile describes creatures or groups that accept direction — rock cannot be taught or led anywhere.", "B": "Chili with 'barely a tingle of heat' is mild — a flavor level. Docile concerns temperament and trainability, the way an animal or a class takes instruction; food has no behavior to manage.", "D": "Chilling dough 'so that it rolls out thin' keeps it relaxed and workable — a texture. Docile fits beings that can obey and be guided; dough follows gravity, never instructions."}}, "s3a": {"q": "In this passage, 'docile' describes an animal that", "opts": {"A": "is relaxed around people, whatever it does with commands", "B": "takes teaching and leading smoothly", "C": "obeys one trusted handler's orders instantly", "D": "is friendly company but resists anything unfamiliar"}, "key": "B", "fb": {"correct": "Right — the report spells it out: 'easily taught, easily led, calm in new hands.'", "A": "The passage rejects that as 'not enough' — dogs could doze through a crowd yet ignore every cue.", "C": "The point of Biscuit's test is the opposite: even 'a volunteer who had never handled a dog' could lead him.", "D": "Biscuit's week was nothing but the unfamiliar — a new mat, a new door, a new command — 'absorbed without fuss.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "tame", "B": "docile", "C": "agreeable", "D": "biddable"}, "key": "B", "fb": {"correct": "Right. Docile means easily taught, led, and managed — Zaria took <em>a new load rig, a new watering order, a new kneeling cue<\/em> in stride, while mere calmness was common to the whole yard.", "A": "Tame means no longer wild — at ease around people, however that ease arrived — and the passage makes that unremarkable here: <em>Every animal in the yard was calm around people<\/em>. The blank has to name what set Zaria apart.", "D": "Biddable is obeying in the moment — point, and it goes. The passage treats that as common too: <em>most would follow a familiar handler anywhere<\/em>. What the trade graded Zaria on was <em>a new load rig, a new watering order, a new kneeling cue<\/em>, each one learned, not merely obeyed.", "C": "Agreeable means pleasant, easy company — mild, and beside the point of a working grade. The grade rests on lessons landing: <em>she had each one learned by the end of a single patient session<\/em>. The stem asks for the most precise word for that."}}}, "grid": {"words": ["docile", "tame", "biddable", "agreeable"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The young ox proved ____ beyond the drover's hopes: he learned the yoke in a morning and the plow's turns within a week, each lesson going through without a fight.", "ks": ["docile"], "fb": {"tame": "That word only says the animal is at ease around people, however that came about — no lessons implied. This sentence is all lessons: yoke, plow, one week.", "biddable": "That word lives in the moment an order is obeyed — point, and it goes. Here nothing is commanded; weeks of teaching are simply going through.", "agreeable": "That word describes pleasant company that can still push back when something matters. An ox at the plow is being taught and led, not making conversation."}}, {"s": "Nobody ever trained the harbor gulls; two generations of dropped chips have simply left them ____, strolling between diners' feet as if wildness had never occurred to them.", "ks": ["tame"], "fb": {"docile": "That word means teaching and leading go through smoothly — and <em>nobody ever trained<\/em> these birds. Their ease arrived by chips, not lessons.", "biddable": "That word obeys in the moment — point, and it goes. No one directs a harbor gull anywhere.", "agreeable": "That word is for company that stays pleasant while still able to push back. These are birds at ease, not companions being congenial."}}, {"s": "What the stage manager prized in the twins was how ____ they were on the night: told to freeze, they froze; waved left, they went left, never once asking why.", "ks": ["biddable"], "fb": {"docile": "That word is the temperament that lets teaching go through over time. What's prized here is narrower: the instant an instruction lands, it's obeyed.", "tame": "That word is for creatures that were once wild and no longer are. Nothing about two stagehands was ever wild; the claim is about orders followed.", "agreeable": "That word means good company that can still push back when it matters. This is about cues executed instantly, <em>never once asking why<\/em>."}}, {"s": "Dinner guests found the ambassador's husband thoroughly ____ — warm on every topic, quick to laugh — though he dug in flatly the one time a guest mocked his home village.", "ks": ["agreeable"], "fb": {"docile": "That word means leading goes through unopposed. This man <em>dug in flatly<\/em> the moment something mattered.", "tame": "That word is for animals that lost their wildness. A charming dinner guest was never wild to begin with.", "biddable": "That word does as it's told without asking why. Nobody commands a dinner guest — and when pushed, he pushed back."}}, {"s": "New handlers always drew Basu, the elephant the sanctuary trusted most, so ____ that a beginner could lead her through the morning routine on the first try.", "ks": ["docile"], "fb": {"tame": "That word says only that an animal is at ease around people. The sanctuary's claim is stronger: leading her goes through, even for a beginner.", "biddable": "That word is the moment an order is obeyed. This is a standing temperament — any handler, any morning, the whole routine.", "agreeable": "That word is for congenial company with a mind of its own when it counts. Basu is being <em>led<\/em>, smoothly, start to finish."}}, {"s": "The deer at the temple gate are entirely ____ — generations past any fear of people — yet they still bolt from every lesson the keepers try, scattering at the first clicker.", "ks": ["tame"], "fb": {"docile": "That word means lessons go through smoothly — and these deer <em>bolt from every lesson<\/em>. Ease around people is all they have.", "biddable": "That word does as it's told. These deer scatter <em>at the first clicker<\/em>; nothing told is done.", "agreeable": "That word is for a person's pleasant company. These are deer at ease with crowds, not companions keeping up conversation."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show teaching or leading going through smoothly — a lesson landing, a lead taken without a fight. Try working in words like <i>learned<\/i>, <i>led<\/i>, <i>without fuss<\/i> or <i>first try<\/i>."}};
+  var CFG = {"word": "docile", "gradeUrl": "/api/grade", "taskId": "docile", "minWords": 12, "items": {"s1": {"q": "Which sentence uses docile correctly?", "opts": {"A": "The docile cliff face gave the climbing party no trouble at all until the weather turned.", "B": "The chili was docile enough for the kids' table, with barely a tingle of heat in it.", "C": "The docile crowd let the ushers re-seat three entire rows without one word of argument.", "D": "Keep the dough docile in the refrigerator overnight so that it rolls out thin."}, "key": "C", "fb": {"correct": "Correct. A whole crowd re-seated without argument is a group easily led and managed — docile in the exact sense.", "A": "Easy terrain that 'gave the climbing party no trouble' is a forgiving route, nothing more. Docile describes creatures or groups that accept direction — rock cannot be taught or led anywhere.", "B": "Chili with 'barely a tingle of heat' is mild — a flavor level. Docile concerns temperament and trainability, the way an animal or a class takes instruction; food has no behavior to manage.", "D": "Chilling dough 'so that it rolls out thin' keeps it relaxed and workable — a texture. Docile fits beings that can obey and be guided; dough follows gravity, never instructions."}}, "s3a": {"q": "In this passage, 'docile' describes an animal that", "opts": {"A": "is relaxed around people, whatever it does with commands", "B": "takes teaching and leading smoothly", "C": "obeys one trusted handler's orders instantly", "D": "is friendly company but resists anything unfamiliar"}, "key": "B", "fb": {"correct": "Right — the report spells it out: 'easily taught, easily led, calm in new hands.'", "A": "The passage rejects that as 'not enough' — dogs could doze through a crowd yet ignore every cue.", "C": "The point of Biscuit's test is the opposite: even 'a volunteer who had never handled a dog' could lead him.", "D": "Biscuit's week was nothing but the unfamiliar — a new mat, a new door, a new command — 'absorbed without fuss.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "tame", "B": "docile", "C": "agreeable", "D": "biddable"}, "key": "B", "fb": {"correct": "Right. Docile means easily taught, led, and managed — Zaria took <em>a new load rig, a new watering order, a new kneeling cue<\/em> in stride, while mere calmness was common to the whole yard.", "A": "Tame means no longer wild — at ease around people, however that ease arrived — and the passage makes that unremarkable here: <em>Every animal in the yard was calm around people<\/em>. The blank has to name what set Zaria apart.", "D": "Biddable is obeying in the moment — point, and it goes. The passage treats that as common too: <em>most would follow a familiar handler anywhere<\/em>. What the trade graded Zaria on was <em>a new load rig, a new watering order, a new kneeling cue<\/em>, each one learned, not merely obeyed.", "C": "Agreeable means pleasant, easy company — mild, and beside the point of a working grade. The grade rests on lessons landing: <em>she had each one learned by the end of a single patient session<\/em>. The stem asks for the most precise word for that."}}}, "pairwise": {"rows": [{"sentence": "Nobody ever trained the harbor gulls; two generations of dropped chips have simply left them ____, strolling between diners' feet as if wildness had never occurred to them.", "options": ["docile", "tame"], "key": "tame", "pair": "tame", "why_right": "The tell is <em>Nobody ever trained the harbor gulls<\/em> - their ease around people arrived with no lessons at all, which tame allows and a word about teaching cannot claim.", "why_wrong": "That word means teaching and leading go through smoothly — and <em>nobody ever trained<\/em> these birds. Their ease arrived by chips, not lessons."}, {"sentence": "The deer at the temple gate are entirely ____ — generations past any fear of people — yet they still bolt from every lesson the keepers try, scattering at the first clicker.", "options": ["docile", "tame"], "key": "tame", "pair": "tame", "why_right": "The tell is <em>they still bolt from every lesson<\/em> - ease around people is all these deer have; the teaching fails outright, so only the no-longer-wild word can stand.", "why_wrong": "That word means lessons go through smoothly — and these deer <em>bolt from every lesson<\/em>. Ease around people is all they have."}, {"sentence": "The young ox proved ____ beyond the drover's hopes: he learned the yoke in a morning and the plow's turns within a week, each lesson going through without a fight.", "options": ["docile", "tame"], "key": "docile", "pair": "tame", "why_right": "The tell is <em>each lesson going through without a fight<\/em> - the whole claim is how teaching went, docile's territory; mere ease around people, lessons or none, is the other word's.", "why_wrong": "That word only says the animal is at ease around people, however that came about — no lessons implied. This sentence is all lessons: yoke, plow, one week."}, {"sentence": "What the stage manager prized in the twins was how ____ they were on the night: told to freeze, they froze; waved left, they went left, never once asking why.", "options": ["docile", "biddable"], "key": "biddable", "pair": "biddable", "why_right": "The tell is <em>told to freeze, they froze<\/em> - the claim is orders obeyed the instant they land, the moment biddable owns; no standing temperament under teaching is in view.", "why_wrong": "That word is the temperament that lets teaching go through over time. What's prized here is narrower: the instant an instruction lands, it's obeyed."}, {"sentence": "New handlers always drew Basu, the elephant the sanctuary trusted most, so ____ that a beginner could lead her through the morning routine on the first try.", "options": ["docile", "biddable"], "key": "docile", "pair": "biddable", "why_right": "The tell is <em>a beginner could lead her through the morning routine<\/em> - leading goes through for any handler, start to finish, a standing temperament rather than one moment's order obeyed.", "why_wrong": "That word is the moment an order is obeyed. This is a standing temperament — any handler, any morning, the whole routine."}, {"sentence": "Paz was the ____ one of the trekking string: a whole season of pack training, from first cinch to river crossings to night picketing, went through without one battle of wills.", "options": ["docile", "biddable"], "key": "docile", "pair": "biddable", "why_right": "The tell is <em>a whole season of pack training<\/em> - the claim is teaching absorbed calmly across months, docile's standing temperament, not the single moment an order is obeyed.", "why_wrong": "That word describes the moment an order is actually followed - point, and it goes. Nothing is commanded here; a whole season of teaching simply goes through, which is temperament, not obedience."}, {"sentence": "Dinner guests found the ambassador's husband thoroughly ____ — warm on every topic, quick to laugh — though he dug in flatly the one time a guest mocked his home village.", "options": ["docile", "agreeable"], "key": "agreeable", "pair": "agreeable", "why_right": "The tell is <em>he dug in flatly<\/em> - pleasant company that still pushes back the one time something matters is agreeable's exact claim; a word for unopposed leading cannot survive that stand.", "why_wrong": "That word means leading goes through unopposed. This man <em>dug in flatly<\/em> the moment something mattered."}, {"sentence": "Wedding photographers traded the Okafors' name like a tip, a party so ____ that, posed on wet grass and herded through a cold hour, it raised no word of protest.", "options": ["docile", "agreeable"], "key": "docile", "pair": "agreeable", "why_right": "The tell is <em>posed on wet grass and herded through a cold hour<\/em> - the party is being led and managed, unopposed, docile's claim; pleasant company with push-back in reserve is a different word.", "why_wrong": "That word means pleasant company that still pushes back when something matters. Nobody here is keeping company; a whole party is being herded and posed, and the managing goes through unopposed."}], "display_order": [0, 4, 6, 1, 5, 7, 2, 3], "dimension_order": ["tame", "biddable", "agreeable"], "dimension_feedback": {"tame": "Tame means no longer wild — an animal word for creatures at ease around people, however that ease arrived. Docile adds the teaching: docile means easily taught, led, and managed. A stray cat can grow tame with no lessons at all, while a docile horse takes the saddle because teaching goes through smoothly.", "biddable": "Biddable means ready to do as one is bidden, seldom asking why — point, and it goes; ask, and it fetches. Docile is the temperament underneath: a docile animal takes teaching and leading calmly, while biddable describes the moment orders are actually followed.", "agreeable": "Agreeable is milder than docile — an agreeable person is simply pleasant company and still pushes back when something matters, while docile means the teaching and leading go through unopposed."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show teaching or leading going through smoothly — a lesson landing, a lead taken without a fight. Try working in words like <i>learned<\/i>, <i>led<\/i>, <i>without fuss<\/i> or <i>first try<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

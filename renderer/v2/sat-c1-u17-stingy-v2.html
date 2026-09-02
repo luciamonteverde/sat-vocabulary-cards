@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="cda2b8dc3b7a">
+<meta name="build" content="52be97bac252">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>stingy &#8212; SAT Vocabulary, Course 1 Unit 17</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "stingy", "gradeUrl": "/api/grade", "taskId": "stingy", "minWords": 12, "items": {"s1": {"q": "Mr. Larsen drives a fifteen-year-old car, packs his own lunches, buys his clothes secondhand, and hates wasting a dollar on himself. Yet when his niece won a statewide music award and the family pooled money for a gift, his check was the largest of all -- just as it has been at every graduation and wedding for twenty years. How would the family most fairly describe him?", "opts": {"A": "Stingy", "B": "Wasteful", "C": "Frugal", "D": "Broke"}, "key": "C", "fb": {"correct": "Yes. He spends carefully and hates waste -- the old car, the packed lunches -- yet opens his wallet readily whenever giving matters, with the largest check in every family pool for twenty years. Careful with waste, generous when it counts: that is frugal.", "A": "Stingy means unwilling to spend or give, holding tight to every cent -- but Mr. Larsen's check is the largest in the family pool at every graduation and wedding, twenty years running. A man who gives that readily is not stingy; his old car and packed lunches are thrift, not a shut wallet.", "B": "Wasteful is the reverse of the record: he drives a fifteen-year-old car, packs his lunches, and hates wasting a dollar. Money leaves his hands deliberately, for gifts -- not carelessly.", "D": "Broke would mean the money simply is not there -- yet he writes the family's largest check at every occasion. Secondhand clothes are a habit of thrift here, not a sign of empty pockets."}}, "s3a": {"q": "In this passage, calling Roscoe \"stingy\" means he", "opts": {"A": "spent nothing at all on himself or on anyone else around him", "B": "would not give others what they were owed, and was resented for it", "C": "fussed over tiny expenses like coupons while paying all the big ones", "D": "no longer had enough money left over to pay his players their salaries"}, "key": "B", "fb": {"correct": "Right — promised bonuses vanished, the paper found the highest prices and lowest payroll, and the town's answer was PAY THE TEAM.", "A": "He 'spared nothing on himself' — courtside seats, a new boat.", "C": "The pattern is the opposite: whole bonuses and payroll withheld, not small economies.", "D": "Sold-out games and the league's highest ticket prices say the money was there."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cheap", "B": "penny-pinching", "C": "stingy", "D": "tightfisted"}, "key": "A", "fb": {"correct": "Right. Dale spends freely on himself but dodges his share of the group's costs — <em>the others always end up covering his share<\/em> — and cheap is the casual, cutting word a friend reaches for about exactly that.", "C": "Stingy covers unwillingness to spend or give in general, and it is not the word this moment reaches for. The complaint is specific and spoken to his face — <em>his oldest friend said it plainly<\/em> — about a man who ducks shared bills while treating himself, and the sentence wants the more casual, more cutting choice.", "D": "Tightfisted pictures a hand gripping money so it cannot escape — reluctant to spend on anyone, including yourself. Dale <em>arrives with new fishing gear and claims the big room<\/em>; spending on himself is the one thing he never skips.", "B": "Penny-pinching is fussy, small-scale economizing — coupons clipped, every little expense grudged. Dale does not economize at all: <em>nobody minds what you spend on yourself<\/em> is aimed at a man who spends freely; his failure is ducking the shared costs, not pinching his own pennies."}}}, "grid": {"words": ["stingy", "tightfisted", "cheap", "penny-pinching"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The heiress threw lavish parties for herself yet was ____ with the staff's holiday bonuses, and the whole household muttered that she never gave anyone their fair due.", "ks": ["stingy"], "fb": {"tightfisted": "That word pictures a hand gripping money against everyone — including its owner. A woman who <em>threw lavish parties for herself<\/em> has no trouble spending; she only refuses to give.", "cheap": "That is the casual, cutting word for everyday dodges — splitting a bill to the last coin, skipping a tip. Withholding a whole staff's bonuses is the broader refusal the sentence describes.", "penny-pinching": "That word is fussy, small-scale economizing — coupons, grudged little expenses. Holiday bonuses for an entire staff are no small expense."}}, {"s": "Though his accounts could have bought the whole block, Mr. Boone was ____ with everyone — no gifts for his nieces, no comforts for himself, his money simply gripped and kept.", "ks": ["tightfisted"], "fb": {"stingy": "That word's sting is social — someone refusing to pay a fair share owed to others. Gifts and comforts are not debts, and half the deprivation here falls on the man himself.", "cheap": "That casual, cutting word is for dodging what fairness demands — a tip, a fair split. A man denying <em>himself<\/em> every comfort is not dodging anyone.", "penny-pinching": "That word means fussy economizing over little expenses. This is a wholesale grip on money at every scale — no gifts, no comforts, nothing."}}, {"s": "Everyone in the office knew Marcus was ____: his desk gleamed with new gadgets, yet he ducked out before coffee rounds, tallied shared lunches to the last coin, and skipped every tip.", "ks": ["cheap"], "fb": {"stingy": "That word is the more general term for unwillingness to spend or give. This sentence lives in one specific register — petty social dodges of a fair share — that the card assigns to its most casual, cutting word.", "tightfisted": "That word grips money against everyone, including its owner. Marcus's <em>desk gleamed with new gadgets<\/em> — he spends on himself just fine and shorts only others.", "penny-pinching": "That word is fussy thrift in one's own spending — coupons, grudged little expenses. Every act here shorts someone else: the coffee round, the shared lunch, the tip."}}, {"s": "Diners grumbled that the carvery was ____ with its portions — three meager slices where rivals piled plates high — even as it charged the highest prices on the street.", "ks": ["stingy"], "fb": {"tightfisted": "That word pictures gripping one's own money, spending on no one — not even oneself. This house happily takes the street's highest prices; it just gives little back.", "cheap": "That casual word cuts at a person dodging a tip or a fair split — and said of a business it would suggest low prices, the opposite of this one's. The claim here is meager giving.", "penny-pinching": "That word means fussy economizing over one's own small expenses. Serving three meager slices at top price is short-changing others, not clipping coupons."}}, {"s": "Aunt Rosa paid for her granddaughter's braces without blinking, but her ____ streak was a family joke: watered-down dish soap, hoarded rubber bands, a drive across town to save a nickel on eggs.", "ks": ["penny-pinching"], "fb": {"stingy": "That word means unwilling to spend or give, with a social sting. Rosa <em>paid for her granddaughter's braces without blinking<\/em> — no one is denied anything owed.", "tightfisted": "That word is a wholesale grip on money, spending on no one including oneself. Braces paid without blinking rule that out; only nickels and rubber bands get grudged.", "cheap": "That cutting word is for dodging what fairness demands — tips, fair splits. All of Rosa's economies happen inside her own kitchen."}}, {"s": "Neighbors called the retired captain ____ because he heated one room, drove a thirty-year-old car, and would not open his wallet even for his own aching teeth.", "ks": ["tightfisted"], "fb": {"stingy": "That word stings socially — refusing others their fair share. This man's refusals fall on himself, down to his own aching teeth.", "cheap": "That casual, cutting word is for dodging tips and fair splits. No one else is shorted here — the captain simply will not spend, even on himself.", "penny-pinching": "That word is fussy economizing over little expenses — coupons and rubber bands. Refusing dental care for aching teeth is a grip on the wallet at a far graver scale."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone refusing to spend or give where giving is due — and let the reader feel others' disapproval. Try working in a phrase like <i>fair share<\/i>, <i>refused to pay<\/i>, <i>tip<\/i> or <i>grudged<\/i>."}};
+  var CFG = {"word": "stingy", "gradeUrl": "/api/grade", "taskId": "stingy", "minWords": 12, "items": {"s1": {"q": "Mr. Larsen drives a fifteen-year-old car, packs his own lunches, buys his clothes secondhand, and hates wasting a dollar on himself. Yet when his niece won a statewide music award and the family pooled money for a gift, his check was the largest of all -- just as it has been at every graduation and wedding for twenty years. How would the family most fairly describe him?", "opts": {"A": "Stingy", "B": "Wasteful", "C": "Frugal", "D": "Broke"}, "key": "C", "fb": {"correct": "Yes. He spends carefully and hates waste -- the old car, the packed lunches -- yet opens his wallet readily whenever giving matters, with the largest check in every family pool for twenty years. Careful with waste, generous when it counts: that is frugal.", "A": "Stingy means unwilling to spend or give, holding tight to every cent -- but Mr. Larsen's check is the largest in the family pool at every graduation and wedding, twenty years running. A man who gives that readily is not stingy; his old car and packed lunches are thrift, not a shut wallet.", "B": "Wasteful is the reverse of the record: he drives a fifteen-year-old car, packs his lunches, and hates wasting a dollar. Money leaves his hands deliberately, for gifts -- not carelessly.", "D": "Broke would mean the money simply is not there -- yet he writes the family's largest check at every occasion. Secondhand clothes are a habit of thrift here, not a sign of empty pockets."}}, "s3a": {"q": "In this passage, calling Roscoe \"stingy\" means he", "opts": {"A": "spent nothing at all on himself or on anyone else around him", "B": "would not give others what they were owed, and was resented for it", "C": "fussed over tiny expenses like coupons while paying all the big ones", "D": "no longer had enough money left over to pay his players their salaries"}, "key": "B", "fb": {"correct": "Right — promised bonuses vanished, the paper found the highest prices and lowest payroll, and the town's answer was PAY THE TEAM.", "A": "He 'spared nothing on himself' — courtside seats, a new boat.", "C": "The pattern is the opposite: whole bonuses and payroll withheld, not small economies.", "D": "Sold-out games and the league's highest ticket prices say the money was there."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "cheap", "B": "penny-pinching", "C": "stingy", "D": "tightfisted"}, "key": "A", "fb": {"correct": "Right. Dale spends freely on himself but dodges his share of the group's costs — <em>the others always end up covering his share<\/em> — and cheap is the casual, cutting word a friend reaches for about exactly that.", "C": "Stingy covers unwillingness to spend or give in general, and it is not the word this moment reaches for. The complaint is specific and spoken to his face — <em>his oldest friend said it plainly<\/em> — about a man who ducks shared bills while treating himself, and the sentence wants the more casual, more cutting choice.", "D": "Tightfisted pictures a hand gripping money so it cannot escape — reluctant to spend on anyone, including yourself. Dale <em>arrives with new fishing gear and claims the big room<\/em>; spending on himself is the one thing he never skips.", "B": "Penny-pinching is fussy, small-scale economizing — coupons clipped, every little expense grudged. Dale does not economize at all: <em>nobody minds what you spend on yourself<\/em> is aimed at a man who spends freely; his failure is ducking the shared costs, not pinching his own pennies."}}}, "pairwise": {"rows": [{"sentence": "The heiress threw lavish parties for herself yet was ____ with the staff's holiday bonuses, and the whole household muttered that she never gave anyone their fair due.", "options": ["stingy", "tightfisted"], "key": "stingy", "pair": "tightfisted", "why_right": "The tell is <em>threw lavish parties for herself<\/em> - she spends freely on herself and only refuses to give others their due, while tightfisted grips money against everyone, including its owner.", "why_wrong": "That word pictures a hand gripping money against everyone — including its owner. A woman who <em>threw lavish parties for herself<\/em> has no trouble spending; she only refuses to give."}, {"sentence": "Though his accounts could have bought the whole block, Mr. Boone was ____ with everyone — no gifts for his nieces, no comforts for himself, his money simply gripped and kept.", "options": ["stingy", "tightfisted"], "key": "tightfisted", "pair": "tightfisted", "why_right": "The tell is <em>no comforts for himself<\/em> - the grip falls on everyone including the man himself, the card's picture of a hand holding money so it cannot escape.", "why_wrong": "That word's sting is social — someone refusing to pay a fair share owed to others. Gifts and comforts are not debts, and half the deprivation here falls on the man himself."}, {"sentence": "Neighbors called the retired captain ____ because he heated one room, drove a thirty-year-old car, and would not open his wallet even for his own aching teeth.", "options": ["stingy", "tightfisted"], "key": "tightfisted", "pair": "tightfisted", "why_right": "The tell is <em>even for his own aching teeth<\/em> - refusal to spend reaches the man himself, which the card makes tightfisted's mark; stingy's sting is social, aimed at others' fair share.", "why_wrong": "That word stings socially — refusing others their fair share. This man's refusals fall on himself, down to his own aching teeth."}, {"sentence": "Everyone in the office knew Marcus was ____: his desk gleamed with new gadgets, yet he ducked out before coffee rounds, tallied shared lunches to the last coin, and skipped every tip.", "options": ["stingy", "cheap"], "key": "cheap", "pair": "cheap", "why_right": "The tell is <em>skipped every tip<\/em> - dodging what fairness demands in everyday coins, the casual, cutting register the card gives cheap; each act here shorts someone else.", "why_wrong": "That word is the more general term for unwillingness to spend or give. This sentence lives in one specific register — petty social dodges of a fair share — that the card assigns to its most casual, cutting word."}, {"sentence": "Diners grumbled that the carvery was ____ with its portions — three meager slices where rivals piled plates high — even as it charged the highest prices on the street.", "options": ["stingy", "cheap"], "key": "stingy", "pair": "cheap", "why_right": "The tell is <em>charged the highest prices on the street<\/em> - said of a business, cheap would mean low-priced, the opposite; the claim here is meager giving, stingy's unwillingness to give.", "why_wrong": "That casual word cuts at a person dodging a tip or a fair split — and said of a business it would suggest low prices, the opposite of this one's. The claim here is meager giving."}, {"sentence": "Aunt Rosa paid for her granddaughter's braces without blinking, but her ____ streak was a family joke: watered-down dish soap, hoarded rubber bands, a drive across town to save a nickel on eggs.", "options": ["stingy", "penny-pinching"], "key": "penny-pinching", "pair": "penny-pinching", "why_right": "The tell is <em>a nickel on eggs<\/em> - fussy, small-scale economizing whose pettiness is the joke, the card's exact profile for penny-pinching; nothing owed to anyone is withheld.", "why_wrong": "That word means unwilling to spend or give, with a social sting. Rosa <em>paid for her granddaughter's braces without blinking<\/em> — no one is denied anything owed."}, {"sentence": "When the flood-relief collection reached his door, the ____ landlord gave nothing at all, though the tenants all knew this year's rents had been the best he ever collected.", "options": ["stingy", "penny-pinching"], "key": "stingy", "pair": "penny-pinching", "why_right": "The tell is <em>gave nothing at all<\/em> - outright unwillingness to give, at whatever scale, which the card calls stingy's broader and harsher territory rather than fussy small-scale economizing.", "why_wrong": "That word means fussy, small-scale economizing - coupons, rubber bands, grudged little expenses. Refusing a relief collection outright, in a year of record rents, is unwillingness to give at any scale."}, {"sentence": "Supporters called the club's owner ____ after he let the stadium roof drip through a second winter rather than pay for repairs, even with record ticket money in the bank.", "options": ["stingy", "penny-pinching"], "key": "stingy", "pair": "penny-pinching", "why_right": "The tell is <em>rather than pay for repairs<\/em> - a major expense refused outright with money in the bank, stingy at the scale of hundreds, far past fussy little economies.", "why_wrong": "That word highlights the pettiness of little savings - counted coupons, grudged pennies. A stadium roof left leaking to avoid one large repair bill is a wallet shut at a much bigger scale."}], "display_order": [6, 1, 7, 4, 0, 3, 5, 2], "dimension_order": ["tightfisted", "cheap", "penny-pinching"], "dimension_feedback": {"tightfisted": "Tightfisted pictures a hand gripping money so it cannot escape: reluctant to spend on anyone, including yourself. Stingy covers the same unwillingness to spend or give but adds a social sting; it is the word people reach for when someone will not pay a fair share.", "cheap": "Cheap, applied to a person, means dodging spending even when fairness calls for it: splitting a bill down to the penny, skipping the tip. It is the most casual and cutting of these words. Stingy is the slightly more general term for being unwilling to spend or give.", "penny-pinching": "Penny-pinching describes fussy, small-scale economizing: counting out coupons, grudging every little expense. It highlights the pettiness of the savings. Stingy is broader and harsher: a stingy person is unwilling to spend or give at all, whether the amount is pennies or hundreds."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show someone refusing to spend or give where giving is due — and let the reader feel others' disapproval. Try working in a phrase like <i>fair share<\/i>, <i>refused to pay<\/i>, <i>tip<\/i> or <i>grudged<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="a4f9c8793ed4">
+<meta name="build" content="577c3ffe9c2b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>persuasive &#8212; SAT Vocabulary, Course 1 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "persuasive", "gradeUrl": "/api/grade", "taskId": "persuasive", "minWords": 12, "items": {"s1": {"q": "Which of these best shows something persuasive?", "opts": {"A": "A poster so convincing that half the class signed up for the chess club", "B": "A speech that was loud and full of energy but changed no one's weekend plans", "C": "A pamphlet that sat in the mailroom for weeks and nobody bothered to open", "D": "A rule posted on the wall in bold type that everyone walked past and ignored"}, "key": "A", "fb": {"correct": "Right — the poster actually moved people to act: half the class signed up. Winning others over to believe or do something is the test persuasive has to pass.", "B": "Loud and energetic is not the test — this speech 'changed no one's weekend plans,' so it moved nobody. Persuasive describes words that actually get people to believe or act, not words that merely fill a room.", "C": "A pamphlet that 'nobody bothered to open' never reached a single reader, so it had no chance to change any minds. Something persuasive has to be taken in and then actually move people to believe or act.", "D": "Bold type is not persuasion when 'everyone walked past and ignored' the rule — it changed no behavior at all. Look for the message that genuinely got people to do or believe something new."}}, "s3a": {"q": "In this passage, calling the speech \"persuasive\" means it", "opts": {"A": "settled every disputed fact of the county budget beyond doubt", "B": "was crafted to move the board toward keeping the hours", "C": "shaped how county boards everywhere ran hearings for years", "D": "entertained the room without asking anything of it"}, "key": "B", "fb": {"correct": "Right — the passage says it 'was built, story by story, to move nine votes.'", "A": "The passage says the opposite — 'not because it proved anything.'", "C": "Nothing reaches beyond that evening's vote; the effect is one board, one decision.", "D": "The speech asked for something specific — the door kept open — and it moved votes."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "influential", "B": "convincing", "C": "effective", "D": "persuasive"}, "key": "B", "fb": {"correct": "Right. These plates are proof: they <em>pressed no claim<\/em>, argued nothing, and still ended ten years of doubt — exactly the territory this word owns.", "D": "Persuasive belongs to appeals crafted to move an audience — speeches, ads, essays. These plates <em>pressed no claim and were never meant for the attribution fight<\/em>; nobody built them to win anyone over.", "A": "Influential means broad power to shape opinion over time — a critic, a study whose ideas spread for years. Here the status of a single picture was settled at close range, and the doubters <em>withdrew their objections within a month<\/em>.", "C": "Effective says only that something achieves its purpose, whatever that purpose happens to be — a lock, a filing system. These plates were routine records, <em>never meant for the attribution fight<\/em>, so there is no assigned purpose here for that word to credit."}}}, "grid": {"words": ["persuasive", "convincing", "influential", "effective"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Her closing argument was ____ — built appeal by appeal to change what the jurors believed — though it was the lab report, not the speech, that finally removed their last doubt.", "ks": ["persuasive"], "fb": {"convincing": "That word belongs to evidence and proof that remove doubt — and the sentence hands that job to the lab report. The blank describes the crafted appeal.", "influential": "That word means broad power to shape opinion over time — a critic, a study. This is one speech working on one jury, close up.", "effective": "That word says only that something achieved its purpose — a door lock can earn it. The blank needs the word for appeals built to move belief."}}, {"s": "Every line of the appeal letter is angled to move readers from sympathy to a signed check; testers called the new draft the most ____ yet, though whether it will actually raise more money no one can say until spring.", "ks": ["persuasive"], "fb": {"convincing": "That word describes proof removing doubt — an alibi, data. A fundraising letter is an appeal aimed at a decision, not evidence.", "influential": "That word is for broad power over opinion across years — a thinker, a study. One letter working on one reader's check is close-up work.", "effective": "That word claims a purpose was achieved — and the sentence says no one yet knows whether the letter will raise a cent more."}}, {"s": "The soil samples argue nothing — rows of numbers, nothing more — yet they were ____ enough to end the committee's doubts on the spot, even though the vote they were gathered for has now been postponed.", "ks": ["convincing"], "fb": {"persuasive": "That word is for appeals built to move people — speeches, ads, essays. Rows of numbers that argue nothing are proof, not an appeal.", "influential": "That word means broad power over what people think across years. This is one committee's doubt, ended in an afternoon.", "effective": "That word says a thing achieved its purpose — and the vote these samples were gathered for hasn't even happened. Ending doubt is a different claim."}}, {"s": "No one crafted the tree-ring data to sway anybody, yet as proof it was ____: after the lab walk-through, even the skeptics stopped doubting the drought dates.", "ks": ["convincing"], "fb": {"persuasive": "That word needs an appeal built to move an audience, and the sentence rules that out in its first clause. What's left is proof doing its quiet work.", "influential": "That word describes shaping opinion broadly, over years. This is one room of skeptics on one afternoon.", "effective": "That word measures success at a purpose — and this data was crafted for no purpose at all. The claim here is about doubt ending in front of proof."}}, {"s": "Forty years on, the economist's slim book still shapes how ministries everywhere frame a budget — ____ far beyond anything its plain, unargumentative pages ever set out to win.", "ks": ["influential"], "fb": {"persuasive": "That word works close up — one argument moving one audience toward one decision. This book's power is spread across ministries and decades.", "convincing": "That word is what proof is when it removes doubt. Nothing here is about a doubt; it's about forty years of shaped opinion.", "effective": "That word grades a thing against its own purpose. The sentence says the book's reach outran any purpose its pages had."}}, {"s": "The new roundabout changes no one's mind and argues nothing; it is merely ____ — collisions are down forty percent, which is exactly what the county asked of it.", "ks": ["effective"], "fb": {"persuasive": "That word names one specific outcome — changing what people believe or do. The sentence says no one's mind changes.", "convincing": "That word is for proof that removes doubt. A roundabout offers no proof of anything; it just meets its target.", "influential": "That word means broad power to shape opinion over time. A traffic fixture hitting a collision target shapes no opinions."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an appeal aimed at changing what someone believes or does — and it helps to show the target budging. Try working in words like <i>argument<\/i>, <i>audience<\/i>, <i>won over<\/i> or <i>agreed<\/i>."}};
+  var CFG = {"word": "persuasive", "gradeUrl": "/api/grade", "taskId": "persuasive", "minWords": 12, "items": {"s1": {"q": "Which of these best shows something persuasive?", "opts": {"A": "A poster so convincing that half the class signed up for the chess club", "B": "A speech that was loud and full of energy but changed no one's weekend plans", "C": "A pamphlet that sat in the mailroom for weeks and nobody bothered to open", "D": "A rule posted on the wall in bold type that everyone walked past and ignored"}, "key": "A", "fb": {"correct": "Right — the poster actually moved people to act: half the class signed up. Winning others over to believe or do something is the test persuasive has to pass.", "B": "Loud and energetic is not the test — this speech 'changed no one's weekend plans,' so it moved nobody. Persuasive describes words that actually get people to believe or act, not words that merely fill a room.", "C": "A pamphlet that 'nobody bothered to open' never reached a single reader, so it had no chance to change any minds. Something persuasive has to be taken in and then actually move people to believe or act.", "D": "Bold type is not persuasion when 'everyone walked past and ignored' the rule — it changed no behavior at all. Look for the message that genuinely got people to do or believe something new."}}, "s3a": {"q": "In this passage, calling the speech \"persuasive\" means it", "opts": {"A": "settled every disputed fact of the county budget beyond doubt", "B": "was crafted to move the board toward keeping the hours", "C": "shaped how county boards everywhere ran hearings for years", "D": "entertained the room without asking anything of it"}, "key": "B", "fb": {"correct": "Right — the passage says it 'was built, story by story, to move nine votes.'", "A": "The passage says the opposite — 'not because it proved anything.'", "C": "Nothing reaches beyond that evening's vote; the effect is one board, one decision.", "D": "The speech asked for something specific — the door kept open — and it moved votes."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "influential", "B": "convincing", "C": "effective", "D": "persuasive"}, "key": "B", "fb": {"correct": "Right. These plates are proof: they <em>pressed no claim<\/em>, argued nothing, and still ended ten years of doubt — exactly the territory this word owns.", "D": "Persuasive belongs to appeals crafted to move an audience — speeches, ads, essays. These plates <em>pressed no claim and were never meant for the attribution fight<\/em>; nobody built them to win anyone over.", "A": "Influential means broad power to shape opinion over time — a critic, a study whose ideas spread for years. Here the status of a single picture was settled at close range, and the doubters <em>withdrew their objections within a month<\/em>.", "C": "Effective says only that something achieves its purpose, whatever that purpose happens to be — a lock, a filing system. These plates were routine records, <em>never meant for the attribution fight<\/em>, so there is no assigned purpose here for that word to credit."}}}, "pairwise": {"rows": [{"sentence": "Her closing argument was ____ — built appeal by appeal to change what the jurors believed — though it was the lab report, not the speech, that finally removed their last doubt.", "options": ["persuasive", "convincing"], "key": "persuasive", "pair": "convincing", "why_right": "The tell is <em>built appeal by appeal<\/em> - a crafted appeal aimed at moving belief is persuasive's ground; removing the last doubt is proof's job; the sentence gives that to the lab report.", "why_wrong": "That word belongs to evidence and proof that remove doubt — and the sentence hands that job to the lab report. The blank describes the crafted appeal."}, {"sentence": "Every line of the appeal letter is angled to move readers from sympathy to a signed check; testers called the new draft the most ____ yet, though whether it will actually raise more money no one can say until spring.", "options": ["persuasive", "effective"], "key": "persuasive", "pair": "effective", "why_right": "The tell is <em>no one can say until spring<\/em> - achieving its purpose is the other word's only claim, and this sentence withholds it; the letter earns praise as a crafted appeal.", "why_wrong": "That word claims a purpose was achieved — and the sentence says no one yet knows whether the letter will raise a cent more."}, {"sentence": "The soil samples argue nothing — rows of numbers, nothing more — yet they were ____ enough to end the committee's doubts on the spot, even though the vote they were gathered for has now been postponed.", "options": ["persuasive", "convincing"], "key": "convincing", "pair": "convincing", "why_right": "The tell is <em>end the committee's doubts on the spot<\/em> - convincing is what evidence is when it removes doubt; these numbers argue nothing and make no appeal to anyone.", "why_wrong": "That word is for appeals built to move people — speeches, ads, essays. Rows of numbers that argue nothing are proof, not an appeal."}, {"sentence": "No one crafted the tree-ring data to sway anybody, yet as proof it was ____: after the lab walk-through, even the skeptics stopped doubting the drought dates.", "options": ["persuasive", "convincing"], "key": "convincing", "pair": "convincing", "why_right": "The tell is <em>No one crafted the tree-ring data to sway anybody<\/em> - a crafted, audience-aimed appeal is persuasive's requirement, ruled out in so many words; what remains is proof removing doubt.", "why_wrong": "That word needs an appeal built to move an audience, and the sentence rules that out in its first clause. What's left is proof doing its quiet work."}, {"sentence": "Forty years on, the economist's slim book still shapes how ministries everywhere frame a budget — ____ far beyond anything its plain, unargumentative pages ever set out to win.", "options": ["persuasive", "influential"], "key": "influential", "pair": "influential", "why_right": "The tell is <em>Forty years on<\/em> - broad power shaping how ministries frame budgets across decades is influential's ground; persuasive works close up, one argument moving one audience.", "why_wrong": "That word works close up — one argument moving one audience toward one decision. This book's power is spread across ministries and decades."}, {"sentence": "The new roundabout changes no one's mind and argues nothing; it is merely ____ — collisions are down forty percent, which is exactly what the county asked of it.", "options": ["persuasive", "effective"], "key": "effective", "pair": "effective", "why_right": "The tell is <em>changes no one's mind and argues nothing<\/em> - moving belief is persuasive's one specific effect, ruled out here; hitting the collision target is simply a purpose achieved.", "why_wrong": "That word names one specific outcome — changing what people believe or do. The sentence says no one's mind changes."}, {"sentence": "The tenants' spokesman spoke for four minutes at the board meeting, and his ____ plea did what months of flyers had not: the landlords voted to fund the repairs that night.", "options": ["persuasive", "influential"], "key": "persuasive", "pair": "influential", "why_right": "The tell is <em>the landlords voted to fund the repairs that night<\/em> - one plea moving one audience to one decision is persuasive's close-up work, not broad power over opinion across years.", "why_wrong": "That word describes broad power to shape opinion over time - a critic, a study whose ideas spread for years. This is one four-minute plea winning one board vote."}, {"sentence": "Judges scored the essay the most ____ in the contest — every paragraph built to pull readers toward its side — though no one will ever know how many minds it actually changed.", "options": ["persuasive", "effective"], "key": "persuasive", "pair": "effective", "why_right": "The tell is <em>no one will ever know<\/em> - the essay is graded on its crafted pull at readers; the other word grades outcome against purpose, and no outcome is ever known here.", "why_wrong": "That word claims a purpose was achieved - a lock that locks, a medicine that works. The sentence says the outcome is unknowable; the praise is for the appeal's craft."}], "display_order": [1, 0, 7, 2, 6, 5, 3, 4], "dimension_order": ["convincing", "influential", "effective"], "dimension_feedback": {"convincing": "Convincing is what evidence and proof are when they remove doubt — a convincing alibi, convincing data. Persuasive belongs to appeals crafted to move people: speeches, ads, essays. The security footage is convincing though it argues nothing; the closing speech is persuasive because it was built to win you over.", "influential": "Influential describes broad power to shape opinion over time — an influential critic, an influential study whose ideas spread for years. Persuasive works close up: one argument moving one audience toward one belief or decision. An influential thinker shapes a field; a persuasive presentation wins Tuesday's vote.", "effective": "Effective says only that something achieves its purpose, whatever the purpose is — an effective medicine, an effective filing system. Persuasive names one specific effect: changing what people believe or do. A door lock can be effective; only something that moves minds is persuasive."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs an appeal aimed at changing what someone believes or does — and it helps to show the target budging. Try working in words like <i>argument<\/i>, <i>audience<\/i>, <i>won over<\/i> or <i>agreed<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

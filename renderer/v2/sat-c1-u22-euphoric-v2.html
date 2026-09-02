@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="1da4beb5bfd1">
+<meta name="build" content="8cc556cbdcc4">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>euphoric &#8212; SAT Vocabulary, Course 1 Unit 22</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "euphoric", "gradeUrl": "/api/grade", "taskId": "euphoric", "minWords": 12, "items": {"s1": {"q": "In the weeks since his baby sister came home, ten-year-old Theo has hummed through every chore, left thank-you notes around the kitchen, and greeted each morning like a holiday — a buoyant mood his parents say never switches off. Which statement best matches calling Theo euphoric?", "opts": {"A": "His happiness is a deep, ongoing high spread across his whole life.", "B": "His mood is one of quiet, ordinary contentment, no stronger than his usual good spirits.", "C": "He felt one burst of delight at the hospital that faded before bedtime.", "D": "His joy is so overpowering he can hardly think straight anymore."}, "key": "A", "fb": {"correct": "Weeks of humming, thank-you notes, and holiday mornings describe joy that has settled in and stayed — a lasting, glowing high that touches everything, which is exactly what euphoric means.", "B": "'Quiet, ordinary contentment' has the wrong intensity. Content is calm satisfaction; euphoric is a soaring high — and Theo hums through chores, papers the kitchen with thank-you notes, and greets mornings like holidays. That is elation coloring everything, well past his usual spirits.", "C": "'One burst of delight that faded before bedtime' has the wrong duration. Theo's buoyant mood has run for weeks and, his parents say, never switches off. Euphoric names a sustained, dreamlike state of elation — a lasting high, not a single flash at the hospital.", "D": "'Can hardly think straight' pushes past euphoric into delirious territory — joy so consuming that clear thinking dissolves. Theo functions beautifully: he does his chores, writes his notes, keeps his routine. Euphoria is an intense, sustained glow, not a loss of control."}}, "s3a": {"q": "In the passage, \"euphoric\" describes a state that is —", "opts": {"A": "an intense high of well-being that lasts for days and colors everything", "B": "a burst of noisy excitement on the drive home that ends as soon as the singing stops", "C": "calm, sleepy satisfaction at a job well done after a long competition season", "D": "relief that the season was finally over"}, "key": "A", "fb": {"correct": "Right — the glow 'ran on for days without needing any new reason,' brightening even gray trays.", "B": "The noisy drive ended Saturday night; the passage's point is what kept going all week.", "C": "Nothing here is sleepy or calm — homework feels light and he grins in hallways.", "D": "No relief is mentioned; the feeling is a lift, not an unburdening."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "content", "B": "exhilarated", "C": "euphoric", "D": "blissful"}, "key": "C", "fb": {"correct": "Right. A sustained, intense high of well-being — one that <em>kept running long after the discovery itself<\/em>, <em>needing no new cause to stay aloft<\/em> — is euphoria exactly: stronger than quiet satisfaction, higher than calm, and far longer-lived than a momentary thrill.", "D": "Blissful happiness is serene and still — calm, complete, wanting nothing more. This camp's mood was <em>anything but calm<\/em>: <em>jokes landed all day<\/em> and <em>the intensity never dropped<\/em>. A word for peaceful stillness cannot carry a mood that runs this high.", "B": "An exhilarated rush spikes with the moment that causes it — and fades once that moment passes. This feeling <em>kept running long after the discovery itself<\/em>, <em>needing no new cause to stay aloft<\/em>; a jolt that drains away is the wrong shape for it.", "A": "Content is quiet, mild satisfaction — pleasant, and no more than that. Here the mood <em>did more than lift<\/em>: sorting <em>went at double speed<\/em> and <em>the intensity never dropped<\/em>. A word for modest comfort badly undersells this."}}}, "grid": {"words": ["euphoric", "blissful", "exhilarated", "content"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Three days after the championship, Rosa still floated through school ____, the hallways looking somehow wider and brighter than before.", "ks": ["euphoric"], "fb": {"blissful": "This mood soars and keeps moving — the word you chose names calm, still happiness that rests, wanting nothing more.", "exhilarated": "'Three days after' — a racing jolt fades with the moment that caused it; this glow has lasted days.", "content": "Hallways looking 'wider and brighter' is a high coloring the whole world, not quiet satisfaction."}}, {"s": "Rocking in the hammock with the lake flat as glass, Theo felt entirely ____ — still, complete, with nothing left to want.", "ks": ["blissful"], "fb": {"euphoric": "Everything in the sentence is still and at rest — the word you chose names a soaring, intense high that keeps running.", "exhilarated": "There is no jolt here, no pounding heart — only calm.", "content": "'Nothing left to want' is happiness at its fullest — a bigger claim than being quietly satisfied."}}, {"s": "The crowd streamed out of the arena ____, strangers hugging strangers, the whole night still glowing an hour after the encore ended.", "ks": ["euphoric"], "fb": {"blissful": "Strangers hugging strangers in a moving crowd is joy running high — not the calm, still happiness that rests.", "exhilarated": "The pounding rush of a show fades when it ends; this glow is still going an hour later.", "content": "Nobody quietly satisfied hugs strangers in the street — this mood is soaring."}}, {"s": "The newlyweds sat unmoving on the terrace for a whole hour, ____ in a silence so peacefully happy that neither wanted to speak.", "ks": ["blissful"], "fb": {"euphoric": "An hour of unmoving, peaceful silence is happiness at rest — the word you chose runs high and floods everything with energy.", "exhilarated": "No racing pulse, no rush — a full hour of stillness.", "content": "This is more than mild satisfaction — the silence is so completely happy that neither wants to end it."}}, {"s": "Coming off the zip line, Marta felt ____ — heart hammering, hands buzzing — though the feeling had drained away by the time they reached the car.", "ks": ["exhilarated"], "fb": {"euphoric": "'Drained away by the time they reached the car' — the sustained, days-long glow does not vanish in the parking lot.", "blissful": "A hammering heart and buzzing hands are the opposite of calm, still happiness.", "content": "This is a surge of energy, not quiet satisfaction with things as they are."}}, {"s": "Supper done and the game on, Grandpa settled into his chair, ____ enough with the evening: nothing special, nothing to complain about.", "ks": ["content"], "fb": {"euphoric": "'Nothing special' — there is no soaring high here, just an ordinary evening sitting well.", "blissful": "'Nothing to complain about' is mild — far short of happiness so complete it wants nothing more.", "exhilarated": "Settling into a chair after supper is the opposite of a racing, energized rush."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a high that lasts and colors ordinary things — not a single jolt. Try working in <i>for days<\/i>, <i>glow<\/i>, or <i>everything seemed<\/i>."}};
+  var CFG = {"word": "euphoric", "gradeUrl": "/api/grade", "taskId": "euphoric", "minWords": 12, "items": {"s1": {"q": "In the weeks since his baby sister came home, ten-year-old Theo has hummed through every chore, left thank-you notes around the kitchen, and greeted each morning like a holiday — a buoyant mood his parents say never switches off. Which statement best matches calling Theo euphoric?", "opts": {"A": "His happiness is a deep, ongoing high spread across his whole life.", "B": "His mood is one of quiet, ordinary contentment, no stronger than his usual good spirits.", "C": "He felt one burst of delight at the hospital that faded before bedtime.", "D": "His joy is so overpowering he can hardly think straight anymore."}, "key": "A", "fb": {"correct": "Weeks of humming, thank-you notes, and holiday mornings describe joy that has settled in and stayed — a lasting, glowing high that touches everything, which is exactly what euphoric means.", "B": "'Quiet, ordinary contentment' has the wrong intensity. Content is calm satisfaction; euphoric is a soaring high — and Theo hums through chores, papers the kitchen with thank-you notes, and greets mornings like holidays. That is elation coloring everything, well past his usual spirits.", "C": "'One burst of delight that faded before bedtime' has the wrong duration. Theo's buoyant mood has run for weeks and, his parents say, never switches off. Euphoric names a sustained, dreamlike state of elation — a lasting high, not a single flash at the hospital.", "D": "'Can hardly think straight' pushes past euphoric into delirious territory — joy so consuming that clear thinking dissolves. Theo functions beautifully: he does his chores, writes his notes, keeps his routine. Euphoria is an intense, sustained glow, not a loss of control."}}, "s3a": {"q": "In the passage, \"euphoric\" describes a state that is —", "opts": {"A": "an intense high of well-being that lasts for days and colors everything", "B": "a burst of noisy excitement on the drive home that ends as soon as the singing stops", "C": "calm, sleepy satisfaction at a job well done after a long competition season", "D": "relief that the season was finally over"}, "key": "A", "fb": {"correct": "Right — the glow 'ran on for days without needing any new reason,' brightening even gray trays.", "B": "The noisy drive ended Saturday night; the passage's point is what kept going all week.", "C": "Nothing here is sleepy or calm — homework feels light and he grins in hallways.", "D": "No relief is mentioned; the feeling is a lift, not an unburdening."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "content", "B": "exhilarated", "C": "euphoric", "D": "blissful"}, "key": "C", "fb": {"correct": "Right. A sustained, intense high of well-being — one that <em>kept running long after the discovery itself<\/em>, <em>needing no new cause to stay aloft<\/em> — is euphoria exactly: stronger than quiet satisfaction, higher than calm, and far longer-lived than a momentary thrill.", "D": "Blissful happiness is serene and still — calm, complete, wanting nothing more. This camp's mood was <em>anything but calm<\/em>: <em>jokes landed all day<\/em> and <em>the intensity never dropped<\/em>. A word for peaceful stillness cannot carry a mood that runs this high.", "B": "An exhilarated rush spikes with the moment that causes it — and fades once that moment passes. This feeling <em>kept running long after the discovery itself<\/em>, <em>needing no new cause to stay aloft<\/em>; a jolt that drains away is the wrong shape for it.", "A": "Content is quiet, mild satisfaction — pleasant, and no more than that. Here the mood <em>did more than lift<\/em>: sorting <em>went at double speed<\/em> and <em>the intensity never dropped<\/em>. A word for modest comfort badly undersells this."}}}, "pairwise": {"rows": [{"sentence": "Three days after the championship, Rosa still floated through school ____, the hallways looking somehow wider and brighter than before.", "options": ["euphoric", "exhilarated"], "key": "euphoric", "pair": "exhilarated", "why_right": "The tell is <em>Three days after the championship<\/em> - a jolt of exhilaration spikes with its moment and fades; a glow still soaring days past its cause is euphoric.", "why_wrong": "'Three days after' — a racing jolt fades with the moment that caused it; this glow has lasted days."}, {"sentence": "Coming off the zip line, Marta felt ____ — heart hammering, hands buzzing — though the feeling had drained away by the time they reached the car.", "options": ["euphoric", "exhilarated"], "key": "exhilarated", "pair": "exhilarated", "why_right": "The tell is <em>drained away by the time they reached the car<\/em> - a heart-pounding jolt that spikes with its moment and fades is exhilaration; the dreamlike glow lingers for days.", "why_wrong": "'Drained away by the time they reached the car' — the sustained, days-long glow does not vanish in the parking lot."}, {"sentence": "A month after the family moved into a house of their own, Amara was still ____, drifting among unpacked boxes on a lightness that outlived the signing day.", "options": ["euphoric", "exhilarated"], "key": "euphoric", "pair": "exhilarated", "why_right": "The tell is <em>outlived the signing day<\/em> - euphoria lingers long after any single cause, a dreamlike glow floating on for weeks; a jolt of exhilaration would have faded with its moment.", "why_wrong": "That word is a heart-pounding jolt that spikes with the moment causing it and fades soon after. A drifting lightness still carrying her a month later has long outlived any jolt."}, {"sentence": "The crowd streamed out of the arena ____, strangers hugging strangers, the whole night still glowing an hour after the encore ended.", "options": ["euphoric", "blissful"], "key": "euphoric", "pair": "blissful", "why_right": "The tell is <em>strangers hugging strangers<\/em> - a high in full motion, still glowing an hour past the encore; the serene word rests calm and still, and nothing here rests.", "why_wrong": "Strangers hugging strangers in a moving crowd is joy running high — not the calm, still happiness that rests."}, {"sentence": "Rocking in the hammock with the lake flat as glass, Theo felt entirely ____ — still, complete, with nothing left to want.", "options": ["euphoric", "blissful"], "key": "blissful", "pair": "blissful", "why_right": "The tell is <em>still, complete, with nothing left to want<\/em> - serene, complete happiness at rest is blissful; nothing here soars or runs high, so the high word cannot fit.", "why_wrong": "Everything in the sentence is still and at rest — the word you chose names a soaring, intense high that keeps running."}, {"sentence": "The newlyweds sat unmoving on the terrace for a whole hour, ____ in a silence so peacefully happy that neither wanted to speak.", "options": ["euphoric", "blissful"], "key": "blissful", "pair": "blissful", "why_right": "The tell is <em>sat unmoving on the terrace for a whole hour<\/em> - happiness so complete it rests in stillness, wanting nothing more; a soaring high could not sit this quietly.", "why_wrong": "An hour of unmoving, peaceful silence is happiness at rest — the word you chose runs high and floods everything with energy."}, {"sentence": "Supper done and the game on, Grandpa settled into his chair, ____ enough with the evening: nothing special, nothing to complain about.", "options": ["euphoric", "content"], "key": "content", "pair": "content", "why_right": "The tell is <em>nothing special, nothing to complain about<\/em> - quiet satisfaction with an ordinary evening is content; no high soars here and nothing gets colored brighter than it is.", "why_wrong": "'Nothing special' — there is no soaring high here, just an ordinary evening sitting well."}, {"sentence": "His first month in Rome left Tomas ____: he wrote home twice a week insisting that even the pigeons and his lumpy dorm mattress were perfect.", "options": ["euphoric", "content"], "key": "euphoric", "pair": "content", "why_right": "The tell is <em>even the pigeons and his lumpy dorm mattress were perfect<\/em> - a soaring high coloring everything around it, announced twice a week; quiet satisfaction never gushes like this.", "why_wrong": "That word means quiet satisfaction - pleased enough, saying little. Writing home twice a week to insist that pigeons and a lumpy mattress are perfect is a high coloring everything."}], "display_order": [5, 2, 7, 3, 1, 4, 0, 6], "dimension_order": ["exhilarated", "blissful", "content"], "dimension_feedback": {"exhilarated": "Exhilarated means thrillingly energized -- heart pounding, senses sharpened, the jolt you get from a fast ski run or a cold plunge. Euphoric is a sustained, dreamlike glow of well-being that floats on for days. Exhilaration spikes with the moment that causes it and fades; euphoria lingers long after any single cause.", "blissful": "Blissful means full of serene, complete happiness -- calm, untroubled, wanting nothing more. Euphoric is also a lasting state, but it is a high: intense, soaring elation that colors everything around it. A blissful afternoon is peaceful and still; a euphoric week runs high on everything at once. Bliss rests; euphoria soars.", "content": "Content is quiet satisfaction; euphoric is a soaring, intense high of well-being that colors everything around it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a high that lasts and colors ordinary things — not a single jolt. Try working in <i>for days<\/i>, <i>glow<\/i>, or <i>everything seemed<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

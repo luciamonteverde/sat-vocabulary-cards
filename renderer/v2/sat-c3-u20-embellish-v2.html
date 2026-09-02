@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="b93ffbf4fa8c">
+<meta name="build" content="687fc22c90e0">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>embellish &#8212; SAT Vocabulary, Course 3 Unit 20</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "embellish", "gradeUrl": "/api/grade", "taskId": "embellish", "minWords": 12, "items": {"s1": {"q": "Which sentence uses embellish correctly?", "opts": {"A": "For the spring wedding, the baker embellished the simple white cake with sugar lace and candied violets.", "B": "The editor embellished the bloated annual report by cutting half its pages and both of its appendices.", "C": "The movers embellished the piano with thick quilted blankets to keep it safe on the narrow stairs.", "D": "She embellished the overgrown hedge with a chainsaw until only a row of bare stumps remained."}, "key": "A", "fb": {"correct": "Correct! Sugar lace and candied violets are ornamental extras added purely to beautify the cake — embellishment exactly.", "B": "An editor 'cutting half its pages' is stripping material out, and embellish means the opposite: adding decorative touches. Look for ornament being added to make something prettier.", "C": "The 'thick quilted blankets' here protect the piano; they add safety, not beauty. Embellishing means adding details purely for decoration — find something dressed up to look fancier.", "D": "A chainsaw that leaves 'only a row of bare stumps' has removed nearly everything. Embellish works the other way, layering on ornamental extras — look for decoration going on, not material coming off."}}, "s3a": {"q": "In this passage, 'embellish' most nearly means", "opts": {"A": "to decorate with added ornamental details", "B": "to correct the weak spots in a design", "C": "to enlarge a picture so it fills its wall", "D": "to exaggerate a story beyond the truth"}, "key": "A", "fb": {"correct": "Right -- the emblems are 'ornament added purely for the pleasure' of viewers: decorative extras, not fixes or necessities.", "B": "Nothing was wrong with the mural -- critics agreed it 'would survive without a single one of them'. The emblems repair nothing; they adorn.", "C": "The mural's size never changes; the month went into tiny added details 'no bigger than a thumbprint'.", "D": "The word can mean stretching the truth, but this passage is about paint, not claims -- the added things are literal emblems on a border."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "festoon", "B": "gild", "C": "embellish", "D": "garnish"}, "key": "B", "fb": {"correct": "Right. To gild is to coat something with a thin layer of gold — one exact, literal treatment — and that is precisely the job here: <em>gold simply reflects infrared light better than any other common metal<\/em>, so every segment got its whisper-thin film for function, not for show.", "C": "To embellish is to add ornamental extras for beauty's sake, and the passage rules beauty out: the film <em>owed nothing to decoration<\/em>. It exists because gold <em>reflects infrared light better than any other common metal<\/em> — engineering, not adornment.", "A": "To festoon is to drape something with ornament that hangs and swings — garlands, chains, streamers. Nothing here dangles: the treatment is a film <em>thinner than a soap bubble<\/em>, laid flat against a mirror in <em>a sealed chamber<\/em>.", "D": "Garnish is the kitchen's word — a sprig or a lemon twist set on a finished plate as one last touch. This coating covers <em>each of the observatory's eighteen mirror segments<\/em> completely, on an instrument, not a dish."}}}, "grid": {"words": ["embellish", "gild", "festoon", "garnish"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The calligrapher chose to ____ each capital letter with hairline vines in plain black ink -- nothing hung from the page, and not a fleck of gold was spent.", "ks": ["embellish"], "fb": {"gild": "The sentence closes that door itself: <em>not a fleck of gold was spent<\/em>. That word means exactly one treatment -- a thin coating of gold -- and these vines are black ink.", "festoon": "That word is ornament that hangs and swings -- garlands, chains, streamers -- and the sentence says <em>nothing hung from the page<\/em>. These vines are drawn flat.", "garnish": "That's the kitchen's word for a finishing touch set on a plate -- parsley, a twist of lemon. A capital letter on a page needs the general word for adding ornament."}}, {"s": "To honor the treaty, artisans were hired to ____ the cathedral doors, laying on gold leaf so thin it trembled in the draft.", "ks": ["gild"], "fb": {"embellish": "True but too broad -- that's the umbrella word for ornament of any kind, done with thread, paint, or iron. The sentence spells out one exact treatment, <em>gold leaf<\/em>, and the card keeps a more precise word for coating something in gold.", "festoon": "Nothing dangles here -- the leaf is laid flat onto the doors. That word means draping with garlands or streamers that hang and swing.", "garnish": "That's a kitchen word -- a finishing touch on a plate of food. These are cathedral doors being coated in gold leaf."}}, {"s": "Each autumn, volunteers ____ the town bandstand with paper chains and swags of evergreen that sway whenever the wind picks up.", "ks": ["festoon"], "fb": {"embellish": "That umbrella word covers any ornament at all -- stitched, carved, painted flat. It misses what the sentence dwells on: chains and swags <em>that sway whenever the wind picks up<\/em>. The card keeps a word for exactly that draped, hanging kind.", "gild": "There's no gold here -- paper chains and evergreen. That word names one treatment only: a thin coating of gold.", "garnish": "A bandstand isn't a plate of food; that word belongs to the kitchen. Draped, swinging ornament has its own word."}}, {"s": "In the old city, ironworkers still ____ plain balcony rails with scrolls and rosettes hammered flat into the metal itself.", "ks": ["embellish"], "fb": {"gild": "No gold is involved -- the ornament is <em>hammered flat into the metal itself<\/em>. That word names one specific treatment: a thin coating of gold.", "festoon": "That word always leaves something hanging -- garlands, chains, swags. Ornament <em>hammered flat into the metal<\/em> is the opposite of dangling.", "garnish": "That word belongs to the kitchen: a sprig or twist set on a finished plate. Balcony rails call for the all-purpose word for adding ornament."}}, {"s": "Just before the plates left the kitchen, the chef paused to ____ each bowl of chowder with a single curl of lemon peel.", "ks": ["garnish"], "fb": {"embellish": "The general ornament word works everywhere -- gowns, gates, manuscripts -- but the card keeps one word for exactly this: a single finishing touch on a finished plate, on its way out of the kitchen.", "gild": "Nothing is being coated in gold; it's a curl of lemon peel on chowder. That word names the gold treatment only.", "festoon": "Nothing hangs or swings from a bowl of chowder -- that word means draping with garlands or streamers. This is the kitchen's single finishing touch."}}, {"s": "Rather than repaint the dulled picture frame, the restorer decided to ____ its worn edges again, pressing fresh gold leaf over the bare spots.", "ks": ["gild"], "fb": {"embellish": "Too broad for what the sentence describes: <em>pressing fresh gold leaf<\/em> is one exact, literal treatment, and the card keeps its own word for coating a surface in gold.", "festoon": "The leaf is <em>pressed... over the bare spots<\/em> -- flat, not hanging. That word means draping something with ornament that dangles and swings.", "garnish": "A picture frame is not a plate; that word is the kitchen's finishing touch. This is the gold-coating treatment."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show decorative extras being added to something that already works fine without them. Try naming the ornament itself -- work in a word like <i>beads<\/i>, <i>trim<\/i>, <i>carvings<\/i> or <i>flourishes<\/i>."}};
+  var CFG = {"word": "embellish", "gradeUrl": "/api/grade", "taskId": "embellish", "minWords": 12, "items": {"s1": {"q": "Which sentence uses embellish correctly?", "opts": {"A": "For the spring wedding, the baker embellished the simple white cake with sugar lace and candied violets.", "B": "The editor embellished the bloated annual report by cutting half its pages and both of its appendices.", "C": "The movers embellished the piano with thick quilted blankets to keep it safe on the narrow stairs.", "D": "She embellished the overgrown hedge with a chainsaw until only a row of bare stumps remained."}, "key": "A", "fb": {"correct": "Correct! Sugar lace and candied violets are ornamental extras added purely to beautify the cake — embellishment exactly.", "B": "An editor 'cutting half its pages' is stripping material out, and embellish means the opposite: adding decorative touches. Look for ornament being added to make something prettier.", "C": "The 'thick quilted blankets' here protect the piano; they add safety, not beauty. Embellishing means adding details purely for decoration — find something dressed up to look fancier.", "D": "A chainsaw that leaves 'only a row of bare stumps' has removed nearly everything. Embellish works the other way, layering on ornamental extras — look for decoration going on, not material coming off."}}, "s3a": {"q": "In this passage, 'embellish' most nearly means", "opts": {"A": "to decorate with added ornamental details", "B": "to correct the weak spots in a design", "C": "to enlarge a picture so it fills its wall", "D": "to exaggerate a story beyond the truth"}, "key": "A", "fb": {"correct": "Right -- the emblems are 'ornament added purely for the pleasure' of viewers: decorative extras, not fixes or necessities.", "B": "Nothing was wrong with the mural -- critics agreed it 'would survive without a single one of them'. The emblems repair nothing; they adorn.", "C": "The mural's size never changes; the month went into tiny added details 'no bigger than a thumbprint'.", "D": "The word can mean stretching the truth, but this passage is about paint, not claims -- the added things are literal emblems on a border."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "festoon", "B": "gild", "C": "embellish", "D": "garnish"}, "key": "B", "fb": {"correct": "Right. To gild is to coat something with a thin layer of gold — one exact, literal treatment — and that is precisely the job here: <em>gold simply reflects infrared light better than any other common metal<\/em>, so every segment got its whisper-thin film for function, not for show.", "C": "To embellish is to add ornamental extras for beauty's sake, and the passage rules beauty out: the film <em>owed nothing to decoration<\/em>. It exists because gold <em>reflects infrared light better than any other common metal<\/em> — engineering, not adornment.", "A": "To festoon is to drape something with ornament that hangs and swings — garlands, chains, streamers. Nothing here dangles: the treatment is a film <em>thinner than a soap bubble<\/em>, laid flat against a mirror in <em>a sealed chamber<\/em>.", "D": "Garnish is the kitchen's word — a sprig or a lemon twist set on a finished plate as one last touch. This coating covers <em>each of the observatory's eighteen mirror segments<\/em> completely, on an instrument, not a dish."}}}, "pairwise": {"rows": [{"sentence": "The calligrapher chose to ____ each capital letter with hairline vines in plain black ink -- nothing hung from the page, and not a fleck of gold was spent.", "options": ["embellish", "gild"], "key": "embellish", "pair": "gild", "why_right": "The tell is <em>not a fleck of gold was spent<\/em> - the other word means one exact treatment, a thin coat of gold; vines drawn in black ink are ornament of another kind.", "why_wrong": "The sentence closes that door itself: <em>not a fleck of gold was spent<\/em>. That word means exactly one treatment -- a thin coating of gold -- and these vines are black ink."}, {"sentence": "The saddler took a week to ____ the bridle with tooled thistles and a line of brass studs, and not a speck of gold anywhere.", "options": ["embellish", "gild"], "key": "embellish", "pair": "gild", "why_right": "The tell is <em>not a speck of gold anywhere<\/em> - the other word means one exact treatment, a coat of gold; thistles and brass studs are ornamental extras of another kind.", "why_wrong": "That word means one exact treatment: coating a surface with a thin layer of gold. Tooled thistles and brass studs with no gold anywhere call for the general word for adding ornament."}, {"sentence": "The ledger says every panel was to be carved and enamelled, but for the central crown alone it adds one more word, ____, with three ounces of gold leaf charged beside it.", "options": ["embellish", "gild"], "key": "gild", "pair": "gild", "why_right": "The tell is <em>three ounces of gold leaf<\/em> - carving and enamel already ornament every panel, so the umbrella word fits all of them; only the gold coat is the crown's alone.", "why_wrong": "That word covers ornament of any kind, and every carved, enamelled panel already has it. A word true of the whole screen cannot be the one entered for the crown alone."}, {"sentence": "The potter liked to ____ each jug with a band of pressed shells set flush in the clay, so nothing could catch or swing.", "options": ["embellish", "festoon"], "key": "embellish", "pair": "festoon", "why_right": "The tell is <em>set flush in the clay<\/em> - the shells lie flat with nothing to dangle, while the other word always leaves something hanging; flat detail belongs to the umbrella word.", "why_wrong": "That word means draping something with ornament that hangs and swings -- it always leaves something dangling. Shells pressed flush into the clay dangle nothing; this is flat detail added for beauty's sake."}, {"sentence": "Every booth wore stencilled flowers; the word the fair's program used for the candle-maker's alone was ____, its eaves strung with tin bells that rang in the wind.", "options": ["embellish", "festoon"], "key": "festoon", "pair": "festoon", "why_right": "The tell is <em>strung with tin bells<\/em> - every booth was decorated, so the umbrella word fits them all; only this one carries ornament that hangs and swings, the draping word's own ground.", "why_wrong": "That word covers any decorative addition, and stencilled flowers on every booth already qualify, so it cannot single out one booth. Bells strung along the eaves are ornament that hangs and swings."}, {"sentence": "For the shop window the confectioner set out to ____ a display cake with two dozen sugar roses and a lattice of spun caramel over the icing.", "options": ["embellish", "garnish"], "key": "embellish", "pair": "garnish", "why_right": "The tell is <em>two dozen sugar roses<\/em> - with a caramel lattice besides, this is far more than a single finishing touch, and a shop-window cake is not a finished plate leaving the kitchen.", "why_wrong": "That word is the kitchen's single finishing touch, set on a finished plate. Two dozen sugar roses and a caramel lattice on a window display are ornament piled on, the umbrella word's job."}, {"sentence": "The pastry chef's last act before each plate went out was to ____ the tart with one paper-thin slice of pear laid flat across the warm glaze.", "options": ["embellish", "garnish"], "key": "garnish", "pair": "garnish", "why_right": "The tell is <em>one paper-thin slice of pear<\/em> - a single finishing touch on a finished plate leaving the kitchen, the kitchen's own word; the umbrella word belongs everywhere else and piles on more.", "why_wrong": "That word does the same job everywhere else -- gowns, gates, manuscripts -- and can pile on far more than one touch. One slice on a plate going out is the kitchen's finishing touch."}, {"sentence": "Before each plate of grilled fish crossed the pass, the line cook would ____ it with one thin ring of red chili, and nothing else.", "options": ["embellish", "garnish"], "key": "garnish", "pair": "garnish", "why_right": "The tell is <em>and nothing else<\/em> - a single ring of chili on a plate at the kitchen's pass is one finishing touch, the kitchen's own word; the umbrella word belongs everywhere else.", "why_wrong": "That word covers ornament everywhere outside the kitchen and can heap on far more than one touch. A single ring of chili on a plate crossing the pass is the kitchen's finishing touch."}], "display_order": [5, 2, 6, 0, 3, 1, 4, 7], "dimension_order": ["gild", "festoon", "garnish"], "dimension_feedback": {"gild": "Gild means to coat something with a thin layer of gold — one exact, literal treatment. Embellish is the umbrella above it: adding ornamental extras of any kind for beauty's sake. Every gilded edge is embellished, but you can embellish with thread, paint, or iron and never touch gold.", "festoon": "Festoon means to drape something with garlands, chains, or streamers — ornament that hangs and swings. Embellish is broader and quieter: it covers any decorative addition, including detail stitched, carved, or painted flat onto a surface, where festooning always leaves something dangling.", "garnish": "Garnish is the kitchen's word for ornament: a sprig of parsley or a twist of lemon set on a finished plate. Embellish does the same job everywhere else — gowns, gates, manuscripts — and it can pile on far more than a single finishing touch."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show decorative extras being added to something that already works fine without them. Try naming the ornament itself -- work in a word like <i>beads<\/i>, <i>trim<\/i>, <i>carvings<\/i> or <i>flourishes<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

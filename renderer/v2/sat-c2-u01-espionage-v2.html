@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="c5338f7bf054">
+<meta name="build" content="6e167c689381">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>espionage &#8212; SAT Vocabulary, Course 2 Unit 1</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "espionage", "gradeUrl": "/api/grade", "taskId": "espionage", "minWords": 12, "items": {"s1": {"q": "Which sentence uses espionage correctly?", "opts": {"A": "The analyst's espionage consisted of reading the rival firm's published annual reports and press releases at her desk each morning over coffee.", "B": "Thanks to the night watchman's tireless espionage, the warehouse's own stock of inventory stayed safe from burglars through the whole of the winter.", "C": "Investigators traced the missing wing designs to espionage: a technician had spent months photographing blueprints for a foreign contractor.", "D": "The twins committed espionage when they peeked at the seating chart their teacher had left open on the desk."}, "key": "C", "fb": {"correct": "Correct! Espionage means the organized practice of using secret agents to take a rival's guarded information. The technician fits every part of it: working covertly for months, photographing protected designs, and serving a foreign contractor.", "A": "Not quite! Espionage means secretly taking information a rival is guarding, so it's not the correct choice here because annual reports and press releases are published for everyone — nothing gathered at that desk was ever a secret.", "B": "Not quite! Espionage means using secret agents to take a rival's guarded information, so it's not the correct choice here because the watchman is openly protecting his own employer's property — defending your own goods is security, not spying.", "D": "Not quite! Espionage names an organized practice carried out for a rival, so it's not the correct choice here because one peek at a chart left open on a desk has no secrecy to defeat, no rival to serve, and no practice behind it."}}, "s3a": {"q": "As it is used in the passage, 'espionage' most nearly means:", "opts": {"A": "the open and lawful purchase of another country's finest goods", "B": "the careful scientific study of unfamiliar plants abroad", "C": "stealing guarded knowledge through an agent in disguise", "D": "watching a rival country's borders from a safe distance"}, "key": "C", "fb": {"correct": "Right -- the passage's own tally: 'an agent in disguise, a guarded process, a rival power paying the bills.'", "A": "China would not sell the process at any price -- that is why the company sent a disguised agent instead of a buyer.", "B": "Fortune used his botany, but the mission was taking a guarded process for a rival, not open research.", "D": "Fortune worked deep inside the country, garden to garden -- not at a distance, and not merely watching."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "reconnaissance", "B": "espionage", "C": "snooping", "D": "surveillance"}, "key": "B", "fb": {"correct": "Right. A paid agent placed inside a rival's kitchen, spending years taking recipes the house kept guarded — organized, salaried theft of a rival's guarded secrets is exactly what espionage names.", "D": "Surveillance is watching — cameras, stakeouts, steady observation of what someone does, sometimes openly announced. This went beyond watching: the newcomer spent two years <em>transcribing each guarded step from memory<\/em> and sending it to a rival.", "A": "Reconnaissance is a survey made from the outside, usually just ahead of an operation. This worked from the inside, and slowly: <em>a rival hospitality group had paid the young cook to seek the job<\/em>, and she stayed <em>for two years<\/em>.", "C": "Snooping is idle prying — a lifted lid, a glance in a drawer — small in scale and unpaid. Nothing here is idle: <em>a rival hospitality group had paid<\/em> her, and she kept to a schedule, <em>mailing her pages north every month<\/em>."}}}, "grid": {"words": ["espionage", "surveillance", "reconnaissance", "snooping"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The chip maker discovered that a 'janitor' on its night crew had spent two years photographing lab notebooks for a rival -- ____ done one wastebasket at a time.", "ks": ["espionage"], "fb": {"surveillance": "That word means watching -- steady observation of behavior. This 'janitor' isn't watching anyone; he is <em>photographing lab notebooks<\/em>, taking what the company guards.", "reconnaissance": "A scout surveys from the outside, just ahead of an operation. This agent worked from the inside, <em>for two years<\/em>.", "snooping": "Idle curiosity doesn't run <em>two years<\/em> on a rival's payroll. This is an organized, purposeful taking of guarded secrets."}}, {"s": "The embassy driver had been passing the pouch's contents to a foreign ministry for a decade -- ____ patient enough to outlast three ambassadors.", "ks": ["espionage"], "fb": {"surveillance": "That word is observation -- cameras, watchers, logs. The driver observes nothing; he hands over <em>the pouch's contents<\/em>, guarded material itself.", "reconnaissance": "That word is the scout's outside look at ground or defenses just before an operation. A <em>decade<\/em> spent inside the embassy's service is the opposite shape.", "snooping": "A snoop pries out of idle curiosity. A man run by <em>a foreign ministry<\/em> for ten years is a professional at a grave trade."}}, {"s": "The store posted notices that every aisle was under ____, and the cameras above the registers ran around the clock.", "ks": ["surveillance"], "fb": {"espionage": "That word needs secret agents taking guarded information. Here the watching is lawful and announced -- <em>posted notices<\/em> in every aisle.", "reconnaissance": "That word is a scout's survey taken just ahead of an operation. These cameras run <em>around the clock<\/em>, watching ordinary behavior with no operation anywhere.", "snooping": "Sly, idle prying hides itself. This watching is posted on the wall and runs in the open."}}, {"s": "For three nights the detective sat across the street, keeping the warehouse loading dock under ____ and logging every truck that arrived.", "ks": ["surveillance"], "fb": {"espionage": "That word means secretly taking guarded information, usually through an agent inside. The detective is outside, watching, and takes nothing -- he only <em>logs every truck<\/em>.", "reconnaissance": "A scout looks once, from outside, just before an operation. The detective watches the same dock <em>for three nights<\/em>, recording ordinary comings and goings.", "snooping": "Idle prying doesn't keep logs. Three methodical nights across the street is watching as a discipline, not curiosity."}}, {"s": "Before the dawn assault, two scouts slipped up the ridge for one last ____ of the valley's gun positions.", "ks": ["reconnaissance"], "fb": {"espionage": "That word works from the inside, through an agent in someone's service. These scouts look from <em>the ridge<\/em>, from outside, hours before the attack.", "surveillance": "That word is steady, ongoing watching. This is <em>one last<\/em> look, taken just ahead of the assault.", "snooping": "Nothing idle here -- surveying <em>gun positions<\/em> before a dawn assault is a soldier's job."}}, {"s": "Marla's ____ never went further than lifting the lid of her roommate's keepsake box while the kettle boiled.", "ks": ["snooping"], "fb": {"espionage": "That word is an organized, salaried trade in guarded secrets. Marla peeks into <em>a keepsake box<\/em> while the kettle boils -- curiosity, not a trade.", "surveillance": "Steady watching takes time and method. This is one lifted lid, over before <em>the kettle boiled<\/em>.", "reconnaissance": "No operation is coming and no ground is being surveyed -- this is prying into a roommate's private things."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone secretly taking information another side is guarding -- ideally organized and paid for, not casual. Try working in a word like <i>agent<\/i>, <i>rival<\/i>, <i>secrets<\/i> or <i>stolen<\/i>."}};
+  var CFG = {"word": "espionage", "gradeUrl": "/api/grade", "taskId": "espionage", "minWords": 12, "items": {"s1": {"q": "Which sentence uses espionage correctly?", "opts": {"A": "The analyst's espionage consisted of reading the rival firm's published annual reports and press releases at her desk each morning over coffee.", "B": "Thanks to the night watchman's tireless espionage, the warehouse's own stock of inventory stayed safe from burglars through the whole of the winter.", "C": "Investigators traced the missing wing designs to espionage: a technician had spent months photographing blueprints for a foreign contractor.", "D": "The twins committed espionage when they peeked at the seating chart their teacher had left open on the desk."}, "key": "C", "fb": {"correct": "Correct! Espionage means the organized practice of using secret agents to take a rival's guarded information. The technician fits every part of it: working covertly for months, photographing protected designs, and serving a foreign contractor.", "A": "Not quite! Espionage means secretly taking information a rival is guarding, so it's not the correct choice here because annual reports and press releases are published for everyone — nothing gathered at that desk was ever a secret.", "B": "Not quite! Espionage means using secret agents to take a rival's guarded information, so it's not the correct choice here because the watchman is openly protecting his own employer's property — defending your own goods is security, not spying.", "D": "Not quite! Espionage names an organized practice carried out for a rival, so it's not the correct choice here because one peek at a chart left open on a desk has no secrecy to defeat, no rival to serve, and no practice behind it."}}, "s3a": {"q": "As it is used in the passage, 'espionage' most nearly means:", "opts": {"A": "the open and lawful purchase of another country's finest goods", "B": "the careful scientific study of unfamiliar plants abroad", "C": "stealing guarded knowledge through an agent in disguise", "D": "watching a rival country's borders from a safe distance"}, "key": "C", "fb": {"correct": "Right -- the passage's own tally: 'an agent in disguise, a guarded process, a rival power paying the bills.'", "A": "China would not sell the process at any price -- that is why the company sent a disguised agent instead of a buyer.", "B": "Fortune used his botany, but the mission was taking a guarded process for a rival, not open research.", "D": "Fortune worked deep inside the country, garden to garden -- not at a distance, and not merely watching."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "reconnaissance", "B": "espionage", "C": "snooping", "D": "surveillance"}, "key": "B", "fb": {"correct": "Right. A paid agent placed inside a rival's kitchen, spending years taking recipes the house kept guarded — organized, salaried theft of a rival's guarded secrets is exactly what espionage names.", "D": "Surveillance is watching — cameras, stakeouts, steady observation of what someone does, sometimes openly announced. This went beyond watching: the newcomer spent two years <em>transcribing each guarded step from memory<\/em> and sending it to a rival.", "A": "Reconnaissance is a survey made from the outside, usually just ahead of an operation. This worked from the inside, and slowly: <em>a rival hospitality group had paid the young cook to seek the job<\/em>, and she stayed <em>for two years<\/em>.", "C": "Snooping is idle prying — a lifted lid, a glance in a drawer — small in scale and unpaid. Nothing here is idle: <em>a rival hospitality group had paid<\/em> her, and she kept to a schedule, <em>mailing her pages north every month<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The chip maker discovered that a 'janitor' on its night crew had spent two years photographing lab notebooks for a rival -- ____ done one wastebasket at a time.", "options": ["espionage", "surveillance"], "key": "espionage", "pair": "surveillance", "why_right": "The tell is <em>photographing lab notebooks<\/em> - a planted agent is taking information the company deliberately guards, which goes further than any steady watching of what people do.", "why_wrong": "That word means watching -- steady observation of behavior. This 'janitor' isn't watching anyone; he is <em>photographing lab notebooks<\/em>, taking what the company guards."}, {"sentence": "The embassy driver had been passing the pouch's contents to a foreign ministry for a decade -- ____ patient enough to outlast three ambassadors.", "options": ["espionage", "reconnaissance"], "key": "espionage", "pair": "reconnaissance", "why_right": "The tell is <em>for a decade<\/em> - an agent inside the embassy's own service, taking guarded material over years, the opposite of a scout's outside look just ahead of an operation.", "why_wrong": "That word is the scout's outside look at ground or defenses just before an operation. A <em>decade<\/em> spent inside the embassy's service is the opposite shape."}, {"sentence": "Before the dawn assault, two scouts slipped up the ridge for one last ____ of the valley's gun positions.", "options": ["espionage", "reconnaissance"], "key": "reconnaissance", "pair": "reconnaissance", "why_right": "The tell is <em>slipped up the ridge<\/em> - a scout's survey of defenses taken from the outside, hours ahead of the operation, with no agent inside anyone's service.", "why_wrong": "That word works from the inside, through an agent in someone's service. These scouts look from <em>the ridge<\/em>, from outside, hours before the attack."}, {"sentence": "Marla's ____ never went further than lifting the lid of her roommate's keepsake box while the kettle boiled.", "options": ["espionage", "snooping"], "key": "snooping", "pair": "snooping", "why_right": "The tell is <em>while the kettle boiled<\/em> - one idle, momentary act of prying out of curiosity, with no rival, no pay, and nothing guarded at stake.", "why_wrong": "That word is an organized, salaried trade in guarded secrets. Marla peeks into <em>a keepsake box<\/em> while the kettle boils -- curiosity, not a trade."}, {"sentence": "The park service kept up months of ____ at the eagle nest, cameras streaming to a public webpage and rangers logging each feeding for science.", "options": ["espionage", "surveillance"], "key": "surveillance", "pair": "surveillance", "why_right": "The tell is <em>streaming to a public webpage<\/em> - steady, openly announced observation that takes nothing; there is no secret agent and nothing guarded being stolen.", "why_wrong": "That word is an organized secret trade: agents inside a rival's service taking guarded information. These cameras watch openly, stream to the public, and take nothing from anyone."}, {"sentence": "Prosecutors said the shipyard's chief welder had spent five years tracing hull blueprints for a foreign navy, ____ conducted from within the fabrication hall itself.", "options": ["espionage", "reconnaissance"], "key": "espionage", "pair": "reconnaissance", "why_right": "The tell is <em>from within the fabrication hall<\/em> - an agent working inside the rival's own shop for years, taking guarded designs no outside survey of the ground could reach.", "why_wrong": "That word is the scout's outside look at ground or defenses just ahead of an operation. Five years tracing guarded blueprints inside the fabrication hall works from the inside and over time."}, {"sentence": "The seed company traced its missing hybrid data to a greenhouse intern who had been paid monthly by a competitor, ____ carried on all season under cover of watering rounds.", "options": ["espionage", "snooping"], "key": "espionage", "pair": "snooping", "why_right": "The tell is <em>paid monthly by a competitor<\/em> - an organized, salaried effort to steal a rival's guarded secrets, running all season, far beyond idle prying.", "why_wrong": "That word is idle curiosity - a peek into a drawer that takes nothing of value. An intern salaried by a competitor to move hybrid data all season is running a trade."}, {"sentence": "Aunt Ida's ____ at the reunion stopped at the medicine cabinet: she eased it open, read two prescription labels, and drifted back to the buffet.", "options": ["espionage", "snooping"], "key": "snooping", "pair": "snooping", "why_right": "The tell is <em>drifted back to the buffet<\/em> - one idle peek out of curiosity, over in a moment, with no rival, no salary, and no organized effort behind it.", "why_wrong": "That word is an organized, salaried trade in a rival's guarded secrets. Two prescription labels read at a family reunion carry no rival, no pay, and no plan."}], "display_order": [3, 5, 4, 6, 1, 0, 7, 2], "dimension_order": ["surveillance", "reconnaissance", "snooping"], "dimension_feedback": {"surveillance": "Surveillance is watching: a camera in a lobby, a detective parked outside a door — steady observation of what someone does, often lawful and sometimes openly announced. Espionage goes further than watching: it uses secret agents to take information a rival is deliberately guarding.", "reconnaissance": "Reconnaissance is the scout's survey — a look at ground, defenses, or positions taken from the outside, usually just ahead of an operation. Espionage works from the inside and over time: an agent in someone's service, taking what no ridge-top view could ever show.", "snooping": "Snooping is milder than espionage: a snoop pries into a coworker's drawer out of idle curiosity, while espionage is an organized, salaried effort to steal a rival's guarded secrets."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs someone secretly taking information another side is guarding -- ideally organized and paid for, not casual. Try working in a word like <i>agent<\/i>, <i>rival<\/i>, <i>secrets<\/i> or <i>stolen<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

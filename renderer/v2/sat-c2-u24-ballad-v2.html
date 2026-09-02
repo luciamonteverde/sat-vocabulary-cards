@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="4a8d77e8e569">
+<meta name="build" content="fadeb43e8810">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>ballad &#8212; SAT Vocabulary, Course 2 Unit 24</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "ballad", "gradeUrl": "/api/grade", "taskId": "ballad", "minWords": 12, "items": {"s1": {"q": "Which sentence uses ballad correctly?", "opts": {"A": "The drummer opened with a thrashing ballad that had the whole mosh pit airborne in seconds.", "B": "Her ballad on the game-winning goal ran three full columns in the Sunday sports section.", "C": "The choir closed with a ballad about a mill girl saving her wages to buy the family farm.", "D": "The orchestra performed a wordless ballad of crashing cymbals to open the fireworks show."}, "key": "C", "fb": {"correct": "Correct. The mill-girl song is slow, sentimental, and tells a story verse by verse — the three marks of a ballad.", "A": "Music that sends 'the whole mosh pit airborne' is fast and furious — the opposite of a ballad's pace. Look for a slow, sentimental song that unfolds a story.", "B": "Something that 'ran three full columns' in a newspaper is a written article, printed and read silently. A ballad is sung — a slow, tender song that carries a story in its verses.", "D": "With 'crashing cymbals' and no lyrics, this 'wordless' piece is loud and cannot narrate anything. A ballad is gentle and sentimental, and its sung words are what carry the story along."}}, "s3a": {"q": "As it is used in this passage, \"ballad\" most nearly means", "opts": {"A": "a slow song that carries a story through its verses", "B": "a quick and catchy piece written mainly to sell something", "C": "a tribute performed to honor one particular listener", "D": "a wordless melody passed down among ordinary singers"}, "key": "A", "fb": {"correct": "Right. The passage builds the definition itself: slow, verse for chapter, and it is the story — not the tune — that holds the hall.", "B": "The passage says the opposite twice: it is <em>not a quick or clever piece<\/em>, and nothing about it sells anything.", "C": "The choir sings to a full hall every December — no single listener is being courted or honored.", "D": "Wordless fails immediately: eleven verses carry the lamp boy's whole story, chapter by chapter."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "folk song", "B": "serenade", "C": "jingle", "D": "ballad"}, "key": "D", "fb": {"correct": "Right. A slow, feeling song that tells a story — two named characters, <em>verse by verse<\/em>, offered to everyone who will listen — is exactly a ballad.", "A": "A folk song is traditional, passed along from singer to singer over generations. <em>Nothing about it is traditional<\/em> — <em>she finished it only this winter<\/em> — so the word for inherited material is not the precise one.", "B": "A serenade is aimed at one particular listener, to court or honor that person. This piece <em>courts no particular listener<\/em>: the astronomer <em>taught it to everyone who came<\/em>.", "C": "A jingle is thirty catchy seconds built to sell something. <em>Its nine slow verses follow two telescope operators<\/em> across a working lifetime — far too much story and weight for an advertising tune."}}}, "grid": {"words": ["ballad", "folk song", "serenade", "jingle"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "For the encore the band slowed the hall's mood with a new ____ of its own — six verses tracing two dockworkers' long romance — written just last spring and sung to no one in particular.", "ks": ["ballad"], "fb": {"folk song": "That word needs a traditional song passed along by ordinary singers. This one was written by the band itself, last spring.", "serenade": "That word aims a song at one particular listener, to court or honor them. This is offered to a whole hall, <em>no one in particular<\/em>.", "jingle": "That is thirty catchy seconds built to sell something. Six slow verses about a long romance is the opposite job."}}, {"s": "The soundtrack's centerpiece is a ____ commissioned for the film: slow, sentimental, and built around two named characters whose story arrives verse by verse.", "ks": ["ballad"], "fb": {"folk song": "That word belongs to tradition — songs handed along by ordinary singers over generations. A commissioned soundtrack piece has no such history.", "serenade": "That is a performance for one particular listener — the audience is the point. A film's audience is anyone who buys a ticket.", "jingle": "That word means a short, catchy selling tool. Slow verses carrying two characters' story could not be further from an advertisement."}}, {"s": "At midnight he stood under her window with a borrowed guitar and offered a ____ meant for exactly one listener, who finally opened the shutters to hear the last verse.", "ks": ["serenade"], "fb": {"ballad": "That word names the storytelling song, sung for anyone who will listen. This song exists for one listener behind one window — the wooing is the job.", "folk song": "That is a traditional song ordinary singers pass along. This is one man's midnight bid for one person's attention.", "jingle": "That is a catchy scrap of advertising. Nobody under that window is selling anything."}}, {"s": "For their fiftieth anniversary he hired a quartet to perform a ____ beneath the porch, every note aimed at honoring one listener alone — his wife, seated in the doorway.", "ks": ["serenade"], "fb": {"ballad": "That word carries characters and a plot to any audience at all. Every note here is pointed at one woman in a doorway.", "folk song": "That word means a traditional song passed down among ordinary singers. A hired quartet honoring one listener is a private tribute.", "jingle": "That is thirty seconds engineered to sell. Fifty years of marriage is being honored, not marketed."}}, {"s": "The rowing crews still keep time with the same ____ passed down the harbor for two centuries — no characters, no plot, just the pull-and-breathe of the oars.", "ks": ["folk song"], "fb": {"ballad": "That word requires characters and their story, verse after verse. This song announces it has <em>no characters, no plot<\/em> — it exists to time the oars.", "serenade": "That word aims a song at one particular listener. A whole crew singing to the rhythm of rowing courts nobody.", "jingle": "That is a modern selling tool, thirty seconds long. Two centuries on the harbor with nothing for sale rules it out."}}, {"s": "The agency needed thirty catchy seconds for the mattress chain, so she wrote a ____ you can hum after one hearing and forget by lunch — the store's phone number baked into the tune.", "ks": ["jingle"], "fb": {"ballad": "That word means a slow song that walks characters through a story. A hummable phone number has no characters and no story — only a sale.", "folk song": "That word needs tradition and ordinary singers passing it along. This was invoiced by an ad agency this week.", "serenade": "That is music for one particular listener. A mattress ad plays to anyone with a radio."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a slow song that tells a story — characters and feeling carried through its verses, not a quick tune. Try working in a word like <i>verses<\/i>, <i>story<\/i>, <i>slow<\/i> or <i>tells<\/i>."}};
+  var CFG = {"word": "ballad", "gradeUrl": "/api/grade", "taskId": "ballad", "minWords": 12, "items": {"s1": {"q": "Which sentence uses ballad correctly?", "opts": {"A": "The drummer opened with a thrashing ballad that had the whole mosh pit airborne in seconds.", "B": "Her ballad on the game-winning goal ran three full columns in the Sunday sports section.", "C": "The choir closed with a ballad about a mill girl saving her wages to buy the family farm.", "D": "The orchestra performed a wordless ballad of crashing cymbals to open the fireworks show."}, "key": "C", "fb": {"correct": "Correct. The mill-girl song is slow, sentimental, and tells a story verse by verse — the three marks of a ballad.", "A": "Music that sends 'the whole mosh pit airborne' is fast and furious — the opposite of a ballad's pace. Look for a slow, sentimental song that unfolds a story.", "B": "Something that 'ran three full columns' in a newspaper is a written article, printed and read silently. A ballad is sung — a slow, tender song that carries a story in its verses.", "D": "With 'crashing cymbals' and no lyrics, this 'wordless' piece is loud and cannot narrate anything. A ballad is gentle and sentimental, and its sung words are what carry the story along."}}, "s3a": {"q": "As it is used in this passage, \"ballad\" most nearly means", "opts": {"A": "a slow song that carries a story through its verses", "B": "a quick and catchy piece written mainly to sell something", "C": "a tribute performed to honor one particular listener", "D": "a wordless melody passed down among ordinary singers"}, "key": "A", "fb": {"correct": "Right. The passage builds the definition itself: slow, verse for chapter, and it is the story — not the tune — that holds the hall.", "B": "The passage says the opposite twice: it is <em>not a quick or clever piece<\/em>, and nothing about it sells anything.", "C": "The choir sings to a full hall every December — no single listener is being courted or honored.", "D": "Wordless fails immediately: eleven verses carry the lamp boy's whole story, chapter by chapter."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "folk song", "B": "serenade", "C": "jingle", "D": "ballad"}, "key": "D", "fb": {"correct": "Right. A slow, feeling song that tells a story — two named characters, <em>verse by verse<\/em>, offered to everyone who will listen — is exactly a ballad.", "A": "A folk song is traditional, passed along from singer to singer over generations. <em>Nothing about it is traditional<\/em> — <em>she finished it only this winter<\/em> — so the word for inherited material is not the precise one.", "B": "A serenade is aimed at one particular listener, to court or honor that person. This piece <em>courts no particular listener<\/em>: the astronomer <em>taught it to everyone who came<\/em>.", "C": "A jingle is thirty catchy seconds built to sell something. <em>Its nine slow verses follow two telescope operators<\/em> across a working lifetime — far too much story and weight for an advertising tune."}}}, "pairwise": {"rows": [{"sentence": "For the encore the band slowed the hall's mood with a new ____ of its own — six verses tracing two dockworkers' long romance — written just last spring and sung to no one in particular.", "options": ["ballad", "serenade"], "key": "ballad", "pair": "serenade", "why_right": "The tell is <em>sung to no one in particular<\/em> - a ballad is sung for anyone who will listen, carrying its story to whoever is in the hall, not aimed at one person.", "why_wrong": "That word aims a song at one particular listener, to court or honor them. This is offered to a whole hall, <em>no one in particular<\/em>."}, {"sentence": "The soundtrack's centerpiece is a ____ commissioned for the film: slow, sentimental, and built around two named characters whose story arrives verse by verse.", "options": ["ballad", "folk song"], "key": "ballad", "pair": "folk song", "why_right": "The tell is <em>commissioned for the film<\/em> - a song written to order this year has no tradition behind it; the storytelling song needs no passing-down, only characters and a plot.", "why_wrong": "That word belongs to tradition — songs handed along by ordinary singers over generations. A commissioned soundtrack piece has no such history."}, {"sentence": "At midnight he stood under her window with a borrowed guitar and offered a ____ meant for exactly one listener, who finally opened the shutters to hear the last verse.", "options": ["ballad", "serenade"], "key": "serenade", "pair": "serenade", "why_right": "The tell is <em>meant for exactly one listener<\/em> - the audience is the point of a serenade: one person behind one window, courted verse by verse until the shutters open.", "why_wrong": "That word names the storytelling song, sung for anyone who will listen. This song exists for one listener behind one window — the wooing is the job."}, {"sentence": "For their fiftieth anniversary he hired a quartet to perform a ____ beneath the porch, every note aimed at honoring one listener alone — his wife, seated in the doorway.", "options": ["ballad", "serenade"], "key": "serenade", "pair": "serenade", "why_right": "The tell is <em>honoring one listener alone<\/em> - a serenade is sung to one particular listener to court or honor them; every note of this tribute points at the wife in the doorway.", "why_wrong": "That word carries characters and a plot to any audience at all. Every note here is pointed at one woman in a doorway."}, {"sentence": "No one remembers who first sang the ____ the parish mothers still hush their babies with: four drowsy lines, passed along for generations, that soothe but tell no story.", "options": ["ballad", "folk song"], "key": "folk song", "pair": "folk song", "why_right": "The tell is <em>passed along for generations<\/em> - a traditional song handed on by ordinary singers is a folk song, and four drowsy lines with no story shut the storytelling branch out.", "why_wrong": "That word needs characters and a plot carried verse by verse. Four drowsy lines that soothe but tell no story have nothing for the storytelling branch to hold."}, {"sentence": "The prize went to a brand-new ____ composed for this year's contest, eight slow verses following one canal lock-keeper's fifty years, sung by its author from her own manuscript.", "options": ["ballad", "folk song"], "key": "ballad", "pair": "folk song", "why_right": "The tell is <em>composed for this year's contest<\/em> - a story-song written just now, sung from its author's own manuscript, has no tradition to pass along; the storytelling song needs none.", "why_wrong": "That word means a traditional song passed along by ordinary singers. A piece composed for this year's contest and sung from the author's manuscript has no tradition behind it yet."}, {"sentence": "The agency needed thirty catchy seconds for the mattress chain, so she wrote a ____ you can hum after one hearing and forget by lunch — the store's phone number baked into the tune.", "options": ["ballad", "jingle"], "key": "jingle", "pair": "jingle", "why_right": "The tell is <em>thirty catchy seconds<\/em> - a jingle is built to sell something fast, hummable after one hearing, with a phone number where a story would go.", "why_wrong": "That word means a slow song that walks characters through a story. A hummable phone number has no characters and no story — only a sale."}, {"sentence": "The bakery chain's new commercial is carried by a ____: four unhurried minutes, verse after verse, of a night baker courting the morning florist, the brand shown only in the final frame.", "options": ["ballad", "jingle"], "key": "ballad", "pair": "jingle", "why_right": "The tell is <em>four unhurried minutes, verse after verse<\/em> - even inside a commercial, a slow song that carries a courtship through its verses is the storytelling song, not thirty catchy seconds.", "why_wrong": "That word means thirty catchy seconds built to sell something. Four unhurried minutes walking a courtship through verse after verse is the opposite shape, however commercial the setting."}], "display_order": [4, 0, 7, 1, 2, 6, 3, 5], "dimension_order": ["folk song", "serenade", "jingle"], "dimension_feedback": {"folk song": "A folk song is any traditional song passed along by ordinary singers — work songs, dance tunes, love songs alike. A ballad is the storytelling branch of that family: slow, sentimental, built around characters and a plot. Every ballad could live as a folk song, but most folk songs tell no story.", "serenade": "A serenade is sung to one particular listener, usually to court or honor them — the audience is the point. A ballad is sung for anyone who will listen and carries a story with characters and feeling. The serenade's job is the wooing; the ballad's job is the tale.", "jingle": "A jingle is far lighter than a ballad — thirty catchy seconds built to sell something, while a ballad carries characters and their story through verse after verse."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a slow song that tells a story — characters and feeling carried through its verses, not a quick tune. Try working in a word like <i>verses<\/i>, <i>story<\/i>, <i>slow<\/i> or <i>tells<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

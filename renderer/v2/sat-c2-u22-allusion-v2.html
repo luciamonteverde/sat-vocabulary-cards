@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="d54288def6f8">
+<meta name="build" content="225aa25b46ec">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>allusion &#8212; SAT Vocabulary, Course 2 Unit 22</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "allusion", "gradeUrl": "/api/grade", "taskId": "allusion", "minWords": 12, "items": {"s1": {"q": "Which sentence uses allusion correctly?", "opts": {"A": "The magician's floating card was a stunning allusion that fooled the entire front row, including two skeptics from the newspaper.", "B": "The mural of a woman lifting a lamp beside the harbor is an allusion to a famous statue, though no torch or crown appears anywhere in it.", "C": "Citing the 1987 crash by name, with the date and the key figures printed on one slide, the lecturer opened with a subtle allusion.", "D": "His book report was a faithful allusion to the plot, walking patiently through every chapter of the story in its original order."}, "key": "B", "fb": {"correct": "Correct! The mural points at a statue everyone can name without showing its torch or crown — an indirect, unnamed reference the viewer must catch. That indirection is what makes it an allusion.", "A": "A 'floating card' that 'fooled the entire front row' is a trick of perception — an illusion, one letter away. An allusion is a reference: it quietly points at something without spelling it out.", "C": "Citing the crash 'by name, with the date' on a slide is direct sourcing — the opposite of indirect. An allusion hints and moves on, trusting the audience to recognize what was never named.", "D": "Walking 'patiently through every chapter' in order is a full retelling — a summary. An allusion is brief and sideways: a quick gesture toward something outside the text, not a tour through the whole plot."}}, "s3a": {"q": "In this passage, calling the final line an \"allusion\" means that it", "opts": {"A": "points at a famous work without naming it, rewarding readers who recognize it", "B": "quotes the old film directly and credits it by title", "C": "hides a private message that only her adviser could decode", "D": "resembles the film by accident, without the editor intending it"}, "key": "A", "fb": {"correct": "Right -- the adviser defines the trick himself: point at something famous without naming it, and let the readers who catch it feel like insiders.", "B": "She never mentions any film -- the farewell is borrowed and folded into her own courtyard, not quoted and credited.", "C": "Plenty of students caught it, and by Monday a poster was taped up -- the line was meant to be caught, not locked to one reader.", "D": "The passage calls it the paper's oldest trick -- a deliberate device, not a coincidence."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "echo", "B": "veiled reference", "C": "allusion", "D": "knowing nod"}, "key": "C", "fb": {"correct": "Right. The arcade is never named, yet the architect <em>planned the borrowing from her first sketch<\/em> and shaped it so those who know the older building catch it at once and feel rewarded — an indirect, deliberate pointer to an unnamed source: an allusion.", "B": "A veiled reference is kept indirect in the half-hope it slips past unnoticed. This design aims the other way: the architect was <em>tuning it so the older residents would place the shape at a glance<\/em> — it is built to be caught and enjoyed, not to hide.", "D": "A knowing nod is the quickest of gestures — a beat, a passing wink. This pointer is sustained and structural: <em>five shallow vaults repeating the arcade's exact rhythm<\/em>, carrying real weight in the building itself.", "A": "An echo merely recalls another work, often without its maker even intending it. Nothing here is unintended: the architect <em>planned the borrowing from her first sketch<\/em>."}}}, "grid": {"words": ["allusion", "veiled reference", "knowing nod", "echo"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The valedictorian never names the moon landing, yet 'one small stride for our class' -- the crafted center of her closing -- is a sly ____ that classmates who know the broadcast catch instantly.", "ks": ["allusion"], "fb": {"veiled reference": "That phrase covers pointers kept indirect even in the hope nobody notices. This line is tuned for recognition -- classmates catch it instantly.", "knowing nod": "That is the quickest of gestures -- a beat, a raised eyebrow. This is the crafted center of a written closing, doing real work in the text.", "echo": "A mere resemblance can be faint and even unintended. This speaker built the line on purpose and aimed it at listeners who would know."}}, {"s": "The novelist's chapter titles quietly rework lines from a famous elegy she never names -- each one deliberately placed as ____ for readers who will recognize it and prize the recognition.", "ks": ["allusion"], "fb": {"veiled reference": "That covers indirection that may be meant to go unnoticed. These titles exist to be recognized and enjoyed by readers who know the elegy.", "knowing nod": "That is a fleeting gesture in the moment. A scheme of reworked chapter titles is built into the text and carries weight across the whole book.", "echo": "A faint, possibly unintended resemblance is not this: the titles are reworked and placed on purpose, chapter after chapter."}}, {"s": "In his memoir the senator writes only of 'a colleague who lost his nerve that winter' -- one ____ wrapped so thickly that most readers turn the page without pausing.", "ks": ["veiled reference"], "fb": {"allusion": "That word names the artful version, tuned so knowers catch it at once and feel rewarded. This wrapping is thick on purpose -- the senator would rather no one pause.", "knowing nod": "That gesture counts on its audience getting it immediately. Here most readers are meant to sail past without noticing anything at all.", "echo": "That would be a turn of phrase faintly recalling another work, perhaps by accident. This is a deliberate, disguised pointer at a particular man."}}, {"s": "Asked about the merger on air, the CEO spoke of 'certain conversations still under way' -- a guarded ____ his lawyers approved precisely because outsiders could not pin it to anything.", "ks": ["veiled reference"], "fb": {"allusion": "That word wants an audience that catches the source and feels let in. This phrasing was chosen so that nobody could pin anything down.", "knowing nod": "That is a passing wink to people certain to get it. A lawyer-vetted formula built to stay vague is the opposite of a wink.", "echo": "That would be wording that happens to recall another text. This is a deliberate, guarded pointer at real negotiations."}}, {"s": "When the director accepts the award, she pauses one beat and taps the brim of an imaginary cap -- a wordless ____ to her mentor that the old crew in the back row answers with laughter.", "ks": ["knowing nod"], "fb": {"allusion": "That word points in words -- a phrase, a reworked line. A tapped cap brim is a gesture, the beat-quick kind the card sets apart.", "veiled reference": "Nothing here is meant to slip past: the whole back row gets it at once and laughs. The gesture counts on being caught.", "echo": "That is a faint, sometimes accidental resemblance in wording. This is a deliberate salute, aimed at one mentor and answered on the spot."}}, {"s": "Reviewers keep hearing a faint ____ of the older poet in her line breaks -- a resemblance she says she never intended and only noticed once they pointed it out.", "ks": ["echo"], "fb": {"allusion": "That word requires design -- a pointer tuned so knowers catch it. This writer did not even know the resemblance existed until reviewers told her.", "veiled reference": "That phrase means someone chose to point indirectly. Here nobody chose anything; the resemblance arrived on its own.", "knowing nod": "That gesture needs a sender who means it. A likeness the writer herself had to be shown cannot be anyone's signal."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to point at something famous without ever naming it, so that only readers who know the source catch it. Try working in a word like <i>never names<\/i>, <i>recognize<\/i>, <i>borrowed<\/i> or <i>insiders<\/i>."}};
+  var CFG = {"word": "allusion", "gradeUrl": "/api/grade", "taskId": "allusion", "minWords": 12, "items": {"s1": {"q": "Which sentence uses allusion correctly?", "opts": {"A": "The magician's floating card was a stunning allusion that fooled the entire front row, including two skeptics from the newspaper.", "B": "The mural of a woman lifting a lamp beside the harbor is an allusion to a famous statue, though no torch or crown appears anywhere in it.", "C": "Citing the 1987 crash by name, with the date and the key figures printed on one slide, the lecturer opened with a subtle allusion.", "D": "His book report was a faithful allusion to the plot, walking patiently through every chapter of the story in its original order."}, "key": "B", "fb": {"correct": "Correct! The mural points at a statue everyone can name without showing its torch or crown — an indirect, unnamed reference the viewer must catch. That indirection is what makes it an allusion.", "A": "A 'floating card' that 'fooled the entire front row' is a trick of perception — an illusion, one letter away. An allusion is a reference: it quietly points at something without spelling it out.", "C": "Citing the crash 'by name, with the date' on a slide is direct sourcing — the opposite of indirect. An allusion hints and moves on, trusting the audience to recognize what was never named.", "D": "Walking 'patiently through every chapter' in order is a full retelling — a summary. An allusion is brief and sideways: a quick gesture toward something outside the text, not a tour through the whole plot."}}, "s3a": {"q": "In this passage, calling the final line an \"allusion\" means that it", "opts": {"A": "points at a famous work without naming it, rewarding readers who recognize it", "B": "quotes the old film directly and credits it by title", "C": "hides a private message that only her adviser could decode", "D": "resembles the film by accident, without the editor intending it"}, "key": "A", "fb": {"correct": "Right -- the adviser defines the trick himself: point at something famous without naming it, and let the readers who catch it feel like insiders.", "B": "She never mentions any film -- the farewell is borrowed and folded into her own courtyard, not quoted and credited.", "C": "Plenty of students caught it, and by Monday a poster was taped up -- the line was meant to be caught, not locked to one reader.", "D": "The passage calls it the paper's oldest trick -- a deliberate device, not a coincidence."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "echo", "B": "veiled reference", "C": "allusion", "D": "knowing nod"}, "key": "C", "fb": {"correct": "Right. The arcade is never named, yet the architect <em>planned the borrowing from her first sketch<\/em> and shaped it so those who know the older building catch it at once and feel rewarded — an indirect, deliberate pointer to an unnamed source: an allusion.", "B": "A veiled reference is kept indirect in the half-hope it slips past unnoticed. This design aims the other way: the architect was <em>tuning it so the older residents would place the shape at a glance<\/em> — it is built to be caught and enjoyed, not to hide.", "D": "A knowing nod is the quickest of gestures — a beat, a passing wink. This pointer is sustained and structural: <em>five shallow vaults repeating the arcade's exact rhythm<\/em>, carrying real weight in the building itself.", "A": "An echo merely recalls another work, often without its maker even intending it. Nothing here is unintended: the architect <em>planned the borrowing from her first sketch<\/em>."}}}, "pairwise": {"rows": [{"sentence": "In his memoir the senator writes only of 'a colleague who lost his nerve that winter' -- one ____ wrapped so thickly that most readers turn the page without pausing.", "options": ["allusion", "veiled reference"], "key": "veiled reference", "pair": "veiled reference", "why_right": "The tell is <em>wrapped so thickly<\/em> - the pointer is kept indirect in the hope that readers sail past it, not tuned so knowers catch it and feel rewarded.", "why_wrong": "That word names the artful version, tuned so knowers catch it at once and feel rewarded. This wrapping is thick on purpose -- the senator would rather no one pause."}, {"sentence": "Asked about the merger on air, the CEO spoke of 'certain conversations still under way' -- a guarded ____ his lawyers approved precisely because outsiders could not pin it to anything.", "options": ["allusion", "veiled reference"], "key": "veiled reference", "pair": "veiled reference", "why_right": "The tell is <em>outsiders could not pin it to anything<\/em> - the indirection exists to obscure, and no reader is meant to catch a source or feel let in.", "why_wrong": "That word wants an audience that catches the source and feels let in. This phrasing was chosen so that nobody could pin anything down."}, {"sentence": "The novelist's chapter titles quietly rework lines from a famous elegy she never names -- each one deliberately placed as ____ for readers who will recognize it and prize the recognition.", "options": ["allusion", "knowing nod"], "key": "allusion", "pair": "knowing nod", "why_right": "The tell is <em>each one deliberately placed<\/em> - a scheme of reworked titles carries real weight through the whole book, far more than a quick passing gesture could.", "why_wrong": "That is a fleeting gesture in the moment. A scheme of reworked chapter titles is built into the text and carries weight across the whole book."}, {"sentence": "Halfway through the encore the guitarist strums four notes from the band's shelved first single, grins, and moves on -- a quick ____ that only the fans from the basement-club years catch.", "options": ["allusion", "knowing nod"], "key": "knowing nod", "pair": "knowing nod", "why_right": "The tell is <em>grins, and moves on<\/em> - the quickest of gestures toward something the audience must recognize on its own, gone in a moment rather than carrying weight in words.", "why_wrong": "That word does its pointing in words and can carry real weight in a text. Four strummed notes and a grin are a wordless gesture, over before the next song starts."}, {"sentence": "Board members traded quick winks about the resignation; her written dissent closes by urging 'a road less traveled, taken together' -- the ____ that anchors the page for readers who know the poem.", "options": ["allusion", "knowing nod"], "key": "allusion", "pair": "knowing nod", "why_right": "The tell is <em>anchors the page<\/em> - pointing done in worked words that carry real weight in the text, and tuned to reward the readers who recognize the unnamed poem.", "why_wrong": "That is the quickest of gestures - a passing wink like the ones the board traded. This line is written into the dissent and holds up its whole final page."}, {"sentence": "The valedictorian never names the moon landing, yet 'one small stride for our class' -- the crafted center of her closing -- is a sly ____ that classmates who know the broadcast catch instantly.", "options": ["allusion", "echo"], "key": "allusion", "pair": "echo", "why_right": "The tell is <em>the crafted center of her closing<\/em> - the line was built and aimed so classmates who know the broadcast catch it, nothing faint or accidental about it.", "why_wrong": "A mere resemblance can be faint and even unintended. This speaker built the line on purpose and aimed it at listeners who would know."}, {"sentence": "Reviewers keep hearing a faint ____ of the older poet in her line breaks -- a resemblance she says she never intended and only noticed once they pointed it out.", "options": ["allusion", "echo"], "key": "echo", "pair": "echo", "why_right": "The tell is <em>she never intended<\/em> - the resemblance is faint and accidental, and a pointer that rewards knowing readers has to be built on purpose.", "why_wrong": "That word requires design -- a pointer tuned so knowers catch it. This writer did not even know the resemblance existed until reviewers told her."}, {"sentence": "The best man rewrote the toast until 'two houses, alike in stubbornness' sat where the bride's book club would hear it -- one planted ____ that drew the club's delighted laugh.", "options": ["allusion", "echo"], "key": "allusion", "pair": "echo", "why_right": "The tell is <em>rewrote the toast until<\/em> - the pointing is engineered and aimed at hearers who will catch the unnamed play, far more than a turn of phrase faintly recalling it.", "why_wrong": "That word names a faint resemblance, perhaps one the writer never intended. This line was rewritten and planted on purpose so the bride's book club would catch the play behind it."}], "display_order": [3, 6, 4, 7, 0, 2, 5, 1], "dimension_order": ["veiled reference", "knowing nod", "echo"], "dimension_feedback": {"veiled reference": "A veiled reference is any pointer kept deliberately indirect, and the veil can be thick — sometimes the writer half-hopes it slips past unnoticed. An allusion is the artful version: still unnamed, but tuned so that readers who know the source catch it at once and feel rewarded.", "knowing nod": "A knowing nod is the quickest of gestures — a beat, a phrase, a raised eyebrow toward something the audience must recognize on its own. An allusion does the same pointing in words, and it can carry real weight in a text rather than staying a passing wink.", "echo": "An echo is fainter than an allusion — a turn of phrase that merely recalls another work, perhaps without the writer even intending it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to point at something famous without ever naming it, so that only readers who know the source catch it. Try working in a word like <i>never names<\/i>, <i>recognize<\/i>, <i>borrowed<\/i> or <i>insiders<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

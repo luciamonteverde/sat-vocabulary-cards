@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="c4cbd8b58d95">
+<meta name="build" content="4dbddc8bcc2f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mediator &#8212; SAT Vocabulary, Course 2 Unit 23</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "mediator", "gradeUrl": "/api/grade", "taskId": "mediator", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mediator correctly?", "opts": {"A": "The retired principal serves as mediator in the district's parent disputes, keeping both sides talking until they land on terms each can accept.", "B": "A born mediator, the coach spent the entire disciplinary hearing arguing his own team's side of the incident until the two-game penalty was finally overturned.", "C": "Acting as mediator, the judge rejected both parties' settlement offers outright and imposed her own terms on the feuding companies before the noon recess.", "D": "The columnist played mediator between the rival campaigns, printing each side's worst rumors about the other every Sunday."}, "key": "A", "fb": {"correct": "Correct! A mediator is a neutral third party who helps disputing sides reach their own agreement — the principal argues for no one, decides nothing, and keeps both sides talking until they land on terms themselves.", "B": "Not quite! A mediator argues for no one, so it's not the correct choice here because spending the hearing pressing one team's case is advocacy — the coach has a side, and he is on it.", "C": "Not quite! A mediator decides nothing — the parties keep that power — so it's not the correct choice here because rejecting both offers and imposing terms is handing down a ruling, exactly the move the word rules out.", "D": "Not quite! A mediator works to settle a dispute, so it's not the correct choice here because printing each camp's worst rumors feeds the quarrel — this columnist is fanning the very fire the word exists to put out."}}, "s3a": {"q": "As used in this passage, a \"mediator\" is", "opts": {"A": "a neutral outsider who helps two sides reach their own agreement", "B": "an official who imposes a fair schedule after hearing both groups argue", "C": "a messenger who shuttles complaints between two groups that will not meet", "D": "a respected insider who calms quarrels through personal loyalty and charm"}, "key": "A", "fb": {"correct": "Right — no ties to either group, acceptable to both, and \"what he never did was decide.\"", "B": "The principal \"declined to impose a schedule,\" and the retired teacher never decided anything.", "C": "The clubs met face to face — he ran the meetings and asked questions rather than shuttling complaints.", "D": "He was chosen for having \"no ties to either group\" — the opposite of an insider trading on loyalty."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mediator", "B": "arbitrator", "C": "go-between", "D": "peacemaker"}, "key": "A", "fb": {"correct": "Right. A mediator is a neutral third party who steers the two sides toward an agreement they write themselves — she guided four sessions, decided nothing, and the split the authors initialed was their own.", "C": "A go-between carries messages across a divide and stops there. This editor ran the process: <em>she set the agenda, steadied the talks whenever they stalled, and pressed each side to price its own claims<\/em>. That is active steering, not ferrying words.", "D": "A peacemaker is anyone who tries to end a quarrel, by any means and from any position — even from inside it. The passage is exact about where this figure stands: <em>a retired editor with no stake in either writer's career<\/em>, an outsider acceptable to both. The stem asks for the most precise word for that role, and peacemaker is too loose.", "B": "An arbitrator hears both sides and hands down a ruling that binds them. This editor had <em>no power to force an outcome<\/em>; the settlement was <em>drafted in their handwriting, not hers<\/em>, and she <em>ruled on nothing<\/em>."}}}, "grid": {"words": ["mediator", "go-between", "peacemaker", "arbitrator"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Both partners trusted the retired banker as a neutral ____, and after two evenings of guided talks they drafted the buyout terms themselves.", "ks": ["mediator"], "fb": {"go-between": "She did far more than ferry words — two evenings of <em>guided talks<\/em> steered the partners toward terms they wrote themselves.", "peacemaker": "Anyone, from any position, can try to end a quarrel; the sentence stakes out a precise spot — neutral, outside, trusted by both.", "arbitrator": "The partners <em>drafted the buyout terms themselves<\/em> — nothing was ruled or handed down."}}, {"s": "The county offers feuding neighbors an hour with a trained ____, who steers the talk but signs nothing, until the two sides write their own fence agreement.", "ks": ["mediator"], "fb": {"go-between": "Steering the talk is more than carrying messages across a divide.", "peacemaker": "This is a defined, outside role the county provides — not anyone trying to end a quarrel by whatever means.", "arbitrator": "The official <em>signs nothing<\/em> and the neighbors <em>write their own fence agreement<\/em> — no ruling binds anyone."}}, {"s": "Under the contract the dispute goes to an outside ____, whose decision, once issued, binds both companies whether either likes it or not.", "ks": ["arbitrator"], "fb": {"mediator": "A decision is <em>issued<\/em> and <em>binds both companies<\/em> — a mediator steers the talks but decides nothing.", "go-between": "Hearing a dispute and deciding it goes far beyond carrying messages.", "peacemaker": "The role exists under a contract and ends in a binding decision, not in goodwill restored by any available means."}}, {"s": "The league sends salary fights to a veteran ____, who hears both camps for a day and then hands down a figure neither side can appeal.", "ks": ["arbitrator"], "fb": {"mediator": "The third party <em>hands down a figure<\/em> — a mediator guides the sides to their own number and decides nothing.", "go-between": "Both camps are heard and a figure imposed — far more than ferrying offers back and forth.", "peacemaker": "Nothing here is about ending a quarrel by any means; the job is to decide the number, which then binds."}}, {"s": "For months the only contact between the estranged brothers was their aunt, a faithful ____ who carried each note across town and never once weighed in.", "ks": ["go-between"], "fb": {"mediator": "She <em>never once weighed in<\/em> — no one steered the brothers toward any settlement; the notes simply crossed town.", "peacemaker": "She made no attempt to end the quarrel — carrying each note, and nothing more, was the whole role.", "arbitrator": "No decision of any kind was made, let alone one that binds."}}, {"s": "Right in the middle of the shouting, the eldest cousin played ____ at the reunion, tugging sleeves and cracking jokes until the argument fizzled.", "ks": ["peacemaker"], "fb": {"mediator": "The cousin is <em>right in the middle<\/em> of the family fight — not a neutral outsider welcome to both sides — and jokes are not guided settlement talks.", "go-between": "No messages are carried between separated parties; she works the room herself.", "arbitrator": "Nothing is heard formally and nothing binding comes down — sleeves are tugged and jokes cracked."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a neutral outsider guiding two sides toward an agreement they write themselves — deciding nothing. Work in words like <i>neutral<\/i>, <i>both sides<\/i>, <i>talks<\/i> or <i>their own deal<\/i>."}};
+  var CFG = {"word": "mediator", "gradeUrl": "/api/grade", "taskId": "mediator", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mediator correctly?", "opts": {"A": "The retired principal serves as mediator in the district's parent disputes, keeping both sides talking until they land on terms each can accept.", "B": "A born mediator, the coach spent the entire disciplinary hearing arguing his own team's side of the incident until the two-game penalty was finally overturned.", "C": "Acting as mediator, the judge rejected both parties' settlement offers outright and imposed her own terms on the feuding companies before the noon recess.", "D": "The columnist played mediator between the rival campaigns, printing each side's worst rumors about the other every Sunday."}, "key": "A", "fb": {"correct": "Correct! A mediator is a neutral third party who helps disputing sides reach their own agreement — the principal argues for no one, decides nothing, and keeps both sides talking until they land on terms themselves.", "B": "Not quite! A mediator argues for no one, so it's not the correct choice here because spending the hearing pressing one team's case is advocacy — the coach has a side, and he is on it.", "C": "Not quite! A mediator decides nothing — the parties keep that power — so it's not the correct choice here because rejecting both offers and imposing terms is handing down a ruling, exactly the move the word rules out.", "D": "Not quite! A mediator works to settle a dispute, so it's not the correct choice here because printing each camp's worst rumors feeds the quarrel — this columnist is fanning the very fire the word exists to put out."}}, "s3a": {"q": "As used in this passage, a \"mediator\" is", "opts": {"A": "a neutral outsider who helps two sides reach their own agreement", "B": "an official who imposes a fair schedule after hearing both groups argue", "C": "a messenger who shuttles complaints between two groups that will not meet", "D": "a respected insider who calms quarrels through personal loyalty and charm"}, "key": "A", "fb": {"correct": "Right — no ties to either group, acceptable to both, and \"what he never did was decide.\"", "B": "The principal \"declined to impose a schedule,\" and the retired teacher never decided anything.", "C": "The clubs met face to face — he ran the meetings and asked questions rather than shuttling complaints.", "D": "He was chosen for having \"no ties to either group\" — the opposite of an insider trading on loyalty."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mediator", "B": "arbitrator", "C": "go-between", "D": "peacemaker"}, "key": "A", "fb": {"correct": "Right. A mediator is a neutral third party who steers the two sides toward an agreement they write themselves — she guided four sessions, decided nothing, and the split the authors initialed was their own.", "C": "A go-between carries messages across a divide and stops there. This editor ran the process: <em>she set the agenda, steadied the talks whenever they stalled, and pressed each side to price its own claims<\/em>. That is active steering, not ferrying words.", "D": "A peacemaker is anyone who tries to end a quarrel, by any means and from any position — even from inside it. The passage is exact about where this figure stands: <em>a retired editor with no stake in either writer's career<\/em>, an outsider acceptable to both. The stem asks for the most precise word for that role, and peacemaker is too loose.", "B": "An arbitrator hears both sides and hands down a ruling that binds them. This editor had <em>no power to force an outcome<\/em>; the settlement was <em>drafted in their handwriting, not hers<\/em>, and she <em>ruled on nothing<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The county offers feuding neighbors an hour with a trained ____, who steers the talk but signs nothing, until the two sides write their own fence agreement.", "options": ["mediator", "go-between"], "key": "mediator", "pair": "go-between", "why_right": "The tell is <em>steers the talk<\/em> - the trained official guides the neighbors toward a settlement they write themselves, which is more than carrying words across a divide and stopping there.", "why_wrong": "That word means a carrier of messages between parties who are not talking. This official is in the room steering a live conversation - shaping the talk, though deciding nothing."}, {"sentence": "All year, memos between the feuding chairs traveled through secretaries; the ____ the dean finally sent steered both toward a teaching schedule they drafted together.", "options": ["mediator", "go-between"], "key": "mediator", "pair": "go-between", "why_right": "The tell is <em>steered both toward a teaching schedule they drafted together<\/em> - the secretaries already did the message-carrying; this role starts past it, guiding the two sides to their own settlement.", "why_wrong": "That word means someone who carries messages across a divide and stops there - the secretaries' job all year. The person the dean sent steered the chairs toward terms they drafted together."}, {"sentence": "During the embargo, a courier served as the distilleries' only ____, carrying bids across the border unread, with no brief to nudge either side toward terms.", "options": ["mediator", "go-between"], "key": "go-between", "pair": "go-between", "why_right": "The tell is <em>no brief to nudge either side toward terms<\/em> - the courier carries the bids and stops there, with the steering that would make this something more explicitly ruled out.", "why_wrong": "That word means a neutral third party who steers two sides toward their own settlement. This courier steers nothing - the bids cross unread, and nudging either side is off the brief."}, {"sentence": "Right in the middle of the shouting, the eldest cousin played ____ at the reunion, tugging sleeves and cracking jokes until the argument fizzled.", "options": ["mediator", "peacemaker"], "key": "peacemaker", "pair": "peacemaker", "why_right": "The tell is <em>the eldest cousin<\/em> - a family insider ending the quarrel with jokes and tugged sleeves, by any means and from inside the fight, needing no neutral outside position at all.", "why_wrong": "The cousin is <em>right in the middle<\/em> of the family fight — not a neutral outsider welcome to both sides — and jokes are not guided settlement talks."}, {"sentence": "Manager, roadies, even fans had tried to end the feud; it took a ____, outside the fight and partial to neither founder, to get the pair drafting their own split terms.", "options": ["mediator", "peacemaker"], "key": "mediator", "pair": "peacemaker", "why_right": "The tell is <em>outside the fight and partial to neither founder<\/em> - everyone else had tried from inside; what it took was the precise neutral spot this word names.", "why_wrong": "That word means anyone who tries to end a quarrel, from any position - the manager, roadies, and fans already were that. What it took was a neutral outsider welcome to both founders."}, {"sentence": "Under the contract the dispute goes to an outside ____, whose decision, once issued, binds both companies whether either likes it or not.", "options": ["mediator", "arbitrator"], "key": "arbitrator", "pair": "arbitrator", "why_right": "The tell is <em>binds both companies whether either likes it or not<\/em> - the third party hears the dispute and hands down a ruling with force of its own, deciding rather than steering.", "why_wrong": "A decision is <em>issued<\/em> and <em>binds both companies<\/em> — a mediator steers the talks but decides nothing."}, {"sentence": "The league sends salary fights to a veteran ____, who hears both camps for a day and then hands down a figure neither side can appeal.", "options": ["mediator", "arbitrator"], "key": "arbitrator", "pair": "arbitrator", "why_right": "The tell is <em>hands down a figure neither side can appeal<\/em> - after hearing both camps, the veteran decides the number outright, a binding ruling rather than guidance toward the sides' own deal.", "why_wrong": "The third party <em>hands down a figure<\/em> — a mediator guides the sides to their own number and decides nothing."}, {"sentence": "The ____ the deadlocked studios brought in had no authority to impose a cut, coaxing them instead toward an edit each could live with.", "options": ["mediator", "arbitrator"], "key": "mediator", "pair": "arbitrator", "why_right": "The tell is <em>no authority to impose a cut<\/em> - this third party decides nothing and coaxes the studios toward an edit of their own, the restraint that separates guiding from ruling.", "why_wrong": "That word means a third party who hears both sides and hands down a binding ruling. This one could impose nothing - the studios kept the power and reached their own edit."}], "display_order": [2, 6, 4, 5, 0, 7, 3, 1], "dimension_order": ["go-between", "peacemaker", "arbitrator"], "dimension_feedback": {"go-between": "A go-between carries messages across a divide and stops there. A mediator does more than ferry words — a mediator steers the two sides toward a settlement they write themselves.", "peacemaker": "A peacemaker is anyone who tries to end a quarrel, by any means and from any position — even from inside the fight. A mediator works from a precise spot: outside the dispute, neutral, and welcome to both sides.", "arbitrator": "An arbitrator goes further than a mediator — a mediator guides the talks but decides nothing, while an arbitrator hears both sides and hands down a ruling that binds them."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a neutral outsider guiding two sides toward an agreement they write themselves — deciding nothing. Work in words like <i>neutral<\/i>, <i>both sides<\/i>, <i>talks<\/i> or <i>their own deal<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

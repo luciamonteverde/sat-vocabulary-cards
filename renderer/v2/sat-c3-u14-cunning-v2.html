@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="56e9a0aa5219">
+<meta name="build" content="eadf913c4c4b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>cunning &#8212; SAT Vocabulary, Course 3 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "cunning", "gradeUrl": "/api/grade", "taskId": "cunning", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cunning correctly?", "opts": {"A": "Her cunning solution to the water shortage was published openly and adopted, unchanged, by six neighboring towns.", "B": "The intern's cunning was legendary: he believed every excuse and signed whatever was put in front of him.", "C": "Out of pure cunning, the goalkeeper announced to the striker exactly which corner he would dive toward.", "D": "The cunning tipster sold each client a different 'guaranteed' winner, so somebody always came back to pay for more."}, "key": "D", "fb": {"correct": "Right. Selling every client a different 'sure thing' guarantees that a few win by luck and return to pay again — cleverness working through deception is cunning.", "A": "A solution 'published openly' and adopted unchanged by six towns is cleverness with nothing concealed. Cunning needs deception folded into the cleverness — full daylight rules the word out.", "B": "Believing 'every excuse' and signing whatever lands in front of him is gullibility — being easy to fool. A cunning person does the fooling, pairing cleverness with a deceptive edge.", "C": "Announcing 'exactly which corner' he will dive toward hands the striker the truth in advance — total transparency. Cunning joins cleverness to deception, and this goalkeeper is practicing neither trick nor disguise."}}, "s3a": {"q": "As it is used in the passage, \"cunning\" most nearly means", "opts": {"A": "patience that succeeds without any real trickery", "B": "deception carried out with skillful planning", "C": "an instinct for avoiding larger and stronger rivals", "D": "cruelty toward the young of other species"}, "key": "B", "fb": {"correct": "Right — days of watching, a nine-second strike, and an egg faked 'down to the speckling': deception, planned and skillful.", "A": "Patience is there, but so is a forgery. An egg that mimics the hosts' own is trickery by any measure.", "C": "The warblers are smaller, not stronger, and she does not avoid them — she waits them out and uses their nest.", "D": "The passage never dwells on harm. What it details is method — the watching, the timing, the perfect fake."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sly", "B": "crafty", "C": "clever", "D": "cunning"}, "key": "B", "fb": {"correct": "Right. Crafty means tricky in a patient, workshop way — a trap built over many turns. That is this commander exactly: <em>For a month<\/em> he let the easy raids continue, <em>he moved not one sentry, so the pattern looked safe<\/em>, and the valley was ready when the war band finally came.", "D": "Cunning is not wrong about him, but it is the broader word, and a cunning stroke can be over in a single moment. This passage puts all its weight on patience: the raids ran <em>For a month<\/em>, and the valley waiting at the end was one <em>he had spent those weeks preparing<\/em>. The most precise choice has to carry that slow, deliberate build.", "A": "Sly points at quiet, corner-of-the-room sneaking that hopes never to be noticed at all. This commander's work sat in the open — <em>he moved not one sentry, so the pattern looked safe<\/em> — and the whole design was meant to be discovered at a stroke, when <em>the trap closed behind it<\/em>.", "C": "Clever praises the quickness of a mind and says nothing at all about honesty. This scheme was slow by design and dishonest to its core: the easy raids succeeded only because he arranged that <em>the pattern looked safe<\/em> while the valley was being prepared."}}}, "grid": {"words": ["cunning", "crafty", "sly", "clever"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The magician's whole act was ____ in its misdirection: while every eye tracked the flaming scarf, the second dove was already waiting under the table's false top.", "ks": ["cunning"], "fb": {"crafty": "That word builds its trap over many turns, patient as a workshop. This trick lives in one instant — every eye on the scarf while the dove waits.", "sly": "That works in corners, hoping never to be noticed. A stage act runs its deceit in plain sight of a full house, steering attention rather than hiding.", "clever": "That praises quickness and says nothing about honesty. Here the quickness exists to mislead — the audience is meant to look at exactly the wrong thing."}}, {"s": "Her ____ counteroffer looked generous on its face, yet every clause quietly shifted the risk back onto the buyer.", "ks": ["cunning"], "fb": {"crafty": "The patient, many-turns word. A single counteroffer that does all its work in one stroke is the faster kind of trickery.", "sly": "Nothing here hides — the document sits openly on the table. Its trick works in plain view, in fine print everyone is free to read.", "clever": "A quick mind alone would deserve that. Clauses that quietly move the risk onto the buyer add deceit to the quickness — and a different word carries that."}}, {"s": "The veteran was ____ across the whole match, feeding her rival the same safe forehand for two sets so that the drop shot, when it came, met no resistance.", "ks": ["crafty"], "fb": {"cunning": "That broader word can live in a single stroke. What the sentence shows is the patient, workshop version — a trap fed and tended for two whole sets before it springs.", "sly": "That hides in corners and hopes to go unnoticed. Every one of these forehands lands in front of a crowd; the trap is patience, not concealment.", "clever": "Quickness of mind says nothing about honesty. Two sets of deliberately safe shots is a baited trap, and baiting is trickery."}}, {"s": "The ____ groundskeeper beat the crows by degrees: each week the decoy owl stood a little nearer the cherry trees, until the flock had schooled itself to keep away.", "ks": ["crafty"], "fb": {"cunning": "That word can strike in one moment. This win is assembled 'by degrees' — a decoy moved a little each week, at the workshop pace the card assigns elsewhere.", "sly": "Nothing is hidden — the owl stands in plain view of every crow in the county. The trick is patience, not secrecy.", "clever": "A quick fix would earn that. Weeks of gradually re-training a flock is slow, deliberate trickery — quickness has nothing to do with it."}}, {"s": "Their ____ arrangement was sealed with a nod in the parking garage: he would inflate the appraisal, and she would never mention his fee.", "ks": ["sly"], "fb": {"cunning": "That word can run its trick in plain sight, steering your attention while it works. This arrangement cannot afford sight at all — it lives on a nod in a parking garage.", "crafty": "The many-turns trap word. One nod, one corrupt understanding — there is no patient construction here.", "clever": "Quick thinking is not the point. The point is the corner-of-the-eye secrecy of a deal that must never be noticed."}}, {"s": "The intern's ____ fix — looping a cable through the door handle — had the server room open in under a minute, and she cheerfully explained it to everyone at lunch.", "ks": ["clever"], "fb": {"cunning": "That folds deceit into the quickness. There is no deceit to fold — she showed everyone how it worked the same day.", "crafty": "That builds patient traps. A sixty-second improvisation with a cable is the opposite of patient.", "sly": "That hopes never to be noticed. She narrated the whole trick at lunch, to applause."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs cleverness with a trick folded inside it — someone, or something, misled rather than merely impressed. Show both halves by working in a word like <i>trick<\/i>, <i>while<\/i>, <i>noticed<\/i> or <i>distracted<\/i>."}};
+  var CFG = {"word": "cunning", "gradeUrl": "/api/grade", "taskId": "cunning", "minWords": 12, "items": {"s1": {"q": "Which sentence uses cunning correctly?", "opts": {"A": "Her cunning solution to the water shortage was published openly and adopted, unchanged, by six neighboring towns.", "B": "The intern's cunning was legendary: he believed every excuse and signed whatever was put in front of him.", "C": "Out of pure cunning, the goalkeeper announced to the striker exactly which corner he would dive toward.", "D": "The cunning tipster sold each client a different 'guaranteed' winner, so somebody always came back to pay for more."}, "key": "D", "fb": {"correct": "Right. Selling every client a different 'sure thing' guarantees that a few win by luck and return to pay again — cleverness working through deception is cunning.", "A": "A solution 'published openly' and adopted unchanged by six towns is cleverness with nothing concealed. Cunning needs deception folded into the cleverness — full daylight rules the word out.", "B": "Believing 'every excuse' and signing whatever lands in front of him is gullibility — being easy to fool. A cunning person does the fooling, pairing cleverness with a deceptive edge.", "C": "Announcing 'exactly which corner' he will dive toward hands the striker the truth in advance — total transparency. Cunning joins cleverness to deception, and this goalkeeper is practicing neither trick nor disguise."}}, "s3a": {"q": "As it is used in the passage, \"cunning\" most nearly means", "opts": {"A": "patience that succeeds without any real trickery", "B": "deception carried out with skillful planning", "C": "an instinct for avoiding larger and stronger rivals", "D": "cruelty toward the young of other species"}, "key": "B", "fb": {"correct": "Right — days of watching, a nine-second strike, and an egg faked 'down to the speckling': deception, planned and skillful.", "A": "Patience is there, but so is a forgery. An egg that mimics the hosts' own is trickery by any measure.", "C": "The warblers are smaller, not stronger, and she does not avoid them — she waits them out and uses their nest.", "D": "The passage never dwells on harm. What it details is method — the watching, the timing, the perfect fake."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "sly", "B": "crafty", "C": "clever", "D": "cunning"}, "key": "B", "fb": {"correct": "Right. Crafty means tricky in a patient, workshop way — a trap built over many turns. That is this commander exactly: <em>For a month<\/em> he let the easy raids continue, <em>he moved not one sentry, so the pattern looked safe<\/em>, and the valley was ready when the war band finally came.", "D": "Cunning is not wrong about him, but it is the broader word, and a cunning stroke can be over in a single moment. This passage puts all its weight on patience: the raids ran <em>For a month<\/em>, and the valley waiting at the end was one <em>he had spent those weeks preparing<\/em>. The most precise choice has to carry that slow, deliberate build.", "A": "Sly points at quiet, corner-of-the-room sneaking that hopes never to be noticed at all. This commander's work sat in the open — <em>he moved not one sentry, so the pattern looked safe<\/em> — and the whole design was meant to be discovered at a stroke, when <em>the trap closed behind it<\/em>.", "C": "Clever praises the quickness of a mind and says nothing at all about honesty. This scheme was slow by design and dishonest to its core: the easy raids succeeded only because he arranged that <em>the pattern looked safe<\/em> while the valley was being prepared."}}}, "pairwise": {"rows": [{"sentence": "Caught trespassing with no story ready, the ____ teenager glanced at a fallen branch and, on the instant, presented himself as the neighbor's yard help, asking where to stack the wood.", "options": ["cunning", "crafty"], "key": "cunning", "pair": "crafty", "why_right": "The tell is <em>on the instant<\/em> - the deceit is a single stroke steering the questioner's attention to the wood, with no trap built patiently over many turns beforehand.", "why_wrong": "That word means patient, workshop trickery, a trap built over many turns and left to spring. He was caught with no story ready and improvised the whole deception in one breath."}, {"sentence": "Asked why the wreath marked sold still hung in the window, the ____ florist produced, between one breath and the next, a bride who had begged to see it displayed a week longer.", "options": ["cunning", "crafty"], "key": "cunning", "pair": "crafty", "why_right": "The tell is <em>between one breath and the next<\/em> - the invented bride is a single stroke of deceit made up on the spot, not the slow, tinkering preparation the patient word requires.", "why_wrong": "That word suggests slow, tinkering preparation, a trap tended over many turns. A bride invented between one breath and the next has had no preparation at all."}, {"sentence": "The magician's whole act was ____ in its misdirection: while every eye tracked the flaming scarf, the second dove was already waiting under the table's false top.", "options": ["cunning", "sly"], "key": "cunning", "pair": "sly", "why_right": "The tell is <em>while every eye tracked the flaming scarf<\/em> - the deceit runs in plain sight of a full house, steering every gaze, where the quieter word hides in corners hoping never to be noticed.", "why_wrong": "That works in corners, hoping never to be noticed. A stage act runs its deceit in plain sight of a full house, steering attention rather than hiding."}, {"sentence": "The ____ boarder needed no wit, only an early alarm: each dawn he poured off the last of the shared milk before anyone was up, sure nobody would measure the carton.", "options": ["cunning", "sly"], "key": "sly", "pair": "sly", "why_right": "The tell is <em>needed no wit<\/em> - nothing here is a clever trick, only quiet corner work before anyone is up, hoping never to be noticed; the rival word requires cleverness folded into the deceit.", "why_wrong": "That word means clever in a deceptive way, a trick with real wit behind it. Pouring off the milk before anyone is up takes no wit, only a corner and the hope of going unnoticed."}, {"sentence": "Nothing about the ____ nephew's method was quick or bright — he waited for the kitchen to empty, took the rearmost cookie, and nudged the rest over the gap.", "options": ["cunning", "sly"], "key": "sly", "pair": "sly", "why_right": "The tell is <em>quick or bright<\/em> - the sentence denies any quickness of mind; what remains is corner work in an empty kitchen, hoping the gap is never noticed, the quieter word's ground.", "why_wrong": "That word means cleverness with deceit folded in, and the sentence denies the cleverness outright. Waiting for an empty kitchen and hiding a gap is plain corner work, not a trick."}, {"sentence": "Every scout in the room admired the quickness of the trade; what the league punished was how ____ it had been, the injury report doctored so the rival club bid blind.", "options": ["cunning", "clever"], "key": "cunning", "pair": "clever", "why_right": "The tell is <em>what the league punished<\/em> - the quickness is already credited to the scouts' admiration, and a league punishes only cleverness that has stopped being fair, the doctored report doing the deceiving.", "why_wrong": "That word praises the quickness of a mind, and the scouts have already given the quickness its due. A league does not punish praise; it punished the doctored report, deceit folded into the trade."}, {"sentence": "The intern's ____ fix — looping a cable through the door handle — had the server room open in under a minute, and she cheerfully explained it to everyone at lunch.", "options": ["cunning", "clever"], "key": "clever", "pair": "clever", "why_right": "The tell is <em>cheerfully explained it to everyone<\/em> - pure quickness of mind with nothing hidden and nobody misled; the rival word needs deceit folded into the quickness, and there is none.", "why_wrong": "That folds deceit into the quickness. There is no deceit to fold — she showed everyone how it worked the same day."}, {"sentence": "Her ____ shortcut through the proof, spotted at the whiteboard and shared with the whole lecture hall, took three pages of algebra down to four lines.", "options": ["cunning", "clever"], "key": "clever", "pair": "clever", "why_right": "The tell is <em>shared with the whole lecture hall<\/em> - a quick mind's shortcut given away to everyone at once, no one misled; the rival word folds deceit into the quickness, and none is here.", "why_wrong": "That word means clever in a deceptive way, with someone arranged to look the wrong way. A proof shortcut announced to the whole hall misleads nobody; it is quickness of mind and nothing more."}], "display_order": [5, 3, 0, 2, 7, 4, 1, 6], "dimension_order": ["crafty", "sly", "clever"], "dimension_feedback": {"crafty": "Crafty means tricky in a patient, workshop way — the crafty player builds a trap over many turns and waits for it to spring. Cunning is the broader word for cleverness with deceit folded in: a cunning stroke may take a single moment, while craftiness suggests slow, tinkering preparation.", "sly": "Sly is quieter and sneakier than cunning — sly work happens in the corners, in winks and side deals, hoping never to be noticed at all. Cunning can operate in plain sight, running its trick right in front of you while steering your attention somewhere else.", "clever": "Clever is milder than cunning — clever praises the quickness of a mind and says nothing at all about honesty."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs cleverness with a trick folded inside it — someone, or something, misled rather than merely impressed. Show both halves by working in a word like <i>trick<\/i>, <i>while<\/i>, <i>noticed<\/i> or <i>distracted<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="76b0d93216ec">
+<meta name="build" content="50033534226b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>laborious &#8212; SAT Vocabulary, Course 2 Unit 3</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "laborious", "gradeUrl": "/api/grade", "taskId": "laborious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses laborious correctly?", "opts": {"A": "Microwaving last night's leftovers proved terribly laborious, taking very nearly ninety whole seconds from start to finish.", "B": "Copying the family's four hundred handwritten recipes into the archive was laborious, filling Nona's afternoons for an entire winter.", "C": "The wonderfully laborious shortcut through the alley saved them three full hours of effort on the very first try.", "D": "Her laborious hobby of afternoon napping had required, she claimed, years of dedicated daily practice to truly perfect."}, "key": "B", "fb": {"correct": "Right. Hand-copying four hundred recipes, afternoon after afternoon for a whole winter, is long, slow, careful toil - precisely what laborious describes.", "A": "'Very nearly ninety whole seconds' at a microwave is next to no effort — the sentence is joking. Laborious belongs to slow, careful toil that stretches on and on, not a button press.", "C": "That shortcut 'saved them three full hours of effort' — it removes labor instead of demanding it. Laborious describes tasks that ask for long, painstaking effort; the more sweat, the better the fit.", "D": "Her 'hobby' of napping, perfected through 'years of dedicated daily practice,' takes no toil at all — sleep asks nothing of anyone. Laborious belongs to slow, demanding tasks that genuinely wear a person down."}}, "s3a": {"q": "As it is used in the passage, \"laborious\" most nearly means", "opts": {"A": "demanding dull, heavy-footed effort from unwilling workers", "B": "consuming many hours without requiring real effort", "C": "requiring long, slow, careful toil", "D": "hard on the body alone"}, "key": "C", "fb": {"correct": "Right. Thirty years of slips compared, re-read, and re-filed - hours full of slow, exact effort that visibly wore her down.", "A": "Hale called the sorting the best hours of her day, so she was anything but unwilling, and no one faults her as dull.", "B": "The work visibly wore her down, so the hours were full of real effort, not empty of it.", "D": "The cost the passage stresses is patience and exactness - forty slips per entry - not muscle alone."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "plodding", "B": "laborious", "C": "time-consuming", "D": "toilsome"}, "key": "A", "fb": {"correct": "Right. The walk was short, easy, and unchanged — only the deliverer changed, and the raves followed. The precise word here is the one that faults the dull mover rather than the work.", "B": "Laborious respects the work: slow because the task demands long, patient, careful toil. But this task was fine as it stood — <em>The trust replaced the guide and altered nothing else<\/em>, and the identical walk drew raves. The trouble traveled with the person, not the work.", "D": "Toilsome means full of hard, wearying toil, and nothing here wearied anyone: <em>forty minutes on level ground, no effort asked<\/em>.", "C": "Time-consuming faults a task for eating hours. This one ate <em>forty minutes<\/em>, and a leaflet covered the same facts — length was never the complaint."}}}, "grid": {"words": ["laborious", "toilsome", "plodding", "time-consuming"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Hand-setting the book's type was ____ work: thousands of tiny letters placed one by one, each line checked and re-checked through slow evenings that wore the printer down by degrees.", "ks": ["laborious"], "fb": {"toilsome": "That word is the plain old term for hard, wearying effort and nothing more. The lines <em>checked and re-checked<\/em> add exactness and patience - a claim about care as much as sweat.", "plodding": "That word faults a person as dull and heavy-footed. This sentence admires the work's slow precision; it never criticizes the printer.", "time-consuming": "That word only says a task eats hours. These hours <em>wore the printer down by degrees<\/em> - the sentence insists on toil, not just time."}}, {"s": "Transcribing the captain's water-stained logbooks proved ____: eight months of deciphering one faded line at a time, patient and exact toil that left the archivist drained every night.", "ks": ["laborious"], "fb": {"toilsome": "That word measures wearying effort alone. Here the work is also <em>patient and exact<\/em>, one faded line at a time - slowness and care are half the claim.", "plodding": "That word is a criticism of a mover without spark. Nothing here mocks the archivist; the slowness belongs to the task, and the sentence respects it.", "time-consuming": "That word would only count the eight months. The sentence adds what the months cost - the archivist ends <em>drained every night<\/em>."}}, {"s": "Before the pipeline reached the village, fetching the day's water was simply ____: two miles uphill under a full yoke, hard on the shoulders and wearying, though each trip asked no care or exactness at all.", "ks": ["toilsome"], "fb": {"laborious": "That word adds slowness and small, exact steps to the effort. This trip <em>asked no care or exactness at all<\/em> - it is pure hard effort.", "plodding": "That word criticizes a mover as dull and without spark. The carriers here are not being mocked; the sentence measures the work's weariness.", "time-consuming": "That word counts hours and nothing else. The yoke is <em>hard on the shoulders<\/em> - the cost here is effort, not time."}}, {"s": "The old diaries call harvest month plainly ____: dawn-to-dusk lifting and hauling that wearied every back on the farm, effort with nothing fine or fussy about it.", "ks": ["toilsome"], "fb": {"laborious": "That word means the hours are full of slow, careful, exact steps. Lifting and hauling with <em>nothing fine or fussy about it<\/em> is effort without the care.", "plodding": "That word would mock the workers as heavy-footed and dull. The diaries are describing the work's weariness, not criticizing anyone's spark.", "time-consuming": "That word only says the month eats time. The claim here is that it <em>wearied every back<\/em> - a cost in effort, not hours."}}, {"s": "Reviewers found the new documentary ____, its narrator trudging from one flat fact to the next without a spark of life anywhere in the script.", "ks": ["plodding"], "fb": {"laborious": "That word respects a task that earns its hours through slow, careful toil. This is a complaint about a narrator <em>without a spark of life<\/em> - a fault, not a tribute.", "toilsome": "That word describes work that wearies the body. Watching a dull film tires nobody's back; the problem is the lifeless delivery.", "time-consuming": "That word says something eats hours. The reviewers' complaint is not the running time - it is the trudge <em>from one flat fact to the next<\/em>."}}, {"s": "Renewing the permit turned out to be merely ____: three separate offices and most of an afternoon, though every step was easy and nobody broke a sweat.", "ks": ["time-consuming"], "fb": {"laborious": "That word fills the hours with slow, careful, wearing toil. Here <em>every step was easy<\/em> - only the afternoon was lost.", "toilsome": "That word needs hard effort that wearies you. <em>Nobody broke a sweat<\/em> - the only cost was time.", "plodding": "That word faults someone as dull and heavy-footed. No one here is being criticized; the sentence just counts the lost afternoon."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show hours filled with slow, small, exact steps that wear someone down - not just a long task or a hard one. Try working in a word like <i>hours<\/i>, <i>one by one<\/i>, <i>checked<\/i> or <i>patient<\/i>."}};
+  var CFG = {"word": "laborious", "gradeUrl": "/api/grade", "taskId": "laborious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses laborious correctly?", "opts": {"A": "Microwaving last night's leftovers proved terribly laborious, taking very nearly ninety whole seconds from start to finish.", "B": "Copying the family's four hundred handwritten recipes into the archive was laborious, filling Nona's afternoons for an entire winter.", "C": "The wonderfully laborious shortcut through the alley saved them three full hours of effort on the very first try.", "D": "Her laborious hobby of afternoon napping had required, she claimed, years of dedicated daily practice to truly perfect."}, "key": "B", "fb": {"correct": "Right. Hand-copying four hundred recipes, afternoon after afternoon for a whole winter, is long, slow, careful toil - precisely what laborious describes.", "A": "'Very nearly ninety whole seconds' at a microwave is next to no effort — the sentence is joking. Laborious belongs to slow, careful toil that stretches on and on, not a button press.", "C": "That shortcut 'saved them three full hours of effort' — it removes labor instead of demanding it. Laborious describes tasks that ask for long, painstaking effort; the more sweat, the better the fit.", "D": "Her 'hobby' of napping, perfected through 'years of dedicated daily practice,' takes no toil at all — sleep asks nothing of anyone. Laborious belongs to slow, demanding tasks that genuinely wear a person down."}}, "s3a": {"q": "As it is used in the passage, \"laborious\" most nearly means", "opts": {"A": "demanding dull, heavy-footed effort from unwilling workers", "B": "consuming many hours without requiring real effort", "C": "requiring long, slow, careful toil", "D": "hard on the body alone"}, "key": "C", "fb": {"correct": "Right. Thirty years of slips compared, re-read, and re-filed - hours full of slow, exact effort that visibly wore her down.", "A": "Hale called the sorting the best hours of her day, so she was anything but unwilling, and no one faults her as dull.", "B": "The work visibly wore her down, so the hours were full of real effort, not empty of it.", "D": "The cost the passage stresses is patience and exactness - forty slips per entry - not muscle alone."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "plodding", "B": "laborious", "C": "time-consuming", "D": "toilsome"}, "key": "A", "fb": {"correct": "Right. The walk was short, easy, and unchanged — only the deliverer changed, and the raves followed. The precise word here is the one that faults the dull mover rather than the work.", "B": "Laborious respects the work: slow because the task demands long, patient, careful toil. But this task was fine as it stood — <em>The trust replaced the guide and altered nothing else<\/em>, and the identical walk drew raves. The trouble traveled with the person, not the work.", "D": "Toilsome means full of hard, wearying toil, and nothing here wearied anyone: <em>forty minutes on level ground, no effort asked<\/em>.", "C": "Time-consuming faults a task for eating hours. This one ate <em>forty minutes<\/em>, and a leaflet covered the same facts — length was never the complaint."}}}, "pairwise": {"rows": [{"sentence": "Hand-setting the book's type was ____ work: thousands of tiny letters placed one by one, each line checked and re-checked through slow evenings that wore the printer down by degrees.", "options": ["laborious", "toilsome"], "key": "laborious", "pair": "toilsome", "why_right": "The tell is <em>each line checked and re-checked<\/em> - hours of small, exact steps that wear the worker down patiently, which is care and slowness on top of effort.", "why_wrong": "That word is the plain old term for hard, wearying effort and nothing more. The lines <em>checked and re-checked<\/em> add exactness and patience - a claim about care as much as sweat."}, {"sentence": "Before the pipeline reached the village, fetching the day's water was simply ____: two miles uphill under a full yoke, hard on the shoulders and wearying, though each trip asked no care or exactness at all.", "options": ["laborious", "toilsome"], "key": "toilsome", "pair": "toilsome", "why_right": "The tell is <em>asked no care or exactness at all<\/em> - toilsome keeps its eye on hard, wearying effort alone, and this trip is pure effort with the careful half removed.", "why_wrong": "That word adds slowness and small, exact steps to the effort. This trip <em>asked no care or exactness at all<\/em> - it is pure hard effort."}, {"sentence": "The old diaries call harvest month plainly ____: dawn-to-dusk lifting and hauling that wearied every back on the farm, effort with nothing fine or fussy about it.", "options": ["laborious", "toilsome"], "key": "toilsome", "pair": "toilsome", "why_right": "The tell is <em>nothing fine or fussy about it<\/em> - this is plain, wearying effort with its eye on the effort alone, the older word's home ground rather than careful toil.", "why_wrong": "That word means the hours are full of slow, careful, exact steps. Lifting and hauling with <em>nothing fine or fussy about it<\/em> is effort without the care."}, {"sentence": "Reviewers found the new documentary ____, its narrator trudging from one flat fact to the next without a spark of life anywhere in the script.", "options": ["laborious", "plodding"], "key": "plodding", "pair": "plodding", "why_right": "The tell is <em>without a spark of life<\/em> - the reviewers fault the delivery as dull and heavy-footed, a criticism of the mover, not respect for work demanding careful toil.", "why_wrong": "That word respects a task that earns its hours through slow, careful toil. This is a complaint about a narrator <em>without a spark of life<\/em> - a fault, not a tribute."}, {"sentence": "Weaving the guildhall's tapestry was ____ by any measure - eleven stitches to the inch, every row counted twice - and visitors still praise the patient months of care visible in the cloth.", "options": ["laborious", "plodding"], "key": "laborious", "pair": "plodding", "why_right": "The tell is <em>visitors still praise the patient months of care<\/em> - laborious respects work that demands slow, exact toil, where the other word would fault it as dull.", "why_wrong": "That word faults a mover as dull and heavy-footed, without spark. This sentence admires the weaving: the patient care is praised, so the slowness is the task's virtue, not anyone's fault."}, {"sentence": "Transcribing the captain's water-stained logbooks proved ____: eight months of deciphering one faded line at a time, patient and exact toil that left the archivist drained every night.", "options": ["laborious", "time-consuming"], "key": "laborious", "pair": "time-consuming", "why_right": "The tell is <em>left the archivist drained every night<\/em> - the eight months are full of slow, careful toil, not merely hours spent; the hours themselves wear her down.", "why_wrong": "That word would only count the eight months. The sentence adds what the months cost - the archivist ends <em>drained every night<\/em>."}, {"sentence": "Renewing the permit turned out to be merely ____: three separate offices and most of an afternoon, though every step was easy and nobody broke a sweat.", "options": ["laborious", "time-consuming"], "key": "time-consuming", "pair": "time-consuming", "why_right": "The tell is <em>every step was easy<\/em> - the permit cost only an afternoon of hours, with no toil filling them, which is all the winning word ever claims.", "why_wrong": "That word fills the hours with slow, careful, wearing toil. Here <em>every step was easy<\/em> - only the afternoon was lost."}, {"sentence": "Re-cataloguing the herbarium's forty thousand pressed specimens proved ____: each brittle sheet lifted, relabeled, and re-sleeved by hand, and the botanists went home spent after every careful shift.", "options": ["laborious", "time-consuming"], "key": "laborious", "pair": "time-consuming", "why_right": "The tell is <em>went home spent after every careful shift<\/em> - the hours are full of slow, careful effort that wears the workers down, not merely hours spent.", "why_wrong": "That word only says a task eats hours. These shifts cost more than time: each brittle sheet demands careful handling, and the botanists go home spent - toil on top of the hours."}], "display_order": [1, 7, 4, 5, 2, 6, 0, 3], "dimension_order": ["toilsome", "plodding", "time-consuming"], "dimension_feedback": {"toilsome": "Toilsome is the older, plainer word for work full of hard, wearying toil, and it keeps its eye on the effort alone. Laborious adds slowness and care: hours of small, exact steps that wear you down patiently. A toilsome march simply tires you; a laborious audit tires you one line at a time.", "plodding": "Plodding describes the mover, and it faults them as dull — slow, heavy-footed, without spark. Laborious respects the work instead: the task is slow because it demands long, patient, careful toil, not because the worker lacks energy. A plodding lecture drags; a laborious restoration earns its hours.", "time-consuming": "Time-consuming only says a task eats hours; laborious adds toil - the hours are full of slow, careful effort."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show hours filled with slow, small, exact steps that wear someone down - not just a long task or a hard one. Try working in a word like <i>hours<\/i>, <i>one by one<\/i>, <i>checked<\/i> or <i>patient<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

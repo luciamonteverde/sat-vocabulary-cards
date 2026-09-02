@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="86059024f3be">
+<meta name="build" content="10278a0c2338">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>myriad &#8212; SAT Vocabulary, Course 3 Unit 21</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "myriad", "gradeUrl": "/api/grade", "taskId": "myriad", "minWords": 12, "items": {"s1": {"q": "Which sentence uses myriad correctly?", "opts": {"A": "The recipe's myriad ingredients — flour, water, salt, and yeast — fit comfortably on a single sticky note above the stove.", "B": "A single myriad cloud covered the whole county by noon, one unbroken sheet of gray stretching from ridge to ridge.", "C": "The myriad heat of the furnace room hit them the moment the crew chief hauled open the heavy iron door.", "D": "Astronomers can model the galaxy's myriad stars only statistically; no census will ever list them one by one."}, "key": "D", "fb": {"correct": "Correct! Myriad means consisting of a very great number — too many to count — and a galaxy's stars are the textbook case: so many that astronomers must model them instead of listing them.", "A": "Not quite! Four ingredients that fit on a sticky note are the opposite of countless. A list you can finish reading in one breath can't be myriad.", "B": "Not quite! One cloud, however enormous, is still one thing. Myriad needs a multitude of separate items, not a single object of great size.", "C": "Not quite! Heat has intensity, not a head-count — there are no separate units to number here. Myriad measures how many, never how strong."}}, "s3a": {"q": "As used in the passage, \"myriad\" most nearly means:", "opts": {"A": "too many and too varied to count", "B": "arranged in careful scientific order", "C": "rare and valuable to collectors", "D": "unusually large"}, "key": "A", "fb": {"correct": "Right -- the drawers hold beetles in more forms than anyone has managed to catalog, and even the backlog is only an estimate.", "B": "The passage says the first impression is 'not order but abundance' -- the opposite of careful arrangement.", "C": "Value never enters the passage; the difficulty is sheer number and variety, not rarity.", "D": "Size runs the other way -- some beetles are smaller than the pins that hold them."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "countless", "B": "myriad", "C": "innumerable", "D": "numerous"}, "key": "B", "fb": {"correct": "Right. Myriad is the elevated word for a number past counting, and it carries a shimmer of variety — exactly this scene: <em>vowels shifting from one village to the next<\/em>, <em>more ways of speaking than anyone has managed to name<\/em>, in a memoir <em>reviewed as lyric prose<\/em>.", "A": "Countless says only that the counting fails, and says it in the plainest everyday register. But this memoir was <em>reviewed as lyric prose<\/em>, and its sentence savors difference — <em>vowels shifting from one village to the next<\/em> — so the plain-spoken twin is not the most precise fit here.", "C": "Innumerable means too many to number, but it stays an ordinary adjective for bulk — the one reports reach for. This memoir was <em>reviewed as lyric prose rather than as a survey report<\/em>, and it dwells on <em>greetings that change at every bend of the river<\/em>: varied kinds, not bulk, in a register that asks for a more literary word.", "D": "Numerous undersells the scene. Numerous things can still be logged and tallied one by one, but here there are <em>more ways of speaking than anyone has managed to name<\/em> — the quantity has outrun any tally, which is the one claim numerous cannot make."}}}, "grid": {"words": ["myriad", "countless", "innumerable", "numerous"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The poem's closing stanza names the meadow's ____ voices -- bee-hum, seed-rattle, thrush-song -- each distinct, and past any hope of tallying.", "ks": ["myriad"], "fb": {"countless": "That is the plain, everyday twin; a poem's elevated diction and the stress on <em>each distinct<\/em> voice call for the literary word that carries variety.", "innumerable": "That word suits a report tallying plain bulk; here the register is lyric and the point is the variety of voices.", "numerous": "Merely many things can still be tallied; the stanza puts these voices <em>past any hope of tallying<\/em>."}}, {"s": "Guidebooks strain for poetry to describe the bazaar's ____ wares -- silks, spice cones, brass lamps, songbirds -- more kinds than any inventory could hold.", "ks": ["myriad"], "fb": {"countless": "The guidebooks are <em>straining for poetry<\/em> -- that calls for the elevated word, the one that also carries variety: silks, spice cones, lamps, songbirds.", "innumerable": "That is the flat word a stock report would use; this sentence wants the literary word for many shimmering kinds.", "numerous": "Merely many wares could still be inventoried; these are <em>more kinds than any inventory could hold<\/em>."}}, {"s": "Dad swears he has fixed that gate ____ times, more than anyone could ever tally, and he is not a man who reaches for fancy words.", "ks": ["countless"], "fb": {"myriad": "That word is elevated and literary, and it usually hints at variety. A dad grumbling about one gate, in plain words, wants the everyday term.", "innumerable": "That word belongs in formal reports of sheer bulk; this is plain kitchen-table speech.", "numerous": "Merely many repairs could still be tallied; the sentence says <em>more than anyone could ever tally<\/em>."}}, {"s": "The audit's appendix concedes that ____ small transfers passed through the account, far too many for the reviewers to list one by one.", "ks": ["innumerable"], "fb": {"myriad": "An audit appendix is the last place for the poetic word -- and the sentence stresses bulk, not variety.", "countless": "That is the everyday, spoken twin; formal report prose reaches for its bookish counterpart.", "numerous": "Merely many transfers could still be listed <em>one by one<\/em>; these have outrun the reviewers entirely."}}, {"s": "Her file lists ____ complaints -- forty-one, to be exact -- each one logged and dated by the district clerk.", "ks": ["numerous"], "fb": {"myriad": "That word says the counting is hopeless -- but the file gives the figure: <em>forty-one, to be exact<\/em>.", "countless": "The clerk finished the tally; a word meaning beyond-all-tallying contradicts <em>forty-one, to be exact<\/em>.", "innumerable": "Every complaint is <em>logged and dated<\/em>; the word for bulk past listing cannot sit beside an exact figure."}}, {"s": "The trail guide warns of ____ stream crossings on the ridge route -- a dozen or more, by its own reckoning -- so pack spare socks.", "ks": ["numerous"], "fb": {"myriad": "The guide gives a working figure -- <em>a dozen or more<\/em> -- so the count has not run hopeless, and nothing here is poetic.", "countless": "A guide that reckons <em>a dozen or more<\/em> is still counting; the beyond-counting word overshoots.", "innumerable": "These crossings can be reckoned and listed; the word for bulk past all listing is too strong."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs both hugeness and variety -- not just many, but many kinds, past counting. Try working in words like <i>shapes<\/i>, <i>colors<\/i>, <i>every kind<\/i> or <i>no two<\/i>."}};
+  var CFG = {"word": "myriad", "gradeUrl": "/api/grade", "taskId": "myriad", "minWords": 12, "items": {"s1": {"q": "Which sentence uses myriad correctly?", "opts": {"A": "The recipe's myriad ingredients — flour, water, salt, and yeast — fit comfortably on a single sticky note above the stove.", "B": "A single myriad cloud covered the whole county by noon, one unbroken sheet of gray stretching from ridge to ridge.", "C": "The myriad heat of the furnace room hit them the moment the crew chief hauled open the heavy iron door.", "D": "Astronomers can model the galaxy's myriad stars only statistically; no census will ever list them one by one."}, "key": "D", "fb": {"correct": "Correct! Myriad means consisting of a very great number — too many to count — and a galaxy's stars are the textbook case: so many that astronomers must model them instead of listing them.", "A": "Not quite! Four ingredients that fit on a sticky note are the opposite of countless. A list you can finish reading in one breath can't be myriad.", "B": "Not quite! One cloud, however enormous, is still one thing. Myriad needs a multitude of separate items, not a single object of great size.", "C": "Not quite! Heat has intensity, not a head-count — there are no separate units to number here. Myriad measures how many, never how strong."}}, "s3a": {"q": "As used in the passage, \"myriad\" most nearly means:", "opts": {"A": "too many and too varied to count", "B": "arranged in careful scientific order", "C": "rare and valuable to collectors", "D": "unusually large"}, "key": "A", "fb": {"correct": "Right -- the drawers hold beetles in more forms than anyone has managed to catalog, and even the backlog is only an estimate.", "B": "The passage says the first impression is 'not order but abundance' -- the opposite of careful arrangement.", "C": "Value never enters the passage; the difficulty is sheer number and variety, not rarity.", "D": "Size runs the other way -- some beetles are smaller than the pins that hold them."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "countless", "B": "myriad", "C": "innumerable", "D": "numerous"}, "key": "B", "fb": {"correct": "Right. Myriad is the elevated word for a number past counting, and it carries a shimmer of variety — exactly this scene: <em>vowels shifting from one village to the next<\/em>, <em>more ways of speaking than anyone has managed to name<\/em>, in a memoir <em>reviewed as lyric prose<\/em>.", "A": "Countless says only that the counting fails, and says it in the plainest everyday register. But this memoir was <em>reviewed as lyric prose<\/em>, and its sentence savors difference — <em>vowels shifting from one village to the next<\/em> — so the plain-spoken twin is not the most precise fit here.", "C": "Innumerable means too many to number, but it stays an ordinary adjective for bulk — the one reports reach for. This memoir was <em>reviewed as lyric prose rather than as a survey report<\/em>, and it dwells on <em>greetings that change at every bend of the river<\/em>: varied kinds, not bulk, in a register that asks for a more literary word.", "D": "Numerous undersells the scene. Numerous things can still be logged and tallied one by one, but here there are <em>more ways of speaking than anyone has managed to name<\/em> — the quantity has outrun any tally, which is the one claim numerous cannot make."}}}, "pairwise": {"rows": [{"sentence": "Guidebooks strain for poetry to describe the bazaar's ____ wares -- silks, spice cones, brass lamps, songbirds -- more kinds than any inventory could hold.", "options": ["myriad", "countless"], "key": "myriad", "pair": "countless", "why_right": "The tell is <em>strain for poetry<\/em> - writers reaching past everyday words want the higher-register word, the one that also carries variety across kinds; the card keeps countless as the plain-spoken twin.", "why_wrong": "The guidebooks are <em>straining for poetry<\/em> -- that calls for the elevated word, the one that also carries variety: silks, spice cones, lamps, songbirds."}, {"sentence": "The cave guide's report notes only that the ceiling's crystals were beyond any tally; her poem about the same chamber reaches for a grander word and praises its ____ facets.", "options": ["myriad", "countless"], "key": "myriad", "pair": "countless", "why_right": "The tell is <em>reaches for a grander word<\/em> - the report said that the crystals were beyond tally; the poem wants the same claim in a higher register, the card's myriad.", "why_wrong": "That word is the everyday, plain-spoken twin, and the report has already used its plain claim. The poem reaches for a grander word, the higher-register one the card sets against it."}, {"sentence": "Dad swears he has fixed that gate ____ times, more than anyone could ever tally, and he is not a man who reaches for fancy words.", "options": ["myriad", "countless"], "key": "countless", "pair": "countless", "why_right": "The tell is <em>not a man who reaches for fancy words<\/em> - the sentence wants the plain-spoken twin that says flatly counting is impossible; the card gives the elevated, literary register to myriad instead.", "why_wrong": "That word is elevated and literary, and it usually hints at variety. A dad grumbling about one gate, in plain words, wants the everyday term."}, {"sentence": "The greenhouse ledger lists the orchids plainly by tray, but the head gardener's essay lingers on their ____ shapes and hues, past anything she could ever name.", "options": ["myriad", "innumerable"], "key": "myriad", "pair": "innumerable", "why_right": "The tell is <em>shapes and hues<\/em> - the essay dwells on variety of kinds beyond naming, the shimmer the card gives myriad; the bulk was left to the ledger, where reports belong.", "why_wrong": "That word is the ordinary adjective for plain bulk, the one reports reach for, and the ledger holds the bulk. An essay on shapes and hues wants the literary word for variety."}, {"sentence": "The audit's appendix concedes that ____ small transfers passed through the account, far too many for the reviewers to list one by one.", "options": ["myriad", "innumerable"], "key": "innumerable", "pair": "innumerable", "why_right": "The tell is <em>The audit's appendix<\/em> - formal report prose about plain bulk past listing is where the card sends innumerable; myriad carries literary flavor and variety, and an audit has neither.", "why_wrong": "An audit appendix is the last place for the poetic word -- and the sentence stresses bulk, not variety."}, {"sentence": "The intern gave up counting the cloister's ____ carved faces at nine hundred, his tally giving out with the whole north walk still unbegun.", "options": ["myriad", "numerous"], "key": "myriad", "pair": "numerous", "why_right": "The tell is <em>gave up counting<\/em> - the tally collapses at nine hundred with most of the cloister to go; the card caps numerous at the tallyable, and this count outran it.", "why_wrong": "That word means many, but the kind of many that can still be tallied one by one. A count abandoned at nine hundred with a whole walk unbegun has outrun the tally."}, {"sentence": "The trail guide warns of ____ stream crossings on the ridge route -- a dozen or more, by its own reckoning -- so pack spare socks.", "options": ["myriad", "numerous"], "key": "numerous", "pair": "numerous", "why_right": "The tell is <em>a dozen or more, by its own reckoning<\/em> - the guide is still counting, which is the card's numerous, many but tallyable; myriad would claim the count had become hopeless.", "why_wrong": "The guide gives a working figure -- <em>a dozen or more<\/em> -- so the count has not run hopeless, and nothing here is poetic."}, {"sentence": "The inspection found ____ hairline cracks in the bell -- nineteen in all, each chalked and given a number -- before the foundry agreed to recast it.", "options": ["myriad", "numerous"], "key": "numerous", "pair": "numerous", "why_right": "The tell is <em>nineteen in all<\/em> - an exact figure, each crack numbered, is a count that succeeded; the card's numerous is many but tallyable, while myriad needs the counting to have become hopeless.", "why_wrong": "That word says the counting is hopeless, a number so great the tally collapses. Nineteen cracks, each chalked and given a number, is a finished count, which is many but still tallied."}], "display_order": [7, 2, 6, 1, 3, 0, 5, 4], "dimension_order": ["countless", "innumerable", "numerous"], "dimension_feedback": {"countless": "Countless says flatly that counting is impossible — it is the everyday, plain-spoken twin. Myriad says the same thing in a higher register and often adds a shimmer of variety: myriad lights, myriad voices.", "innumerable": "Innumerable, like myriad, means too many to number, but it stays an ordinary adjective for bulk. Myriad carries its Greek history — the ten-thousand — and a literary flavor, which is why poems reach for myriad and reports for innumerable.", "numerous": "Numerous is weaker than myriad: numerous complaints can still be logged and tallied one by one, while myriad complaints have outrun the tally entirely."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs both hugeness and variety -- not just many, but many kinds, past counting. Try working in words like <i>shapes<\/i>, <i>colors<\/i>, <i>every kind<\/i> or <i>no two<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

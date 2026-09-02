@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="307b765edac0">
+<meta name="build" content="2a0ce6f859a0">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>hierarchical &#8212; SAT Vocabulary, Course 1 Unit 2</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "hierarchical", "gradeUrl": "/api/grade", "taskId": "hierarchical", "minWords": 12, "items": {"s1": {"q": "In the hotel's kitchen, the brigade system rules: the executive chef sets the menu, the sous chef relays her orders to the station cooks, and the station cooks direct the apprentices, who question nothing. Each level takes its instructions from the level directly above. Which word most accurately describes how this kitchen is organized?", "opts": {"A": "egalitarian", "B": "hierarchical", "C": "haphazard", "D": "self-governing"}, "key": "B", "fb": {"correct": "Correct — orders flow down a fixed chain from executive chef to apprentice, each tier commanding the one below. Hierarchical names exactly that ranked, layered structure.", "A": "Egalitarian describes equals sharing power, but here \"each level takes its instructions from the level directly above\" — nobody stands on equal footing. Name the arrangement all those ranked layers form instead.", "C": "Haphazard means random and unplanned, but the brigade system is anything but random — orders travel one fixed, predictable chain from executive chef down to apprentice. Find the word for that deliberate ranked design.", "D": "Self-governing would let each station set its own course, yet the apprentices \"question nothing\" and every tier obeys the tier over it. Direction comes down from the top, never from within."}}, "s3a": {"q": "As used in this passage, \"hierarchical\" most nearly means:", "opts": {"A": "built as levels, each commanding the one below", "B": "divided into fixed social classes that never change or mix", "C": "arranged as a snobbish pecking order kept for its own sake", "D": "sorted into stacked layers of skill, with nobody in charge of anybody"}, "key": "A", "fb": {"correct": "Right -- levels with real authority, and responsibility, running downward.", "B": "Interns become attendings; nothing in the passage says the levels are sealed classes.", "C": "The passage raises that reading only to reject it -- the levels exist because responsibility must land somewhere.", "D": "Someone is very much in charge: <em>the attending signs for the intern's decisions<\/em>."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hierarchical", "B": "stratified", "C": "ranked", "D": "tiered"}, "key": "C", "fb": {"correct": "Right. A plain order of standing — <em>a single column of names ordered by accumulated points<\/em> — with no authority attached and no fixed layers is exactly what the sheet is, and nothing more.", "A": "Hierarchical requires a working chain of authority, with each level directing the one beneath it. This sheet grants none: it <em>carries no power of command<\/em>, and <em>the sailor in first place cannot direct the one in second<\/em>.", "D": "Tiered stresses the picture of distinct levels stacked one above another. But the standings are <em>a single column of names<\/em> — a continuous list with no separate bands or stacked levels in sight.", "B": "Stratified describes a system settled into sealed, permanent layers. Here nothing hardens: <em>a strong weekend lifts a newcomer past forty rivals, and a slow season drops a former champion just as far<\/em>."}}}, "grid": {"words": ["hierarchical", "ranked", "tiered", "stratified"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The shipping firm is rigidly ____: every dispatcher answers to a regional manager, every manager to a director, and orders flow only downward.", "ks": ["hierarchical"], "fb": {"ranked": "<em>Orders flow only downward<\/em> -- this is a working chain of command, more than an order of standing.", "tiered": "Every dispatcher <em>answers to<\/em> someone; layers that command are more than layers merely stacked.", "stratified": "Nothing here is sealed or settled for generations; the sentence is about who directs whom, day to day."}}, {"s": "The baker built a ____ showpiece, three separate layers stacked one above the next, each ring smaller than the one below.", "ks": ["tiered"], "fb": {"hierarchical": "A pastry has no chain of command; the layers are <em>stacked<\/em>, not obeyed.", "ranked": "<em>Each ring smaller than the one below<\/em> is physical stacking, not an order of standing.", "stratified": "A showpiece <em>built<\/em> for one party is not a system settled into fixed, permanent layers."}}, {"s": "Sociologists describe the port city as deeply ____: families stay in the class they were born to, and the boundaries between layers have not moved in a century.", "ks": ["stratified"], "fb": {"hierarchical": "No chain of command appears -- the point is that <em>boundaries ... have not moved in a century<\/em>.", "ranked": "Families <em>stay in the class they were born to<\/em>: this is sealed permanence, far beyond mere order of standing.", "tiered": "Stacked levels alone say nothing about layers this fixed and closed."}}, {"s": "The chess club posts a simple ____ list each month, best to worst, and nothing more -- no one commands anyone, and the order changes constantly.", "ks": ["ranked"], "fb": {"hierarchical": "<em>No one commands anyone<\/em> -- there is no authority running level to level.", "tiered": "A single <em>list, best to worst<\/em>, is one continuous order, not distinct stacked levels.", "stratified": "An order that <em>changes constantly<\/em> is the opposite of fixed, sealed layers."}}, {"s": "The diocese runs on a strictly ____ pattern: each level of clergy directs the level beneath it, and no parish acts without a word from above.", "ks": ["hierarchical"], "fb": {"ranked": "Each level <em>directs the level beneath it<\/em> -- a built system of authority, not just an order of standing.", "tiered": "<em>No parish acts without a word from above<\/em>: these levels command, which stacked layers alone never do.", "stratified": "The stress is the working chain of direction, not layers sealed shut for generations."}}, {"s": "The vineyard steps down the hill in ____ plantings, four flat levels one beneath another, none of them senior to the rest.", "ks": ["tiered"], "fb": {"hierarchical": "<em>None of them senior to the rest<\/em> -- the levels hold no authority over one another.", "ranked": "Nothing places one planting above another in standing; the levels are simply cut into the slope.", "stratified": "Rows cut for farming are not classes a society has settled into and sealed."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Build a ladder with at least two levels and make the authority visible -- words like <i>answers to<\/i> or <i>directs<\/i> help -- so one level commands the one below it, not just stands above it."}};
+  var CFG = {"word": "hierarchical", "gradeUrl": "/api/grade", "taskId": "hierarchical", "minWords": 12, "items": {"s1": {"q": "In the hotel's kitchen, the brigade system rules: the executive chef sets the menu, the sous chef relays her orders to the station cooks, and the station cooks direct the apprentices, who question nothing. Each level takes its instructions from the level directly above. Which word most accurately describes how this kitchen is organized?", "opts": {"A": "egalitarian", "B": "hierarchical", "C": "haphazard", "D": "self-governing"}, "key": "B", "fb": {"correct": "Correct — orders flow down a fixed chain from executive chef to apprentice, each tier commanding the one below. Hierarchical names exactly that ranked, layered structure.", "A": "Egalitarian describes equals sharing power, but here \"each level takes its instructions from the level directly above\" — nobody stands on equal footing. Name the arrangement all those ranked layers form instead.", "C": "Haphazard means random and unplanned, but the brigade system is anything but random — orders travel one fixed, predictable chain from executive chef down to apprentice. Find the word for that deliberate ranked design.", "D": "Self-governing would let each station set its own course, yet the apprentices \"question nothing\" and every tier obeys the tier over it. Direction comes down from the top, never from within."}}, "s3a": {"q": "As used in this passage, \"hierarchical\" most nearly means:", "opts": {"A": "built as levels, each commanding the one below", "B": "divided into fixed social classes that never change or mix", "C": "arranged as a snobbish pecking order kept for its own sake", "D": "sorted into stacked layers of skill, with nobody in charge of anybody"}, "key": "A", "fb": {"correct": "Right -- levels with real authority, and responsibility, running downward.", "B": "Interns become attendings; nothing in the passage says the levels are sealed classes.", "C": "The passage raises that reading only to reject it -- the levels exist because responsibility must land somewhere.", "D": "Someone is very much in charge: <em>the attending signs for the intern's decisions<\/em>."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "hierarchical", "B": "stratified", "C": "ranked", "D": "tiered"}, "key": "C", "fb": {"correct": "Right. A plain order of standing — <em>a single column of names ordered by accumulated points<\/em> — with no authority attached and no fixed layers is exactly what the sheet is, and nothing more.", "A": "Hierarchical requires a working chain of authority, with each level directing the one beneath it. This sheet grants none: it <em>carries no power of command<\/em>, and <em>the sailor in first place cannot direct the one in second<\/em>.", "D": "Tiered stresses the picture of distinct levels stacked one above another. But the standings are <em>a single column of names<\/em> — a continuous list with no separate bands or stacked levels in sight.", "B": "Stratified describes a system settled into sealed, permanent layers. Here nothing hardens: <em>a strong weekend lifts a newcomer past forty rivals, and a slow season drops a former champion just as far<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The shipping firm is rigidly ____: every dispatcher answers to a regional manager, every manager to a director, and orders flow only downward.", "options": ["hierarchical", "stratified"], "key": "hierarchical", "pair": "stratified", "why_right": "The tell is <em>orders flow only downward<\/em> - a working chain of authority running from each level to the next, the day-to-day command the word names.", "why_wrong": "Nothing here is sealed or settled for generations; the sentence is about who directs whom, day to day."}, {"sentence": "The baker built a ____ showpiece, three separate layers stacked one above the next, each ring smaller than the one below.", "options": ["hierarchical", "tiered"], "key": "tiered", "pair": "tiered", "why_right": "The tell is <em>three separate layers stacked one above the next<\/em> - distinct levels stacked like layers, the pure picture of a stack with no command anywhere in it.", "why_wrong": "A pastry has no chain of command; the layers are <em>stacked<\/em>, not obeyed."}, {"sentence": "Sociologists describe the port city as deeply ____: families stay in the class they were born to, and the boundaries between layers have not moved in a century.", "options": ["hierarchical", "stratified"], "key": "stratified", "pair": "stratified", "why_right": "The tell is <em>boundaries between layers have not moved in a century<\/em> - a system settled into fixed, sealed-off classes, exactly the permanence this formal word emphasizes.", "why_wrong": "No chain of command appears -- the point is that <em>boundaries ... have not moved in a century<\/em>."}, {"sentence": "The chess club posts a simple ____ list each month, best to worst, and nothing more -- no one commands anyone, and the order changes constantly.", "options": ["hierarchical", "ranked"], "key": "ranked", "pair": "ranked", "why_right": "The tell is <em>best to worst, and nothing more<\/em> - a definite order of standing and only that, the plainest word for the idea.", "why_wrong": "<em>No one commands anyone<\/em> -- there is no authority running level to level."}, {"sentence": "The diocese runs on a strictly ____ pattern: each level of clergy directs the level beneath it, and no parish acts without a word from above.", "options": ["hierarchical", "stratified"], "key": "hierarchical", "pair": "stratified", "why_right": "The tell is <em>no parish acts without a word from above<\/em> - each level directing the level beneath it, a working chain of authority in daily use.", "why_wrong": "The stress is the working chain of direction, not layers sealed shut for generations."}, {"sentence": "The vineyard steps down the hill in ____ plantings, four flat levels one beneath another, none of them senior to the rest.", "options": ["hierarchical", "tiered"], "key": "tiered", "pair": "tiered", "why_right": "The tell is <em>none of them senior to the rest<\/em> - four stacked levels with no rank and no authority among them, which is all this word ever claims.", "why_wrong": "<em>None of them senior to the rest<\/em> -- the levels hold no authority over one another."}, {"sentence": "Knowing who stood above whom was never the point; the founder wanted the agency ____, with every level able to direct and overrule the one beneath it.", "options": ["hierarchical", "ranked"], "key": "hierarchical", "pair": "ranked", "why_right": "The tell is <em>every level able to direct and overrule the one beneath it<\/em> - levels holding real authority over the level below, not a bare order of standing.", "why_wrong": "That word means placed in a definite order of standing, with some above others - exactly the thing the sentence says was never the point of what the founder built."}, {"sentence": "The neat stack of boxes on the observatory's staff chart told visitors little; what made the place ____ was that each level could command the one below.", "options": ["hierarchical", "tiered"], "key": "hierarchical", "pair": "tiered", "why_right": "The tell is <em>each level could command the one below<\/em> - power running level to level is what the word adds beyond a mere stack of layers.", "why_wrong": "That word means levels stacked like layers, whether or not they command each other - and the sentence locates the blank in command, after dismissing the stacked picture as telling visitors little."}], "display_order": [0, 7, 4, 5, 6, 1, 2, 3], "dimension_order": ["ranked", "tiered", "stratified"], "dimension_feedback": {"ranked": "Ranked simply means placed in a definite order of standing, with some members above others — the plainest word for the idea. Hierarchical says more: the order is built into a system of levels, and each level holds real authority over the one below.", "tiered": "Tiered stresses the picture of distinct levels stacked like layers, whether or not the levels command each other — tiered seating and tiered pricing rank nothing. Hierarchical adds power to the picture: each tier in a hierarchical system outranks and directs the one beneath it.", "stratified": "Stratified is the formal, often academic word for a system settled into fixed layers or classes, and it emphasizes how sealed-off and permanent the layers themselves are. Hierarchical focuses instead on the working chain of authority that runs from each level down to the next."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "Build a ladder with at least two levels and make the authority visible -- words like <i>answers to<\/i> or <i>directs<\/i> help -- so one level commands the one below it, not just stands above it."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

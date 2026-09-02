@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="6b1eb34c4f5e">
+<meta name="build" content="4534dad3fc89">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>perturbs &#8212; SAT Vocabulary, Course 3 Unit 16</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "perturbs", "gradeUrl": "/api/grade", "taskId": "perturbs", "minWords": 12, "items": {"s1": {"q": "Which sentence uses perturbs correctly?", "opts": {"A": "The barista perturbs each espresso with a swirl of steamed milk and a dusting of cocoa before it leaves the bar.", "B": "Even a week later, the anonymous note still perturbs the principal, who has started locking her office at lunch.", "C": "The gardener perturbs the roses with fresh mulch every spring, working it in around the roots by hand.", "D": "The DJ perturbs the crowd into one last cheerful singalong before the house lights come up."}, "key": "B", "fb": {"correct": "Correct — a week later the note still troubles her, enough to change her habits but not to call the police: that lingering unease is exactly what perturbs names.", "A": "Here the barista is finishing a drink with 'a swirl of steamed milk' — garnishing, not upsetting anyone. To perturb is to trouble a person, leaving them uneasy; look for someone genuinely rattled.", "C": "Working 'fresh mulch' in around the roots is tending the roses — care, not distress. Perturbs needs a person left troubled or uneasy; plants being fed cannot feel that.", "D": "A crowd swept into 'one last cheerful singalong' is being delighted, the opposite of troubled. Perturbs means to disturb or make uneasy — look for someone whose peace of mind has been shaken."}}, "s3a": {"q": "As it is used in the passage, 'perturbs' most nearly means", "opts": {"A": "troubles with a quiet unease that keeps returning", "B": "throws her work visibly off course", "C": "frightens her badly in the moment", "D": "annoys her into abandoning the project"}, "key": "A", "fb": {"correct": "Yes — the unease is small, unprovable, and recurrent: she signs off, says 'it's nothing,' and checks again next month.", "B": "Her work stays exact — she signs off on the clean numbers and keeps observing.", "C": "Nothing frightens her; there is no moment of alarm anywhere, just a low hum of doubt.", "D": "She abandons nothing — the checking continues, quietly, month after month."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unsettles", "B": "flusters", "C": "rattles", "D": "perturbs"}, "key": "D", "fb": {"correct": "Right. What perturbs a person works quietly and keeps working — unease that resurfaces with nothing to point at. <em>a vague sense that something was overlooked returns with every pass<\/em>, months after a vote she can defend <em>fluently at public meetings<\/em>: that is exactly this word's low, lasting trouble.", "A": "To unsettle someone is to shake their calm once — the ground shifts, the wobble passes. This is not one passing jolt: she <em>adds a block to her Sunday errands just to pass the site<\/em>, and the feeling <em>returns with every pass<\/em>.", "C": "Rattles is sharp, visible, and soon over — a shaken performance others can watch. Nothing here shows and nothing has slipped: <em>She defends the decision fluently at public meetings<\/em>, and <em>her record is unblemished<\/em>.", "B": "To fluster someone is to tangle them in the moment — tripping words, a red face that fades when the moment ends. There is no clumsiness anywhere here: <em>no constituent has complained<\/em>, and the worry surfaces later, quietly, when she is <em>unsure what she expects to see there<\/em>."}}}, "grid": {"words": ["perturbs", "unsettles", "rattles", "flusters"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "One unexplained line in the old ledger still ____ the retired accountant: weeks later she wakes at three a.m. turning it over, unable to say what exactly is wrong.", "ks": ["perturbs"], "fb": {"unsettles": "That word is a single shift of the ground — composure wobbles, then re-forms. This unease has been coming back for <em>weeks<\/em>.", "rattles": "A knocked-off performance is sharp, visible, and brief. Nothing here shows and nothing here ends — it works at three a.m.", "flusters": "Dropped things and tangled words happen in the moment. Her trouble has no moment; it follows her home and keeps returning."}}, {"s": "Something about the buyer's easy smile quietly ____ the farmer all season — no reason he can name, just an unease that resurfaces every time the contract comes up.", "ks": ["perturbs"], "fb": {"unsettles": "One good jolt and a recovery would fit that word. This is a low hum that returns <em>every time the contract comes up<\/em>.", "rattles": "That word needs a visible knock — a stretch of thrown-off form. The farmer's hands stay steady; the trouble is all underneath.", "flusters": "Nothing tangles and nothing drops. The feeling is quiet, nameless, and keeps resurfacing — the opposite of a hot-cheeked moment."}}, {"s": "A sudden lurch of the carriage ____ the night-train passengers — one hard sway, a beat of wobbling composure — before the conductor's calm voice steadies the car.", "ks": ["unsettles"], "fb": {"perturbs": "That word's unease outlives the moment and comes back at night. This one is over when <em>the conductor's calm voice steadies the car<\/em>.", "rattles": "That is for a visible dent in someone's form — a stretch of botched execution. Nobody here is performing; the floor swayed and calm wobbled.", "flusters": "Nobody drops anything or trips on a word. The composure dips exactly once, quietly, and comes back."}}, {"s": "The empty chair at the head of the table briefly ____ the new director — a flicker of lost composure as she registers the change — gone before the coffee arrives.", "ks": ["unsettles"], "fb": {"perturbs": "That trouble resurfaces — tonight, next week, whenever the subject comes up. This one is finished <em>before the coffee arrives<\/em>.", "rattles": "For that word you'd need the meeting itself to wobble — botched agenda, lost thread. Her running of the room never dips; only her calm flickered.", "flusters": "No red face, no tangled sentence, no dropped folder. A flicker of composure is not clumsiness."}}, {"s": "An early gutter ball in the title match visibly ____ the veteran bowler: her next two throws sail wide of everything before the old rhythm returns.", "ks": ["rattles"], "fb": {"perturbs": "That word's trouble follows you home and resurfaces. This is spent inside two throws, and <em>the old rhythm returns<\/em>.", "unsettles": "A shaken calm can stay invisible. This knock shows up where everyone can see it — in the score.", "flusters": "That word is hot cheeks and dropped objects in the moment. Here nothing is dropped; the damage is two wide throws, then recovery."}}, {"s": "Being watched while she pours ____ the new barista every single time: cups misjudged, words tangling, cheeks going red until the customer looks away.", "ks": ["flusters"], "fb": {"perturbs": "That unease keeps returning after the moment is over. Hers ends on cue, <em>the instant the customer looks away<\/em>.", "unsettles": "A wobble of composure is inward and quiet. This is outward — misjudged cups, tangled words, a red face.", "rattles": "That word wants a jab from outside and a visible dip in form for a stretch. This is blush-and-fumble in the moment, triggered by nothing but eyes."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a quiet worry that keeps coming back — not a shock, not visible panic. Show it returning: try working in a word like <i>still<\/i>, <i>again<\/i>, <i>weeks<\/i> or <i>nights<\/i>."}};
+  var CFG = {"word": "perturbs", "gradeUrl": "/api/grade", "taskId": "perturbs", "minWords": 12, "items": {"s1": {"q": "Which sentence uses perturbs correctly?", "opts": {"A": "The barista perturbs each espresso with a swirl of steamed milk and a dusting of cocoa before it leaves the bar.", "B": "Even a week later, the anonymous note still perturbs the principal, who has started locking her office at lunch.", "C": "The gardener perturbs the roses with fresh mulch every spring, working it in around the roots by hand.", "D": "The DJ perturbs the crowd into one last cheerful singalong before the house lights come up."}, "key": "B", "fb": {"correct": "Correct — a week later the note still troubles her, enough to change her habits but not to call the police: that lingering unease is exactly what perturbs names.", "A": "Here the barista is finishing a drink with 'a swirl of steamed milk' — garnishing, not upsetting anyone. To perturb is to trouble a person, leaving them uneasy; look for someone genuinely rattled.", "C": "Working 'fresh mulch' in around the roots is tending the roses — care, not distress. Perturbs needs a person left troubled or uneasy; plants being fed cannot feel that.", "D": "A crowd swept into 'one last cheerful singalong' is being delighted, the opposite of troubled. Perturbs means to disturb or make uneasy — look for someone whose peace of mind has been shaken."}}, "s3a": {"q": "As it is used in the passage, 'perturbs' most nearly means", "opts": {"A": "troubles with a quiet unease that keeps returning", "B": "throws her work visibly off course", "C": "frightens her badly in the moment", "D": "annoys her into abandoning the project"}, "key": "A", "fb": {"correct": "Yes — the unease is small, unprovable, and recurrent: she signs off, says 'it's nothing,' and checks again next month.", "B": "Her work stays exact — she signs off on the clean numbers and keeps observing.", "C": "Nothing frightens her; there is no moment of alarm anywhere, just a low hum of doubt.", "D": "She abandons nothing — the checking continues, quietly, month after month."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "unsettles", "B": "flusters", "C": "rattles", "D": "perturbs"}, "key": "D", "fb": {"correct": "Right. What perturbs a person works quietly and keeps working — unease that resurfaces with nothing to point at. <em>a vague sense that something was overlooked returns with every pass<\/em>, months after a vote she can defend <em>fluently at public meetings<\/em>: that is exactly this word's low, lasting trouble.", "A": "To unsettle someone is to shake their calm once — the ground shifts, the wobble passes. This is not one passing jolt: she <em>adds a block to her Sunday errands just to pass the site<\/em>, and the feeling <em>returns with every pass<\/em>.", "C": "Rattles is sharp, visible, and soon over — a shaken performance others can watch. Nothing here shows and nothing has slipped: <em>She defends the decision fluently at public meetings<\/em>, and <em>her record is unblemished<\/em>.", "B": "To fluster someone is to tangle them in the moment — tripping words, a red face that fades when the moment ends. There is no clumsiness anywhere here: <em>no constituent has complained<\/em>, and the worry surfaces later, quietly, when she is <em>unsure what she expects to see there<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Something about the buyer's easy smile quietly ____ the farmer all season — no reason he can name, just an unease that resurfaces every time the contract comes up.", "options": ["perturbs", "unsettles"], "key": "perturbs", "pair": "unsettles", "why_right": "The tell is <em>resurfaces every time the contract comes up<\/em> - the unease keeps returning all season, still working long after the smile; a single wobble of composure would have passed.", "why_wrong": "One good jolt and a recovery would fit that word. This is a low hum that returns <em>every time the contract comes up<\/em>."}, {"sentence": "A sudden lurch of the carriage ____ the night-train passengers — one hard sway, a beat of wobbling composure — before the conductor's calm voice steadies the car.", "options": ["perturbs", "unsettles"], "key": "unsettles", "pair": "unsettles", "why_right": "The tell is <em>one hard sway, a beat of wobbling composure<\/em> - the ground shifts once and calm wobbles, then the conductor steadies the car; nothing goes on working afterward.", "why_wrong": "That word's unease outlives the moment and comes back at night. This one is over when <em>the conductor's calm voice steadies the car<\/em>."}, {"sentence": "The empty chair at the head of the table briefly ____ the new director — a flicker of lost composure as she registers the change — gone before the coffee arrives.", "options": ["perturbs", "unsettles"], "key": "unsettles", "pair": "unsettles", "why_right": "The tell is <em>gone before the coffee arrives<\/em> - one flicker that shakes her calm without terrifying her and is then finished; nothing returns later to trouble her sleep.", "why_wrong": "That trouble resurfaces — tonight, next week, whenever the subject comes up. This one is finished <em>before the coffee arrives<\/em>."}, {"sentence": "An early gutter ball in the title match visibly ____ the veteran bowler: her next two throws sail wide of everything before the old rhythm returns.", "options": ["perturbs", "rattles"], "key": "rattles", "pair": "rattles", "why_right": "The tell is <em>her next two throws sail wide<\/em> - a visible dent in her form, sharp and soon over, the old rhythm back before anything can follow her home.", "why_wrong": "That word's trouble follows you home and resurfaces. This is spent inside two throws, and <em>the old rhythm returns<\/em>."}, {"sentence": "A blown cue throws the drummer off for one song, then is forgotten; what ____ the singer is one dark seat, still on her mind at breakfast.", "options": ["perturbs", "rattles"], "key": "perturbs", "pair": "rattles", "why_right": "The tell is <em>still on her mind at breakfast<\/em> - the sharp, visible knock belongs to the drummer; what the singer feels is quiet unease that outlasts the show, her performance untouched.", "why_wrong": "That word is the visible knock to someone's form, sharp and soon over, and the drummer took it. A dark seat still on the singer's mind at breakfast works lower and longer."}, {"sentence": "One unexplained line in the old ledger still ____ the retired accountant: weeks later she wakes at three a.m. turning it over, unable to say what exactly is wrong.", "options": ["perturbs", "flusters"], "key": "perturbs", "pair": "flusters", "why_right": "The tell is <em>weeks later she wakes at three a.m.<\/em> - the trouble follows her home and keeps returning with nothing to point at; no moment here, and no clumsiness in it.", "why_wrong": "Dropped things and tangled words happen in the moment. Her trouble has no moment; it follows her home and keeps returning."}, {"sentence": "Reading his own poem aloud to the class ____ the boy: he skips a line, knocks the microphone stand sideways, and has forgotten it entirely before he reaches his seat again.", "options": ["perturbs", "flusters"], "key": "flusters", "pair": "flusters", "why_right": "The tell is <em>has forgotten it entirely before he reaches his seat<\/em> - clumsiness in the moment, skipped line, knocked stand, ending with the moment and following him nowhere.", "why_wrong": "That word names a quiet unease that follows you home and resurfaces with nothing to point at. His trouble is all clumsiness in the moment, gone before he sits down."}, {"sentence": "One wrong turn ____ the new driver for a week — nothing fumbled at the wheel, only the thought, back each night, that she never saw the sign.", "options": ["perturbs", "flusters"], "key": "perturbs", "pair": "flusters", "why_right": "The tell is <em>back each night<\/em> - no clumsiness at all, only a worry that resurfaces for a week; a flustered moment at the wheel would have ended when the moment did.", "why_wrong": "That word is clumsiness in the moment, dropped things and tangled words, over when the moment is. Nothing was fumbled at the wheel, and the worry returns each night for a week."}], "display_order": [7, 2, 6, 3, 0, 4, 1, 5], "dimension_order": ["unsettles", "rattles", "flusters"], "dimension_feedback": {"unsettles": "Unsettles: To unsettle someone is to shake their calm without terrifying them — the ground shifts once and the composure wobbles. What perturbs a person goes on working afterward: a quieter unease that keeps returning, whispering that something is off long after the first jolt has passed.", "rattles": "Rattles is the informal word for throwing someone off their usual balance — a heckler rattles a rookie pitcher for an inning. It is sharp, visible, and soon over. Perturbs works lower and longer: quiet unease that troubles sleep rather than performance, with nothing to point at.", "flusters": "Flusters: To fluster someone is to make them flustered and clumsy in the moment — dropped notes, tangled words, a red face. It ends when the moment does. What perturbs you follows you home: no clumsiness at all, just a worry that resurfaces and will not name itself."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs a quiet worry that keeps coming back — not a shock, not visible panic. Show it returning: try working in a word like <i>still<\/i>, <i>again<\/i>, <i>weeks<\/i> or <i>nights<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

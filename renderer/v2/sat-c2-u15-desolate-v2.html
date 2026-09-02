@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="93a758590283">
+<meta name="build" content="450f81739937">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>desolate &#8212; SAT Vocabulary, Course 2 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "desolate", "gradeUrl": "/api/grade", "taskId": "desolate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses desolate correctly?", "opts": {"A": "A month after the flood the fairground stood desolate, its midway silted gray and silent.", "B": "The desolate claims office was packed to its doors by eight, every chair taken and the queue out to the curb.", "C": "The pool sat desolate at six sharp, lanes glassy and inviting, an hour before the first regulars pushed in.", "D": "The desolate branch library lost its last paid librarian to the cuts, yet volunteers keep it open six days a week."}, "key": "A", "fb": {"correct": "Correct. The life washed out of the fairground and nothing stirring — deserted, dreary, lifeless: desolate.", "B": "Packed to the doors with a queue outside is crowded. Desolate means deserted.", "C": "Empty and inviting an hour before opening is simply early. Desolate carries dreariness with the emptiness.", "D": "Open six days a week on volunteer effort is very much alive. Desolate means deserted and lifeless."}}, "s3a": {"q": "In this passage, calling what the water revealed \"desolate\" means Harlow Bend was", "opts": {"A": "deserted, dreary, and stripped of life", "B": "damaged by the water but ready to be rebuilt", "C": "facing a discouraging future", "D": "quietly waiting for its people to come back home"}, "key": "A", "fb": {"correct": "Right — mud streets, no green, no sound, 'a place life had left entirely.'", "B": "Nothing suggests rebuilding — the town spent seventy years under a lake, and no one proposes to return.", "C": "The town has no prospects to be gloomy about; the passage reports what is already gone.", "D": "The last line says the opposite — 'nothing to say it would ever come back.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "bleak", "B": "empty", "C": "forsaken", "D": "desolate"}, "key": "B", "fb": {"correct": "Right. At four in the morning the concourse simply has no one in it — a fact about right now, and a perfectly fine one. Empty says exactly that, with none of the gloom or abandonment the other options add.", "D": "Desolate stacks dreariness and lifelessness on top of the missing people. This concourse at four a.m. is anything but: <em>Nothing about the place is dreary at that hour<\/em> — the lamps are lit and a crew is at work.", "A": "Bleak turns the outlook gray and unpromising. This station's prospects could hardly be brighter — it <em>handles a quarter-million passengers a day<\/em>, and <em>by six the tide of commuters returns<\/em>.", "C": "A forsaken place has been left behind by the people it needed. No one has left this one: <em>a floor crew polishes brass<\/em>, an espresso kiosk is warming up, and the quiet lasts exactly ninety minutes."}}}, "grid": {"words": ["desolate", "bleak", "forsaken", "empty"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Past the last ranch the road ran through ____ country that no one had ever settled — no lights, no birdsong, mile after gray mile with nothing alive in it.", "ks": ["desolate"], "fb": {"bleak": "That word puts the gloom in what lies ahead — prospects, forecasts — and a place can be crowded and still earn it. This country's losses are already total and present.", "forsaken": "That word needs people who left something behind — keepers, a congregation. <em>No one had ever settled<\/em> here, so there was no one to do the leaving.", "empty": "That word states a neutral fact about right now, and an empty room can be perfectly pleasant. Gray miles with <em>nothing alive<\/em> stack dreariness and lifelessness on top."}}, {"s": "The trading floor was packed and loud as ever, but the quarterly forecast turned the mood ____: every chart pointed down, and everyone reading them knew it.", "ks": ["bleak"], "fb": {"desolate": "That word empties a place of people, cheer, and life. This floor is <em>packed and loud as ever<\/em> — the gloom is entirely about what lies ahead.", "forsaken": "That word means abandoned by the people a place needed. Everyone is still right there at their screens.", "empty": "The room is <em>packed<\/em> — the word can't survive the first clause. What darkened is the outlook, not the headcount."}}, {"s": "November on the coast turned ____: day after day of low gray sky, the forecast promising nothing better for weeks — though the cafés along the front stayed warm and full of regulars.", "ks": ["bleak"], "fb": {"desolate": "That word needs the people, the cheer, and the life already gone. The cafés are <em>warm and full of regulars<\/em>; what's gray is the sky and the weeks ahead.", "forsaken": "That word means left behind by the people who belonged to a place. The regulars are all still here, ordering the usual.", "empty": "Full cafés sink that word on the spot. The sentence is about a sky and a forecast, not vacancy."}}, {"s": "Every family that once farmed the valley has moved to town, and the chapel they built now stands ____ — though hikers still shelter in it most weekends and a caretaker keeps the floor swept.", "ks": ["forsaken"], "fb": {"empty": "That word is about occupancy right now, and hikers are in it <em>most weekends<\/em>. What the chapel lost is its own people — the families who built it.", "desolate": "That word goes all the way down: deserted, dreary, lifeless. A swept floor and sheltering hikers keep this building well short of that.", "bleak": "That word colors the outlook gray. The sentence makes no forecast — it reports an abandonment by the people who belonged there."}}, {"s": "The waiting room was ____ when she arrived, which suited her fine: first appointment of the day, every chair free, and the coffee machine already warm.", "ks": ["empty"], "fb": {"desolate": "That word stacks dreariness and lifelessness on top of missing people. This room is pleasant, warm, and ten minutes from filling up.", "bleak": "That word grays out the outlook. Nothing here bodes ill — it's simply early.", "forsaken": "That word means left behind by the people a place needed. The <em>coffee machine already warm<\/em> says the staff are in and the day is beginning."}}, {"s": "Forty years after the reactor closed, the exclusion zone remains ____: staved-in roofs, streets gone to thistle, and not so much as a dog to bark at the survey drone.", "ks": ["desolate"], "fb": {"bleak": "That word is about what lies ahead. Here every loss has already happened — the roofs, the streets, the silence.", "forsaken": "That word says the keepers left, and a left-behind place may still work. This zone has gone all the way down — nothing functions and <em>not so much as a dog<\/em> stirs.", "empty": "That word is a neutral fact about occupancy, and an empty gym at dawn is perfectly fine. Staved-in roofs and streets <em>gone to thistle<\/em> are another order of loss."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a place where the people, the cheer, and the life have all already gone — not just gloomy weather. Stack the losses with words like <i>nothing<\/i>, <i>no one<\/i>, <i>silent<\/i> or <i>gray<\/i>."}};
+  var CFG = {"word": "desolate", "gradeUrl": "/api/grade", "taskId": "desolate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses desolate correctly?", "opts": {"A": "A month after the flood the fairground stood desolate, its midway silted gray and silent.", "B": "The desolate claims office was packed to its doors by eight, every chair taken and the queue out to the curb.", "C": "The pool sat desolate at six sharp, lanes glassy and inviting, an hour before the first regulars pushed in.", "D": "The desolate branch library lost its last paid librarian to the cuts, yet volunteers keep it open six days a week."}, "key": "A", "fb": {"correct": "Correct. The life washed out of the fairground and nothing stirring — deserted, dreary, lifeless: desolate.", "B": "Packed to the doors with a queue outside is crowded. Desolate means deserted.", "C": "Empty and inviting an hour before opening is simply early. Desolate carries dreariness with the emptiness.", "D": "Open six days a week on volunteer effort is very much alive. Desolate means deserted and lifeless."}}, "s3a": {"q": "In this passage, calling what the water revealed \"desolate\" means Harlow Bend was", "opts": {"A": "deserted, dreary, and stripped of life", "B": "damaged by the water but ready to be rebuilt", "C": "facing a discouraging future", "D": "quietly waiting for its people to come back home"}, "key": "A", "fb": {"correct": "Right — mud streets, no green, no sound, 'a place life had left entirely.'", "B": "Nothing suggests rebuilding — the town spent seventy years under a lake, and no one proposes to return.", "C": "The town has no prospects to be gloomy about; the passage reports what is already gone.", "D": "The last line says the opposite — 'nothing to say it would ever come back.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "bleak", "B": "empty", "C": "forsaken", "D": "desolate"}, "key": "B", "fb": {"correct": "Right. At four in the morning the concourse simply has no one in it — a fact about right now, and a perfectly fine one. Empty says exactly that, with none of the gloom or abandonment the other options add.", "D": "Desolate stacks dreariness and lifelessness on top of the missing people. This concourse at four a.m. is anything but: <em>Nothing about the place is dreary at that hour<\/em> — the lamps are lit and a crew is at work.", "A": "Bleak turns the outlook gray and unpromising. This station's prospects could hardly be brighter — it <em>handles a quarter-million passengers a day<\/em>, and <em>by six the tide of commuters returns<\/em>.", "C": "A forsaken place has been left behind by the people it needed. No one has left this one: <em>a floor crew polishes brass<\/em>, an espresso kiosk is warming up, and the quiet lasts exactly ninety minutes."}}}, "pairwise": {"rows": [{"sentence": "The trading floor was packed and loud as ever, but the quarterly forecast turned the mood ____: every chart pointed down, and everyone reading them knew it.", "options": ["desolate", "bleak"], "key": "bleak", "pair": "bleak", "why_right": "The tell is <em>every chart pointed down<\/em> - gloom located in what lies ahead, on a floor still crowded and busy; nothing about the room itself has been lost.", "why_wrong": "That word empties a place of people, cheer, and life. This floor is <em>packed and loud as ever<\/em> — the gloom is entirely about what lies ahead."}, {"sentence": "November on the coast turned ____: day after day of low gray sky, the forecast promising nothing better for weeks — though the cafés along the front stayed warm and full of regulars.", "options": ["desolate", "bleak"], "key": "bleak", "pair": "bleak", "why_right": "The tell is <em>the forecast promising nothing better<\/em> - the grayness sits in the weather and the weeks ahead, while the full cafés keep the place itself alive and cheerful.", "why_wrong": "That word needs the people, the cheer, and the life already gone. The cafés are <em>warm and full of regulars<\/em>; what's gray is the sky and the weeks ahead."}, {"sentence": "Forty years after the reactor closed, the exclusion zone remains ____: staved-in roofs, streets gone to thistle, and not so much as a dog to bark at the survey drone.", "options": ["desolate", "bleak"], "key": "desolate", "pair": "bleak", "why_right": "The tell is <em>streets gone to thistle<\/em> - the people, the cheer, and the life have already gone, losses complete and present; nothing here is a forecast about what lies ahead.", "why_wrong": "That word is about what lies ahead. Here every loss has already happened — the roofs, the streets, the silence."}, {"sentence": "Every family that once farmed the valley has moved to town, and the chapel they built now stands ____ — though hikers still shelter in it most weekends and a caretaker keeps the floor swept.", "options": ["desolate", "forsaken"], "key": "forsaken", "pair": "forsaken", "why_right": "The tell is <em>a caretaker keeps the floor swept<\/em> - left behind by the families who built and needed it, yet still functioning; nothing here is dreary or lifeless.", "why_wrong": "That word goes all the way down: deserted, dreary, lifeless. A swept floor and sheltering hikers keep this building well short of that."}, {"sentence": "Past the last ranch the road ran through ____ country that no one had ever settled — no lights, no birdsong, mile after gray mile with nothing alive in it.", "options": ["desolate", "forsaken"], "key": "desolate", "pair": "forsaken", "why_right": "The tell is <em>no one had ever settled<\/em> - with no keepers ever to walk away, nothing was left behind; what the road crosses is deserted, dreary, and lifeless outright.", "why_wrong": "That word needs people who left something behind — keepers, a congregation. <em>No one had ever settled<\/em> here, so there was no one to do the leaving."}, {"sentence": "Below three thousand meters the camera swept a plain as ____ as any on earth — gray silt in every direction, not one living speck, and no crew that ever called it home.", "options": ["desolate", "forsaken"], "key": "desolate", "pair": "forsaken", "why_right": "The tell is <em>no crew that ever called it home<\/em> - nobody ever kept this plain, so nothing was left behind; gray, unpeopled, and without one living speck, it is the full stack.", "why_wrong": "That word means left behind by the people it needed - keepers, friends, a congregation. This plain never had any of those; a place no one ever kept cannot have been abandoned."}, {"sentence": "The waiting room was ____ when she arrived, which suited her fine: first appointment of the day, every chair free, and the coffee machine already warm.", "options": ["desolate", "empty"], "key": "empty", "pair": "empty", "why_right": "The tell is <em>every chair free<\/em> - a plain fact about right now, perfectly fine and minutes from filling; no dreariness or lifelessness is stacked on the vacancy.", "why_wrong": "That word stacks dreariness and lifelessness on top of missing people. This room is pleasant, warm, and ten minutes from filling up."}, {"sentence": "What unnerved the surveyors was not the vacancy itself — plenty of warehouses stand unoccupied — but how ____ the cannery felt: gray light, dead machines, and no sign that anyone meant to come back.", "options": ["desolate", "empty"], "key": "desolate", "pair": "empty", "why_right": "The tell is <em>gray light, dead machines<\/em> - the sentence grants the vacancy and sets it aside, asking instead for the dreariness and lifelessness stacked on top of the missing people.", "why_wrong": "That word is a fact about right now - a gym at six is empty and perfectly fine. The sentence sets vacancy aside and asks for the dreariness and lifelessness stacked on top."}], "display_order": [3, 1, 5, 6, 0, 4, 7, 2], "dimension_order": ["bleak", "forsaken", "empty"], "dimension_feedback": {"bleak": "Bleak paints the outlook gray and unpromising — weather, moods, prospects. A bleak place can still be crowded and busy; the gloom is in what lies ahead. Desolate stacks real losses instead: the people, the cheer, and the life have already gone.", "forsaken": "Forsaken means left behind by the people it needed — its keepers, its friends, its congregation. A forsaken place may still function; desolate goes all the way down: deserted and lifeless, with no sign of return.", "empty": "Empty is a fact about right now — the gym at six in the morning is empty and perfectly fine — while desolate stacks dreariness and lifelessness on top of the missing people."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a place where the people, the cheer, and the life have all already gone — not just gloomy weather. Stack the losses with words like <i>nothing<\/i>, <i>no one<\/i>, <i>silent<\/i> or <i>gray<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

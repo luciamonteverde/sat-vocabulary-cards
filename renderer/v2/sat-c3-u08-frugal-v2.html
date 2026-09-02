@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="efbcfb7fdac2">
+<meta name="build" content="252ab50cf07a">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>frugal &#8212; SAT Vocabulary, Course 3 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "frugal", "gradeUrl": "/api/grade", "taskId": "frugal", "minWords": 12, "items": {"s1": {"q": "Which sentence uses frugal correctly?", "opts": {"A": "The banquet was frugal beyond belief: nine courses, two ice sculptures, and a chocolate fountain in every corner.", "B": "Being frugal, Tomas replaced his entire wardrobe every season and never once glanced at a single price tag.", "C": "The frugal newlyweds furnished the whole apartment from estate sales and spent real money only on the good mattress.", "D": "The river ran frugal after the sudden spring thaw, flooding the low pastures for a week straight."}, "key": "C", "fb": {"correct": "Right — furnishing from estate sales while still paying up for the one thing that matters is careful, waste-hating management of money: frugal at its best.", "A": "A banquet of 'nine courses, two ice sculptures, and a chocolate fountain' is pure extravagance — the opposite of frugal. Frugal people hate waste and watch every dollar; look for restraint, not excess.", "B": "Tomas 'never once glanced at a single price tag' and swaps his entire wardrobe every season — that's lavish living, though the sentence labels it frugal. Frugal means keeping costs down and wasting nothing.", "D": "This river 'flooding the low pastures' after the thaw is overflowing its banks, and a river can't manage a budget anyway. Frugal describes people who are careful with what they have, not water levels."}}, "s3a": {"q": "As it is used in the passage, what does 'frugal' most nearly mean?", "opts": {"A": "unable to afford ordinary comforts", "B": "avoiding waste in every habit of living", "C": "unwilling to spend even when spending is needed", "D": "skilled at finding bargains on daily goods"}, "key": "B", "fb": {"correct": "Right — the passage insists the habit wasn't poverty or stinginess: it was a whole way of living in which nothing was wasted and sound spending was welcome.", "A": "The harvest paid well, and she bought the best slate without blinking — the bare shelves were a choice, not hardship.", "C": "She paid for the roof 'without blinking.' The passage separates hating waste from refusing needed spending.", "D": "Nothing in the passage is about bargains or shopping — her habits are about using things fully, not buying them cheaply."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "thrifty", "B": "economical", "C": "frugal", "D": "sparing"}, "key": "C", "fb": {"correct": "Right. Frugal names a whole sparing way of living: nothing in the shop is let go to waste, yet she pays full price for leather that lasts. Care with money and a hatred of waste together — deeper than a bargain habit, larger than mere efficiency.", "A": "Thrifty praises clever money management — bargains found, savings growing. This owner <em>pays the asking price, never haggling<\/em>; whatever her habit is, it is not deal-hunting.", "D": "Sparing stops at the smallness of an amount, and this owner does not spend small — she pays willingly for <em>hides that will outlast the books they wrap<\/em>. The passage is about which spending she refuses, not how little she uses.", "B": "Economical is the mildest word here, praising efficient use of anything. But the passage goes further than efficiency: <em>glue pots are scraped clean before new ones are opened<\/em>, and it is <em>waste, not spending, that she cannot forgive<\/em>."}}}, "grid": {"words": ["frugal", "thrifty", "sparing", "economical"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Thirty years as an expedition quartermaster made Halvor ____: rations logged to the ounce, tent canvas cut down for patches, nothing thrown away that could serve a second season.", "ks": ["frugal"], "fb": {"thrifty": "That word praises clever money management — bargains found, savings growing. The quartermaster's habit is bigger: a whole way of living that wastes <em>nothing<\/em>.", "sparing": "That word measures how little of something is used and stops there. This sentence describes a settled character — a lifetime rule against waste, not one small quantity.", "economical": "That word praises efficient use of a particular resource — fuel, words, funds. Here it isn't one resource but a person's entire way of living."}}, {"s": "Their ____ household treats waste as the one unforgivable expense: purchases postponed, jars refilled, leftovers planned into next week's meals.", "ks": ["frugal"], "fb": {"thrifty": "That word is the homey compliment for sharp shopping. Nothing here is about deals — the household's rule runs deeper: waste itself is the enemy.", "sparing": "That word stops at the smallness of an amount. This sentence names a whole system — postponing, refilling, planning — built on a judgment about waste.", "economical": "That word praises getting more from less of some one thing. This is broader: an entire household's way with money and goods."}}, {"s": "Everyone calls Marco ____ as a compliment: he times the January sales, haggles cheerfully at the flea market, and watches his savings inch up every month.", "ks": ["thrifty"], "fb": {"frugal": "That word names a whole sparing way of living that hates waste itself. Marco's talent is narrower and cheerier: timing sales and haggling well.", "sparing": "That word means using little of something. Marco may spend plenty — what's praised is how cleverly he does it.", "economical": "That word praises efficiency in using some resource. The compliment here is to Marco's money sense — the knack for a bargain."}}, {"s": "Her ____ streak shows at every checkout: prices compared to the cent, loyalty points counted, and the grocery bill shrinking week by week.", "ks": ["thrifty"], "fb": {"frugal": "That word runs wider — a whole sparing way of living. This sentence stays at the checkout, praising the shopper's sharp eye for prices.", "sparing": "That word measures a small quantity of something used. Nothing here is about amounts — it's about managing the bill cleverly.", "economical": "That word fits efficient engines and tight paragraphs as easily as money. What's described here is a person's bargain-hunting knack."}}, {"s": "The innkeeper is so ____ with the heat that winter guests keep their coats on at dinner, the radiators warming only on the coldest nights.", "ks": ["sparing"], "fb": {"frugal": "That word names a sensible, judgment-backed way with money. This sentence only measures an amount — how little heat the innkeeper allows.", "thrifty": "That word praises clever money management. There's no cleverness here, just a small quantity of warmth doled out.", "economical": "That word praises efficiency — more result from less. Guests keeping their coats on at dinner is not a result anyone is praising."}}, {"s": "The depot's new hybrid buses proved impressively ____, squeezing forty extra miles from every tank on the same downtown routes.", "ks": ["economical"], "fb": {"frugal": "That word describes a person's whole careful way of living with money. A city bus has no habits — the praise here is pure fuel efficiency.", "thrifty": "That word compliments a person's sharp money management. The depot's buses aren't hunting bargains; they're getting more miles per tank.", "sparing": "That word would only say the buses use little fuel. The sentence's point is stronger — the distance they squeeze from every tank."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show care with money or goods as a settled habit, not a one-time save — avoiding waste, not suffering. Try working in a word like <i>reuses<\/i>, <i>mends<\/i>, <i>leftovers<\/i> or <i>never wastes<\/i>."}};
+  var CFG = {"word": "frugal", "gradeUrl": "/api/grade", "taskId": "frugal", "minWords": 12, "items": {"s1": {"q": "Which sentence uses frugal correctly?", "opts": {"A": "The banquet was frugal beyond belief: nine courses, two ice sculptures, and a chocolate fountain in every corner.", "B": "Being frugal, Tomas replaced his entire wardrobe every season and never once glanced at a single price tag.", "C": "The frugal newlyweds furnished the whole apartment from estate sales and spent real money only on the good mattress.", "D": "The river ran frugal after the sudden spring thaw, flooding the low pastures for a week straight."}, "key": "C", "fb": {"correct": "Right — furnishing from estate sales while still paying up for the one thing that matters is careful, waste-hating management of money: frugal at its best.", "A": "A banquet of 'nine courses, two ice sculptures, and a chocolate fountain' is pure extravagance — the opposite of frugal. Frugal people hate waste and watch every dollar; look for restraint, not excess.", "B": "Tomas 'never once glanced at a single price tag' and swaps his entire wardrobe every season — that's lavish living, though the sentence labels it frugal. Frugal means keeping costs down and wasting nothing.", "D": "This river 'flooding the low pastures' after the thaw is overflowing its banks, and a river can't manage a budget anyway. Frugal describes people who are careful with what they have, not water levels."}}, "s3a": {"q": "As it is used in the passage, what does 'frugal' most nearly mean?", "opts": {"A": "unable to afford ordinary comforts", "B": "avoiding waste in every habit of living", "C": "unwilling to spend even when spending is needed", "D": "skilled at finding bargains on daily goods"}, "key": "B", "fb": {"correct": "Right — the passage insists the habit wasn't poverty or stinginess: it was a whole way of living in which nothing was wasted and sound spending was welcome.", "A": "The harvest paid well, and she bought the best slate without blinking — the bare shelves were a choice, not hardship.", "C": "She paid for the roof 'without blinking.' The passage separates hating waste from refusing needed spending.", "D": "Nothing in the passage is about bargains or shopping — her habits are about using things fully, not buying them cheaply."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "thrifty", "B": "economical", "C": "frugal", "D": "sparing"}, "key": "C", "fb": {"correct": "Right. Frugal names a whole sparing way of living: nothing in the shop is let go to waste, yet she pays full price for leather that lasts. Care with money and a hatred of waste together — deeper than a bargain habit, larger than mere efficiency.", "A": "Thrifty praises clever money management — bargains found, savings growing. This owner <em>pays the asking price, never haggling<\/em>; whatever her habit is, it is not deal-hunting.", "D": "Sparing stops at the smallness of an amount, and this owner does not spend small — she pays willingly for <em>hides that will outlast the books they wrap<\/em>. The passage is about which spending she refuses, not how little she uses.", "B": "Economical is the mildest word here, praising efficient use of anything. But the passage goes further than efficiency: <em>glue pots are scraped clean before new ones are opened<\/em>, and it is <em>waste, not spending, that she cannot forgive<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Thirty years as an expedition quartermaster made Halvor ____: rations logged to the ounce, tent canvas cut down for patches, nothing thrown away that could serve a second season.", "options": ["frugal", "thrifty"], "key": "frugal", "pair": "thrifty", "why_right": "The tell is <em>nothing thrown away that could serve a second season<\/em> - a hatred of waste as a whole way of living, with no deal, price, or growing savings in sight.", "why_wrong": "That word praises clever money management — bargains found, savings growing. The quartermaster's habit is bigger: a whole way of living that wastes <em>nothing<\/em>."}, {"sentence": "Everyone calls Marco ____ as a compliment: he times the January sales, haggles cheerfully at the flea market, and watches his savings inch up every month.", "options": ["frugal", "thrifty"], "key": "thrifty", "pair": "thrifty", "why_right": "The tell is <em>times the January sales<\/em> - the homey compliment for clever money management, deals hunted and savings growing, while nothing in the scene is about waste at all.", "why_wrong": "That word names a whole sparing way of living that hates waste itself. Marco's talent is narrower and cheerier: timing sales and haggling well."}, {"sentence": "Piya's ____ regime rules the costume shop, where hems rise and fall for decades, old gowns return as linings, and good cloth never meets a bin.", "options": ["frugal", "thrifty"], "key": "frugal", "pair": "thrifty", "why_right": "The tell is <em>good cloth never meets a bin<\/em> - a decades-long rule against waste itself, the whole way of living this word names; no bargain is hunted and nothing is even bought.", "why_wrong": "That word is the homey compliment for clever money management -- coupons, bargains, a growing balance. Nothing here is bought or haggled; the shop's one rule is that cloth never goes to waste."}, {"sentence": "Their ____ household treats waste as the one unforgivable expense: purchases postponed, jars refilled, leftovers planned into next week's meals.", "options": ["frugal", "sparing"], "key": "frugal", "pair": "sparing", "why_right": "The tell is <em>waste as the one unforgivable expense<\/em> - a judgment spanning purchases, jars, and meals together, the sensible habit behind the smallness, not the small amount of one thing used.", "why_wrong": "That word stops at the smallness of an amount. This sentence names a whole system — postponing, refilling, planning — built on a judgment about waste."}, {"sentence": "The innkeeper is so ____ with the heat that winter guests keep their coats on at dinner, the radiators warming only on the coldest nights.", "options": ["frugal", "sparing"], "key": "sparing", "pair": "sparing", "why_right": "The tell is <em>warming only on the coldest nights<\/em> - how little of one thing, heat, gets used; the claim stops at the smallness of the amount and admires nothing.", "why_wrong": "That word names a sensible, judgment-backed way with money. This sentence only measures an amount — how little heat the innkeeper allows."}, {"sentence": "The clinic's senior doctor is ____ with antibiotics, prescribing a short course only when a culture leaves no doubt and never once for a virus.", "options": ["frugal", "sparing"], "key": "sparing", "pair": "sparing", "why_right": "The tell is <em>a short course only when a culture leaves no doubt<\/em> - how little of one drug gets used, a claim that stops at the smallness of the amount.", "why_wrong": "That word names a whole money habit backed by a hatred of waste. Nothing is bought or saved here; the sentence only measures how little of one drug is allowed."}, {"sentence": "The car costs pennies a mile, yet neighbors credit her paid-off cottage to something deeper, ____ habits that weigh every purchase against years of use.", "options": ["frugal", "economical"], "key": "frugal", "pair": "economical", "why_right": "The tell is <em>something deeper<\/em> - the car already owns the efficiency praise, and what pays off a cottage over years is a person's whole sparing way with money.", "why_wrong": "That word is the milder praise for efficient use of one thing -- the car already has it. Habits that weigh every purchase are a person's whole sparing way with money."}, {"sentence": "City crews call the new streetlamps ____: the same blocks stay lit on a fraction of the power, and the fixtures go years between services.", "options": ["frugal", "economical"], "key": "economical", "pair": "economical", "why_right": "The tell is <em>the same blocks stay lit on a fraction of the power<\/em> - efficient use of a resource by a thing, more result from less, which is this word's whole praise.", "why_wrong": "That word names a person's whole sparing way with money. A streetlamp has no habits and spends nothing; the praise here is efficiency -- the same light from far less power."}], "display_order": [0, 5, 7, 3, 1, 4, 6, 2], "dimension_order": ["thrifty", "sparing", "economical"], "dimension_feedback": {"thrifty": "Thrifty is the homey, everyday cousin of frugal: it praises a person who manages money cleverly — coupons clipped, bargains found, savings growing. Frugal runs deeper and wider, naming a whole sparing way of living that hates waste itself. A thrifty shopper hunts deals; a frugal farmer wastes nothing at all.", "sparing": "Sparing means using little of something — money, salt, or praise — and it stops at the smallness of the amount. Frugal adds the judgment behind the smallness: care with money and a hatred of waste, spending readily where value lasts. Sparing measures quantity; frugal names the sensible habit.", "economical": "Economical is milder than frugal — it praises efficient use of anything, fuel or words or funds, while frugal names a person's whole sparing way with money."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show care with money or goods as a settled habit, not a one-time save — avoiding waste, not suffering. Try working in a word like <i>reuses<\/i>, <i>mends<\/i>, <i>leftovers<\/i> or <i>never wastes<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

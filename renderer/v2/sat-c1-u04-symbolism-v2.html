@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="0fcce35addf9">
+<meta name="build" content="0e87731460b5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>symbolism &#8212; SAT Vocabulary, Course 1 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "symbolism", "gradeUrl": "/api/grade", "taskId": "symbolism", "minWords": 12, "items": {"s1": {"q": "A short story follows a farm family through a drought. Which detail is the author using as symbolism?", "opts": {"A": "The weather report on the kitchen radio announcing yet another dry month without rain for the whole county.", "B": "The author's endnote explaining which drought-stricken county in western Kansas inspired the story's setting.", "C": "The father's pocket watch — stopped at the hour the rain last fell — which he winds every night anyway.", "D": "The running joke of the youngest son solemnly naming each of the family's dairy cows after a former president."}, "key": "C", "fb": {"correct": "Correct! Symbolism is an object standing for a larger idea — and the stopped watch, frozen at the hour the rain last fell yet wound faithfully every night, stands for the family's suspended life and its stubborn hope that the rains will return.", "A": "Not quite! The radio forecast is literal information the plot needs — it tells the family, and the reader, that the drought goes on. A detail doing plain informational work stands for nothing beyond itself.", "B": "Not quite! The endnote about the Kansas county sits outside the story altogether — it is the author speaking about sources, not an image inside the tale. Symbolism lives in the story's own objects and actions.", "D": "Not quite! Cows named after presidents is a running joke, there for warmth and comic relief. The story plays it for laughs, not for meaning — a gag can recur without standing for any larger idea."}}, "s3a": {"q": "In this passage, the mural's \"symbolism\" is", "opts": {"A": "the realistic detail that makes the road convincing at dawn", "B": "a hidden signature planted by the graduating painters", "C": "labels explaining what each painted object means", "D": "objects standing for larger ideas"}, "key": "D", "fb": {"correct": "Right — the painters 'loaded the picture' so that objects could 'say what a banner could not.'", "A": "Realism is what the casual viewers saw — 'only a mountain road'; the point is what the objects stand for.", "B": "Nothing marks who painted it; the objects point at graduation, not at the artists.", "C": "'None of it was labeled' — the meanings are carried, not explained."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "imagery", "B": "allegory", "C": "metaphor", "D": "symbolism"}, "key": "D", "fb": {"correct": "Right. Only a few blocks carry a larger idea — <em>the maker's record, they argue, of a migration she never wrote down<\/em> — while the rest stay plain: <em>patterns and nothing more<\/em>. Loading select images with meaning, and leaving the rest plain, is exactly symbolism.", "B": "An allegory commits an entire work to a second, hidden story, first page to last. This quilt does not: <em>most of its blocks are exactly that<\/em> — plain geometry — and the rest stay <em>simple decoration, patterns and nothing more<\/em>.", "A": "Imagery is language for the senses — it makes you see and feel the scene and asks you to read nothing more into it. These blocks are being read for what they stand for: <em>the maker's record, they argue, of a migration she never wrote down<\/em>.", "C": "A metaphor is a figure of speech that directly calls one thing another, made once in passing. Nothing here is a turn of phrase — the meaning rides on stitched objects, <em>the few that recur<\/em>."}}}, "grid": {"words": ["symbolism", "allegory", "imagery", "metaphor"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "In the film, the grandmother's cracked teacup carries the family's fading fortunes while everything around it stays plain realism — quiet ____ at work in a single object.", "ks": ["symbolism"], "fb": {"allegory": "That word commits an entire story, first page to last, to standing for another. Here one teacup carries meaning while the rest 'stays plain realism.'", "imagery": "That word makes you see, hear, and smell a scene — sense-appeal, nothing more. The claim here is that the cup stands for something beyond itself.", "metaphor": "That word is a figure of speech — directly calling one thing another, once. Nothing is being called anything; an object quietly carries an idea."}}, {"s": "Notice how the playwright loads the props: the stopped clock, the boarded window, the dying fire each stand for the house's refusal to move on — ____ doing the work exposition never could.", "ks": ["symbolism"], "fb": {"allegory": "That word needs the whole play to map onto a second, hidden story. These are three props in an otherwise ordinary plot.", "imagery": "That word appeals to the senses and stops there. The sentence insists these objects stand for something more.", "metaphor": "That word makes its claim in a phrase — one thing called another, once. Here meaning rides on objects across the whole play."}}, {"s": "The chapter's ____ is all salt and sound — spray on the lips, gulls overhead, rope creaking — description that asks you to feel the harbor, not to read anything into it.", "ks": ["imagery"], "fb": {"symbolism": "That word loads objects with larger ideas. The sentence says the opposite — feel the harbor, read nothing into it.", "allegory": "That word maps an entire story onto a hidden second one. This is one chapter's sense-detail.", "metaphor": "That word calls one thing another — 'the road was a ribbon.' Everything here is literally itself: spray, gulls, rope."}}, {"s": "Workshop notes praised the poem's ____ — you can smell the diesel and hear the dock gates — while gently asking whether any of it meant anything more.", "ks": ["imagery"], "fb": {"symbolism": "That word requires the images to carry larger ideas — and the notes doubt any larger meaning is there.", "allegory": "That word turns a whole work into a stand-in story. The notes discuss sensory texture, not hidden plots.", "metaphor": "That word is a figure that names one thing as another. The poem's diesel and dock gates are just themselves, vividly."}}, {"s": "Read one way it is a farmyard squabble; read the other, every animal is a politician and every fence a border — the tale works as ____ from its first page to its last.", "ks": ["allegory"], "fb": {"symbolism": "That word is selective — certain images carry ideas while the rest of the work stays itself. Here nothing stays itself; every element is a stand-in.", "imagery": "That word is sense-language — sights and sounds. The claim here is structural: a second story hiding under the first.", "metaphor": "That word lives in a single phrase, made once. This device runs the length of the book."}}, {"s": "'The stadium is a furnace,' the columnist writes — one ____ made in passing, gone by the next sentence, with nothing else in the column asked to carry it.", "ks": ["metaphor"], "fb": {"symbolism": "That word loads objects with meaning across a whole work. This is one line, gone by the next sentence.", "allegory": "That word maps an entire story onto another. A sports column has no second story.", "imagery": "That word appeals to the senses across a description. The point here is the direct claim — one thing called another, once."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Give an object a larger idea to carry, and let the reader see both the thing and what it stands for. Try working in words like <i>stands for<\/i>, <i>represents<\/i>, <i>object<\/i> or <i>meaning<\/i>."}};
+  var CFG = {"word": "symbolism", "gradeUrl": "/api/grade", "taskId": "symbolism", "minWords": 12, "items": {"s1": {"q": "A short story follows a farm family through a drought. Which detail is the author using as symbolism?", "opts": {"A": "The weather report on the kitchen radio announcing yet another dry month without rain for the whole county.", "B": "The author's endnote explaining which drought-stricken county in western Kansas inspired the story's setting.", "C": "The father's pocket watch — stopped at the hour the rain last fell — which he winds every night anyway.", "D": "The running joke of the youngest son solemnly naming each of the family's dairy cows after a former president."}, "key": "C", "fb": {"correct": "Correct! Symbolism is an object standing for a larger idea — and the stopped watch, frozen at the hour the rain last fell yet wound faithfully every night, stands for the family's suspended life and its stubborn hope that the rains will return.", "A": "Not quite! The radio forecast is literal information the plot needs — it tells the family, and the reader, that the drought goes on. A detail doing plain informational work stands for nothing beyond itself.", "B": "Not quite! The endnote about the Kansas county sits outside the story altogether — it is the author speaking about sources, not an image inside the tale. Symbolism lives in the story's own objects and actions.", "D": "Not quite! Cows named after presidents is a running joke, there for warmth and comic relief. The story plays it for laughs, not for meaning — a gag can recur without standing for any larger idea."}}, "s3a": {"q": "In this passage, the mural's \"symbolism\" is", "opts": {"A": "the realistic detail that makes the road convincing at dawn", "B": "a hidden signature planted by the graduating painters", "C": "labels explaining what each painted object means", "D": "objects standing for larger ideas"}, "key": "D", "fb": {"correct": "Right — the painters 'loaded the picture' so that objects could 'say what a banner could not.'", "A": "Realism is what the casual viewers saw — 'only a mountain road'; the point is what the objects stand for.", "B": "Nothing marks who painted it; the objects point at graduation, not at the artists.", "C": "'None of it was labeled' — the meanings are carried, not explained."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "imagery", "B": "allegory", "C": "metaphor", "D": "symbolism"}, "key": "D", "fb": {"correct": "Right. Only a few blocks carry a larger idea — <em>the maker's record, they argue, of a migration she never wrote down<\/em> — while the rest stay plain: <em>patterns and nothing more<\/em>. Loading select images with meaning, and leaving the rest plain, is exactly symbolism.", "B": "An allegory commits an entire work to a second, hidden story, first page to last. This quilt does not: <em>most of its blocks are exactly that<\/em> — plain geometry — and the rest stay <em>simple decoration, patterns and nothing more<\/em>.", "A": "Imagery is language for the senses — it makes you see and feel the scene and asks you to read nothing more into it. These blocks are being read for what they stand for: <em>the maker's record, they argue, of a migration she never wrote down<\/em>.", "C": "A metaphor is a figure of speech that directly calls one thing another, made once in passing. Nothing here is a turn of phrase — the meaning rides on stitched objects, <em>the few that recur<\/em>."}}}, "pairwise": {"rows": [{"sentence": "In the film, the grandmother's cracked teacup carries the family's fading fortunes while everything around it stays plain realism — quiet ____ at work in a single object.", "options": ["symbolism", "allegory"], "key": "symbolism", "pair": "allegory", "why_right": "The tell is <em>everything around it stays plain realism<\/em> - symbolism is selective, one loaded object carrying a larger idea while the rest of the work stays simply itself.", "why_wrong": "That word commits an entire story, first page to last, to standing for another. Here one teacup carries meaning while the rest 'stays plain realism.'"}, {"sentence": "Notice how the playwright loads the props: the stopped clock, the boarded window, the dying fire each stand for the house's refusal to move on — ____ doing the work exposition never could.", "options": ["symbolism", "imagery"], "key": "symbolism", "pair": "imagery", "why_right": "The tell is <em>each stand for the house's refusal to move on<\/em> - the props mean beyond what the senses take in, which is symbolism going a step further than sense-appeal.", "why_wrong": "That word appeals to the senses and stops there. The sentence insists these objects stand for something more."}, {"sentence": "The chapter's ____ is all salt and sound — spray on the lips, gulls overhead, rope creaking — description that asks you to feel the harbor, not to read anything into it.", "options": ["symbolism", "imagery"], "key": "imagery", "pair": "imagery", "why_right": "The tell is <em>not to read anything into it<\/em> - the language appeals to the senses and claims no larger meaning, which is imagery rather than anything standing for more.", "why_wrong": "That word loads objects with larger ideas. The sentence says the opposite — feel the harbor, read nothing into it."}, {"sentence": "Workshop notes praised the poem's ____ — you can smell the diesel and hear the dock gates — while gently asking whether any of it meant anything more.", "options": ["symbolism", "imagery"], "key": "imagery", "pair": "imagery", "why_right": "The tell is <em>whether any of it meant anything more<\/em> - larger meaning is exactly what is in doubt, so this is sense-appeal only: language that appeals to the senses.", "why_wrong": "That word requires the images to carry larger ideas — and the notes doubt any larger meaning is there."}, {"sentence": "Read one way it is a farmyard squabble; read the other, every animal is a politician and every fence a border — the tale works as ____ from its first page to its last.", "options": ["symbolism", "allegory"], "key": "allegory", "pair": "allegory", "why_right": "The tell is <em>from its first page to its last<\/em> - the entire surface maps onto a second, hidden story, every animal and fence a stand-in throughout.", "why_wrong": "That word is selective — certain images carry ideas while the rest of the work stays itself. Here nothing stays itself; every element is a stand-in."}, {"sentence": "'The stadium is a furnace,' the columnist writes — one ____ made in passing, gone by the next sentence, with nothing else in the column asked to carry it.", "options": ["symbolism", "metaphor"], "key": "metaphor", "pair": "metaphor", "why_right": "The tell is <em>gone by the next sentence<\/em> - one figure of speech calling the stadium a furnace, made once in passing, with no meaning loaded across the work.", "why_wrong": "That word loads objects with meaning across a whole work. This is one line, gone by the next sentence."}, {"sentence": "The critic notes that the novel spends its ____ sparingly: one flooded quarry stands for the disaster no character will name, while every other place in the book is just a place.", "options": ["symbolism", "allegory"], "key": "symbolism", "pair": "allegory", "why_right": "The tell is <em>every other place in the book is just a place<\/em> - symbolism is selective, loading certain images with larger ideas while the rest of the work stays simply itself.", "why_wrong": "That word needs the whole book to map onto a hidden second story, every character and event a stand-in. Here one quarry carries meaning and every other place stays literal."}, {"sentence": "Nothing in the libretto calls the empire anything; instead the candles burn lower and the garden loses a statue in every act — ____ carrying the collapse from overture to finale.", "options": ["symbolism", "metaphor"], "key": "symbolism", "pair": "metaphor", "why_right": "The tell is <em>carrying the collapse from overture to finale<\/em> - symbolism loads objects and actions with meaning across a whole work, not in one passing phrase.", "why_wrong": "That word is a figure of speech that directly calls one thing another, made once in passing. Nothing here is called anything; staged objects carry the collapse act after act."}], "display_order": [4, 3, 5, 0, 1, 6, 7, 2], "dimension_order": ["allegory", "imagery", "metaphor"], "dimension_feedback": {"allegory": "Allegory means a story whose entire surface maps onto a second, hidden story — every character and event a stand-in from first page to last. Symbolism is more selective: certain images carry larger ideas, while the rest of the work stays simply itself.", "imagery": "Imagery means language that appeals to the senses — it makes you see, hear, and smell the scene. Symbolism goes a step further: it takes what you see and makes it stand for something more.", "metaphor": "Metaphor means a figure of speech that directly calls one thing another, made once in passing — 'the road was a ribbon.' Symbolism is the wider practice of loading objects and actions with meaning across a whole work."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Give an object a larger idea to carry, and let the reader see both the thing and what it stands for. Try working in words like <i>stands for<\/i>, <i>represents<\/i>, <i>object<\/i> or <i>meaning<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

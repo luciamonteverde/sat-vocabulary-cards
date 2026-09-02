@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="320b94019eff">
+<meta name="build" content="4d5173bde629">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>stagnant &#8212; SAT Vocabulary, Course 3 Unit 18</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "stagnant", "gradeUrl": "/api/grade", "taskId": "stagnant", "minWords": 12, "items": {"s1": {"q": "Which sentence uses stagnant correctly?", "opts": {"A": "The stagnant rapids churned so violently that the rafting guide ordered everyone back to shore at once.", "B": "Traffic sat stagnant for a single moment at the yellow light, then rushed on the instant it turned green.", "C": "The talks between the union and the airline stayed stagnant for months, with no offers exchanged and no dates on the calendar.", "D": "Sales grew stagnant all spring, doubling every single month until the overtime crews at the warehouse could no longer keep pace."}, "key": "C", "fb": {"correct": "Correct! Stagnant means still to the point of going stale, so it's the correct answer because months without offers or meeting dates are exactly that — a negotiation that has stopped moving and is souring where it stands.", "A": "Not quite! Stagnant means still to the point of going stale, so it's not the correct choice here because churning rapids are the opposite of still water — nothing that violent can be called stagnant.", "B": "Not quite! Stagnant describes stillness that has settled in and begun to stale, so it's not the correct choice here because a pause of one moment at a light is far too short for stillness to settle, let alone sour.", "D": "Not quite! Stagnant asserts that growth has stopped altogether, so it's not the correct choice here because sales that double every month are growing at full speed — the sentence contradicts the word it uses."}}, "s3a": {"q": "In this passage, what does 'stagnant' most nearly mean?", "opts": {"A": "churned and muddied by a strong current passing through", "B": "cold at every depth despite the season", "C": "still so long it has started to spoil", "D": "too shallow for fish or plants to survive in"}, "key": "C", "fb": {"correct": "Right — cut off from the current, the pond stops moving and starts to sour: falling oxygen, algae, the smell of sulfur.", "A": "The current is exactly what the pond lost — 'cut off from the current that had always flushed it clean.'", "B": "Temperature never comes up; the readings that change are oxygen, not degrees.", "D": "Depth is never mentioned. The problem is that the water stopped moving, not that there is too little of it."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "motionless", "B": "inert", "C": "sluggish", "D": "stagnant"}, "key": "D", "fb": {"correct": "Right. This is stillness that has lasted long enough to go stale: <em>from October to May not one tap turns<\/em>, and the souring follows — <em>a flat, musty taste settles in<\/em>. That is exactly the decay stagnant blames on the standing still.", "A": "Motionless means simply not moving — a parked car, a held breath — and says nothing about what the stillness does. This water has gone bad from standing: <em>a flat, musty taste settles in<\/em>. Mere stillness, with nothing said about the souring, is not the precise fit.", "C": "Sluggish water still moves — it creeps, heavily and slowly. Here <em>not one tap turns<\/em> from fall to spring: the flow has not slowed, it has stopped altogether, so sluggish claims more motion than this line ever sees.", "B": "Inert means unreactive — failing to respond, the way inert gases sit out every reaction. This water is anything but: the chlorine fades and <em>technicians culture far more bacteria there<\/em> than anywhere else in the system. A sample that chemically busy is not inert."}}}, "grid": {"words": ["stagnant", "motionless", "sluggish", "inert"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Behind the collapsed culvert, the ditchwater has stood unmoving for weeks and gone ____, souring under a green film.", "ks": ["stagnant"], "fb": {"motionless": "That word says only that nothing moves — a parked car, a held breath — and the sentence already granted that. The gap needs the word that adds the souring, the staleness of long standing.", "sluggish": "That word still moves, heavily and slowly — a creeping stream, crawling traffic. This water 'has stood unmoving for weeks.'", "inert": "That word is about failing to react when something touches it, the way noble gases sit out reactions. Nothing prods this water; it has simply stood until it soured."}}, {"s": "Critics describe the studio's output as ____: nothing new has shipped in five years, and the ideas left on the shelf are going stale.", "ks": ["stagnant"], "fb": {"motionless": "That word describes clean, simple stillness — a held breath. Here the stillness has begun to spoil: 'the ideas left on the shelf are going stale.'", "sluggish": "That word means still moving, just slowly — traffic that crawls. A studio that has shipped nothing at all in five years is not crawling; it has stopped.", "inert": "That word means unreactive — failing to respond when touched. The sentence is not about a studio ignoring a prod; it is about a long standstill going sour."}}, {"s": "After the holiday, ring-road traffic was ____, crawling forward a car length at a time but never quite stopping.", "ks": ["sluggish"], "fb": {"stagnant": "That word needs a full stop and time enough to sour — standing water, stale air. This traffic is still 'crawling forward.'", "motionless": "That word means no movement at all — a parked car. These cars gain a car length at a time.", "inert": "That word means failing to react when acted on. The traffic reacts and rolls — slowly, but it rolls."}}, {"s": "Cold mornings leave the old diesel ____, turning over heavily and answering the pedal a beat late.", "ks": ["sluggish"], "fb": {"stagnant": "That word is for a standstill that has begun to go stale — a stopped pond, dead air. A running engine, however heavy, is moving.", "motionless": "That word means not moving at all. The engine is 'turning over' — moving heavily, not still.", "inert": "Close — but the engine 'answers the pedal,' only a beat late. That word means giving no response at all when acted on."}}, {"s": "The heron stood ____ at the pond's edge for one full minute, wings folded, and then struck so fast the water barely moved.", "ks": ["motionless"], "fb": {"stagnant": "That word needs stillness that has lasted long enough to go stale — weeks, not one poised minute. Nothing here is souring.", "sluggish": "That word means moving heavily and slowly. The heron is doing something different: perfect stillness, then a strike 'so fast the water barely moved.'", "inert": "That word means failing to respond — and this bird is a coiled response waiting to happen. It strikes the moment the minute ends."}}, {"s": "Prodded with the tongs, the gray lump in the crucible stayed ____ — no fizz, no glow, no answer of any kind.", "ks": ["inert"], "fb": {"stagnant": "That word is stillness gone stale — standing water, dead air, decay. This is a lab bench and a prod that gets no reaction.", "motionless": "True as far as it goes — but the sentence is not about whether the lump moves. It is about the prod that gets 'no answer of any kind': a failure to react.", "sluggish": "That word would answer slowly — a heavy, late response. This lump gives no response at all."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show stillness that has lasted long enough to start going bad — not brief stillness, and not slow movement. Give it a time span and a whiff of decay — try working in words like <i>for months<\/i>, <i>film<\/i>, <i>stale<\/i> or <i>sour<\/i>."}};
+  var CFG = {"word": "stagnant", "gradeUrl": "/api/grade", "taskId": "stagnant", "minWords": 12, "items": {"s1": {"q": "Which sentence uses stagnant correctly?", "opts": {"A": "The stagnant rapids churned so violently that the rafting guide ordered everyone back to shore at once.", "B": "Traffic sat stagnant for a single moment at the yellow light, then rushed on the instant it turned green.", "C": "The talks between the union and the airline stayed stagnant for months, with no offers exchanged and no dates on the calendar.", "D": "Sales grew stagnant all spring, doubling every single month until the overtime crews at the warehouse could no longer keep pace."}, "key": "C", "fb": {"correct": "Correct! Stagnant means still to the point of going stale, so it's the correct answer because months without offers or meeting dates are exactly that — a negotiation that has stopped moving and is souring where it stands.", "A": "Not quite! Stagnant means still to the point of going stale, so it's not the correct choice here because churning rapids are the opposite of still water — nothing that violent can be called stagnant.", "B": "Not quite! Stagnant describes stillness that has settled in and begun to stale, so it's not the correct choice here because a pause of one moment at a light is far too short for stillness to settle, let alone sour.", "D": "Not quite! Stagnant asserts that growth has stopped altogether, so it's not the correct choice here because sales that double every month are growing at full speed — the sentence contradicts the word it uses."}}, "s3a": {"q": "In this passage, what does 'stagnant' most nearly mean?", "opts": {"A": "churned and muddied by a strong current passing through", "B": "cold at every depth despite the season", "C": "still so long it has started to spoil", "D": "too shallow for fish or plants to survive in"}, "key": "C", "fb": {"correct": "Right — cut off from the current, the pond stops moving and starts to sour: falling oxygen, algae, the smell of sulfur.", "A": "The current is exactly what the pond lost — 'cut off from the current that had always flushed it clean.'", "B": "Temperature never comes up; the readings that change are oxygen, not degrees.", "D": "Depth is never mentioned. The problem is that the water stopped moving, not that there is too little of it."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "motionless", "B": "inert", "C": "sluggish", "D": "stagnant"}, "key": "D", "fb": {"correct": "Right. This is stillness that has lasted long enough to go stale: <em>from October to May not one tap turns<\/em>, and the souring follows — <em>a flat, musty taste settles in<\/em>. That is exactly the decay stagnant blames on the standing still.", "A": "Motionless means simply not moving — a parked car, a held breath — and says nothing about what the stillness does. This water has gone bad from standing: <em>a flat, musty taste settles in<\/em>. Mere stillness, with nothing said about the souring, is not the precise fit.", "C": "Sluggish water still moves — it creeps, heavily and slowly. Here <em>not one tap turns<\/em> from fall to spring: the flow has not slowed, it has stopped altogether, so sluggish claims more motion than this line ever sees.", "B": "Inert means unreactive — failing to respond, the way inert gases sit out every reaction. This water is anything but: the chlorine fades and <em>technicians culture far more bacteria there<\/em> than anywhere else in the system. A sample that chemically busy is not inert."}}}, "pairwise": {"rows": [{"sentence": "Pans banging, waiters sprinting, the bistro roared nightly, yet critics called it ____: no new dish in twelve years, its menu tired as its tablecloths.", "options": ["stagnant", "motionless"], "key": "stagnant", "pair": "motionless", "why_right": "The tell is <em>no new dish in twelve years<\/em> - the card's stillness is about development, not bustle: this kitchen's development has stopped long enough to go stale while the room roars.", "why_wrong": "That word means simply not moving — a parked car, a held breath — and this bistro roars nightly. What has stopped is the menu, long enough to go stale."}, {"sentence": "For the four full seconds before the starter's pistol the sprinters crouched ____ in their blocks, every muscle loaded, and then eight lanes exploded at once.", "options": ["stagnant", "motionless"], "key": "motionless", "pair": "motionless", "why_right": "The tell is <em>four full seconds<\/em> - a clean, brief stillness like a held breath, loaded to move again; nothing has stood long enough to begin going stale.", "why_wrong": "That word means stillness that has lasted long enough to begin going stale — water, air, a career. Four loaded seconds before a sprint have soured nothing; they are simply not moving."}, {"sentence": "Critics describe the studio's output as ____: nothing new has shipped in five years, and the ideas left on the shelf are going stale.", "options": ["stagnant", "sluggish"], "key": "stagnant", "pair": "sluggish", "why_right": "The tell is <em>nothing new has shipped in five years<\/em> - a complete stop, not a crawl, and the shelved ideas going stale supply the souring reserved for this word.", "why_wrong": "That word means still moving, just slowly — traffic that crawls. A studio that has shipped nothing at all in five years is not crawling; it has stopped."}, {"sentence": "Cold mornings leave the old diesel ____, turning over heavily and answering the pedal a beat late.", "options": ["stagnant", "sluggish"], "key": "sluggish", "pair": "sluggish", "why_right": "The tell is <em>turning over heavily<\/em> - the engine is still moving, just heavily and slowly, so nothing has stopped, let alone stood long enough to go stale.", "why_wrong": "That word is for a standstill that has begun to go stale — a stopped pond, dead air. A running engine, however heavy, is moving."}, {"sentence": "The lacemakers' guild has turned ____ — no apprentice sworn in and no new pattern drawn since the mill closed, its old designs going stale.", "options": ["stagnant", "sluggish"], "key": "stagnant", "pair": "sluggish", "why_right": "The tell is <em>no apprentice sworn in and no new pattern drawn<\/em> - not slow progress but none at all, a standstill long enough for the old designs to go stale.", "why_wrong": "That word means still moving, just heavily and slowly — traffic that crawls. A guild with no new member and no new pattern has stopped altogether, and its designs have gone stale."}, {"sentence": "Prodded with the tongs, the gray lump in the crucible stayed ____ — no fizz, no glow, no answer of any kind.", "options": ["stagnant", "inert"], "key": "inert", "pair": "inert", "why_right": "The tell is <em>Prodded with the tongs<\/em> - something touches the lump and it fails to respond, which is what the card gives this word; nothing has stood long enough to sour.", "why_wrong": "That word is stillness gone stale — standing water, dead air, decay. This is a lab bench and a prod that gets no reaction."}, {"sentence": "The model-railway society answers every letter and votes on each proposal, yet it has gone ____ — one layout untouched since 1988, a newsletter reprinting old issues.", "options": ["stagnant", "inert"], "key": "stagnant", "pair": "inert", "why_right": "The tell is <em>answers every letter and votes on each proposal<\/em> - the society responds to every touch, so its fault is not unreactiveness but a standstill since 1988, going stale.", "why_wrong": "That word means failing to respond or act when touched, the way inert gases sit out every reaction. This society answers every letter; its trouble is a standstill that has gone stale."}, {"sentence": "Held over a lit match by the fire marshal, the depot's old smoke detector stayed ____: not one shriek, not one blink of its little red light.", "options": ["stagnant", "inert"], "key": "inert", "pair": "inert", "why_right": "The tell is <em>Held over a lit match<\/em> - something touches the detector and it gives no reaction at all, which is this word's ground; nothing has stood long enough to sour.", "why_wrong": "That word means a standstill that has lasted long enough to go stale — standing water, dead air. This device fails to respond to a match; nothing has stood still or soured."}], "display_order": [3, 6, 0, 5, 4, 7, 1, 2], "dimension_order": ["motionless", "sluggish", "inert"], "dimension_feedback": {"motionless": "Motionless: simply not moving — a parked car, a held breath. Stagnant adds the sourness of it: stillness that has lasted long enough to begin going stale.", "sluggish": "still moving, just heavily and slowly — sluggish traffic crawls, a sluggish stream creeps. Stagnant goes further: the movement has stopped altogether.", "inert": "unreactive — failing to respond or act when something touches it, the way inert gases sit out every reaction. Stagnant blames the stillness itself and watches the decay that follows it."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must show stillness that has lasted long enough to start going bad — not brief stillness, and not slow movement. Give it a time span and a whiff of decay — try working in words like <i>for months<\/i>, <i>film<\/i>, <i>stale<\/i> or <i>sour<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

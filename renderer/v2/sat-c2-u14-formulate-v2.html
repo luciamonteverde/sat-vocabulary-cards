@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="5ce1124f6cb1">
+<meta name="build" content="b1ef63f19827">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>formulate &#8212; SAT Vocabulary, Course 2 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "formulate", "gradeUrl": "/api/grade", "taskId": "formulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses \"formulate\" correctly?", "opts": {"A": "Tripping over the cat on the stairs, Jonas formulated the idea for his prize-winning screenplay in one accidental flash of insight.", "B": "Over the winter the striking dockworkers formulated their proposal, mapping every concession to a cost before writing a word.", "C": "Weekend by weekend, Dara formulated the garden shed from a kit, tightening every bolt the manual named.", "D": "Asked for the plan, the manager formulated whatever came to mind first and changed it twice before lunch."}, "key": "B", "fb": {"correct": "Correct! Formulate means to work out an idea carefully and put it into exact, systematic form. The dockworkers do both: every concession worked out against a cost, and only then the careful writing.", "A": "Not quite! A prize idea arriving in one accidental flash is inspiration, and formulate is nearly its opposite: the word names slow, systematic working-out, not luck. Nothing tripped over a cat was ever formulated.", "C": "Not quite! Dara's patience is real, but she is assembling an object from someone else's instructions. Formulating shapes ideas and plans into exact form — the shed already had its form printed in the manual.", "D": "Not quite! Saying whatever comes to mind first — and revising it twice before lunch — is improvising. A formulated plan has been worked out and fixed in careful wording before anyone asks."}}, "s3a": {"q": "In this passage, asking Reyes to \"formulate\" the rules means asking her to", "opts": {"A": "invent from scratch a brand-new command system that no county in the state had ever tried", "B": "work the existing unwritten rules out completely and fix them in exact words", "C": "produce a quick rough outline the crews could argue over at the next joint training", "D": "persuade the rival crews to trust each other's judgment"}, "key": "B", "fb": {"correct": "Right — the passage glosses the word itself: not invent anything new, but work the half-known rules out completely and fix them in exact words.", "A": "The county asked her 'not to invent anything new' — the rules already half-existed.", "C": "Nine pages that a captain can act on at 3 a.m. without calling anyone is finished work, not a rough outline for argument.", "D": "The fix was a precisely worded document, not a change of attitude — command passed 'by the book.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "draft", "B": "sketch", "C": "devise", "D": "formulate"}, "key": "C", "fb": {"correct": "Right — devise. The scheme was <em>wholly her own<\/em>, invented where every standard trick had failed — and nothing about it was ever fixed in exact written form, so inventing the method is the whole achievement here.", "D": "Formulating goes to the end of the job: the idea worked out and fixed in exact, systematic wording. This keeper <em>never wrote a word of it down<\/em> — <em>new volunteers simply learned it at her elbow<\/em>, so nothing here was ever put into fixed form.", "A": "To draft is to produce a first, rough version that will be revised later. There was no rough stage here: the scheme <em>worked the first morning she tried it<\/em>, and no version was ever put on paper.", "B": "A sketch names a plan's big pieces and stops there. Her answer was <em>complete in every step<\/em> — a working method carried through in full detail, not an outline awaiting one."}}}, "grid": {"words": ["formulate", "devise", "draft", "sketch"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The approach came straight from an older maritime code; the panel's real work was to ____ the policy in full, wording each rule so exactly that inspectors could apply it as written.", "ks": ["formulate"], "fb": {"devise": "The approach was lifted whole from an older code — nothing here is a newly invented method, and inventing the clever way is that word's whole claim.", "draft": "A first version is allowed to stay loose. This sentence describes work carried to the finish, every rule worded exactly enough to apply as written.", "sketch": "That word names the big pieces and stops. Here each rule is worked out and worded so exactly that inspectors can apply it as written."}}, {"s": "The idea had circulated in the department for years; what she finally did was ____ it as a hypothesis exact enough for another lab to test word for word.", "ks": ["formulate"], "fb": {"devise": "The idea had been circulating for years, so nothing new is being invented — what was missing was only the exact, finished statement of it.", "draft": "'Exact enough for another lab to test word for word' is the finish line, not a rough first version that may stay loose.", "sketch": "This work fixes the wording precisely enough to test as written; that word names a plan's big pieces and stops there."}}, {"s": "With the bridge washed out, the crew had one night to ____ some way of moving the generator across the river — no manual covered it, and by dawn the machine had to be on the far bank.", "ks": ["devise"], "fb": {"formulate": "That word cares about finish — working an existing idea out fully and fixing exact wording. Nothing here is being polished; no manual even covers the problem.", "draft": "That word produces a first rough version of a document. A generator crossing a river needs a working method by dawn, not a loose text.", "sketch": "Naming the plan's big pieces and stopping would leave the generator on the wrong bank; by dawn the whole job has to work."}}, {"s": "Locked out of the archive's index, the intern managed to ____ a trick for finding files by their stamp dates — a shortcut nobody had thought of, and she used it all summer.", "ks": ["devise"], "fb": {"formulate": "That word is for working an idea out fully into exact final form; this sentence turns on newness — a shortcut nobody had thought of before.", "draft": "There is no document here to rough out — the sentence describes a working shortcut she used all summer.", "sketch": "An outline that names big pieces and stops could not be 'used all summer' — the shortcut here actually works."}}, {"s": "Using the approach the team had settled on weeks ago, he had until Friday to ____ the grant proposal from start to finish — a rough version they could tear apart on Monday, numbers still to come.", "ks": ["draft"], "fb": {"formulate": "'A rough version they could tear apart' with 'numbers still to come' stops far short of exact, finished wording — which is that word's whole point.", "devise": "The approach was settled weeks ago, so no new method is being invented; the job is putting a first version on paper.", "sketch": "'From start to finish' means a whole document lands on the table, however loose — not just its big pieces named."}}, {"s": "In the elevator she had ninety seconds to ____ the month-old plan for the visiting donor: just its three big pieces, every detail left for later.", "ks": ["sketch"], "fb": {"formulate": "'Every detail left for later' is the opposite of working each piece out and fixing exact wording.", "devise": "The plan is a month old — nothing new is being invented in that elevator; its big pieces are only being named aloud.", "draft": "Ninety seconds of talk in an elevator puts no version on paper at all, rough or otherwise."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show an idea being worked out to the finish and fixed in exact form — not just thought up. Show the finished precision: try working in a word like <i>exactly<\/i>, <i>step by step<\/i>, <i>in writing<\/i> or <i>word for word<\/i>."}};
+  var CFG = {"word": "formulate", "gradeUrl": "/api/grade", "taskId": "formulate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses \"formulate\" correctly?", "opts": {"A": "Tripping over the cat on the stairs, Jonas formulated the idea for his prize-winning screenplay in one accidental flash of insight.", "B": "Over the winter the striking dockworkers formulated their proposal, mapping every concession to a cost before writing a word.", "C": "Weekend by weekend, Dara formulated the garden shed from a kit, tightening every bolt the manual named.", "D": "Asked for the plan, the manager formulated whatever came to mind first and changed it twice before lunch."}, "key": "B", "fb": {"correct": "Correct! Formulate means to work out an idea carefully and put it into exact, systematic form. The dockworkers do both: every concession worked out against a cost, and only then the careful writing.", "A": "Not quite! A prize idea arriving in one accidental flash is inspiration, and formulate is nearly its opposite: the word names slow, systematic working-out, not luck. Nothing tripped over a cat was ever formulated.", "C": "Not quite! Dara's patience is real, but she is assembling an object from someone else's instructions. Formulating shapes ideas and plans into exact form — the shed already had its form printed in the manual.", "D": "Not quite! Saying whatever comes to mind first — and revising it twice before lunch — is improvising. A formulated plan has been worked out and fixed in careful wording before anyone asks."}}, "s3a": {"q": "In this passage, asking Reyes to \"formulate\" the rules means asking her to", "opts": {"A": "invent from scratch a brand-new command system that no county in the state had ever tried", "B": "work the existing unwritten rules out completely and fix them in exact words", "C": "produce a quick rough outline the crews could argue over at the next joint training", "D": "persuade the rival crews to trust each other's judgment"}, "key": "B", "fb": {"correct": "Right — the passage glosses the word itself: not invent anything new, but work the half-known rules out completely and fix them in exact words.", "A": "The county asked her 'not to invent anything new' — the rules already half-existed.", "C": "Nine pages that a captain can act on at 3 a.m. without calling anyone is finished work, not a rough outline for argument.", "D": "The fix was a precisely worded document, not a change of attitude — command passed 'by the book.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "draft", "B": "sketch", "C": "devise", "D": "formulate"}, "key": "C", "fb": {"correct": "Right — devise. The scheme was <em>wholly her own<\/em>, invented where every standard trick had failed — and nothing about it was ever fixed in exact written form, so inventing the method is the whole achievement here.", "D": "Formulating goes to the end of the job: the idea worked out and fixed in exact, systematic wording. This keeper <em>never wrote a word of it down<\/em> — <em>new volunteers simply learned it at her elbow<\/em>, so nothing here was ever put into fixed form.", "A": "To draft is to produce a first, rough version that will be revised later. There was no rough stage here: the scheme <em>worked the first morning she tried it<\/em>, and no version was ever put on paper.", "B": "A sketch names a plan's big pieces and stops there. Her answer was <em>complete in every step<\/em> — a working method carried through in full detail, not an outline awaiting one."}}}, "pairwise": {"rows": [{"sentence": "With the bridge washed out, the crew had one night to ____ some way of moving the generator across the river — no manual covered it, and by dawn the machine had to be on the far bank.", "options": ["formulate", "devise"], "key": "devise", "pair": "devise", "why_right": "The tell is <em>no manual covered it<\/em> - devise means inventing the method where none existed, and this crew must invent one; formulating finishes an existing idea, but nothing exists yet.", "why_wrong": "That word cares about finish — working an existing idea out fully and fixing exact wording. Nothing here is being polished; no manual even covers the problem."}, {"sentence": "Village weavers had passed the dye process down by watching; the cooperative hired her to ____ it at last, fixing temperatures and timings so exactly that a stranger could match the color.", "options": ["formulate", "devise"], "key": "formulate", "pair": "devise", "why_right": "The tell is <em>fixing temperatures and timings so exactly<\/em> - the process already exists; the remaining work is finishing it into exact, systematic form, not inventing a clever way where none existed.", "why_wrong": "That word means inventing a clever method where none existed. This process has been handed down for generations; what it lacks is not novelty but exact, fixed form."}, {"sentence": "With the projector dead an hour before the demo, the stage manager had to ____ a workaround on the spot, bouncing the image off a mirror borrowed from the lobby.", "options": ["formulate", "devise"], "key": "devise", "pair": "devise", "why_right": "The tell is <em>on the spot<\/em> - a clever fix invented where no method existed; nothing here is worked out carefully or fixed in exact, systematic form.", "why_wrong": "That word cares about finish - working an idea out fully and fixing it in exact form. A fix improvised on the spot with a borrowed mirror is invention, not finishing."}, {"sentence": "Using the approach the team had settled on weeks ago, he had until Friday to ____ the grant proposal from start to finish — a rough version they could tear apart on Monday, numbers still to come.", "options": ["formulate", "draft"], "key": "draft", "pair": "draft", "why_right": "The tell is <em>a rough version they could tear apart<\/em> - a first version allowed to stay loose; formulating goes to the end of the job, and this one stops well short.", "why_wrong": "'A rough version they could tear apart' with 'numbers still to come' stops far short of exact, finished wording — which is that word's whole point."}, {"sentence": "The idea had circulated in the department for years; what she finally did was ____ it as a hypothesis exact enough for another lab to test word for word.", "options": ["formulate", "draft"], "key": "formulate", "pair": "draft", "why_right": "The tell is <em>test word for word<\/em> - the hypothesis is carried to exact, finished wording another lab can run as written, far past a first rough version allowed to stay loose.", "why_wrong": "'Exact enough for another lab to test word for word' is the finish line, not a rough first version that may stay loose."}, {"sentence": "In the elevator she had ninety seconds to ____ the month-old plan for the visiting donor: just its three big pieces, every detail left for later.", "options": ["formulate", "sketch"], "key": "sketch", "pair": "sketch", "why_right": "The tell is <em>just its three big pieces<\/em> - naming the plan's big pieces and stopping is precisely a sketch; every detail is left for later, so nothing gets worked out or fixed.", "why_wrong": "'Every detail left for later' is the opposite of working each piece out and fixing exact wording."}, {"sentence": "Before the armies signed, the negotiators stayed to ____ the cease-fire terms in exact language — every checkpoint named, every hour written out — leaving no clause a lawyer could stretch.", "options": ["formulate", "sketch"], "key": "formulate", "pair": "sketch", "why_right": "The tell is <em>every checkpoint named<\/em> - the terms are worked out piece by piece and fixed in exact language, while a sketch names the big pieces and stops.", "why_wrong": "That word names a plan's big pieces and stops. These negotiators name every checkpoint and write out every hour, leaving no clause loose - the whole job, finished exactly."}, {"sentence": "The safety drill everyone half-knew became, after the fire, something the school had to ____ properly: each teacher's route spelled out door by door, exact minutes assigned, nothing left to memory.", "options": ["formulate", "sketch"], "key": "formulate", "pair": "sketch", "why_right": "The tell is <em>spelled out door by door<\/em> - every piece of the drill is worked out and fixed exactly, with nothing left to memory; naming the big pieces and stopping is the opposite.", "why_wrong": "That word would give the school the drill's big pieces and stop there. Routes spelled out door by door with exact minutes assigned is every piece worked out and fixed."}], "display_order": [6, 2, 7, 4, 1, 3, 5, 0], "dimension_order": ["devise", "draft", "sketch"], "dimension_feedback": {"devise": "Devise is about inventing the method — a clever way where none existed. Formulate cares less about novelty and more about finish: working the idea out fully and fixing it in exact form. You devise a trick; you formulate a policy.", "draft": "To draft is to produce a first, rough version, and a draft is allowed to stay loose. Formulating goes to the end of the job: the idea is worked out completely and worded so precisely it could be executed as written.", "sketch": "Sketching is weaker than formulating: a sketch names the plan's big pieces and stops, while formulating works out every piece and fixes the exact wording."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show an idea being worked out to the finish and fixed in exact form — not just thought up. Show the finished precision: try working in a word like <i>exactly<\/i>, <i>step by step<\/i>, <i>in writing<\/i> or <i>word for word<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

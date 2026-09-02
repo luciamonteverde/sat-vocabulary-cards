@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="51723048a32e">
+<meta name="build" content="deaaf20b93b4">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>agnostic &#8212; SAT Vocabulary, Course 2 Unit 6</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "agnostic", "gradeUrl": "/api/grade", "taskId": "agnostic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses agnostic correctly?", "opts": {"A": "A lifelong agnostic, Marta never once doubted for even a moment that heaven was exactly as her Sunday hymnal described it.", "B": "When the podcast turned to the afterlife, the biologist said she was agnostic: no evidence anyone could gather would ever settle it.", "C": "The whole planning committee stayed proudly agnostic all spring by simply skipping every single meeting posted on the calendar.", "D": "He officially became agnostic, he announced, the day he finished learning all four creeds by heart for the parish recital."}, "key": "B", "fb": {"correct": "Correct. The biologist holds that no gatherable evidence could ever settle the afterlife question - the claim that a question is beyond proof either way is exactly the agnostic position.", "A": "Marta 'never once doubted' her hymnal's picture of heaven — that is firm, certain belief. An agnostic instead holds that the question cannot be proven or disproven either way.", "C": "Skipping is not a stance: a committee 'skipping every single meeting' all spring shows apathy about attendance, not a position on proof. Agnostic marks the view that a question lies beyond proving either way.", "D": "Memorizing 'all four creeds by heart' for a recital is study and devotion, not a position about proof. Calling yourself agnostic means holding that the matter can be neither proven nor disproven."}}, "s3a": {"q": "As it is used in this passage, 'agnostic' most nearly means:", "opts": {"A": "refusing to reveal a privately held religious belief", "B": "holding that whether God exists can never be settled by any evidence", "C": "willing to be persuaded by a strong enough argument", "D": "taking neither side in order to keep peace in the dorm"}, "key": "B", "fb": {"correct": "Right — Ana's position is 'a claim about the limits of proof itself': no possible evidence could ever settle whether God exists.", "A": "Ana is the opposite of secretive — 'asked directly, she laid out her position at length.' She hides nothing; she stakes a claim.", "C": "Priya keeps promising 'one argument that would finally decide it,' and Ana's whole point is that no argument ever could. She is not waiting to be won over.", "D": "Ana is not keeping peace — her stance irritates everyone. Her refusal to join a camp is a claim about proof, not diplomacy about sides."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "agnostic", "B": "neutral", "C": "open-minded", "D": "noncommittal"}, "key": "B", "fb": {"correct": "Right. Taking no side was her role: <em>both of them signed the terms of her hire<\/em>, and she held that posture through every hearing, <em>exactly as those terms required<\/em>.", "A": "Agnostic stakes a claim that a question can never be settled by any evidence. Nothing here is unknowable: <em>her gauges measured the river's flow to the liter<\/em>.", "D": "Noncommittal is the shrug that hides a private view behind vague words. She hid nothing: <em>she said so aloud at the first session<\/em>, before a word of argument had been heard.", "C": "Open-minded means a strong enough case from either camp could still win you over. Not here: <em>no plea from either courthouse, however artful<\/em>, was going to move her — her posture was fixed before the hearings began."}}}, "grid": {"words": ["agnostic", "noncommittal", "neutral", "open-minded"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "On the existence of a creator, the old professor is frankly ____: she argues, openly and in print, that no evidence this world offers could settle the matter either way.", "ks": ["agnostic"], "fb": {"noncommittal": "That word is a dodge — refusing to say where you stand. The professor does the opposite: she argues her position 'openly and in print.'", "neutral": "That word is for someone staying above a dispute, taking no side by role. The professor is not refereeing anything; she is staking a claim about proof itself.", "open-minded": "That word means either side could still win you over. Her position is that no evidence could ever settle it — there is nothing left to be won over by."}}, {"s": "Asked whether the soul outlives the body, the physicist calls herself ____, insisting the question lies forever beyond what any experiment could confirm or rule out.", "ks": ["agnostic"], "fb": {"open-minded": "That word describes someone a strong enough argument could still convert. She has closed that door on principle: no experiment could ever decide it.", "noncommittal": "That word hides a view. The physicist announces hers — she 'insists' on it — which is the opposite of a dodge.", "neutral": "That word belongs to referees and mediators keeping out of a fight. Nobody here is balancing sides; she is asserting what experiments can never reach."}}, {"s": "The debate moderator kept her framing scrupulously ____, favoring neither campaign; the role demands she take no side, whatever she may privately think.", "ks": ["neutral"], "fb": {"agnostic": "That word stakes a claim — that a question can never be settled by evidence. The moderator claims nothing about proof; her job is simply to favor neither side.", "noncommittal": "That word is a personal dodge — ducking a question you could answer. Her evenhandedness is not a dodge; it is what the role requires of her.", "open-minded": "That word means persuadable — either camp might still win you over. Her framing is not about being winnable; it is about staying fair between the two."}}, {"s": "Switzerland stayed ____ through the war, refusing to join either alliance and trading evenly with both — a matter of declared national policy, not of private doubt.", "ks": ["neutral"], "fb": {"agnostic": "That word is a claim that a question can never be settled by evidence. Switzerland made no such claim — it simply took no side in a war.", "noncommittal": "That word hides a position. Switzerland's position was 'declared national policy' — announced to the world, the opposite of hedging.", "open-minded": "That word means still open to persuasion. The policy ruled joining out entirely; neither alliance had any prospect of winning the country over."}}, {"s": "Pressed twice on the merger, the director stayed ____, murmuring 'we will see' while hiding the firm view everyone in the room knew he held.", "ks": ["noncommittal"], "fb": {"agnostic": "That word announces a position — that the question cannot be settled by evidence. The director announces nothing; he hides an answer he already has.", "neutral": "That word means having no side. He has one — 'the firm view everyone in the room knew he held' — and is merely refusing to say it.", "open-minded": "That word means still persuadable. His mind is made up; the 'we will see' is a screen, not an invitation to convince him."}}, {"s": "Voters found the new councilwoman genuinely ____: she arrived leaning one way on the zoning fight, but said a strong enough case from either camp could still change her vote.", "ks": ["open-minded"], "fb": {"agnostic": "That word would mean she thinks the zoning question can never be settled. She thinks the opposite — a strong case will settle it, possibly hers to change.", "noncommittal": "That word hides a view. She volunteers hers — the lean she arrived with — while keeping the door open to argument.", "neutral": "That word means taking no side. She has taken one, provisionally; what makes her different is that she can still be argued off it."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must stake a claim that a question can never be settled by evidence — not a dodge, and not a maybe. Point at the missing proof — try working in a word like <i>never<\/i>, <i>proof<\/i>, <i>evidence<\/i> or <i>either way<\/i>."}};
+  var CFG = {"word": "agnostic", "gradeUrl": "/api/grade", "taskId": "agnostic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses agnostic correctly?", "opts": {"A": "A lifelong agnostic, Marta never once doubted for even a moment that heaven was exactly as her Sunday hymnal described it.", "B": "When the podcast turned to the afterlife, the biologist said she was agnostic: no evidence anyone could gather would ever settle it.", "C": "The whole planning committee stayed proudly agnostic all spring by simply skipping every single meeting posted on the calendar.", "D": "He officially became agnostic, he announced, the day he finished learning all four creeds by heart for the parish recital."}, "key": "B", "fb": {"correct": "Correct. The biologist holds that no gatherable evidence could ever settle the afterlife question - the claim that a question is beyond proof either way is exactly the agnostic position.", "A": "Marta 'never once doubted' her hymnal's picture of heaven — that is firm, certain belief. An agnostic instead holds that the question cannot be proven or disproven either way.", "C": "Skipping is not a stance: a committee 'skipping every single meeting' all spring shows apathy about attendance, not a position on proof. Agnostic marks the view that a question lies beyond proving either way.", "D": "Memorizing 'all four creeds by heart' for a recital is study and devotion, not a position about proof. Calling yourself agnostic means holding that the matter can be neither proven nor disproven."}}, "s3a": {"q": "As it is used in this passage, 'agnostic' most nearly means:", "opts": {"A": "refusing to reveal a privately held religious belief", "B": "holding that whether God exists can never be settled by any evidence", "C": "willing to be persuaded by a strong enough argument", "D": "taking neither side in order to keep peace in the dorm"}, "key": "B", "fb": {"correct": "Right — Ana's position is 'a claim about the limits of proof itself': no possible evidence could ever settle whether God exists.", "A": "Ana is the opposite of secretive — 'asked directly, she laid out her position at length.' She hides nothing; she stakes a claim.", "C": "Priya keeps promising 'one argument that would finally decide it,' and Ana's whole point is that no argument ever could. She is not waiting to be won over.", "D": "Ana is not keeping peace — her stance irritates everyone. Her refusal to join a camp is a claim about proof, not diplomacy about sides."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "agnostic", "B": "neutral", "C": "open-minded", "D": "noncommittal"}, "key": "B", "fb": {"correct": "Right. Taking no side was her role: <em>both of them signed the terms of her hire<\/em>, and she held that posture through every hearing, <em>exactly as those terms required<\/em>.", "A": "Agnostic stakes a claim that a question can never be settled by any evidence. Nothing here is unknowable: <em>her gauges measured the river's flow to the liter<\/em>.", "D": "Noncommittal is the shrug that hides a private view behind vague words. She hid nothing: <em>she said so aloud at the first session<\/em>, before a word of argument had been heard.", "C": "Open-minded means a strong enough case from either camp could still win you over. Not here: <em>no plea from either courthouse, however artful<\/em>, was going to move her — her posture was fixed before the hearings began."}}}, "pairwise": {"rows": [{"sentence": "On the existence of a creator, the old professor is frankly ____: she argues, openly and in print, that no evidence this world offers could settle the matter either way.", "options": ["agnostic", "noncommittal"], "key": "agnostic", "pair": "noncommittal", "why_right": "The tell is <em>argues, openly and in print<\/em> - an agnostic announces a position, the stated claim that evidence can never settle the matter, while a noncommittal speaker refuses to state one.", "why_wrong": "That word is a dodge — refusing to say where you stand. The professor does the opposite: she argues her position 'openly and in print.'"}, {"sentence": "Pressed twice on the merger, the director stayed ____, murmuring 'we will see' while hiding the firm view everyone in the room knew he held.", "options": ["agnostic", "noncommittal"], "key": "noncommittal", "pair": "noncommittal", "why_right": "The tell is <em>hiding the firm view<\/em> - noncommittal is the shrug that conceals a position; an agnostic would announce one, staking the claim that evidence could never settle it.", "why_wrong": "That word announces a position — that the question cannot be settled by evidence. The director announces nothing; he hides an answer he already has."}, {"sentence": "Ask the innkeeper whether the manor is haunted and he answers plainly every single night: he is ____, convinced no sighting or seance could ever settle the question either way.", "options": ["agnostic", "noncommittal"], "key": "agnostic", "pair": "noncommittal", "why_right": "The tell is <em>answers plainly every single night<\/em> - the agnostic announces a position rather than hiding one: the open claim that no evidence could ever settle the question.", "why_wrong": "That word is a shrug in word form - refusing to say where you stand while privately holding a view. The innkeeper refuses nothing; he announces his claim about proof plainly, night after night."}, {"sentence": "The debate moderator kept her framing scrupulously ____, favoring neither campaign; the role demands she take no side, whatever she may privately think.", "options": ["agnostic", "neutral"], "key": "neutral", "pair": "neutral", "why_right": "The tell is <em>the role demands she take no side<\/em> - neutral is the referee's stance, fairness between sides by assignment, and no claim about unprovable questions is anywhere in sight.", "why_wrong": "That word stakes a claim — that a question can never be settled by evidence. The moderator claims nothing about proof; her job is simply to favor neither side."}, {"sentence": "Nobody calls the biographer evenhanded, since she takes sides in every feud; yet on whether her subject's deathbed vision was real she is flatly ____, arguing that no evidence could ever decide it.", "options": ["agnostic", "neutral"], "key": "agnostic", "pair": "neutral", "why_right": "The tell is <em>no evidence could ever decide it<\/em> - the card's agnostic stakes exactly that claim about proof; she is not refereeing a dispute or staying above any fray.", "why_wrong": "That word means taking no side in a dispute, the referee's fairness by role. She referees nothing - nobody calls her evenhanded - and her stance is a claim about proof itself."}, {"sentence": "Switzerland stayed ____ through the war, refusing to join either alliance and trading evenly with both — a matter of declared national policy, not of private doubt.", "options": ["agnostic", "neutral"], "key": "neutral", "pair": "neutral", "why_right": "The tell is <em>declared national policy, not of private doubt<\/em> - neutral means taking no side in a conflict, and sides are the whole story here; nothing claims a question is beyond evidence.", "why_wrong": "That word is a claim that a question can never be settled by evidence. Switzerland made no such claim — it simply took no side in a war."}, {"sentence": "Asked whether the soul outlives the body, the physicist calls herself ____, insisting the question lies forever beyond what any experiment could confirm or rule out.", "options": ["agnostic", "open-minded"], "key": "agnostic", "pair": "open-minded", "why_right": "The tell is <em>forever beyond what any experiment could confirm or rule out<\/em> - the agnostic holds that no ruling can ever be reached, while an open-minded juror could still be won over.", "why_wrong": "That word describes someone a strong enough argument could still convert. She has closed that door on principle: no experiment could ever decide it."}, {"sentence": "Voters found the new councilwoman genuinely ____: she arrived leaning one way on the zoning fight, but said a strong enough case from either camp could still change her vote.", "options": ["agnostic", "open-minded"], "key": "open-minded", "pair": "open-minded", "why_right": "The tell is <em>could still change her vote<\/em> - open-minded means winnable by argument, so the question is decidable; an agnostic would deny that any evidence could ever settle it.", "why_wrong": "That word would mean she thinks the zoning question can never be settled. She thinks the opposite — a strong case will settle it, possibly hers to change."}], "display_order": [2, 5, 7, 1, 4, 6, 3, 0], "dimension_order": ["noncommittal", "neutral", "open-minded"], "dimension_feedback": {"noncommittal": "Noncommittal means refusing to state a position - a shrug in word form - whatever you may privately believe. Agnostic is not a dodge: it openly stakes a claim, that this question cannot be settled by evidence at all. The noncommittal speaker hides a view; the agnostic announces one.", "neutral": "Neutral means taking no side in a dispute, often to stay fair or above the fray - a referee is neutral by role. Agnostic is not about sides at all: it is a considered claim that the question itself can never be settled by any evidence.", "open-minded": "An open-minded juror can still be won over by either side; agnostic goes further, holding that on this question no ruling can ever be reached."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must stake a claim that a question can never be settled by evidence — not a dodge, and not a maybe. Point at the missing proof — try working in a word like <i>never<\/i>, <i>proof<\/i>, <i>evidence<\/i> or <i>either way<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

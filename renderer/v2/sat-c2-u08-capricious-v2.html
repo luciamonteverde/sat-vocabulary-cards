@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="d16ecf02fa3b">
+<meta name="build" content="e3a5c244e486">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>capricious &#8212; SAT Vocabulary, Course 2 Unit 8</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "capricious", "gradeUrl": "/api/grade", "taskId": "capricious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses capricious correctly?", "opts": {"A": "The capricious auditorium seated two thousand with room left over for the band.", "B": "Everyone praised the capricious host, who remembered each guest's birthday and every allergy for thirty years.", "C": "The startup's capricious founder shelved the very project he had declared the company's future a week earlier.", "D": "The metronome kept a capricious beat, forty unwavering ticks a minute through the whole rehearsal."}, "key": "C", "fb": {"correct": "Correct. Declaring a project the company's future and shelving it days later, for no reason anyone can see, is change on pure whim — capricious.", "A": "Seating two thousand 'with room left over for the band' describes a spacious hall — the writer wants capacious, a near-twin in spelling. Capricious is about impulsive, unpredictable behavior, not seating capacity.", "B": "Thirty years of recalling 'each guest's birthday and every allergy' is steadiness itself — the exact trait this word rules out. Capricious people swerve without warning; this host has never once swerved.", "D": "A beat of 'forty unwavering ticks a minute' never varies — whim-proof by design. Capricious means erratic and impulse-driven, so the most dependable machine in the rehearsal room cannot qualify."}}, "s3a": {"q": "In the passage, capricious most precisely means that the duke's patronage…", "opts": {"A": "swung on pure whim, without pattern or reason", "B": "was cruel by calculation, designed to keep artists afraid", "C": "followed strict rules the painters simply never discovered", "D": "was withdrawn once, permanently, without explanation"}, "key": "A", "fb": {"correct": "Right. Gold in March, banishment by May, a summons in June — reversal after reversal, and the chroniclers <em>found none<\/em> when they hunted for a method.", "B": "Design is exactly what the passage rules out: <em>the duke gained nothing by the reversals<\/em>. A strategy would be a reason, and there was no reason.", "C": "The chroniclers looked for hidden rules — <em>some test of loyalty, some hidden ledger<\/em> — and <em>found none<\/em>. Consistency was searched for and not found.", "D": "One permanent withdrawal is the opposite shape. This favor kept moving — barred by May, <em>summoned back in June<\/em>."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fickle", "B": "capricious", "C": "flighty", "D": "arbitrary"}, "key": "D", "fb": {"correct": "Right. The number answered to nothing — <em>chosen not for rivers, ridges, or settlements<\/em> — and it never needed to change: a reasonless choice can be made once and simply stand, and this one <em>has held for two centuries<\/em>.", "B": "Capricious decisions keep changing, whim after whim, each new ruling reversing the last. This decision was made exactly once: the line <em>has held for two centuries<\/em>, and there is no second whim anywhere in the passage to point to.", "A": "Fickle describes likings and loyalties that switch fast — the fan who drops the team after one lost game. No allegiance here ever switched: <em>governments of every party have left it exactly where the chains dropped<\/em>. A preference that outlasts every administration is the reverse of fickle.", "C": "Flighty is for a person — scattered, easily distracted, attention fluttering away mid-task — and it stays light, almost fond. The only people in this passage are the opposite of that: the <em>crews marked it with methodical care<\/em>. A boundary line cannot be flighty, and no one who drew this one was either."}}}, "grid": {"words": ["capricious", "flighty", "arbitrary", "fickle"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The new landlord was ____ about the courtyard rules: bikes allowed Monday, banned Thursday, allowed again by the weekend, and never a reason given.", "ks": ["capricious"], "fb": {"arbitrary": "A reasonless rule can be set once and never touched again. This landlord's rules keep moving — <em>allowed Monday, banned Thursday, allowed again<\/em> — and the motion is the point.", "fickle": "That word is for likings and loyalties that switch — a fan dropping the team. Courtyard rules are demands the tenants must live under, a wider and harder thing.", "flighty": "That describes a scattered, easily distracted person, and it stays light, almost fond. There is nothing light about rules that reverse twice a week with <em>never a reason given<\/em>."}}, {"s": "Students dreaded the professor's ____ grading: identical essays drew an A one week and a C the next, following no standard anyone could learn.", "ks": ["capricious"], "fb": {"arbitrary": "Even a reasonless standard can be applied the same way forever. Here <em>identical essays<\/em> draw different grades week to week — the standard itself will not hold still.", "fickle": "Dropping a favorite band is a switch of affection. A grade is a ruling someone must live with, and these rulings shift with <em>no standard anyone could learn<\/em>.", "flighty": "A scattered person loses the thread mid-sentence, charmingly. This professor's problem is graver: judgments that swing week to week while students pay."}}, {"s": "The building's 9:40 curfew was ____ — no reason anyone could ever name — but it stayed exactly 9:40, unchanged, for the next thirty years.", "ks": ["arbitrary"], "fb": {"capricious": "That word needs motion — rulings reversing whim after whim. This curfew <em>stayed exactly 9:40, unchanged, for thirty years<\/em>. A reasonless choice, made once and left alone, takes the other word.", "fickle": "Nothing here switches its affections — no favorite dropped, no loyalty traded. A rule with a strange birth simply sat still for decades.", "flighty": "That is for a person whose attention flutters off. A curfew posted on a wall has no attention to lose."}}, {"s": "Seating in her classroom follows the alphabet — a purely ____ system, reasonless as a coin toss, but applied the same way every single term.", "ks": ["arbitrary"], "fb": {"capricious": "That word means the decisions keep changing, whim after whim. This system never changes at all — <em>the same way every single term<\/em>. Its only sin is having no reason behind it.", "fickle": "Switching favorites is what that word tracks. An alphabet chart has no favorites — it has no reasons either, which is a different flaw.", "flighty": "No one here is scattered or distracted. The chart is rigid; what it lacks is a reason, not focus."}}, {"s": "Her ____ lab partner drifted mid-sentence from the experiment to weekend plans to a bird outside the window, charming and never quite useful.", "ks": ["flighty"], "fb": {"capricious": "That heavier word wants whims someone else must live under — a ruler, a referee. A partner who drifts to <em>a bird outside the window<\/em> is merely scattered, and the sentence stays fond about it.", "arbitrary": "That word judges a decision made without reasons. She decides nothing here; her attention simply floats away mid-sentence.", "fickle": "Loyalties switching fast is that word's territory — dropping a favorite after one bad week. No loyalty moves here, only her focus."}}, {"s": "Pop radio is ____: the single it spun hourly in June was dropped without ceremony in July for a newer sound.", "ks": ["fickle"], "fb": {"capricious": "That word wants whims with no pattern or cause at all, and victims stuck under them. Radio's swerve has a plain cause — <em>a newer sound<\/em> — and what moved was a liking.", "arbitrary": "That describes a choice made without reason and often left alone forever. This choice has a reason and a direction: out with June's favorite, in with the newer thing.", "flighty": "That is a person's scattered attention, told with a smile. Here a whole industry coolly traded one favorite for another — switched loyalty, not lost focus."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs changes that keep coming, with no reason or pattern — and ideally someone stuck living under them. Try working in a word like <i>whim<\/i>, <i>overnight<\/i>, <i>no reason<\/i> or <i>again<\/i>."}};
+  var CFG = {"word": "capricious", "gradeUrl": "/api/grade", "taskId": "capricious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses capricious correctly?", "opts": {"A": "The capricious auditorium seated two thousand with room left over for the band.", "B": "Everyone praised the capricious host, who remembered each guest's birthday and every allergy for thirty years.", "C": "The startup's capricious founder shelved the very project he had declared the company's future a week earlier.", "D": "The metronome kept a capricious beat, forty unwavering ticks a minute through the whole rehearsal."}, "key": "C", "fb": {"correct": "Correct. Declaring a project the company's future and shelving it days later, for no reason anyone can see, is change on pure whim — capricious.", "A": "Seating two thousand 'with room left over for the band' describes a spacious hall — the writer wants capacious, a near-twin in spelling. Capricious is about impulsive, unpredictable behavior, not seating capacity.", "B": "Thirty years of recalling 'each guest's birthday and every allergy' is steadiness itself — the exact trait this word rules out. Capricious people swerve without warning; this host has never once swerved.", "D": "A beat of 'forty unwavering ticks a minute' never varies — whim-proof by design. Capricious means erratic and impulse-driven, so the most dependable machine in the rehearsal room cannot qualify."}}, "s3a": {"q": "In the passage, capricious most precisely means that the duke's patronage…", "opts": {"A": "swung on pure whim, without pattern or reason", "B": "was cruel by calculation, designed to keep artists afraid", "C": "followed strict rules the painters simply never discovered", "D": "was withdrawn once, permanently, without explanation"}, "key": "A", "fb": {"correct": "Right. Gold in March, banishment by May, a summons in June — reversal after reversal, and the chroniclers <em>found none<\/em> when they hunted for a method.", "B": "Design is exactly what the passage rules out: <em>the duke gained nothing by the reversals<\/em>. A strategy would be a reason, and there was no reason.", "C": "The chroniclers looked for hidden rules — <em>some test of loyalty, some hidden ledger<\/em> — and <em>found none<\/em>. Consistency was searched for and not found.", "D": "One permanent withdrawal is the opposite shape. This favor kept moving — barred by May, <em>summoned back in June<\/em>."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "fickle", "B": "capricious", "C": "flighty", "D": "arbitrary"}, "key": "D", "fb": {"correct": "Right. The number answered to nothing — <em>chosen not for rivers, ridges, or settlements<\/em> — and it never needed to change: a reasonless choice can be made once and simply stand, and this one <em>has held for two centuries<\/em>.", "B": "Capricious decisions keep changing, whim after whim, each new ruling reversing the last. This decision was made exactly once: the line <em>has held for two centuries<\/em>, and there is no second whim anywhere in the passage to point to.", "A": "Fickle describes likings and loyalties that switch fast — the fan who drops the team after one lost game. No allegiance here ever switched: <em>governments of every party have left it exactly where the chains dropped<\/em>. A preference that outlasts every administration is the reverse of fickle.", "C": "Flighty is for a person — scattered, easily distracted, attention fluttering away mid-task — and it stays light, almost fond. The only people in this passage are the opposite of that: the <em>crews marked it with methodical care<\/em>. A boundary line cannot be flighty, and no one who drew this one was either."}}}, "pairwise": {"rows": [{"sentence": "The new landlord was ____ about the courtyard rules: bikes allowed Monday, banned Thursday, allowed again by the weekend, and never a reason given.", "options": ["capricious", "arbitrary"], "key": "capricious", "pair": "arbitrary", "why_right": "The tell is <em>allowed Monday, banned Thursday, allowed again<\/em> - decisions that keep changing, whim after whim, each reversing the last, where a merely reasonless rule could be set once and left alone.", "why_wrong": "A reasonless rule can be set once and never touched again. This landlord's rules keep moving — <em>allowed Monday, banned Thursday, allowed again<\/em> — and the motion is the point."}, {"sentence": "Students dreaded the professor's ____ grading: identical essays drew an A one week and a C the next, following no standard anyone could learn.", "options": ["capricious", "fickle"], "key": "capricious", "pair": "fickle", "why_right": "The tell is <em>identical essays drew an A one week and a C the next<\/em> - rulings shifting on pure whim that students must live under, not likings or loyalties switching.", "why_wrong": "Dropping a favorite band is a switch of affection. A grade is a ruling someone must live with, and these rulings shift with <em>no standard anyone could learn<\/em>."}, {"sentence": "The building's 9:40 curfew was ____ — no reason anyone could ever name — but it stayed exactly 9:40, unchanged, for the next thirty years.", "options": ["capricious", "arbitrary"], "key": "arbitrary", "pair": "arbitrary", "why_right": "The tell is <em>stayed exactly 9:40, unchanged, for the next thirty years<\/em> - a choice decided without any reason, made once and never revisited; nothing ever moves, so whim-after-whim change is ruled out.", "why_wrong": "That word needs motion — rulings reversing whim after whim. This curfew <em>stayed exactly 9:40, unchanged, for thirty years<\/em>. A reasonless choice, made once and left alone, takes the other word."}, {"sentence": "Seating in her classroom follows the alphabet — a purely ____ system, reasonless as a coin toss, but applied the same way every single term.", "options": ["capricious", "arbitrary"], "key": "arbitrary", "pair": "arbitrary", "why_right": "The tell is <em>applied the same way every single term<\/em> - reasonless as a coin toss but perfectly stable, and a system that never changes cannot be the word for whim-after-whim reversal.", "why_wrong": "That word means the decisions keep changing, whim after whim. This system never changes at all — <em>the same way every single term<\/em>. Its only sin is having no reason behind it."}, {"sentence": "Her ____ lab partner drifted mid-sentence from the experiment to weekend plans to a bird outside the window, charming and never quite useful.", "options": ["capricious", "flighty"], "key": "flighty", "pair": "flighty", "why_right": "The tell is <em>drifted mid-sentence from the experiment to weekend plans<\/em> - scattered, easily distracted attention drawn with fondness; no ruling reverses and nobody is stuck paying for a whim.", "why_wrong": "That heavier word wants whims someone else must live under — a ruler, a referee. A partner who drifts to <em>a bird outside the window<\/em> is merely scattered, and the sentence stays fond about it."}, {"sentence": "Pop radio is ____: the single it spun hourly in June was dropped without ceremony in July for a newer sound.", "options": ["capricious", "fickle"], "key": "fickle", "pair": "fickle", "why_right": "The tell is <em>for a newer sound<\/em> - the switch has a plain cause and what moved was a liking, while the heavier word needs whim with no pattern or cause at all.", "why_wrong": "That word wants whims with no pattern or cause at all, and victims stuck under them. Radio's swerve has a plain cause — <em>a newer sound<\/em> — and what moved was a liking."}, {"sentence": "Regulars called the bouncer ____: the sneakers he barred on Friday were waved through on Saturday, and the line shivered outside while his verdicts swung.", "options": ["capricious", "flighty"], "key": "capricious", "pair": "flighty", "why_right": "The tell is <em>the line shivered outside while his verdicts swung<\/em> - whims someone else is stuck paying for, the heavier word's territory, with nothing light or fond about it.", "why_wrong": "That word describes a scattered, easily distracted person, and it stays light, almost fond. Nothing is fond here: verdicts reverse overnight and <em>the line shivered outside<\/em> paying for each one."}, {"sentence": "Merchants could not plan for the border post's ____ inspections: cargo cleared at sunrise was impounded by dusk under the same seals, and bribes, paperwork, and prayer predicted nothing.", "options": ["capricious", "fickle"], "key": "capricious", "pair": "fickle", "why_right": "The tell is <em>impounded by dusk under the same seals<\/em> - rulings and demands shifting on pure whim that merchants must live under, while no liking or loyalty moves anywhere.", "why_wrong": "That word tracks likings and loyalties that switch fast - a fan dropping the team. No affection moves at this border; what shifts are rulings the merchants must live under."}], "display_order": [1, 2, 5, 6, 3, 4, 0, 7], "dimension_order": ["flighty", "arbitrary", "fickle"], "dimension_feedback": {"flighty": "Flighty describes a person who is scattered and easily distracted — attention fluttering off mid-sentence — and it stays light, almost fond. Capricious is heavier: the changes follow no reason at all, and someone is usually stuck paying for the whim — a capricious ruler, a capricious referee.", "arbitrary": "Arbitrary means decided without any reason — the cutoff was forty because someone said forty. What it does not require is motion: an arbitrary choice can be made once and never revisited, while capricious decisions keep changing, whim after whim, each reversing the last.", "fickle": "Fickle is about likings and loyalties that switch fast — a fickle fan drops the team after one lost game. Capricious is wider and harder to live under: not just affections but rulings and demands shifting on pure whim, with no pattern anyone can learn."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence needs changes that keep coming, with no reason or pattern — and ideally someone stuck living under them. Try working in a word like <i>whim<\/i>, <i>overnight<\/i>, <i>no reason<\/i> or <i>again<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

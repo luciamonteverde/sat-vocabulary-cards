@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="d850cb2cab5a">
+<meta name="build" content="117eadae99cb">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>judicious &#8212; SAT Vocabulary, Course 2 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "judicious", "gradeUrl": "/api/grade", "taskId": "judicious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses judicious correctly?", "opts": {"A": "Judicious with praise, the conductor spends \"perfect\" only on nights that earn it, so the word keeps its power.", "B": "Her judicious robes swept the marble floor as the whole court rose to its feet.", "C": "Judicious in the blackout, the manager kept every intern calm — then led them all to the stairwell that was locked.", "D": "Judicious as ever, Uncle Farid keeps his savings in a coffee tin and has turned down every bank in town."}, "key": "A", "fb": {"correct": "Correct. Rationing the highest praise so it keeps meaning — a small decision weighed carefully — is judicious.", "B": "Robes sweeping 'the marble floor' belong on a judge — the sentence reaches for judicial, the courtroom cousin. Judicious names a quality of mind: weighing choices with care and deciding soundly, not wearing official dress.", "C": "Calm delivered into a flooding stairwell is poise without judgement. Judicious means the decision itself is sound.", "D": "Savings in a coffee tin is distrust, not prudence. Judicious means weighing the options wisely."}}, "s3a": {"q": "In this passage, calling Ito's answer \"judicious\" means it showed", "opts": {"A": "caution above all about preventing another flood", "B": "calm and patience while the town argued its cases", "C": "careful judgment that weighed every interest in town, even ones nobody voiced at the meetings", "D": "generosity toward the groups that spoke loudest"}, "key": "C", "fb": {"correct": "Right — growers of every kind get weighed, near harms against far ones, and even the silent road crews make the list.", "A": "Flood-prevention is one strand of the reasoning, not the whole of it — the gym, the bridge, and the crews all get weighed too.", "B": "His temperament is never described; the passage praises the answer itself and what it weighed.", "D": "The loudest voices did not come first — the quietest did: the farmers, then crews who never spoke at all."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "levelheaded", "B": "sensible", "C": "prudent", "D": "judicious"}, "key": "C", "fb": {"correct": "Right. The director guards against a single future harm — <em>a sudden illness<\/em> — and lets nothing else into the decision: <em>she weighs nothing against the rule<\/em>. Prudent is exactly that kind of care: steering around a danger before it arrives, with caution as the choice's only virtue.", "D": "Judicious describes judgment that weighs every side — benefits and risks, each interest given its due. This director refuses to weigh at all: <em>she weighs nothing against the rule, not the extra rehearsal hours, not the cost, not the grumbling<\/em>. A one-track decision has not earned the wider word.", "A": "Levelheaded is about temperament — staying calm and clear while everyone else panics. Nobody in this passage is panicking: <em>Seasons here run on quiet routine<\/em>. With no storm to keep steady in, the word has nothing here to describe.", "B": "A sensible choice avoids the obvious mistakes, but skipping understudies would strike no one here as an obvious mistake — <em>the rule surprises newcomers<\/em>, and <em>no lead has actually missed a performance since anyone can remember<\/em>. Plain good sense is the wrong measure for this rule."}}}, "grid": {"words": ["judicious", "prudent", "levelheaded", "sensible"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The board called the ruling ____: it weighed the growers against the mill hands, this year's jobs against the next decade's water, and gave each its due.", "ks": ["judicious"], "fb": {"prudent": "That word's single virtue is caution — steering around future harm. This ruling weighed benefits as well as risks, growers as well as mill hands.", "levelheaded": "That word praises a cool temperament in a storm. The praise here lands on the ruling itself and how much it weighed.", "sensible": "Avoiding the obvious mistakes wouldn't reach the next decade's water — this ruling weighed interests that weren't even in the room."}}, {"s": "Rationing the last antibiotics, the ship's doctor was ____, setting each sailor's need beside the voyage still ahead before she opened a single vial.", "ks": ["judicious"], "fb": {"prudent": "Caution against harm is only half this scene — the doctor weighs each sailor's present need against the whole voyage ahead, benefit beside risk.", "levelheaded": "No panic is being kept at bay; the sentence describes the weighing itself, need set beside voyage, before any vial opens.", "sensible": "This goes past dodging an obvious error: every dose is weighed against a future no one in the sickbay can see yet."}}, {"s": "Crossing the pass in June felt safe, but the guide was ____ and roped the party anyway — snow bridges fail without warning, and she planned for that alone.", "ks": ["prudent"], "fb": {"judicious": "That word means every side got weighed — benefits too. Here caution against one hidden danger was the only virtue in play.", "levelheaded": "Nobody is panicking on this pass; the rope is a guard against future harm, not a display of calm in a storm.", "sensible": "The obvious mistake was already avoided — the pass felt safe. Roping anyway is aimed at a danger no one could see."}}, {"s": "Flush after the harvest, the young farmer stayed ____, banking half the windfall against the drought years his father still remembered.", "ks": ["prudent"], "fb": {"judicious": "Banking against drought weighs nothing but the coming harm; the fuller word wants every side weighed — benefits included.", "levelheaded": "There's no storm to stay calm in — just a hedge laid now against dry years to come.", "sensible": "More than dodging an obvious error: the farmer is guarding against a specific future harm his father lived through."}}, {"s": "While the alarms howled and half the control room shouted over the other half, the night engineer stayed ____, and no rash order went out.", "ks": ["levelheaded"], "fb": {"judicious": "That word rates the decision's weighing. This sentence praises the engineer's temperament — clear while everyone shouts.", "prudent": "No future harm is being fenced off; the virtue here is staying calm inside the present chaos.", "sensible": "The scene isn't about a wise choice among options — it's about keeping cool while alarms howl."}}, {"s": "Skip the gold-plated add-ons and buy the model the mechanics can fix: the cheaper truck was simply the ____ choice, plain to everyone.", "ks": ["sensible"], "fb": {"judicious": "'Plain to everyone' is the tell: nothing hidden was weighed, no absent interest consulted — the choice just avoids the obvious mistakes.", "prudent": "The truck isn't bought to fence off a particular future danger; it's recommended because the alternative is an obvious mistake.", "levelheaded": "No storm, no panic, no shouting — a showroom choice can't display calm under pressure."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a decision where every side gets weighed — benefits and risks, now against later — not just caution about one danger. Try working in a word like <i>weighed<\/i>, <i>both<\/i>, <i>long run<\/i> or <i>every side<\/i>."}};
+  var CFG = {"word": "judicious", "gradeUrl": "/api/grade", "taskId": "judicious", "minWords": 12, "items": {"s1": {"q": "Which sentence uses judicious correctly?", "opts": {"A": "Judicious with praise, the conductor spends \"perfect\" only on nights that earn it, so the word keeps its power.", "B": "Her judicious robes swept the marble floor as the whole court rose to its feet.", "C": "Judicious in the blackout, the manager kept every intern calm — then led them all to the stairwell that was locked.", "D": "Judicious as ever, Uncle Farid keeps his savings in a coffee tin and has turned down every bank in town."}, "key": "A", "fb": {"correct": "Correct. Rationing the highest praise so it keeps meaning — a small decision weighed carefully — is judicious.", "B": "Robes sweeping 'the marble floor' belong on a judge — the sentence reaches for judicial, the courtroom cousin. Judicious names a quality of mind: weighing choices with care and deciding soundly, not wearing official dress.", "C": "Calm delivered into a flooding stairwell is poise without judgement. Judicious means the decision itself is sound.", "D": "Savings in a coffee tin is distrust, not prudence. Judicious means weighing the options wisely."}}, "s3a": {"q": "In this passage, calling Ito's answer \"judicious\" means it showed", "opts": {"A": "caution above all about preventing another flood", "B": "calm and patience while the town argued its cases", "C": "careful judgment that weighed every interest in town, even ones nobody voiced at the meetings", "D": "generosity toward the groups that spoke loudest"}, "key": "C", "fb": {"correct": "Right — growers of every kind get weighed, near harms against far ones, and even the silent road crews make the list.", "A": "Flood-prevention is one strand of the reasoning, not the whole of it — the gym, the bridge, and the crews all get weighed too.", "B": "His temperament is never described; the passage praises the answer itself and what it weighed.", "D": "The loudest voices did not come first — the quietest did: the farmers, then crews who never spoke at all."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "levelheaded", "B": "sensible", "C": "prudent", "D": "judicious"}, "key": "C", "fb": {"correct": "Right. The director guards against a single future harm — <em>a sudden illness<\/em> — and lets nothing else into the decision: <em>she weighs nothing against the rule<\/em>. Prudent is exactly that kind of care: steering around a danger before it arrives, with caution as the choice's only virtue.", "D": "Judicious describes judgment that weighs every side — benefits and risks, each interest given its due. This director refuses to weigh at all: <em>she weighs nothing against the rule, not the extra rehearsal hours, not the cost, not the grumbling<\/em>. A one-track decision has not earned the wider word.", "A": "Levelheaded is about temperament — staying calm and clear while everyone else panics. Nobody in this passage is panicking: <em>Seasons here run on quiet routine<\/em>. With no storm to keep steady in, the word has nothing here to describe.", "B": "A sensible choice avoids the obvious mistakes, but skipping understudies would strike no one here as an obvious mistake — <em>the rule surprises newcomers<\/em>, and <em>no lead has actually missed a performance since anyone can remember<\/em>. Plain good sense is the wrong measure for this rule."}}}, "pairwise": {"rows": [{"sentence": "Crossing the pass in June felt safe, but the guide was ____ and roped the party anyway — snow bridges fail without warning, and she planned for that alone.", "options": ["judicious", "prudent"], "key": "prudent", "pair": "prudent", "why_right": "The tell is <em>planned for that alone<\/em> - caution against one hidden future harm is the whole virtue on display, the card's prudent ground; nothing wider gets weighed on this pass.", "why_wrong": "That word means every side got weighed — benefits too. Here caution against one hidden danger was the only virtue in play."}, {"sentence": "Flush after the harvest, the young farmer stayed ____, banking half the windfall against the drought years his father still remembered.", "options": ["judicious", "prudent"], "key": "prudent", "pair": "prudent", "why_right": "The tell is <em>against the drought years<\/em> - the whole move steers around a future harm, prudent's home ground; no benefit or second interest gets weighed anywhere in the sentence.", "why_wrong": "Banking against drought weighs nothing but the coming harm; the fuller word wants every side weighed — benefits included."}, {"sentence": "Handed one grant for five branch libraries, the director was ____: busiest wings beside the longest-neglected, quick wins beside slow ones, until every branch had made its case.", "options": ["judicious", "prudent"], "key": "judicious", "pair": "prudent", "why_right": "The tell is <em>quick wins beside slow ones<\/em> - every side of the decision weighed, benefits against benefits and the near term against the far, with no future harm anywhere to steer around.", "why_wrong": "That word's one virtue is caution, steering around future harm like a driver slowing before ice. Nothing here threatens harm; the choice balances competing goods, quick gains against slow ones."}, {"sentence": "While the alarms howled and half the control room shouted over the other half, the night engineer stayed ____, and no rash order went out.", "options": ["judicious", "levelheaded"], "key": "levelheaded", "pair": "levelheaded", "why_right": "The tell is <em>no rash order went out<\/em> - temperament holding calm and clear while others panic, so nothing rash gets decided; no decision's weighing is anywhere in view.", "why_wrong": "That word rates the decision's weighing. This sentence praises the engineer's temperament — clear while everyone shouts."}, {"sentence": "The board called the ruling ____: it weighed the growers against the mill hands, this year's jobs against the next decade's water, and gave each its due.", "options": ["judicious", "levelheaded"], "key": "judicious", "pair": "levelheaded", "why_right": "The tell is <em>weighed the growers against the mill hands<\/em> - the praise lands on the judgment itself, every interest weighed and given its due, not on anyone's calm footing in a storm.", "why_wrong": "That word praises a cool temperament in a storm. The praise here lands on the ruling itself and how much it weighed."}, {"sentence": "Skip the gold-plated add-ons and buy the model the mechanics can fix: the cheaper truck was simply the ____ choice, plain to everyone.", "options": ["judicious", "sensible"], "key": "sensible", "pair": "sensible", "why_right": "The tell is <em>plain to everyone<\/em> - a sensible choice avoids the obvious mistakes, and this one's rightness sits right on the surface; no absent interest needed weighing at all.", "why_wrong": "'Plain to everyone' is the tell: nothing hidden was weighed, no absent interest consulted — the choice just avoids the obvious mistakes."}, {"sentence": "Rationing the last antibiotics, the ship's doctor was ____, setting each sailor's need beside the voyage still ahead before she opened a single vial.", "options": ["judicious", "sensible"], "key": "judicious", "pair": "sensible", "why_right": "The tell is <em>the voyage still ahead<\/em> - each dose is weighed against a future nobody in the sickbay can see, the deeper weighing that goes far past avoiding obvious mistakes.", "why_wrong": "This goes past dodging an obvious error: every dose is weighed against a future no one in the sickbay can see yet."}, {"sentence": "Only later did the vote look ____: the gravel lot everyone favored would have priced out the flower sellers, whom nobody at the hearing spoke for.", "options": ["judicious", "sensible"], "key": "judicious", "pair": "sensible", "why_right": "The tell is <em>whom nobody at the hearing spoke for<\/em> - the vote weighed interests that were never in the room, the deeper weighing that goes past avoiding obvious mistakes.", "why_wrong": "That word names a choice that avoids the obvious mistakes, its rightness plain on the surface. This vote looked wrong to everyone at first; its wisdom lay with sellers no one had thought to count."}], "display_order": [7, 2, 3, 1, 6, 0, 4, 5], "dimension_order": ["prudent", "levelheaded", "sensible"], "dimension_feedback": {"prudent": "Prudent is careful to steer around future harm — the prudent driver slows before the icy bridge. Judicious is wider: it weighs every side of a decision, benefits as well as risks, the near term against the far. A choice can be prudent without being judicious if caution was its only virtue.", "levelheaded": "Levelheaded describes temperament — staying calm and clear while others panic, so nothing rash gets decided. Judicious describes the judgment itself: every interest weighed, the long term set beside the short. A levelheaded person keeps their footing in the storm; a judicious one also picks the right road afterward.", "sensible": "A sensible choice avoids the obvious mistakes; a judicious one has weighed even the interests that weren't in the room."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a decision where every side gets weighed — benefits and risks, now against later — not just caution about one danger. Try working in a word like <i>weighed<\/i>, <i>both<\/i>, <i>long run<\/i> or <i>every side<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f8e2d06dafd0">
+<meta name="build" content="45399614b97b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>quantify &#8212; SAT Vocabulary, Course 3 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "quantify", "gradeUrl": "/api/grade", "taskId": "quantify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses quantify correctly?", "opts": {"A": "The park service finally quantified the trail's erosion, reporting eleven inches of soil lost since 2019.", "B": "The poet quantified the sunset in her final stanza, comparing it to a struck match without a number anywhere.", "C": "He quantified his apology by delivering it in person and looking each teammate steadily in the eye.", "D": "The chef quantified the sauce over a low flame, stirring steadily until it thickened enough to coat a spoon."}, "key": "A", "fb": {"correct": "Correct! Quantify means to measure something and state it as a number — and 'eleven inches of soil lost since 2019' turns erosion into exactly that: a figure anyone can check.", "B": "Not quite! A struck-match comparison is an image, and the sentence says outright that no number appears. Quantifying without a number is a contradiction in terms.", "C": "Not quite! Delivering an apology in person makes it sincere, not numerical. Nothing here is measured or counted, so nothing has been quantified.", "D": "Not quite! Stirring a sauce until it thickens is cooking by feel — the very opposite of pinning a thing down as a figure."}}, "s3a": {"q": "As it is used in the passage, \"quantify\" most nearly means:", "opts": {"A": "to estimate roughly from long experience of a place", "B": "to compute a result from figures already collected by others", "C": "to express something as a definite number", "D": "to exaggerate the size of a problem"}, "key": "C", "fb": {"correct": "Right — the valley had only impressions, and she turned the loss into 'forty-one percent fewer songs.'", "A": "Rough impressions are the starting problem — 'memory made a poor instrument' — not the method.", "B": "No figures existed to compute from; the recordings and counts had to create the numbers first.", "D": "The figure startled the pessimists because it was real, not inflated."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "gauge", "B": "calculate", "C": "measure", "D": "quantify"}, "key": "D", "fb": {"correct": "Right. Warmth had lived only as instinct until the chief turned it into figures — <em>counted names remembered at checkout<\/em>, a <em>two-digit score<\/em> in the annual report. Expressing something unnumbered as an explicit number is what quantify means.", "C": "To measure is to set a thing's size or extent against a standard, and measuring can stop at 'warmer' or 'cooler.' The endpoint here is stricter: warmth <em>appears in the annual report as a two-digit score<\/em>, and nothing short of that explicit figure would have satisfied the chief.", "B": "Calculating means working a number out from numbers you already have. There were no numbers to start with — the group had <em>promoted managers on instinct<\/em>, favoring lobbies that <em>simply felt welcoming<\/em> — so the work had to begin before any arithmetic could.", "A": "To gauge is to estimate roughly, by feel — exactly the habit being retired here. The reviewers worked by instrument and count instead: they <em>timed the seconds before an arriving guest was greeted<\/em> and <em>tallied unprompted offers of help per shift<\/em>."}}}, "grid": {"words": ["quantify", "measure", "calculate", "gauge"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The ministry hired sociologists to ____ the city's loneliness, and their report reduced it at last to a single figure: 31 percent of adults had gone a week without a conversation.", "ks": ["quantify"], "fb": {"measure": "That word presumes a standard to hold the thing against — a ruler, a scale. Loneliness had none; the achievement was getting it <em>to a single figure<\/em> at all.", "calculate": "That word starts from numbers and does arithmetic on them. Loneliness arrived with no numbers attached — the sociologists had to create them first.", "gauge": "That word means a rough, instinctive estimate. <em>31 percent<\/em>, from a survey, is the opposite of a guess."}}, {"s": "Grant reviewers pressed her to ____ the mentoring program's benefits: testimonials would not do, they said — they wanted the gains as numbers on a page.", "ks": ["quantify"], "fb": {"measure": "That word wants a standard to hold something against. The reviewers' demand is different: that soft testimonial evidence <em>come out as numbers<\/em>.", "calculate": "That word does arithmetic on numbers already in hand. She has none in hand — only stories; producing the first figures is the assignment.", "gauge": "That word settles for a feel — roughly, by instinct. The reviewers explicitly refuse the by-feel version: <em>testimonials would not do<\/em>."}}, {"s": "Given the span's length and the steel's rated strength, any first-year engineer could ____ the bridge's maximum load in a few minutes at a desk.", "ks": ["calculate"], "fb": {"quantify": "That word turns something unnumbered — fear, fog, loyalty — into figures. Here the figures already exist (<em>the span's length ... the steel's rated strength<\/em>); only the arithmetic remains.", "measure": "That word needs the thing held against a standard — a tape on the span, a test on the steel. This engineer never leaves <em>the desk<\/em>: the inputs are given.", "gauge": "That word is an estimate by feel. With exact inputs supplied, what is wanted is the exact number the arithmetic yields."}}, {"s": "Before answering, the treasurer paused to ____ the refund owed from the receipts in front of her: ticket price, times forty-one members, minus the deposit already paid.", "ks": ["calculate"], "fb": {"quantify": "That word's work is turning the unnumbered into numbers. The treasurer's numbers are all present — <em>the receipts in front of her<\/em> — and only need combining.", "measure": "That word holds a thing to a standard. Nothing here is measured against anything; figures are multiplied and subtracted.", "gauge": "That word would give a rough answer at a glance. She is doing exact arithmetic — <em>times forty-one, minus the deposit<\/em>."}}, {"s": "Twice a summer the surveyors ____ the reservoir's depth with a weighted line, checking the readings against the dam's original charts.", "ks": ["measure"], "fb": {"quantify": "That word earns its keep on things that arrive without numbers — loyalty, fog, fear. A depth taken <em>with a weighted line<\/em> against <em>charts<\/em> is the ordinary instrument-and-standard job.", "calculate": "That word works a result out of other numbers. Nothing is computed here; the line is dropped and the depth read off.", "gauge": "That word estimates roughly, by feel. A weighted line checked <em>against the dam's original charts<\/em> is procedure, not instinct."}}, {"s": "One sniff of the wind and the old pilot could ____ the storm's distance well enough to pick a runway — roughly, instantly, and without a single instrument.", "ks": ["gauge"], "fb": {"quantify": "That word is not finished until an actual number is on the page. The pilot wants no number — <em>roughly<\/em> is good enough to pick a runway.", "measure": "That word needs an instrument or a standard, and the sentence strips both away: <em>without a single instrument<\/em>.", "calculate": "That word does arithmetic on figures. A <em>sniff of the wind<\/em> supplies no figures — this is trained instinct."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Turn something fuzzy into an exact figure — show the number arriving where before there was only a feeling. Work in a word like <i>percent<\/i>, <i>survey<\/i>, <i>exactly<\/i> or <i>total<\/i>."}};
+  var CFG = {"word": "quantify", "gradeUrl": "/api/grade", "taskId": "quantify", "minWords": 12, "items": {"s1": {"q": "Which sentence uses quantify correctly?", "opts": {"A": "The park service finally quantified the trail's erosion, reporting eleven inches of soil lost since 2019.", "B": "The poet quantified the sunset in her final stanza, comparing it to a struck match without a number anywhere.", "C": "He quantified his apology by delivering it in person and looking each teammate steadily in the eye.", "D": "The chef quantified the sauce over a low flame, stirring steadily until it thickened enough to coat a spoon."}, "key": "A", "fb": {"correct": "Correct! Quantify means to measure something and state it as a number — and 'eleven inches of soil lost since 2019' turns erosion into exactly that: a figure anyone can check.", "B": "Not quite! A struck-match comparison is an image, and the sentence says outright that no number appears. Quantifying without a number is a contradiction in terms.", "C": "Not quite! Delivering an apology in person makes it sincere, not numerical. Nothing here is measured or counted, so nothing has been quantified.", "D": "Not quite! Stirring a sauce until it thickens is cooking by feel — the very opposite of pinning a thing down as a figure."}}, "s3a": {"q": "As it is used in the passage, \"quantify\" most nearly means:", "opts": {"A": "to estimate roughly from long experience of a place", "B": "to compute a result from figures already collected by others", "C": "to express something as a definite number", "D": "to exaggerate the size of a problem"}, "key": "C", "fb": {"correct": "Right — the valley had only impressions, and she turned the loss into 'forty-one percent fewer songs.'", "A": "Rough impressions are the starting problem — 'memory made a poor instrument' — not the method.", "B": "No figures existed to compute from; the recordings and counts had to create the numbers first.", "D": "The figure startled the pessimists because it was real, not inflated."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "gauge", "B": "calculate", "C": "measure", "D": "quantify"}, "key": "D", "fb": {"correct": "Right. Warmth had lived only as instinct until the chief turned it into figures — <em>counted names remembered at checkout<\/em>, a <em>two-digit score<\/em> in the annual report. Expressing something unnumbered as an explicit number is what quantify means.", "C": "To measure is to set a thing's size or extent against a standard, and measuring can stop at 'warmer' or 'cooler.' The endpoint here is stricter: warmth <em>appears in the annual report as a two-digit score<\/em>, and nothing short of that explicit figure would have satisfied the chief.", "B": "Calculating means working a number out from numbers you already have. There were no numbers to start with — the group had <em>promoted managers on instinct<\/em>, favoring lobbies that <em>simply felt welcoming<\/em> — so the work had to begin before any arithmetic could.", "A": "To gauge is to estimate roughly, by feel — exactly the habit being retired here. The reviewers worked by instrument and count instead: they <em>timed the seconds before an arriving guest was greeted<\/em> and <em>tallied unprompted offers of help per shift<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The ministry hired sociologists to ____ the city's loneliness, and their report reduced it at last to a single figure: 31 percent of adults had gone a week without a conversation.", "options": ["quantify", "measure"], "key": "quantify", "pair": "measure", "why_right": "The tell is <em>a single figure<\/em> - loneliness has no size or extent to hold against a standard; the whole job was to bring an unnumbered thing out as an explicit number.", "why_wrong": "That word presumes a standard to hold the thing against — a ruler, a scale. Loneliness had none; the achievement was getting it <em>to a single figure<\/em> at all."}, {"sentence": "Each birthday her father would ____ her height at the doorframe with a fresh pencil line — twelve years of climbing marks never once earned a figure.", "options": ["quantify", "measure"], "key": "measure", "pair": "measure", "why_right": "The tell is <em>never once earned a figure<\/em> - her height is held against the doorframe's earlier marks, a standard, yet nothing ever comes out as an explicit number, which the other word requires.", "why_wrong": "That word needs the result to come out as an explicit number. Twelve years of pencil marks against a doorframe gave only a line above the last one, never a figure."}, {"sentence": "Given the span's length and the steel's rated strength, any first-year engineer could ____ the bridge's maximum load in a few minutes at a desk.", "options": ["quantify", "calculate"], "key": "calculate", "pair": "calculate", "why_right": "The tell is <em>the span's length and the steel's rated strength<\/em> - the inputs arrive already as numbers, so the job is arithmetic on figures in hand, not turning an unnumbered thing into figures.", "why_wrong": "That word turns something unnumbered — fear, fog, loyalty — into figures. Here the figures already exist (<em>the span's length ... the steel's rated strength<\/em>); only the arithmetic remains."}, {"sentence": "Before answering, the treasurer paused to ____ the refund owed from the receipts in front of her: ticket price, times forty-one members, minus the deposit already paid.", "options": ["quantify", "calculate"], "key": "calculate", "pair": "calculate", "why_right": "The tell is <em>times forty-one members, minus the deposit<\/em> - every input is already a number on a receipt and the task is arithmetic; nothing unnumbered needs turning into figures first.", "why_wrong": "That word's work is turning the unnumbered into numbers. The treasurer's numbers are all present — <em>the receipts in front of her<\/em> — and only need combining."}, {"sentence": "The lifeguard captain wanted to ____ the beach's crowding, so interns counted heads from the tower hourly until the crush had a figure — 1,900 people per mile.", "options": ["quantify", "calculate"], "key": "quantify", "pair": "calculate", "why_right": "The tell is <em>the crush had a figure<\/em> - a felt condition with no numbers attached is turned into a figure by counting; the other word needs numbers already in hand.", "why_wrong": "That word works a number out from other numbers by arithmetic. The captain had no numbers to start from — only a crowded beach — and the interns' count created the first ones."}, {"sentence": "One sniff of the wind and the old pilot could ____ the storm's distance well enough to pick a runway — roughly, instantly, and without a single instrument.", "options": ["quantify", "gauge"], "key": "gauge", "pair": "gauge", "why_right": "The tell is <em>roughly, instantly<\/em> - a distance judged by instinct from one sniff of wind, good enough to pick a runway, with no explicit number produced or wanted.", "why_wrong": "That word is not finished until an actual number is on the page. The pilot wants no number — <em>roughly<\/em> is good enough to pick a runway."}, {"sentence": "Grant reviewers pressed her to ____ the mentoring program's benefits: testimonials would not do, they said — they wanted the gains as numbers on a page.", "options": ["quantify", "gauge"], "key": "quantify", "pair": "gauge", "why_right": "The tell is <em>testimonials would not do<\/em> - the rough, by-feel account is refused and the gains are demanded as numbers on a page, past anything an instinctive estimate can supply.", "why_wrong": "That word settles for a feel — roughly, by instinct. The reviewers explicitly refuse the by-feel version: <em>testimonials would not do<\/em>."}, {"sentence": "The brewer had always judged bitterness by tongue, until the owner insisted he ____ it — the lab returned 42 IBU, a figure in place of an adjective.", "options": ["quantify", "gauge"], "key": "quantify", "pair": "gauge", "why_right": "The tell is <em>a figure in place of an adjective<\/em> - the by-tongue estimate is exactly what the owner refuses; the demanded act ends in an explicit number, 42 IBU, past what instinct supplies.", "why_wrong": "That word is a rough estimate by instinct — what the brewer's tongue had done for years. The owner demanded the opposite: a lab figure, 42 IBU, instead of an adjective."}], "display_order": [4, 5, 2, 0, 7, 1, 6, 3], "dimension_order": ["measure", "calculate", "gauge"], "dimension_feedback": {"measure": "Measure means to find a thing's size or extent against a standard; quantify goes one step further — the result must come out as an explicit number, not just 'longer' or 'warmer.'", "calculate": "Calculate means to work a number out from other numbers by arithmetic; quantifying starts earlier, turning something unnumbered — fear, fog, loyalty — into figures a calculation could then use.", "gauge": "Gauge means to estimate an amount, often roughly and by instinct; you can gauge a crowd's mood in a glance, but to quantify it you would need a count."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Turn something fuzzy into an exact figure — show the number arriving where before there was only a feeling. Work in a word like <i>percent<\/i>, <i>survey<\/i>, <i>exactly<\/i> or <i>total<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

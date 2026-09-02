@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="b38911173a22">
+<meta name="build" content="3776ff6557a0">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>domesticate &#8212; SAT Vocabulary, Course 2 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "domesticate", "gradeUrl": "/api/grade", "taskId": "domesticate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses domesticate correctly?", "opts": {"A": "By June she had entirely domesticated the stray parakeet, which now ate seed from her palm every single morning.", "B": "He domesticated the bare apartment with linen curtains, a woven rug, and a shelf of trailing plants by the window.", "C": "Steppe herders needed millennia to domesticate the horse, each new foal born a shade calmer than its wild forebears.", "D": "The chef domesticated the fiery recipe by halving the chilies and doubling the cream in the final simmer."}, "key": "C", "fb": {"correct": "Correct. Millennia of choosing calmer parents, until calm was born rather than taught — that species-deep change is what the word demands; no one horse was won over, the horse itself was changed.", "A": "One 'stray parakeet' won over 'by June' has been tamed, and only for itself. Domesticating takes a whole species and many generations of breeding before the change is inherited rather than taught.", "B": "Linen curtains and 'a shelf of trailing plants' make a room feel homey — decorating, not changing an animal line. The word requires a creature brought under human control across many generations.", "D": "Toning a dish down by 'halving the chilies' just makes a milder supper. Domesticate applies to living species reshaped across countless generations, not to recipes adjusted in one evening's cooking."}}, "s3a": {"q": "Based on the passage, what does it mean that farmers domesticated teosinte?", "opts": {"A": "they tamed a single wild plant so it would grow in a garden", "B": "they moved the species out of the wild and into fields", "C": "they changed the species so deeply that it now depends on human hands", "D": "they made one season's harvest larger and better-tasting than the wild one"}, "key": "C", "fb": {"correct": "Right. The passage says the change 'runs so deep' that corn cannot reproduce alone — a species remade until it needs us, which is what the word claims.", "A": "The passage is about a whole species across nine thousand years, not one plant in one garden. The change is bigger and slower than taming.", "B": "Where the plant grows is not the point — what the plant is has changed. Corn's own kernels now sit 'waiting for a hand to plant them.'", "D": "One season's harvest could improve without the species changing at all. The passage insists the change went into the plant itself, generation after generation."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "breed", "B": "cultivate", "C": "befriend", "D": "domesticate"}, "key": "D", "fb": {"correct": "Right. To domesticate is generations of selection remaking a species until the change is inherited — color, calm, and trailing fins all <em>born into every fish<\/em>.", "A": "Choosing which fish leave offspring is the tool, applied one generation at a time. But <em>No single keeper's choosing did this<\/em> — the sentence needs the word for what <em>added up across centuries until it was born into every fish<\/em>.", "B": "A gardener cultivates tomatoes — grows and tends a plant, on purpose, for a season. Here the thing changed is <em>the river carp<\/em>, an animal, across a <em>thousand years in Chinese ponds<\/em>.", "C": "You can win one wild animal's trust and change nothing about its kind — the park squirrel <em>trusts that palm alone<\/em>. The goldfish's calm is different in kind: it is <em>born into every fish<\/em>."}}}, "grid": {"words": ["domesticate", "breed", "cultivate", "befriend"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Five thousand years in human hands did more than tame the silk moth: people managed to ____ it so completely that the species can no longer fly or survive outside a rearing house.", "ks": ["domesticate"], "fb": {"breed": "That is the tool, applied one generation at a time — choosing which moths leave offspring. The sentence names what ages of that choosing finally added up to: a species remade for good.", "cultivate": "That word is for growing and tending a plant — a gardener does it to tomatoes. The silk moth is an animal, and the change here runs species-deep.", "befriend": "You can win one animal's trust and nothing about the animal changes. Here 'the species can no longer fly or survive' on its own — a change written into the animals themselves."}}, {"s": "Sixty years into the fox-farm experiment, kits are born already seeking human hands — proof that patient selection, kept up long enough, can ____ a species rather than merely gentle a few individuals.", "ks": ["domesticate"], "fb": {"breed": "Choosing the parents is that word's whole job, and the sentence already covers it with 'patient selection.' The gap asks for what all that choosing finally achieves.", "cultivate": "A gardener does that to plants — raising and tending them on purpose. Foxes are animals, and the change here arrives in their blood.", "befriend": "Trust won from one fox would die with that fox. These kits are 'born already seeking human hands' — the change comes with each new generation."}}, {"s": "Victorian fanciers would ____ their pigeons for one trait at a time, pairing the two best fantails each spring and keeping only the chicks whose tails spread widest.", "ks": ["breed"], "fb": {"domesticate": "That names the finished, species-deep change that ages of selection add up to — pigeons crossed that line centuries before. This sentence is inside the process: one spring, one pairing, one trait.", "cultivate": "Tomatoes, not pigeons — that word is for growing and tending plants. What the fanciers do each spring is choose which birds become parents.", "befriend": "No one here is after a pigeon's trust. The whole scene is about which pair leaves offspring — the choosing that shapes the next generation."}}, {"s": "The kennel ledger shows how the trainers ____ their retrievers for a softer mouth: in every litter, only the dogs that carried game back unmarked were allowed to become parents.", "ks": ["breed"], "fb": {"domesticate": "Dogs crossed that line thousands of years ago — it names the ancient, species-wide change, not a kennel's litter-by-litter choice of parents.", "cultivate": "That word belongs to plants a grower tends. The ledger records which dogs may become parents, litter by litter.", "befriend": "Winning a retriever's affection is not the ledger's business. Every line is about which animals leave offspring, and why."}}, {"s": "Botanists at the research station ____ wild rice gathered from the lake country, tending each test plot through a single season to learn what the plants need.", "ks": ["cultivate"], "fb": {"domesticate": "One season of tending changes nothing in the species — the rice stays wild. That word requires generations of selection until the plant itself is remade.", "breed": "That word means choosing which individuals leave offspring. The botanists here are growing and tending what they gathered — no parents are being picked.", "befriend": "A plant has no trust to win. The station's work is the gardener's: raising and tending a crop on purpose."}}, {"s": "Over one summer the lighthouse keeper managed to ____ a young gull, which would land on her wrist alone — and stayed as wild as ever toward everyone else.", "ks": ["befriend"], "fb": {"domesticate": "One gull trusting one keeper changes nothing heritable — the bird 'stayed as wild as ever toward everyone else.' That word needs a whole species remade over generations.", "breed": "Nothing here is about which birds leave offspring. The keeper won a single animal's trust, nothing more.", "cultivate": "That is what a gardener does to a plant. A gull can only be won over — and this one was won over by her alone."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a change bred into a whole species over long stretches of time — not one animal learning to trust you. Give it a timescale and a group: try working in a word like <i>generations<\/i>, <i>species<\/i>, <i>centuries<\/i> or <i>born<\/i>."}};
+  var CFG = {"word": "domesticate", "gradeUrl": "/api/grade", "taskId": "domesticate", "minWords": 12, "items": {"s1": {"q": "Which sentence uses domesticate correctly?", "opts": {"A": "By June she had entirely domesticated the stray parakeet, which now ate seed from her palm every single morning.", "B": "He domesticated the bare apartment with linen curtains, a woven rug, and a shelf of trailing plants by the window.", "C": "Steppe herders needed millennia to domesticate the horse, each new foal born a shade calmer than its wild forebears.", "D": "The chef domesticated the fiery recipe by halving the chilies and doubling the cream in the final simmer."}, "key": "C", "fb": {"correct": "Correct. Millennia of choosing calmer parents, until calm was born rather than taught — that species-deep change is what the word demands; no one horse was won over, the horse itself was changed.", "A": "One 'stray parakeet' won over 'by June' has been tamed, and only for itself. Domesticating takes a whole species and many generations of breeding before the change is inherited rather than taught.", "B": "Linen curtains and 'a shelf of trailing plants' make a room feel homey — decorating, not changing an animal line. The word requires a creature brought under human control across many generations.", "D": "Toning a dish down by 'halving the chilies' just makes a milder supper. Domesticate applies to living species reshaped across countless generations, not to recipes adjusted in one evening's cooking."}}, "s3a": {"q": "Based on the passage, what does it mean that farmers domesticated teosinte?", "opts": {"A": "they tamed a single wild plant so it would grow in a garden", "B": "they moved the species out of the wild and into fields", "C": "they changed the species so deeply that it now depends on human hands", "D": "they made one season's harvest larger and better-tasting than the wild one"}, "key": "C", "fb": {"correct": "Right. The passage says the change 'runs so deep' that corn cannot reproduce alone — a species remade until it needs us, which is what the word claims.", "A": "The passage is about a whole species across nine thousand years, not one plant in one garden. The change is bigger and slower than taming.", "B": "Where the plant grows is not the point — what the plant is has changed. Corn's own kernels now sit 'waiting for a hand to plant them.'", "D": "One season's harvest could improve without the species changing at all. The passage insists the change went into the plant itself, generation after generation."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "breed", "B": "cultivate", "C": "befriend", "D": "domesticate"}, "key": "D", "fb": {"correct": "Right. To domesticate is generations of selection remaking a species until the change is inherited — color, calm, and trailing fins all <em>born into every fish<\/em>.", "A": "Choosing which fish leave offspring is the tool, applied one generation at a time. But <em>No single keeper's choosing did this<\/em> — the sentence needs the word for what <em>added up across centuries until it was born into every fish<\/em>.", "B": "A gardener cultivates tomatoes — grows and tends a plant, on purpose, for a season. Here the thing changed is <em>the river carp<\/em>, an animal, across a <em>thousand years in Chinese ponds<\/em>.", "C": "You can win one wild animal's trust and change nothing about its kind — the park squirrel <em>trusts that palm alone<\/em>. The goldfish's calm is different in kind: it is <em>born into every fish<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Victorian fanciers would ____ their pigeons for one trait at a time, pairing the two best fantails each spring and keeping only the chicks whose tails spread widest.", "options": ["domesticate", "breed"], "key": "breed", "pair": "breed", "why_right": "The tell is <em>one trait at a time<\/em> - each spring's pairing chooses which pigeons leave offspring, the tool applied one generation at a time, not the ancient species-wide remaking.", "why_wrong": "That names the finished, species-deep change that ages of selection add up to — pigeons crossed that line centuries before. This sentence is inside the process: one spring, one pairing, one trait."}, {"sentence": "The kennel ledger shows how the trainers ____ their retrievers for a softer mouth: in every litter, only the dogs that carried game back unmarked were allowed to become parents.", "options": ["domesticate", "breed"], "key": "breed", "pair": "breed", "why_right": "The tell is <em>allowed to become parents<\/em> - the ledger records litter-by-litter choices of which dogs leave offspring, the means itself, applied to a species tamed thousands of years ago.", "why_wrong": "Dogs crossed that line thousands of years ago — it names the ancient, species-wide change, not a kennel's litter-by-litter choice of parents."}, {"sentence": "Sixty years into the fox-farm experiment, kits are born already seeking human hands — proof that patient selection, kept up long enough, can ____ a species rather than merely gentle a few individuals.", "options": ["domesticate", "breed"], "key": "domesticate", "pair": "breed", "why_right": "The tell is <em>patient selection, kept up long enough<\/em> - the choosing is already named as the tool, so the blank holds what ages of it finally add up to: a species remade for good.", "why_wrong": "Choosing the parents is that word's whole job, and the sentence already covers it with 'patient selection.' The gap asks for what all that choosing finally achieves."}, {"sentence": "Botanists at the research station ____ wild rice gathered from the lake country, tending each test plot through a single season to learn what the plants need.", "options": ["domesticate", "cultivate"], "key": "cultivate", "pair": "cultivate", "why_right": "The tell is <em>tending each test plot through a single season<\/em> - growing and caring for a plant on purpose, wild varieties included, with nothing in the species itself changed.", "why_wrong": "One season of tending changes nothing in the species — the rice stays wild. That word requires generations of selection until the plant itself is remade."}, {"sentence": "Five thousand years in human hands did more than tame the silk moth: people managed to ____ it so completely that the species can no longer fly or survive outside a rearing house.", "options": ["domesticate", "cultivate"], "key": "domesticate", "pair": "cultivate", "why_right": "The tell is <em>the species can no longer fly<\/em> - the moth itself has been remade, generations deep; growing and tending, a gardener's seasonal work on plants, could never write flightlessness into a species.", "why_wrong": "That word is for growing and tending a plant — a gardener does it to tomatoes. The silk moth is an animal, and the change here runs species-deep."}, {"sentence": "Wild almonds carry a bitter poison; generations of growers, saving seed from only the sweet-kerneled trees, managed to ____ the almond until its nuts were safe to eat raw.", "options": ["domesticate", "cultivate"], "key": "domesticate", "pair": "cultivate", "why_right": "The tell is <em>saving seed from only the sweet-kerneled trees<\/em> - generations of selection have changed the species itself, a change no amount of one season's tending could write into the nut.", "why_wrong": "That word means growing and tending a plant, and it leaves the species what it was. A poison bred out of the nut over generations is the far deeper, species-changing word."}, {"sentence": "Over one summer the lighthouse keeper managed to ____ a young gull, which would land on her wrist alone — and stayed as wild as ever toward everyone else.", "options": ["domesticate", "befriend"], "key": "befriend", "pair": "befriend", "why_right": "The tell is <em>stayed as wild as ever<\/em> - one gull came to trust one person, and nothing about the bird itself changed, which is the far, shallow end of this scale.", "why_wrong": "One gull trusting one keeper changes nothing heritable — the bird 'stayed as wild as ever toward everyone else.' That word needs a whole species remade over generations."}, {"sentence": "Four centuries of cage rearing did what no owner's patience could - ____ the canary so deeply that chicks now hatch calm around human hands, whoever feeds them.", "options": ["domesticate", "befriend"], "key": "domesticate", "pair": "befriend", "why_right": "The tell is <em>chicks now hatch calm<\/em> - the calm is inherited at hatching, shown to whoever feeds them, a species-deep change that no single owner's patience could ever win.", "why_wrong": "That word wins one animal's trust - it trusts you and no one else, and nothing about the bird changes. These chicks hatch calm toward everyone, a change carried in the species itself."}], "display_order": [4, 1, 5, 0, 7, 2, 6, 3], "dimension_order": ["breed", "cultivate", "befriend"], "dimension_feedback": {"breed": "To breed is to choose which animals or plants leave offspring — the tool, applied one generation at a time. To domesticate is what ages of that choosing add up to: a wild species remade until tameness itself is inherited. Breeding is the means; the finished, species-deep change is domestication.", "cultivate": "To cultivate is to grow and tend a plant on purpose — any gardener cultivates tomatoes, wild varieties included. To domesticate goes far deeper than a season's tending: generations of selection until the species itself changes, like wheat that can no longer scatter its own seed.", "befriend": "You can befriend a wild crow with peanuts — it trusts you and no one else, and nothing about the crow changes — which leaves befriending at the far, shallow end of the scale from domesticate."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show a change bred into a whole species over long stretches of time — not one animal learning to trust you. Give it a timescale and a group: try working in a word like <i>generations<\/i>, <i>species<\/i>, <i>centuries<\/i> or <i>born<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

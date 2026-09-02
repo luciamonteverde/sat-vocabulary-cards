@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="8e3be97baee1">
+<meta name="build" content="eb25e1b58bc5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>forage &#8212; SAT Vocabulary, Course 2 Unit 13</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "forage", "gradeUrl": "/api/grade", "taskId": "forage", "minWords": 12, "items": {"s1": {"q": "Which sentence uses forage correctly?", "opts": {"A": "The chef foraged the soup for twenty minutes, stirring steadily until it finally thickened.", "B": "With the fields under snow, deer forage the wood's edge for the last rose hips.", "C": "Squirrels forage their acorns into neat caches, burying hundreds against the winter.", "D": "The cows foraged the fresh hay the farmer forked into their stalls at first light."}, "key": "B", "fb": {"correct": "Correct. Deer hunting the wood's edge for the last rose hips are searching around for food — the definition in action.", "A": "Stirring is cooking: a chef 'stirring steadily' already has every ingredient in the pot. Foraging is the hunt itself — an animal or person combing an area for food it has not found yet.", "C": "These squirrels are 'burying hundreds' of acorns they already hold — storing, the step after the hunt. To forage is to go out looking for food in the first place.", "D": "Hay 'forked into their stalls' arrives as room service; the cows only eat. Foraging means the animal itself goes searching for its next meal instead of waiting to be fed."}}, "s3a": {"q": "As it is used in this passage, what does it mean for the workers to forage?", "opts": {"A": "to patrol the entrance and drive off raiders from other hives", "B": "to fly out and search the countryside for food", "C": "to build fresh comb from wax the workers produce", "D": "to carry water back into the hive on hot afternoons"}, "key": "B", "fb": {"correct": "Right. The passage pairs the word directly with 'flying as far as five miles in search of nectar and pollen' — going out to hunt down the colony's food.", "A": "Defense never comes up in the passage. The workers' job here is leaving the hive to find something, not guarding it.", "C": "Comb-building happens inside the hive; these workers are described leaving it and flying for miles. The word names the going-out, not the building.", "D": "Water is never mentioned. What the flights bring back is nectar and pollen — the colony's food — and finding it is the entire job."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forage", "B": "glean", "C": "graze", "D": "rummage"}, "key": "B", "fb": {"correct": "Right. To glean is to gather what a harvest left behind — and that is the whole right described here: to follow the reapers and take up the <em>loose ears, stray stalks<\/em> the wagon left.", "A": "An outdoor hunt for food, true — but the stem asks for the most precise word, and this search begins only <em>Once the last sheaf was carried<\/em> and takes only <em>what fell from the reapers' hands<\/em>. The broad word for hunting wild food anywhere loses exactly that.", "D": "That is rooting through drawers and bins, and food is beside the point. This right is exercised <em>in the emptied field<\/em>, with the stakes <em>the difference between a thin winter and a hungry one<\/em>.", "C": "Grazing asks no search and no carrying — the meal is eaten where the animal stands. Here the whole point is <em>what they took home<\/em>."}}}, "grid": {"words": ["forage", "rummage", "glean", "graze"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "At low tide the islanders head out to ____ along the shore, hunting through the weed-slick rocks for mussels and sea lettuce to carry home for supper.", "ks": ["forage"], "fb": {"rummage": "That is the same rooting around moved indoors — drawers, bins, glove boxes — and food is beside the point there. This search happens on a shore, and supper is the whole point.", "glean": "That word needs a harvest to follow — dropped grain, missed apples. No one harvested these rocks; the islanders are hunting out wild food where it grows.", "graze": "That asks no search at all — the meal is the field underfoot. These islanders must go 'hunting through the weed-slick rocks' to find anything worth carrying home."}}, {"s": "The survival instructor hands out empty pouches and one rule: to eat tonight you must ____ across the open hillside until you have found a pouchful worth cooking.", "ks": ["forage"], "fb": {"rummage": "Move that word indoors and it fits — drawers and bins, with food beside the point. Out on a hillside, with supper riding on it, the outdoor food-hunting verb is wanted.", "glean": "That word follows a harvest, gathering what the field crew missed. This hillside was never harvested — the students hunt wild food where it happens to grow.", "graze": "An animal doing that never searches — it eats the field it is standing on. These students must range 'until you have found a pouchful,' which is a hunt."}}, {"s": "Priya had to ____ through winter socks and dead batteries at the back of the drawer before the spare house key finally turned up.", "ks": ["rummage"], "fb": {"forage": "That verb hunts food outdoors — a meal waits at the end of it. This search is through a drawer for a key: the same rooting posture, no supper in sight.", "glean": "That word gathers what a harvest left behind in a field. A sock drawer holds no harvest — this is plain indoor rooting around.", "graze": "That is eating what lies underfoot, no search involved. Priya is searching hard, and nothing in the drawer is anyone's meal."}}, {"s": "Ten minutes before the bus, Marcus had to ____ through the hall closet's bins for the permission slip he had tossed in there back in June.", "ks": ["rummage"], "fb": {"forage": "That word sends the searcher outdoors after food. A closet bin and a permission slip keep this one squarely at the indoor, nothing-to-eat end.", "glean": "A field crew has to pass through first for that word to apply — it collects a harvest's leftovers. A closet in June was never harvested.", "graze": "That word is an animal eating the ground it stands on. Marcus is digging for paper, and the clock is the only thing getting eaten."}}, {"s": "After the mechanical harvester rolled through, volunteers walked the potato field to ____ what the machine had missed, boxing the stray tubers for the food bank.", "ks": ["glean"], "fb": {"forage": "That is hunting wild food where it grows, with no field to follow. These volunteers walk a just-harvested field, gathering exactly 'what the machine had missed.'", "rummage": "That word roots through drawers and bins indoors, with food beside the point. This gathering happens in a potato field, and every tuber is headed for a plate.", "graze": "That is eating the field where you stand. The volunteers are walking, stooping, and 'boxing the stray tubers' — collecting for others, not eating a mouthful."}}, {"s": "Turned out at dawn, the ewes do nothing all day but ____ across the hill pasture, heads down in grass that asks no effort beyond the next step.", "ks": ["graze"], "fb": {"forage": "That verb means going to look, because nothing is waiting underfoot. For these ewes the meal is the pasture itself — no search ever starts.", "rummage": "That is rooting through drawers and boxes indoors, food beside the point. The ewes are eating, outdoors, with nothing to dig through.", "glean": "That word gathers what a harvest left behind. Nobody harvested this pasture — the grass is simply the meal, right where it grows."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show someone or something going out to look for food — the searching matters as much as the eating. Try working in a word like <i>search<\/i>, <i>wild<\/i>, <i>find<\/i> or <i>meal<\/i>."}};
+  var CFG = {"word": "forage", "gradeUrl": "/api/grade", "taskId": "forage", "minWords": 12, "items": {"s1": {"q": "Which sentence uses forage correctly?", "opts": {"A": "The chef foraged the soup for twenty minutes, stirring steadily until it finally thickened.", "B": "With the fields under snow, deer forage the wood's edge for the last rose hips.", "C": "Squirrels forage their acorns into neat caches, burying hundreds against the winter.", "D": "The cows foraged the fresh hay the farmer forked into their stalls at first light."}, "key": "B", "fb": {"correct": "Correct. Deer hunting the wood's edge for the last rose hips are searching around for food — the definition in action.", "A": "Stirring is cooking: a chef 'stirring steadily' already has every ingredient in the pot. Foraging is the hunt itself — an animal or person combing an area for food it has not found yet.", "C": "These squirrels are 'burying hundreds' of acorns they already hold — storing, the step after the hunt. To forage is to go out looking for food in the first place.", "D": "Hay 'forked into their stalls' arrives as room service; the cows only eat. Foraging means the animal itself goes searching for its next meal instead of waiting to be fed."}}, "s3a": {"q": "As it is used in this passage, what does it mean for the workers to forage?", "opts": {"A": "to patrol the entrance and drive off raiders from other hives", "B": "to fly out and search the countryside for food", "C": "to build fresh comb from wax the workers produce", "D": "to carry water back into the hive on hot afternoons"}, "key": "B", "fb": {"correct": "Right. The passage pairs the word directly with 'flying as far as five miles in search of nectar and pollen' — going out to hunt down the colony's food.", "A": "Defense never comes up in the passage. The workers' job here is leaving the hive to find something, not guarding it.", "C": "Comb-building happens inside the hive; these workers are described leaving it and flying for miles. The word names the going-out, not the building.", "D": "Water is never mentioned. What the flights bring back is nectar and pollen — the colony's food — and finding it is the entire job."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "forage", "B": "glean", "C": "graze", "D": "rummage"}, "key": "B", "fb": {"correct": "Right. To glean is to gather what a harvest left behind — and that is the whole right described here: to follow the reapers and take up the <em>loose ears, stray stalks<\/em> the wagon left.", "A": "An outdoor hunt for food, true — but the stem asks for the most precise word, and this search begins only <em>Once the last sheaf was carried<\/em> and takes only <em>what fell from the reapers' hands<\/em>. The broad word for hunting wild food anywhere loses exactly that.", "D": "That is rooting through drawers and bins, and food is beside the point. This right is exercised <em>in the emptied field<\/em>, with the stakes <em>the difference between a thin winter and a hungry one<\/em>.", "C": "Grazing asks no search and no carrying — the meal is eaten where the animal stands. Here the whole point is <em>what they took home<\/em>."}}}, "pairwise": {"rows": [{"sentence": "Priya had to ____ through winter socks and dead batteries at the back of the drawer before the spare house key finally turned up.", "options": ["forage", "rummage"], "key": "rummage", "pair": "rummage", "why_right": "The tell is <em>the back of the drawer<\/em> - indoor rooting for a house key, with no meal anywhere in it, while the other verb searches the outdoors with supper at the end.", "why_wrong": "That verb hunts food outdoors — a meal waits at the end of it. This search is through a drawer for a key: the same rooting posture, no supper in sight."}, {"sentence": "Ten minutes before the bus, Marcus had to ____ through the hall closet's bins for the permission slip he had tossed in there back in June.", "options": ["forage", "rummage"], "key": "rummage", "pair": "rummage", "why_right": "The tell is <em>the hall closet's bins<\/em> - the same hunting posture moved indoors, after paper rather than food, which is exactly the territory the outdoor food-hunting verb gives up.", "why_wrong": "That word sends the searcher outdoors after food. A closet bin and a permission slip keep this one squarely at the indoor, nothing-to-eat end."}, {"sentence": "At low tide the islanders head out to ____ along the shore, hunting through the weed-slick rocks for mussels and sea lettuce to carry home for supper.", "options": ["forage", "rummage"], "key": "forage", "pair": "rummage", "why_right": "The tell is <em>hunting through the weed-slick rocks<\/em> - an outdoor search with supper at the end, exactly where the indoor rooting word, for which food is beside the point, cannot follow.", "why_wrong": "That is the same rooting around moved indoors — drawers, bins, glove boxes — and food is beside the point there. This search happens on a shore, and supper is the whole point."}, {"sentence": "Once the vineyard's picking crew moved on, the innkeeper sent her kitchen boys out to ____ among the stripped vines, gathering whatever bunches the cutters had passed over.", "options": ["forage", "glean"], "key": "glean", "pair": "glean", "why_right": "The tell is <em>bunches the cutters had passed over<\/em> - a harvest came through first, and gathering what it left behind in a worked field is this word's narrow, tidy territory.", "why_wrong": "That word hunts out food wherever it grows wild, with no field to follow. These vines were planted and just harvested; the boys are gathering exactly what the picking crew left behind."}, {"sentence": "Every May the chef blocks off two mornings to ____ in the creek-bottom woods, coming back with fiddleheads and wild leeks no supplier can send her.", "options": ["forage", "glean"], "key": "forage", "pair": "glean", "why_right": "The tell is <em>wild leeks no supplier can send her<\/em> - the food grows wild and must be hunted out, with no harvest to follow, which is the wider verb's whole claim.", "why_wrong": "That word gathers what a harvest left behind - dropped grain, missed fruit in a worked field. No crew ever harvested these woods; the chef is hunting food that grows wild."}, {"sentence": "Turned out at dawn, the ewes do nothing all day but ____ across the hill pasture, heads down in grass that asks no effort beyond the next step.", "options": ["forage", "graze"], "key": "graze", "pair": "graze", "why_right": "The tell is <em>asks no effort beyond the next step<\/em> - the meal is the field underfoot, eaten where the ewes stand, so the search that defines the other word never starts.", "why_wrong": "That verb means going to look, because nothing is waiting underfoot. For these ewes the meal is the pasture itself — no search ever starts."}, {"sentence": "The survival instructor hands out empty pouches and one rule: to eat tonight you must ____ across the open hillside until you have found a pouchful worth cooking.", "options": ["forage", "graze"], "key": "forage", "pair": "graze", "why_right": "The tell is <em>until you have found a pouchful worth cooking<\/em> - the meal must be hunted out, while the no-search word only ever eats the field already underfoot.", "why_wrong": "An animal doing that never searches — it eats the field it is standing on. These students must range 'until you have found a pouchful,' which is a hunt."}, {"sentence": "In autumn the farmer turns his pigs loose under the oaks to ____; the acorns lie buried in leaf litter, and every mouthful must be rooted out.", "options": ["forage", "graze"], "key": "forage", "pair": "graze", "why_right": "The tell is <em>every mouthful must be rooted out<\/em> - nothing waits ready underfoot; the acorns must be searched for, and the no-search word ends where the looking begins.", "why_wrong": "That word asks no search at all - the meal is the field underfoot, eaten where the animal stands. These acorns lie buried, and every mouthful has to be found first."}], "display_order": [1, 7, 4, 5, 2, 3, 6, 0], "dimension_order": ["rummage", "glean", "graze"], "dimension_feedback": {"rummage": "To rummage is the same rooting around moved indoors — through drawers, bins, and glove boxes — and food is beside the point. To forage is to search the outdoors for something to eat: the two verbs share the hunting posture, but only forage puts a meal at the end.", "glean": "To glean is to gather what a harvest left behind — dropped ears of grain, missed apples — one narrow and tidy kind of food-searching. To forage is the wider verb: hunting out food wherever it grows wild, with no harvest required and no field to follow.", "graze": "Grazing asks no search at all — the meal is the field underfoot, eaten where the animal stands — while to forage is to go looking, because nothing is waiting underfoot."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show someone or something going out to look for food — the searching matters as much as the eating. Try working in a word like <i>search<\/i>, <i>wild<\/i>, <i>find<\/i> or <i>meal<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

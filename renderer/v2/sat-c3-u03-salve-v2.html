@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="3ebf7ab384b8">
+<meta name="build" content="8ad0e5854674">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>salve &#8212; SAT Vocabulary, Course 3 Unit 3</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "salve", "gradeUrl": "/api/grade", "taskId": "salve", "minWords": 12, "items": {"s1": {"q": "Which sentence uses salve correctly?", "opts": {"A": "The gardener rubs a calendula salve into her cracked thumbs after weeding.", "B": "He hummed a quiet salve to settle the baby back to sleep.", "C": "The recipe calls for a salve of parsley scattered over the roast.", "D": "They watched the salve roll in from the sea an hour before the rain."}, "key": "A", "fb": {"correct": "Correct. A soothing ointment worked into cracked, hurting skin is exactly what a salve is — comfort and protection where it's needed.", "B": "He 'hummed a quiet salve,' but a tune that settles a baby is a lullaby, a sound. A salve is a soothing ointment, something spread on sore skin; look for exactly that.", "C": "'A salve of parsley scattered over the roast' describes a garnish sprinkled for flavor. A salve is a soothing ointment for hurting skin — find the sentence where one is applied to a body.", "D": "What can 'roll in from the sea' an hour before rain is fog, not a salve. A salve is a soothing ointment meant for skin — look for it being used that way."}}, "s3a": {"q": "As used in this passage, what is the salve?", "opts": {"A": "A homemade preparation that soothes and protects damaged skin", "B": "A prescription medication dispensed and labeled by the crew's pharmacist", "C": "A cosmetic moisturizer for perfectly ordinary skin with nothing wrong with it", "D": "A herbal tea that eases the field crew's aches and pains from the inside"}, "key": "A", "fb": {"correct": "Right -- a dented tin, homemade and handed down, that 'soothed what stung, protected what it covered.'", "B": "The pharmacist is the one teasing about 'unlabeled medicine' -- the tin is the opposite of a dispensed prescription.", "C": "These hands are genuinely damaged -- 'rope welts, thorn scratches, blistered thumbs' -- not ordinary skin wanting moisture.", "D": "It 'went on at night' and worked 'under its seal' -- applied to the skin's surface, not drunk."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "balm", "B": "lotion", "C": "salve", "D": "ointment"}, "key": "C", "fb": {"correct": "Right. A homely jar that <em>eases those raw cracks and keeps them covered<\/em> — soothing and protecting real damage without a whiff of the pharmacy — is exactly what a salve is.", "D": "Ointment is the pharmacy's neutral label for a medicated cream. But <em>No pharmacy ever stocked the recipe<\/em>, and <em>nothing in it is medicated<\/em> — the clinical word contradicts both facts.", "A": "Balm leans poetic — a balm can soothe skin or even spirits. Nothing here is poetic: this is <em>a plain, unfussy remedy<\/em> for a potter's bleeding hands, and the question asks for the most precise fit for that plain, workaday register.", "B": "Lotion is the mildest of these — meant for skin that has nothing wrong with it. Here cold water and clay <em>split a potter's knuckles until they bleed<\/em>; that is real damage, well past what lotion treats."}}}, "grid": {"words": ["salve", "ointment", "balm", "lotion"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Every fall the orchard crew stirs up a beeswax ____ for their nicked and rope-burned hands, a thick homemade jar that seals the cracks while they heal.", "ks": ["salve"], "fb": {"ointment": "That is the pharmacy's neutral label -- a medicated cream in clinical wrapping. A homemade jar stirred up by the crew is the warmer, homelier thing.", "balm": "That word leans poetic and can drift from skin to spirits. Rope-burned hands and a workaday jar sit firmly in the plainer register.", "lotion": "That is the lightest touch -- moisture for ordinary skin, with no hurt to treat. These hands are nicked, burned, and cracked."}}, {"s": "Her grandmother kept a comfrey ____ by the stove for burns and scraped knuckles -- a homely tin that eased the sting and sealed the skin against the day's work.", "ks": ["salve"], "fb": {"ointment": "That word belongs on a pharmacy shelf, printed on a tube. A tin by the stove, homemade and handed down, carries the warmth the clinical label lacks.", "balm": "That is the poetic twin, as happy easing spirits as skin. A kitchen tin for burns and knuckles lives in the plain, everyday register.", "lotion": "That word treats nothing -- it moisturizes ordinary, unbroken skin. Burns and scraped knuckles are real hurts needing sealing."}}, {"s": "The dermatologist said the winter dryness needed nothing medicated -- just a daily ____ after showering to keep ordinary skin from feeling tight.", "ks": ["lotion"], "fb": {"salve": "That is the jar for real damage -- cracks sealed, stings eased. The doctor says there is no damage here, only dryness on ordinary skin.", "ointment": "That is by definition a medicated cream, and the instruction is 'nothing medicated' -- just moisture.", "balm": "That word eases something that stings, on skin or in spirits. Nothing stings here; the skin just needs moisture."}}, {"s": "The hotel spa sends guests home with a lavender ____ meant for nothing more serious than smooth shoulders after a massage.", "ks": ["lotion"], "fb": {"salve": "That jar exists to soothe and seal real damage. Smooth shoulders after a massage have nothing to seal.", "ointment": "That is a medicated cream with a job to do. This is a scented take-home for skin with nothing wrong.", "balm": "That word gently eases something that stings. Nothing stings in this picture -- the product just keeps ordinary skin soft."}}, {"s": "The pharmacist handed over a prescription-strength antibiotic ____, its tube printed with dosage instructions and a warning label.", "ks": ["ointment"], "fb": {"salve": "That word is the homely jar, warm and handed down. A prescription tube with a warning label is the clinical article.", "balm": "That poetic word eases stings gently, on skin or spirits. Dosage instructions and antibiotics belong to the clinical register.", "lotion": "That is moisture for ordinary, healthy skin. Prescription-strength medication exists to treat something genuinely wrong."}}, {"s": "The choir director's low humming was a quiet ____ to the rattled soloist, easing the sting of the missed cue before the second act.", "ks": ["balm"], "fb": {"salve": "That is the everyday jar for scrapes and chapped hands -- plain, physical, kitchen-shelf. Easing a shaken singer's nerves is work for its more poetic twin.", "ointment": "That is a medicated cream from the pharmacy. There is no skin in this sentence -- only nerves.", "lotion": "That is moisture for ordinary skin, with no hurt to treat -- and no comfort to give a rattled singer."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a homely jar or tin easing and shielding real damage -- give the hurt a name and the jar a home. Try working in a word like <i>tin<\/i>, <i>cracked<\/i>, <i>seals<\/i> or <i>homemade<\/i>."}};
+  var CFG = {"word": "salve", "gradeUrl": "/api/grade", "taskId": "salve", "minWords": 12, "items": {"s1": {"q": "Which sentence uses salve correctly?", "opts": {"A": "The gardener rubs a calendula salve into her cracked thumbs after weeding.", "B": "He hummed a quiet salve to settle the baby back to sleep.", "C": "The recipe calls for a salve of parsley scattered over the roast.", "D": "They watched the salve roll in from the sea an hour before the rain."}, "key": "A", "fb": {"correct": "Correct. A soothing ointment worked into cracked, hurting skin is exactly what a salve is — comfort and protection where it's needed.", "B": "He 'hummed a quiet salve,' but a tune that settles a baby is a lullaby, a sound. A salve is a soothing ointment, something spread on sore skin; look for exactly that.", "C": "'A salve of parsley scattered over the roast' describes a garnish sprinkled for flavor. A salve is a soothing ointment for hurting skin — find the sentence where one is applied to a body.", "D": "What can 'roll in from the sea' an hour before rain is fog, not a salve. A salve is a soothing ointment meant for skin — look for it being used that way."}}, "s3a": {"q": "As used in this passage, what is the salve?", "opts": {"A": "A homemade preparation that soothes and protects damaged skin", "B": "A prescription medication dispensed and labeled by the crew's pharmacist", "C": "A cosmetic moisturizer for perfectly ordinary skin with nothing wrong with it", "D": "A herbal tea that eases the field crew's aches and pains from the inside"}, "key": "A", "fb": {"correct": "Right -- a dented tin, homemade and handed down, that 'soothed what stung, protected what it covered.'", "B": "The pharmacist is the one teasing about 'unlabeled medicine' -- the tin is the opposite of a dispensed prescription.", "C": "These hands are genuinely damaged -- 'rope welts, thorn scratches, blistered thumbs' -- not ordinary skin wanting moisture.", "D": "It 'went on at night' and worked 'under its seal' -- applied to the skin's surface, not drunk."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "balm", "B": "lotion", "C": "salve", "D": "ointment"}, "key": "C", "fb": {"correct": "Right. A homely jar that <em>eases those raw cracks and keeps them covered<\/em> — soothing and protecting real damage without a whiff of the pharmacy — is exactly what a salve is.", "D": "Ointment is the pharmacy's neutral label for a medicated cream. But <em>No pharmacy ever stocked the recipe<\/em>, and <em>nothing in it is medicated<\/em> — the clinical word contradicts both facts.", "A": "Balm leans poetic — a balm can soothe skin or even spirits. Nothing here is poetic: this is <em>a plain, unfussy remedy<\/em> for a potter's bleeding hands, and the question asks for the most precise fit for that plain, workaday register.", "B": "Lotion is the mildest of these — meant for skin that has nothing wrong with it. Here cold water and clay <em>split a potter's knuckles until they bleed<\/em>; that is real damage, well past what lotion treats."}}}, "pairwise": {"rows": [{"sentence": "Every fall the orchard crew stirs up a beeswax ____ for their nicked and rope-burned hands, a thick homemade jar that seals the cracks while they heal.", "options": ["salve", "balm"], "key": "salve", "pair": "balm", "why_right": "The tell is <em>nicked and rope-burned hands<\/em> - plain, workaday damage in an everyday homemade jar, firmly the plainer twin's ground, not the poetic word that drifts toward spirits.", "why_wrong": "That word leans poetic and can drift from skin to spirits. Rope-burned hands and a workaday jar sit firmly in the plainer register."}, {"sentence": "The tin in her kit saw to blistered heels that first season away; it was her mother's Sunday phone calls that proved the gentler ____, easing the homesickness.", "options": ["salve", "balm"], "key": "balm", "pair": "balm", "why_right": "The tell is <em>easing the homesickness<\/em> - a comfort for spirits, gently easing what stings, while the plain everyday jar is already spent on the blistered heels.", "why_wrong": "That word is the plainer twin - the everyday jar for scrapes and chapped hands, already sitting in the kit here. The gentler comfort reaching spirits is its poetic twin's work."}, {"sentence": "Her grandmother kept a comfrey ____ by the stove for burns and scraped knuckles -- a homely tin that eased the sting and sealed the skin against the day's work.", "options": ["salve", "ointment"], "key": "salve", "pair": "ointment", "why_right": "The tell is <em>a homely tin<\/em> - handed-down kitchen comfort by the stove that eases and seals, not the clinical article from a pharmacy shelf.", "why_wrong": "That word belongs on a pharmacy shelf, printed on a tube. A tin by the stove, homemade and handed down, carries the warmth the clinical label lacks."}, {"sentence": "The pharmacist handed over a prescription-strength antibiotic ____, its tube printed with dosage instructions and a warning label.", "options": ["salve", "ointment"], "key": "ointment", "pair": "ointment", "why_right": "The tell is <em>dosage instructions and a warning label<\/em> - a regulated, medicated cream in clinical wrapping, exactly what the pharmacy's neutral label names.", "why_wrong": "That word is the homely jar, warm and handed down. A prescription tube with a warning label is the clinical article."}, {"sentence": "Someone leaves a home-stirred calendula ____ in the garden shed -- no printed label, no dosage, just a squat jar that eases thorn scratches and seals split thumbs.", "options": ["salve", "ointment"], "key": "salve", "pair": "ointment", "why_right": "The tell is <em>no printed label, no dosage<\/em> - a home-stirred jar of comfort that soothes and seals, the homely thing itself rather than the pharmacy's clinical article.", "why_wrong": "That is the pharmacy's neutral word for a medicated cream, printed and dosed. A jar somebody stirred at home, with no label at all, is the homely comfort itself."}, {"sentence": "The dermatologist said the winter dryness needed nothing medicated -- just a daily ____ after showering to keep ordinary skin from feeling tight.", "options": ["salve", "lotion"], "key": "lotion", "pair": "lotion", "why_right": "The tell is <em>ordinary skin<\/em> - no damage to soothe or seal, just dryness kept moist with the lightest touch, which is exactly this word's whole job.", "why_wrong": "That is the jar for real damage -- cracks sealed, stings eased. The doctor says there is no damage here, only dryness on ordinary skin."}, {"sentence": "The hotel spa sends guests home with a lavender ____ meant for nothing more serious than smooth shoulders after a massage.", "options": ["salve", "lotion"], "key": "lotion", "pair": "lotion", "why_right": "The tell is <em>nothing more serious than smooth shoulders<\/em> - unbroken, ordinary skin with no hurt to treat, so the lightest touch of moisture is all the scene calls for.", "why_wrong": "That jar exists to soothe and seal real damage. Smooth shoulders after a massage have nothing to seal."}, {"sentence": "Before each icy run the musher smooths a ____ over every dog's cracked pads, easing the splits and sealing them against the trail's grit.", "options": ["salve", "lotion"], "key": "salve", "pair": "lotion", "why_right": "The tell is <em>easing the splits and sealing them<\/em> - real damage being soothed and shielded at the surface, a step above mere moisture for ordinary skin.", "why_wrong": "That word is the lightest touch - moisture for ordinary skin, with no hurt to treat. Cracked, splitting pads that need sealing against grit are real damage, a step up."}], "display_order": [5, 3, 7, 1, 4, 6, 0, 2], "dimension_order": ["balm", "ointment", "lotion"], "dimension_feedback": {"balm": "A balm soothes gently, and the word leans poetic — balms comfort skin or spirits, easing what stings at the surface. A salve is its plainer twin, the everyday jar for scrapes and chapped hands. Both stay mild and stay on top; neither is meant to be driven deep.", "ointment": "An ointment is the pharmacy's neutral word for a medicated cream, and like a salve it does its work at the surface it covers. What a salve adds is warmth and a specific promise: the homely jar that soothes and protects what it seals. Ointment is the clinical label; salve is the comfort.", "lotion": "A lotion is the lightest touch — moisture for ordinary skin, with no hurt to treat — a step below a salve, which soothes and shields real damage."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence should show a homely jar or tin easing and shielding real damage -- give the hurt a name and the jar a home. Try working in a word like <i>tin<\/i>, <i>cracked<\/i>, <i>seals<\/i> or <i>homemade<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

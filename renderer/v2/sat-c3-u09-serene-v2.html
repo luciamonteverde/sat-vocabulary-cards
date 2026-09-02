@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9aca99003f6d">
+<meta name="build" content="35e465779b59">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>serene &#8212; SAT Vocabulary, Course 3 Unit 9</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "serene", "gradeUrl": "/api/grade", "taskId": "serene", "minWords": 12, "items": {"s1": {"q": "Which sentence uses serene correctly?", "opts": {"A": "Knuckles white on the lectern, the debater kept her voice serene through sheer force of will alone.", "B": "The bride looked serene in every portrait, though she spent each break pacing the hall and chewing her thumbnail.", "C": "Nikhil felt serene all vacation -- until the first work email had him refreshing his inbox for days.", "D": "Wheeled into surgery, Grandpa was serene, joking softly with the nurses and asking what music they'd play."}, "key": "D", "fb": {"correct": "Right—joking gently on the way into surgery is peace that circumstances can't shake: serene.", "A": "A steady voice over white knuckles is composure held by effort. Serene peace is effortless.", "B": "Pacing and nail-chewing between shots is nerves. Serene means the calm goes all the way down.", "C": "Calm that collapses at the first email was circumstantial. Serene peace comes from within and holds."}}, "s3a": {"q": "As it is used in the passage, \"serene\" most nearly means --", "opts": {"A": "too focused on work to notice problems", "B": "at peace from deep within, no matter what", "C": "pretending to be untroubled for the cameras", "D": "cheerful and full of energy in the mornings"}, "key": "B", "fb": {"correct": "Right -- her own words ('it is something that keeps her') and the loss that lands 'as a fact but never as a wound' locate the peace inside her.", "A": "She plainly notices the problems -- she is asked directly about her composure amid them; the point is that they do not reach her.", "C": "Nothing suggests performance; the peace holds at dawn before anyone else arrives, with no camera present.", "D": "The passage is about undisturbed peace, not pep -- humming at the easel is contentment, not energy."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "serene", "B": "calm", "C": "untroubled", "D": "unruffled"}, "key": "C", "fb": {"correct": "Right — untroubled is the precise word: free of worry at this moment, and for a stated reason. <em>She had, after all, nothing left to check<\/em>, and <em>the numbers had already answered every question<\/em>.", "A": "Serene names a peace that comes from within and would hold even if the news turned bad. Osei's ease is tied to one morning's finished work — this is the <em>same engineer<\/em> who <em>frets for a week over a routine culvert<\/em>. Take away the triple-checked margins and the peace goes with them, which serene does not allow.", "D": "Unruffled describes the outside — a surface nothing disturbed — and someone can look unruffled while churning inside. The passage closes off that reading: she was <em>genuinely so<\/em>, <em>not merely smooth-faced for the cameras<\/em>. A word about the surface is too small for what her colleagues are attesting.", "B": "Calm is true as far as it goes, but it is the mildest claim available — nothing stirring at the moment, with nothing said about why. The passage spends its whole second half on the why: <em>nothing left to check<\/em>, <em>the numbers had already answered every question<\/em>. The most precise choice is the one that carries that reason."}}}, "grid": {"words": ["serene", "untroubled", "unruffled", "calm"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Even when the scan results came back worse than hoped, Grandpa Amos stayed ____ , with a settled peace that seemed to rise from somewhere the news could not reach.", "ks": ["serene"], "fb": {"untroubled": "That word means free of worry because things went fine. Here the results came back <em>worse than hoped<\/em> -- the peace holds in spite of the news, not because of it.", "unruffled": "That word describes an undisturbed exterior that may hide churning inside. The sentence says the peace rises from somewhere deep, which is the opposite claim.", "calm": "The mildest word says nothing stirs right now, with no promise beyond the moment. This peace persists straight through bad news."}}, {"s": "Marisol boxed up her flood-ruined bookshop, ____ and steady in a way that startled the volunteers -- sorrow, yes, but under it a wellspring the water never touched.", "ks": ["serene"], "fb": {"untroubled": "She is grieving in plain sight -- <em>sorrow, yes<\/em> -- so she is not free of worry. The word needed here names peace that holds underneath trouble.", "unruffled": "A smooth surface can hide churning inside. The sentence insists on the inside: a wellspring under the sorrow, which a surface-word cannot claim.", "calm": "That word covers a quiet moment with no promise about the next. What startles the volunteers is a steadiness that keeps holding through the whole disaster."}}, {"s": "Having checked every figure twice the night before and flagged nothing, the treasurer walked into the annual audit ____ , and for good reason.", "ks": ["untroubled"], "fb": {"serene": "Her ease has a stated cause -- the figures were checked twice. A peace that depends on the paperwork being right is not the deep, source-from-within kind.", "unruffled": "That word is for keeping a smooth surface through a bump. No bump has happened; she simply has nothing to worry about.", "calm": "The most general word says only that nothing stirs. The sentence is more specific: no worry, and a reason for its absence."}}, {"s": "With the forecast finally clear and the tents staked deep against the wind, the scouts turned in ____ , nothing left to worry about before morning.", "ks": ["untroubled"], "fb": {"serene": "Their peace rests on the forecast and the tent stakes. Deep inner peace would not need either -- this is comfort supplied by circumstances.", "unruffled": "Nothing has tested them tonight; there is no bump being smoothed over, just an absence of worry.", "calm": "The mildest word only says nothing stirs at the moment. The sentence is specifically about having <em>nothing left to worry about<\/em>, and why."}}, {"s": "Though her hands stayed knotted in her lap below the table, the witness's voice and expression remained ____ through forty minutes of cross-examination.", "ks": ["unruffled"], "fb": {"serene": "The knotted hands give her away: inside, she is churning. Only her voice and face stayed smooth, and that is a claim about the outside.", "untroubled": "Someone free of worry doesn't sit with hands <em>knotted in her lap<\/em>. She is troubled -- and hiding it well.", "calm": "Plenty is stirring in her; the sentence says it never reached the surface. The word needed describes that surface, not her state."}}, {"s": "A mug of tea left Priya ____ for the moment, though the interview and all its worries still waited on the other side of the hour.", "ks": ["calm"], "fb": {"serene": "Tea-deep peace that runs out in an hour is not the from-within kind. The sentence promises nothing beyond the moment.", "untroubled": "Her worries are explicitly still there, waiting on the other side of the hour. She hasn't lost them -- just set them down briefly.", "unruffled": "That word is for a surface kept smooth through a bump. No bump has come yet; this is simply a quiet moment before one."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> The peace has to come from inside and hold even when something goes wrong -- so put a real setback in view. Try working in words like <i>despite<\/i>, <i>even<\/i>, <i>storm<\/i> or <i>within<\/i>."}};
+  var CFG = {"word": "serene", "gradeUrl": "/api/grade", "taskId": "serene", "minWords": 12, "items": {"s1": {"q": "Which sentence uses serene correctly?", "opts": {"A": "Knuckles white on the lectern, the debater kept her voice serene through sheer force of will alone.", "B": "The bride looked serene in every portrait, though she spent each break pacing the hall and chewing her thumbnail.", "C": "Nikhil felt serene all vacation -- until the first work email had him refreshing his inbox for days.", "D": "Wheeled into surgery, Grandpa was serene, joking softly with the nurses and asking what music they'd play."}, "key": "D", "fb": {"correct": "Right—joking gently on the way into surgery is peace that circumstances can't shake: serene.", "A": "A steady voice over white knuckles is composure held by effort. Serene peace is effortless.", "B": "Pacing and nail-chewing between shots is nerves. Serene means the calm goes all the way down.", "C": "Calm that collapses at the first email was circumstantial. Serene peace comes from within and holds."}}, "s3a": {"q": "As it is used in the passage, \"serene\" most nearly means --", "opts": {"A": "too focused on work to notice problems", "B": "at peace from deep within, no matter what", "C": "pretending to be untroubled for the cameras", "D": "cheerful and full of energy in the mornings"}, "key": "B", "fb": {"correct": "Right -- her own words ('it is something that keeps her') and the loss that lands 'as a fact but never as a wound' locate the peace inside her.", "A": "She plainly notices the problems -- she is asked directly about her composure amid them; the point is that they do not reach her.", "C": "Nothing suggests performance; the peace holds at dawn before anyone else arrives, with no camera present.", "D": "The passage is about undisturbed peace, not pep -- humming at the easel is contentment, not energy."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "serene", "B": "calm", "C": "untroubled", "D": "unruffled"}, "key": "C", "fb": {"correct": "Right — untroubled is the precise word: free of worry at this moment, and for a stated reason. <em>She had, after all, nothing left to check<\/em>, and <em>the numbers had already answered every question<\/em>.", "A": "Serene names a peace that comes from within and would hold even if the news turned bad. Osei's ease is tied to one morning's finished work — this is the <em>same engineer<\/em> who <em>frets for a week over a routine culvert<\/em>. Take away the triple-checked margins and the peace goes with them, which serene does not allow.", "D": "Unruffled describes the outside — a surface nothing disturbed — and someone can look unruffled while churning inside. The passage closes off that reading: she was <em>genuinely so<\/em>, <em>not merely smooth-faced for the cameras<\/em>. A word about the surface is too small for what her colleagues are attesting.", "B": "Calm is true as far as it goes, but it is the mildest claim available — nothing stirring at the moment, with nothing said about why. The passage spends its whole second half on the why: <em>nothing left to check<\/em>, <em>the numbers had already answered every question<\/em>. The most precise choice is the one that carries that reason."}}}, "pairwise": {"rows": [{"sentence": "Having checked every figure twice the night before and flagged nothing, the treasurer walked into the annual audit ____ , and for good reason.", "options": ["serene", "untroubled"], "key": "untroubled", "pair": "untroubled", "why_right": "The tell is <em>and for good reason<\/em> - her ease comes from the double-checked figures, exactly the worry-free-because-things-are-fine word, not a peace that would hold if the paperwork were wrong.", "why_wrong": "Her ease has a stated cause -- the figures were checked twice. A peace that depends on the paperwork being right is not the deep, source-from-within kind."}, {"sentence": "With the forecast finally clear and the tents staked deep against the wind, the scouts turned in ____ , nothing left to worry about before morning.", "options": ["serene", "untroubled"], "key": "untroubled", "pair": "untroubled", "why_right": "The tell is <em>nothing left to worry about before morning<\/em> - the ease rests on the forecast and the tent stakes, worry-free because circumstances are handled, not a peace from somewhere deep.", "why_wrong": "Their peace rests on the forecast and the tent stakes. Deep inner peace would not need either -- this is comfort supplied by circumstances."}, {"sentence": "Even when the scan results came back worse than hoped, Grandpa Amos stayed ____ , with a settled peace that seemed to rise from somewhere the news could not reach.", "options": ["serene", "untroubled"], "key": "serene", "pair": "untroubled", "why_right": "The tell is <em>worse than hoped<\/em> - the peace holds in spite of bad news, rising from within, which is serene; the worry-free-because-things-are-fine word cannot claim a peace that survives trouble.", "why_wrong": "That word means free of worry because things went fine. Here the results came back <em>worse than hoped<\/em> -- the peace holds in spite of the news, not because of it."}, {"sentence": "Though her hands stayed knotted in her lap below the table, the witness's voice and expression remained ____ through forty minutes of cross-examination.", "options": ["serene", "unruffled"], "key": "unruffled", "pair": "unruffled", "why_right": "The tell is <em>her hands stayed knotted in her lap below the table<\/em> - she is churning underneath while her surface stays smooth, which is unruffled, a claim about the outside only.", "why_wrong": "The knotted hands give her away: inside, she is churning. Only her voice and face stayed smooth, and that is a claim about the outside."}, {"sentence": "Marisol boxed up her flood-ruined bookshop, ____ and steady in a way that startled the volunteers -- sorrow, yes, but under it a wellspring the water never touched.", "options": ["serene", "unruffled"], "key": "serene", "pair": "unruffled", "why_right": "The tell is <em>under it a wellspring the water never touched<\/em> - the peace is a source inside her, not merely a smooth exterior, which is serene rather than a calm surface over churning.", "why_wrong": "A smooth surface can hide churning inside. The sentence insists on the inside: a wellspring under the sorrow, which a surface-word cannot claim."}, {"sentence": "Backstage the rival nominees smiled while pacing holes in the carpet, but ____ Odile was at peace to her core, the ease reaching past her face.", "options": ["serene", "unruffled"], "key": "serene", "pair": "unruffled", "why_right": "The tell is <em>at peace to her core<\/em> - serene names a peace that reaches the inside, not just a smooth face like the rivals kept while they paced.", "why_wrong": "That word describes only the surface -- a face kept smooth, which may hide churning underneath. The sentence puts the peace deep inside Odile, past the face, where a surface word cannot reach."}, {"sentence": "A mug of tea left Priya ____ for the moment, though the interview and all its worries still waited on the other side of the hour.", "options": ["serene", "calm"], "key": "calm", "pair": "calm", "why_right": "The tell is <em>all its worries still waited<\/em> - the tea-deep ease covers only this moment and nothing beyond it, which is the mildest word, not a from-within peace that holds through the interview.", "why_wrong": "Tea-deep peace that runs out in an hour is not the from-within kind. The sentence promises nothing beyond the moment."}, {"sentence": "The eviction notice came the morning of the diagnosis, yet ____ Otho did not change, his peace holding through both like a spring through a drought.", "options": ["serene", "calm"], "key": "serene", "pair": "calm", "why_right": "The tell is <em>holding through both<\/em> - serene names a deep peace that holds through real bad news, not a mild calm that claims only the moment and promises nothing past it.", "why_wrong": "That word is the mildest here -- nothing stirring at the moment, with no promise about the next. This peace holds through an eviction and a diagnosis at once, far past any moment."}], "display_order": [3, 2, 5, 6, 1, 7, 0, 4], "dimension_order": ["untroubled", "unruffled", "calm"], "dimension_feedback": {"untroubled": "Untroubled means free of worry right now, for whatever reason—the test went fine, so you are untroubled. Serene is bigger: an inner peace that seems to come from within and would hold even if the news turned bad. Untroubled describes this moment; serene describes the spirit.", "unruffled": "Unruffled means nothing disturbed your surface—the manner stayed smooth through the bump. It describes the outside. Serene reaches deeper: the peace glows from within, in face and spirit, not just an undisturbed exterior. You can look unruffled while churning inside; a serene person genuinely is not churning.", "calm": "Calm is the mildest word here and claims far less than serene—calm means nothing stirs at the moment, with no promise about the next, while serene names a deep peace that comes from inside and holds."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> The peace has to come from inside and hold even when something goes wrong -- so put a real setback in view. Try working in words like <i>despite<\/i>, <i>even<\/i>, <i>storm<\/i> or <i>within<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

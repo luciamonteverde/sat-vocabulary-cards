@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="ae436122dc18">
+<meta name="build" content="6203dff4fe49">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>underling &#8212; SAT Vocabulary, Course 2 Unit 2</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "underling", "gradeUrl": "/api/grade", "taskId": "underling", "minWords": 12, "items": {"s1": {"q": "Which sentence uses underling correctly?", "opts": {"A": "The CEO reports to her underlings every Friday and carries out whatever they decide.", "B": "The studio head never fired anyone herself; an underling delivered the bad news.", "C": "A thick underling of old oak roots had slowly cracked the entire length of the garden wall.", "D": "He is the mayor's most trusted underling, free to overrule her whenever he sees fit."}, "key": "B", "fb": {"correct": "Right. The unpleasant task rolls downhill to someone whose job is simply to carry out orders — and the word's scorn, unlike 'assistant,' is part of its meaning.", "A": "Notice the ladder here runs upside down: a CEO who 'carries out whatever they decide' takes orders from below. An underling is the lower-ranked person who obeys; the boss cannot be one.", "C": "A 'thick underling of old oak roots' treats the term as plant growth beneath a wall. An underling is a person — a low-ranked one who follows orders — not roots or any underlayer.", "D": "Being 'free to overrule her whenever he sees fit' means this aide outranks the mayor — the opposite of a low position. An underling takes direction from above and could not override the boss."}}, "s3a": {"q": "In this passage, calling Marisol an \"underling\" reflects", "opts": {"A": "her own conviction that she deserved a better position than the one she held", "B": "the executives' view of her as low-ranked and interchangeable", "C": "her lack of real skill at logistics work", "D": "the company's policy of rotating junior staff"}, "key": "B", "fb": {"correct": "Right -- the word carries the view from above: no memo, no nod, just someone to send for files.", "A": "The sneer in the word belongs to the boss looking down, and the passage shows it coming from upstairs -- not from her.", "C": "Her routing scheme kept the trucks moving for a month; the label reflects her rank, not her skill.", "D": "No policy appears anywhere -- the word records how the executives saw her, not how the company rotated staff."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "flunky", "B": "assistant", "C": "minion", "D": "underling"}, "key": "A", "fb": {"correct": "Right. He is kept around for errands and applause — <em>hail cars, fetch pastries<\/em>, praise on demand — useful mainly for being agreeable, and the contempt in the word is about exactly that servility.", "D": "An underling holds a real place in a real chain of command — low, but on the books. <em>The tailors had titles and the fitters had duties; he had neither<\/em>: there is no rank here for him to be low in.", "C": "A minion serves a powerful figure eagerly, half follower and half fan, proud of the job. This man is no fan: <em>the wage was generous<\/em>, and <em>he had never much cared for fashion itself<\/em>.", "B": "Assistant is a respectful title for real work — schedules, files, fittings. What keeps this man around — <em>hail cars, fetch pastries, and pronounce every unfinished gown a triumph<\/em> — is agreeableness, not a job a résumé could carry."}}}, "grid": {"words": ["underling", "minion", "flunky", "assistant"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "In the org chart she sat three boxes down -- a mere ____ who carried out orders without enthusiasm and was never once asked for an opinion.", "ks": ["underling"], "fb": {"minion": "That word's servant serves eagerly -- half follower, half fan, proud of the job. This employee obeys without enthusiasm; the sentence is about low rank, not devotion.", "flunky": "That word names someone kept around for errands and for laughing at the boss's jokes. She holds a real place in a real chain of command -- the contempt here is about rank, not servility.", "assistant": "That word is respectful -- a title for a résumé. 'A mere' anything is the view from above: not a colleague, just someone ranked low and handed orders."}}, {"s": "The auditors interviewed the executives, then worked down the ladder to each ____ -- nobody the bosses could name -- who had stamped whatever was slid across the desk.", "ks": ["underling"], "fb": {"minion": "That word carries eagerness -- a devoted follower proud to serve a powerful figure. These workers just stamp what lands on the desk because rank gives them no choice.", "flunky": "That word is kept around for flattery and errands. Stamping invoices is a genuine duty in a genuine chain of command -- the contempt is about being low, not being servile.", "assistant": "That word is a respectful title and implies a colleague. People the bosses cannot even name are being seen from above -- rank, not partnership."}}, {"s": "The tyrant's ____ carried out each cruel order with a grin, wearing the master's crest through the streets the way a fan wears a team jersey.", "ks": ["minion"], "fb": {"underling": "That word names anyone ranked low and given orders, with the eagerness drained out. This servant grins and wears the crest like a fan -- devotion, not mere rank.", "flunky": "That word is kept around for errands and for laughing at the boss's jokes. This one enforces real orders -- eagerly, devotedly, like a follower and a fan.", "assistant": "That word is a respectful workplace title. A grinning enforcer devoted to a tyrant is not office support -- it is eager service to power."}}, {"s": "Interns competed to be the CEO's favorite ____, repeating her slogans in meetings and defending her every decision online before anyone even asked.", "ks": ["minion"], "fb": {"underling": "That word is rank language -- low in the chart, handed orders, no devotion implied. These interns are volunteers in their zeal, competing to serve.", "flunky": "That word names someone the boss keeps around because the flattery is useful. Here nothing is kept or paid for -- the interns push their devotion uninvited.", "assistant": "That word describes real support work under a respectful title. Chanting slogans and fighting online battles for the boss is fandom, not a job description."}}, {"s": "He kept a well-paid ____ on the payroll to fetch dry cleaning, warm up the car, and laugh first and loudest at every joke he told.", "ks": ["flunky"], "fb": {"underling": "That word names low rank inside a real chain of command. This job has no chain and no duties beyond pleasing one man -- errands and applause.", "minion": "That word's servant is a devoted follower, proud to serve a powerful figure's cause. This one is simply kept around -- paid to fetch things and laugh on cue.", "assistant": "That word is a respectful title for real support work. Warming the car and laughing loudest at every joke is servility, not support."}}, {"s": "The lab posting sought a research ____ to schedule interviews, maintain the archive, and co-author the annual report.", "ks": ["assistant"], "fb": {"underling": "That word is the sneer from above -- low rank, just someone to send. This posting offers respect: real duties and a co-author credit.", "minion": "That word serves a powerful person with a fan's devotion. This is a job listing with professional duties, addressed to a future colleague.", "flunky": "That word is kept around for errands and flattery. Scheduling, archiving, and co-authoring are real support work under a respectable title."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Write from the boss's point of view looking down: show low rank and order-taking, with a sniff of contempt from above. Try working in a word like <i>orders<\/i>, <i>rank<\/i>, <i>beneath<\/i> or <i>sent<\/i>."}};
+  var CFG = {"word": "underling", "gradeUrl": "/api/grade", "taskId": "underling", "minWords": 12, "items": {"s1": {"q": "Which sentence uses underling correctly?", "opts": {"A": "The CEO reports to her underlings every Friday and carries out whatever they decide.", "B": "The studio head never fired anyone herself; an underling delivered the bad news.", "C": "A thick underling of old oak roots had slowly cracked the entire length of the garden wall.", "D": "He is the mayor's most trusted underling, free to overrule her whenever he sees fit."}, "key": "B", "fb": {"correct": "Right. The unpleasant task rolls downhill to someone whose job is simply to carry out orders — and the word's scorn, unlike 'assistant,' is part of its meaning.", "A": "Notice the ladder here runs upside down: a CEO who 'carries out whatever they decide' takes orders from below. An underling is the lower-ranked person who obeys; the boss cannot be one.", "C": "A 'thick underling of old oak roots' treats the term as plant growth beneath a wall. An underling is a person — a low-ranked one who follows orders — not roots or any underlayer.", "D": "Being 'free to overrule her whenever he sees fit' means this aide outranks the mayor — the opposite of a low position. An underling takes direction from above and could not override the boss."}}, "s3a": {"q": "In this passage, calling Marisol an \"underling\" reflects", "opts": {"A": "her own conviction that she deserved a better position than the one she held", "B": "the executives' view of her as low-ranked and interchangeable", "C": "her lack of real skill at logistics work", "D": "the company's policy of rotating junior staff"}, "key": "B", "fb": {"correct": "Right -- the word carries the view from above: no memo, no nod, just someone to send for files.", "A": "The sneer in the word belongs to the boss looking down, and the passage shows it coming from upstairs -- not from her.", "C": "Her routing scheme kept the trucks moving for a month; the label reflects her rank, not her skill.", "D": "No policy appears anywhere -- the word records how the executives saw her, not how the company rotated staff."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "flunky", "B": "assistant", "C": "minion", "D": "underling"}, "key": "A", "fb": {"correct": "Right. He is kept around for errands and applause — <em>hail cars, fetch pastries<\/em>, praise on demand — useful mainly for being agreeable, and the contempt in the word is about exactly that servility.", "D": "An underling holds a real place in a real chain of command — low, but on the books. <em>The tailors had titles and the fitters had duties; he had neither<\/em>: there is no rank here for him to be low in.", "C": "A minion serves a powerful figure eagerly, half follower and half fan, proud of the job. This man is no fan: <em>the wage was generous<\/em>, and <em>he had never much cared for fashion itself<\/em>.", "B": "Assistant is a respectful title for real work — schedules, files, fittings. What keeps this man around — <em>hail cars, fetch pastries, and pronounce every unfinished gown a triumph<\/em> — is agreeableness, not a job a résumé could carry."}}}, "pairwise": {"rows": [{"sentence": "In the org chart she sat three boxes down -- a mere ____ who carried out orders without enthusiasm and was never once asked for an opinion.", "options": ["underling", "minion"], "key": "underling", "pair": "minion", "why_right": "The tell is <em>without enthusiasm<\/em> - the eagerness is drained out of this service, leaving only low rank and handed-down orders, which is exactly what the plainer word names.", "why_wrong": "That word's servant serves eagerly -- half follower, half fan, proud of the job. This employee obeys without enthusiasm; the sentence is about low rank, not devotion."}, {"sentence": "The auditors interviewed the executives, then worked down the ladder to each ____ -- nobody the bosses could name -- who had stamped whatever was slid across the desk.", "options": ["underling", "flunky"], "key": "underling", "pair": "flunky", "why_right": "The tell is <em>stamped whatever was slid across the desk<\/em> - a genuine duty inside a genuine chain of command; nothing here is coat-carrying or laughing on cue.", "why_wrong": "That word is kept around for flattery and errands. Stamping invoices is a genuine duty in a genuine chain of command -- the contempt is about being low, not being servile."}, {"sentence": "The tyrant's ____ carried out each cruel order with a grin, wearing the master's crest through the streets the way a fan wears a team jersey.", "options": ["underling", "minion"], "key": "minion", "pair": "minion", "why_right": "The tell is <em>the way a fan wears a team jersey<\/em> - eager, devoted pride in serving a powerful figure, where the plainer rank-word drops the devotion entirely.", "why_wrong": "That word names anyone ranked low and given orders, with the eagerness drained out. This servant grins and wears the crest like a fan -- devotion, not mere rank."}, {"sentence": "Interns competed to be the CEO's favorite ____, repeating her slogans in meetings and defending her every decision online before anyone even asked.", "options": ["underling", "minion"], "key": "minion", "pair": "minion", "why_right": "The tell is <em>competed to be<\/em> - this devotion is volunteered and prized, half follower and half fan, while the plainer word names mere low rank with the eagerness gone.", "why_wrong": "That word is rank language -- low in the chart, handed orders, no devotion implied. These interns are volunteers in their zeal, competing to serve."}, {"sentence": "He kept a well-paid ____ on the payroll to fetch dry cleaning, warm up the car, and laugh first and loudest at every joke he told.", "options": ["underling", "flunky"], "key": "flunky", "pair": "flunky", "why_right": "The tell is <em>laugh first and loudest at every joke<\/em> - flattery is the whole job description, with no real place in any chain of command behind it.", "why_wrong": "That word names low rank inside a real chain of command. This job has no chain and no duties beyond pleasing one man -- errands and applause."}, {"sentence": "The lab posting sought a research ____ to schedule interviews, maintain the archive, and co-author the annual report.", "options": ["underling", "assistant"], "key": "assistant", "pair": "assistant", "why_right": "The tell is <em>co-author the annual report<\/em> - a respectful, resume-ready title with real duties and a named credit, not the view from above of someone to send.", "why_wrong": "That word is the sneer from above -- low rank, just someone to send. This posting offers respect: real duties and a co-author credit."}, {"sentence": "The chairman's tour swept past without introductions: to him the analysts, clerks, and engineers were each just another ____, a pair of hands to send for whatever he wanted next.", "options": ["underling", "assistant"], "key": "underling", "pair": "assistant", "why_right": "The tell is <em>a pair of hands to send<\/em> - the chairman's view from above, ranking people low and handing them orders, with none of a respectful title's regard.", "why_wrong": "That word is respectful - a title a person puts on a resume, naming a colleague with real duties. 'Just another' pair of hands, unnamed and sent for things, is the sneer from above."}, {"sentence": "Each manifest passed down from the shift lead to the newest ____ on the loading dock, whose whole job was scanning crates to spec -- no coats carried, no jokes laughed at.", "options": ["underling", "flunky"], "key": "underling", "pair": "flunky", "why_right": "The tell is <em>scanning crates to spec<\/em> - a real duty at the bottom of a real chain of command, not errands and flattery for one agreeable favorite.", "why_wrong": "That word is kept around for errands and flattery - coats carried, jokes laughed at, useful mainly for being agreeable. This worker holds a real place in a real chain of command."}], "display_order": [0, 4, 5, 7, 3, 1, 2, 6], "dimension_order": ["minion", "flunky", "assistant"], "dimension_feedback": {"minion": "A minion serves a powerful figure eagerly, almost devotedly — half follower, half fan — and the villain's minions are proud of the job. Underling drops the eagerness: it names anyone whose whole role is taking orders, and the sneer belongs to the boss looking down, not the servant looking up.", "flunky": "A flunky is kept around for errands and flattery — carrying coats, laughing at jokes — useful mainly for being agreeable. An underling holds a real place in a real chain of command; the contempt in underling is about low rank, while the contempt in flunky is about servility.", "assistant": "Assistant is respectful — a title a person puts on a résumé — while underling is the view from above: not a colleague, just someone to send."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Write from the boss's point of view looking down: show low rank and order-taking, with a sniff of contempt from above. Try working in a word like <i>orders<\/i>, <i>rank<\/i>, <i>beneath<\/i> or <i>sent<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

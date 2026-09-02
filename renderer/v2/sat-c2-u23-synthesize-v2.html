@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="d057486311e1">
+<meta name="build" content="53a1f7575eb4">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>synthesize &#8212; SAT Vocabulary, Course 2 Unit 23</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "synthesize", "gradeUrl": "/api/grade", "taskId": "synthesize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses synthesize correctly?", "opts": {"A": "The documentary synthesizes home movies, weather logs, and flood-insurance maps into one unbroken account of the valley's disappearance.", "B": "To synthesize the pantry before the September move, she threw out everything past its printed date and wiped down each one of the emptied shelves.", "C": "The new archivist synthesized the donated letters by year, slipping each rubber-banded bundle into its own labeled box on the long basement shelf.", "D": "He synthesized the forty-page report into a two-sentence blurb for the back page of the company newsletter."}, "key": "A", "fb": {"correct": "Correct! Synthesize means to combine separate pieces into a new, coherent whole — home movies, weather logs, and insurance maps are three unlike sources, and the film works them into one continuous account none of them told alone.", "B": "Not quite! Synthesize means to combine parts into a new whole, so it's not the correct choice here because throwing out expired food and wiping shelves is clearing a pantry — things are being removed, and nothing is being built from them.", "C": "Not quite! Synthesize means to work pieces into a new whole, so it's not the correct choice here because sorting letters by year and boxing them is organizing an archive — every letter ends exactly what it was, only tidier.", "D": "Not quite! Synthesize means to draw many separate sources into one new whole, so it's not the correct choice here because boiling a single report down to two sentences is condensing it — one source shrunk, not many sources joined."}}, "s3a": {"q": "As it is used in this passage, \"synthesize\" most nearly means", "opts": {"A": "to collect scattered records into one convenient archive", "B": "to take a measurement no researcher had attempted before", "C": "to work separate pieces into a new whole", "D": "to correct the errors buried in older records"}, "key": "C", "fb": {"correct": "Right. The three archives were read against each other until they yielded a model none of them contained alone — old pieces, new whole.", "A": "Collecting would have put the maps, rings, and logbooks in one building and stopped. The team went further: it made them say something together.", "B": "The passage rules this out directly — her insight was <em>not a new measurement<\/em>; every fact was already known to someone.", "D": "Nothing suggests the old records were wrong. Their facts stood; what was missing was the whole they could form."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "compile", "B": "integrate", "C": "combine", "D": "synthesize"}, "key": "D", "fb": {"correct": "Right. To synthesize is to work separate pieces into a new whole none of them contained alone — and a single index number that no receipt or rent roll held is exactly such a whole, built by weighting and adjusting, not by stacking.", "C": "Combine is the broad, everyday word for putting things together in any way at all — lumps and all. This job has a stricter target: <em>one number that no receipt or rent roll held on its own<\/em>, built by <em>weighting each price by how families actually spent<\/em>. The stem asks for the most precise word, and combine is the loosest one here.", "B": "Integrate means fitting a part into a whole that already exists. There was no whole yet: <em>no such measure existed anywhere<\/em>, so the statisticians could not slot the figures into a framework — they had to build the thing itself.", "A": "Compile gathers the pieces into one place and stops. That step was already done: <em>Gathering the slips had taken a year<\/em>, and the blank names <em>the harder work<\/em> that <em>started after the gathering stopped<\/em>."}}}, "grid": {"words": ["synthesize", "combine", "integrate", "compile"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The review panel asked her to ____ three decades of scattered trial data into one framework that no single study had ever proposed.", "ks": ["synthesize"], "fb": {"combine": "That is the broad, everyday word for putting things together in any way at all. The panel wants the data <em>worked into a framework<\/em> none of it contained alone.", "integrate": "That word fits a part into a whole that already exists. No framework exists here yet — building it is the whole assignment.", "compile": "That word gathers pieces into one place and stops. Three decades of data stacked together is still a stack, not a framework."}}, {"s": "The recipe tells you simply to ____ the dry ingredients with the wet in one bowl, any way you like — lumps and all.", "ks": ["combine"], "fb": {"synthesize": "That word means working pieces into a new whole — an argument, a compound — that none contained alone. <em>Lumps and all<\/em> announces no such ambition.", "integrate": "That word means fitting a part into a whole that already exists. There is no standing whole in this bowl — just two sets of ingredients meeting.", "compile": "That word gathers items into one place and stops — reports into a binder, records into a list. A batter needs the stirring itself."}}, {"s": "By the final chapter the historian must ____ letters, ledgers, and folk songs into a single account of the famine that none of those sources tells on its own.", "ks": ["synthesize"], "fb": {"combine": "That is the everyday word for putting things together, in any way at all. The famine's story has to be <em>worked out of<\/em> the sources — a new whole, not a mixture.", "integrate": "That word slots a part into a whole that already stands. The single account is the thing still to be built.", "compile": "That word would gather the letters and ledgers into one place and stop there. The sentence demands an account none of the pieces tells."}}, {"s": "The style guide already ran to ninety pages, so the editor's task was to ____ the new privacy rules into the existing chapters without disturbing their order.", "ks": ["integrate"], "fb": {"synthesize": "That word builds a new whole out of pieces that never stood together. This whole has stood for ninety pages — the rules just need a home inside it.", "combine": "That is the loose, everyday word for putting things together anyhow. 'Without disturbing their order' asks for careful fitting into what already exists.", "compile": "That word collects items into one pile and stops. The privacy rules are being worked into standing chapters, not stacked somewhere."}}, {"s": "Her first assignment was to ____ every field report from the expedition into a single binder, in date order, with nothing summarized and nothing rewritten.", "ks": ["compile"], "fb": {"synthesize": "That word works pieces into a new whole none of them contained. This assignment forbids exactly that: <em>nothing summarized and nothing rewritten<\/em>.", "integrate": "That word fits a part into a whole that already exists. This binder is empty until the reports arrive — nothing stands to receive them.", "combine": "That is the everyday word for putting things together — mixing them into each other. These pages are only gathered side by side, each left as it was."}}, {"s": "The city hired planners to ____ the new tram line into a street grid that had stood unchanged for a century.", "ks": ["integrate"], "fb": {"synthesize": "That word builds a new whole out of separate pieces. The grid is a century old — the tram line is a part seeking its place in it.", "combine": "That is the broad word for putting things together in any way at all. Threading one line through a standing grid is fitting, not mixing.", "compile": "That word gathers reports or records into one place and stops. Streets and rails are being fitted together, not collected."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show separate pieces being worked into a new whole that none of them contained alone — name the pieces and the result. Try working in a word like <i>sources<\/i>, <i>into<\/i>, <i>single<\/i> or <i>new<\/i>."}};
+  var CFG = {"word": "synthesize", "gradeUrl": "/api/grade", "taskId": "synthesize", "minWords": 12, "items": {"s1": {"q": "Which sentence uses synthesize correctly?", "opts": {"A": "The documentary synthesizes home movies, weather logs, and flood-insurance maps into one unbroken account of the valley's disappearance.", "B": "To synthesize the pantry before the September move, she threw out everything past its printed date and wiped down each one of the emptied shelves.", "C": "The new archivist synthesized the donated letters by year, slipping each rubber-banded bundle into its own labeled box on the long basement shelf.", "D": "He synthesized the forty-page report into a two-sentence blurb for the back page of the company newsletter."}, "key": "A", "fb": {"correct": "Correct! Synthesize means to combine separate pieces into a new, coherent whole — home movies, weather logs, and insurance maps are three unlike sources, and the film works them into one continuous account none of them told alone.", "B": "Not quite! Synthesize means to combine parts into a new whole, so it's not the correct choice here because throwing out expired food and wiping shelves is clearing a pantry — things are being removed, and nothing is being built from them.", "C": "Not quite! Synthesize means to work pieces into a new whole, so it's not the correct choice here because sorting letters by year and boxing them is organizing an archive — every letter ends exactly what it was, only tidier.", "D": "Not quite! Synthesize means to draw many separate sources into one new whole, so it's not the correct choice here because boiling a single report down to two sentences is condensing it — one source shrunk, not many sources joined."}}, "s3a": {"q": "As it is used in this passage, \"synthesize\" most nearly means", "opts": {"A": "to collect scattered records into one convenient archive", "B": "to take a measurement no researcher had attempted before", "C": "to work separate pieces into a new whole", "D": "to correct the errors buried in older records"}, "key": "C", "fb": {"correct": "Right. The three archives were read against each other until they yielded a model none of them contained alone — old pieces, new whole.", "A": "Collecting would have put the maps, rings, and logbooks in one building and stopped. The team went further: it made them say something together.", "B": "The passage rules this out directly — her insight was <em>not a new measurement<\/em>; every fact was already known to someone.", "D": "Nothing suggests the old records were wrong. Their facts stood; what was missing was the whole they could form."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "compile", "B": "integrate", "C": "combine", "D": "synthesize"}, "key": "D", "fb": {"correct": "Right. To synthesize is to work separate pieces into a new whole none of them contained alone — and a single index number that no receipt or rent roll held is exactly such a whole, built by weighting and adjusting, not by stacking.", "C": "Combine is the broad, everyday word for putting things together in any way at all — lumps and all. This job has a stricter target: <em>one number that no receipt or rent roll held on its own<\/em>, built by <em>weighting each price by how families actually spent<\/em>. The stem asks for the most precise word, and combine is the loosest one here.", "B": "Integrate means fitting a part into a whole that already exists. There was no whole yet: <em>no such measure existed anywhere<\/em>, so the statisticians could not slot the figures into a framework — they had to build the thing itself.", "A": "Compile gathers the pieces into one place and stops. That step was already done: <em>Gathering the slips had taken a year<\/em>, and the blank names <em>the harder work<\/em> that <em>started after the gathering stopped<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The recipe tells you simply to ____ the dry ingredients with the wet in one bowl, any way you like — lumps and all.", "options": ["synthesize", "combine"], "key": "combine", "pair": "combine", "why_right": "The tell is <em>any way you like<\/em> - the recipe wants only the broad, everyday putting-together, with no ambition to work the pieces into a new coherent whole.", "why_wrong": "That word means working pieces into a new whole — an argument, a compound — that none contained alone. <em>Lumps and all<\/em> announces no such ambition."}, {"sentence": "Any apprentice could tip the oils into one bottle; the master blender's art was to ____ cedar, citrus, and smoke into a scent none of them suggests alone.", "options": ["synthesize", "combine"], "key": "synthesize", "pair": "combine", "why_right": "The tell is <em>none of them suggests alone<\/em> - the scent is a new whole worked out of separate pieces, past the everyday putting-together any apprentice already manages.", "why_wrong": "That word means the broad, everyday putting-together, in any way at all -- exactly what tipping the oils into one bottle already was. The blender's art works the pieces into a new whole."}, {"sentence": "The style guide already ran to ninety pages, so the editor's task was to ____ the new privacy rules into the existing chapters without disturbing their order.", "options": ["synthesize", "integrate"], "key": "integrate", "pair": "integrate", "why_right": "The tell is <em>the existing chapters<\/em> - the whole already stands, and the rules are a part being fitted into it, not pieces being built into anything new.", "why_wrong": "That word builds a new whole out of pieces that never stood together. This whole has stood for ninety pages — the rules just need a home inside it."}, {"sentence": "The city hired planners to ____ the new tram line into a street grid that had stood unchanged for a century.", "options": ["synthesize", "integrate"], "key": "integrate", "pair": "integrate", "why_right": "The tell is <em>stood unchanged for a century<\/em> - the grid is a whole that already exists, and the tram line is one part finding its place inside it.", "why_wrong": "That word builds a new whole out of separate pieces. The grid is a century old — the tram line is a part seeking its place in it."}, {"sentence": "The review panel asked her to ____ three decades of scattered trial data into one framework that no single study had ever proposed.", "options": ["synthesize", "integrate"], "key": "synthesize", "pair": "integrate", "why_right": "The tell is <em>no single study had ever proposed<\/em> - the framework does not exist yet, so the whole itself must be built from separate pieces, not fitted into one that stands.", "why_wrong": "That word fits a part into a whole that already exists. No framework exists here yet — building it is the whole assignment."}, {"sentence": "Her first assignment was to ____ every field report from the expedition into a single binder, in date order, with nothing summarized and nothing rewritten.", "options": ["synthesize", "compile"], "key": "compile", "pair": "compile", "why_right": "The tell is <em>nothing summarized and nothing rewritten<\/em> - the reports are only gathered into one place and left as they are, with every transformation expressly forbidden.", "why_wrong": "That word works pieces into a new whole none of them contained. This assignment forbids exactly that: <em>nothing summarized and nothing rewritten<\/em>."}, {"sentence": "By the final chapter the historian must ____ letters, ledgers, and folk songs into a single account of the famine that none of those sources tells on its own.", "options": ["synthesize", "compile"], "key": "synthesize", "pair": "compile", "why_right": "The tell is <em>none of those sources tells on its own<\/em> - the account has to be worked out of the pieces as a new whole, far past gathering them into one place.", "why_wrong": "That word would gather the letters and ledgers into one place and stop there. The sentence demands an account none of the pieces tells."}, {"sentence": "The tapes, logs, and radar tracks had sat in one evidence room for a year; the board hired an examiner to ____ them into one picture of the crash.", "options": ["synthesize", "compile"], "key": "synthesize", "pair": "compile", "why_right": "The tell is <em>had sat in one evidence room for a year<\/em> - the gathering into one place is already done; what remains is working the pieces into one new whole.", "why_wrong": "That word gathers pieces into one place and stops -- work the evidence room finished a year ago. The picture of the crash must be worked out of the pieces."}], "display_order": [7, 3, 5, 4, 0, 2, 1, 6], "dimension_order": ["combine", "integrate", "compile"], "dimension_feedback": {"combine": "Combine is the broad, everyday word for putting things together, in any way at all. Synthesize is more ambitious: the pieces are worked into a new whole — an argument, a compound — that none of them contained alone.", "integrate": "Integrate means fitting a part into a whole that already exists. Synthesize builds the whole itself, out of separate pieces that had never stood together before.", "compile": "Compile is weaker than synthesize: compiling gathers the pieces into one place and stops, while synthesizing works them into a new whole that none of the pieces contained alone."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show separate pieces being worked into a new whole that none of them contained alone — name the pieces and the result. Try working in a word like <i>sources<\/i>, <i>into<\/i>, <i>single<\/i> or <i>new<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="f70e83e7c1b1">
+<meta name="build" content="510bc2e5e54f">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>prescriptive &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "prescriptive", "gradeUrl": "/api/grade", "taskId": "prescriptive", "minWords": 12, "items": {"s1": {"q": "Four documents circulate in an office. Which one is prescriptive?", "opts": {"A": "A style code requiring all reports to be written in third person, present tense, with no contractions.", "B": "A survey summarizing how employees across all departments currently write their reports.", "C": "A photo archive showing the company's early offices, storefronts, and first delivery trucks.", "D": "A history tracing how the company's writing style has slowly drifted over the past fifty years."}, "key": "A", "fb": {"correct": "Right — a style code requiring third person, present tense, and no contractions lays down rules for how reports must be written: prescriptive.", "B": "This survey records how employees 'across all departments currently' handle their reports — a snapshot of existing habits. Prescriptive documents point the other way: they issue rules for how things must be done. Which one commands?", "C": "A photo archive of 'early offices, storefronts, and first delivery trucks' preserves the company's past. It tells nobody what to do. Prescriptive means rule-setting — find the document that dictates how something must be done.", "D": "Tracing how a style 'has slowly drifted over the past fifty years' is pure description of change over time. A prescriptive document does not describe — it dictates. Which paper tells everyone how they must work?"}}, "s3a": {"q": "As it is used in the passage, \"prescriptive\" most nearly means", "opts": {"A": "laying down how language should be used rather than reporting how it is used", "B": "faithfully based on recording the actual speech habits of the majority of users", "C": "backed by an official authority with the power to inspect and to punish violations", "D": "opposed on principle to any change in the language"}, "key": "A", "fb": {"correct": "Right — the passage defines it in place: 'an entry that lays down \"fewer books\" as the rule and tells readers plainly which form they should use,' as against recording actual speech.", "B": "That is the opposing camp — the editors who want the entry to 'record how people actually speak.'", "C": "The chief editor rules this out: 'the dictionary employs no inspectors and issues no fines.' The stance needs no enforcement power at all.", "D": "The rule-minded editors take a side on one usage; nothing in the passage says they oppose change in general."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "advisory", "B": "prescriptive", "C": "directive", "D": "regulatory"}, "key": "D", "fb": {"correct": "Right. These rules carry official authority — <em>the legislature placed the refuge's airspace under the aviation board<\/em>, which <em>publishes its fine schedule<\/em>. Statutes, licenses, and an empowered agency: exactly the territory this word names.", "B": "Prescriptive fits any authority that dictates how a thing should be done — a manual or a critic can be prescriptive without the power to enforce a word of it. What changed here is the power itself: a board that <em>licenses pilots<\/em> and <em>publishes its fine schedule<\/em>. The stem asks for the most precise word, and this one says nothing about official force.", "C": "Directive fits instructions issued to people who answer to the author — a manager's memo to particular staff. These rules reach further: they <em>bind strangers and members alike<\/em>, including a visiting pilot who answers to no club at all.", "A": "Advisory guidance only suggests. That was the old arrangement — <em>the birding council posted suggested ceilings, and nobody could compel a visiting pilot to honor them<\/em> — and it is exactly what the new licenses and fines replaced."}}}, "grid": {"words": ["prescriptive", "directive", "regulatory", "advisory"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The pastry textbook is flatly ____ about croissants — laminate exactly twenty-seven layers, rest ninety minutes, no substitutions — dictating how the craft must be done by anyone who attempts it, though its author can compel no one.", "ks": ["prescriptive"], "fb": {"directive": "That word means instructions issued to people who answer to you — and a textbook's readers answer to no one. These rules aim at <em>anyone who attempts<\/em> the craft.", "regulatory": "Binding official authority is missing by the sentence's own admission: <em>its author can compel no one<\/em>. This is a stance about method, not an enforceable rule.", "advisory": "Suggestions leave room to choose, and this book leaves none: <em>no substitutions<\/em>, exact layers, exact rest — it says how the thing <em>must be done<\/em>."}}, {"s": "Her grammar column stays firmly ____: it rules on how English should be written — never merely reporting how people actually write — and expects every writer, stranger or not, to comply.", "ks": ["prescriptive"], "fb": {"directive": "Instructions to your own staff is that word's home, and a columnist commands no staff — she addresses <em>every writer, stranger or not<\/em>.", "regulatory": "No office or agency enforces a <em>grammar column<\/em> — the authority here is a stance, not a statute.", "advisory": "A suggestion can be declined, and this column <em>expects every writer... to comply<\/em> — it lays down the rule rather than offering guidance."}}, {"s": "The clinic delayed its opening by a year to satisfy the ____ requirements for licensing: binding rules set by the state health agency, whose inspectors are empowered to enforce every one.", "ks": ["regulatory"], "fb": {"prescriptive": "That word is a stance anyone can take, with or without power. These rules come from a <em>state health agency<\/em> whose <em>inspectors are empowered to enforce<\/em> them — official authority.", "directive": "The clinic does not answer to the agency the way staff answer to a boss — these are <em>binding rules<\/em> for licensing, imposed from an official office onto outsiders.", "advisory": "Nothing optional survives the sentence: the rules are <em>binding<\/em>, and inspectors <em>enforce every one<\/em>."}}, {"s": "New emissions caps moved from voluntary pledge to ____ mandate last spring, once the statute passed and the environmental agency gained the power to fine violators.", "ks": ["regulatory"], "fb": {"prescriptive": "A stance needs no statute. This mandate rests on a passed law and an agency with <em>the power to fine violators<\/em> — official, enforceable authority.", "directive": "No boss-to-staff line runs here: an agency now binds an entire industry of outsiders, backed by <em>the power to fine<\/em>.", "advisory": "The sentence charts the exact opposite journey — <em>from voluntary pledge to... mandate<\/em>, with fines behind it."}}, {"s": "The regional manager's ____ memo left branch staff no room for judgment: which forms to use, which hours to keep, and to whom every question must be routed.", "ks": ["directive"], "fb": {"prescriptive": "That word aims wider — at anyone who attempts the thing, whoever they are. This memo binds only the <em>branch staff<\/em> who answer to its author.", "regulatory": "No agency, statute, or licensing board appears — this is a <em>manager's memo<\/em> to subordinates inside one company.", "advisory": "A memo that leaves <em>no room for judgment<\/em> is issuing orders, not offering guidance to take or leave."}}, {"s": "The safety bulletin is purely ____: it suggests carrying a beacon above the treeline, but rangers stress that hikers remain free to decide for themselves.", "ks": ["advisory"], "fb": {"prescriptive": "That word lays down how the thing must be done. This bulletin only <em>suggests<\/em>, and hikers <em>remain free to decide for themselves<\/em>.", "regulatory": "Binding, enforceable rules are exactly what this is not — nothing compels anyone, and the rangers say so.", "directive": "An order needs someone who must obey it. Hikers answer to no one here and <em>remain free to decide<\/em>."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show rules being laid down for how something should be done — not a description of how it is done, and not a mere suggestion. Try working in a word like <i>must<\/i>, <i>manual<\/i>, <i>exactly<\/i> or <i>insists<\/i>."}};
+  var CFG = {"word": "prescriptive", "gradeUrl": "/api/grade", "taskId": "prescriptive", "minWords": 12, "items": {"s1": {"q": "Four documents circulate in an office. Which one is prescriptive?", "opts": {"A": "A style code requiring all reports to be written in third person, present tense, with no contractions.", "B": "A survey summarizing how employees across all departments currently write their reports.", "C": "A photo archive showing the company's early offices, storefronts, and first delivery trucks.", "D": "A history tracing how the company's writing style has slowly drifted over the past fifty years."}, "key": "A", "fb": {"correct": "Right — a style code requiring third person, present tense, and no contractions lays down rules for how reports must be written: prescriptive.", "B": "This survey records how employees 'across all departments currently' handle their reports — a snapshot of existing habits. Prescriptive documents point the other way: they issue rules for how things must be done. Which one commands?", "C": "A photo archive of 'early offices, storefronts, and first delivery trucks' preserves the company's past. It tells nobody what to do. Prescriptive means rule-setting — find the document that dictates how something must be done.", "D": "Tracing how a style 'has slowly drifted over the past fifty years' is pure description of change over time. A prescriptive document does not describe — it dictates. Which paper tells everyone how they must work?"}}, "s3a": {"q": "As it is used in the passage, \"prescriptive\" most nearly means", "opts": {"A": "laying down how language should be used rather than reporting how it is used", "B": "faithfully based on recording the actual speech habits of the majority of users", "C": "backed by an official authority with the power to inspect and to punish violations", "D": "opposed on principle to any change in the language"}, "key": "A", "fb": {"correct": "Right — the passage defines it in place: 'an entry that lays down \"fewer books\" as the rule and tells readers plainly which form they should use,' as against recording actual speech.", "B": "That is the opposing camp — the editors who want the entry to 'record how people actually speak.'", "C": "The chief editor rules this out: 'the dictionary employs no inspectors and issues no fines.' The stance needs no enforcement power at all.", "D": "The rule-minded editors take a side on one usage; nothing in the passage says they oppose change in general."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "advisory", "B": "prescriptive", "C": "directive", "D": "regulatory"}, "key": "D", "fb": {"correct": "Right. These rules carry official authority — <em>the legislature placed the refuge's airspace under the aviation board<\/em>, which <em>publishes its fine schedule<\/em>. Statutes, licenses, and an empowered agency: exactly the territory this word names.", "B": "Prescriptive fits any authority that dictates how a thing should be done — a manual or a critic can be prescriptive without the power to enforce a word of it. What changed here is the power itself: a board that <em>licenses pilots<\/em> and <em>publishes its fine schedule<\/em>. The stem asks for the most precise word, and this one says nothing about official force.", "C": "Directive fits instructions issued to people who answer to the author — a manager's memo to particular staff. These rules reach further: they <em>bind strangers and members alike<\/em>, including a visiting pilot who answers to no club at all.", "A": "Advisory guidance only suggests. That was the old arrangement — <em>the birding council posted suggested ceilings, and nobody could compel a visiting pilot to honor them<\/em> — and it is exactly what the new licenses and fines replaced."}}}, "pairwise": {"rows": [{"sentence": "The pastry textbook is flatly ____ about croissants — laminate exactly twenty-seven layers, rest ninety minutes, no substitutions — dictating how the craft must be done by anyone who attempts it, though its author can compel no one.", "options": ["prescriptive", "regulatory"], "key": "prescriptive", "pair": "regulatory", "why_right": "The tell is <em>its author can compel no one<\/em> - no agency, statute, or licensing power stands behind these rules; the rule-laying here is a stance, not an office.", "why_wrong": "Binding official authority is missing by the sentence's own admission: <em>its author can compel no one<\/em>. This is a stance about method, not an enforceable rule."}, {"sentence": "Her grammar column stays firmly ____: it rules on how English should be written — never merely reporting how people actually write — and expects every writer, stranger or not, to comply.", "options": ["prescriptive", "directive"], "key": "prescriptive", "pair": "directive", "why_right": "The tell is <em>every writer, stranger or not<\/em> - the rules bind anyone who writes, whether or not they answer to the author, not particular staff under her.", "why_wrong": "Instructions to your own staff is that word's home, and a columnist commands no staff — she addresses <em>every writer, stranger or not<\/em>."}, {"sentence": "The clinic delayed its opening by a year to satisfy the ____ requirements for licensing: binding rules set by the state health agency, whose inspectors are empowered to enforce every one.", "options": ["prescriptive", "regulatory"], "key": "regulatory", "pair": "regulatory", "why_right": "The tell is <em>inspectors are empowered to enforce every one<\/em> - binding rules backed by official authority, the territory of agencies and licensing boards rather than a mere stance.", "why_wrong": "That word is a stance anyone can take, with or without power. These rules come from a <em>state health agency<\/em> whose <em>inspectors are empowered to enforce<\/em> them — official authority."}, {"sentence": "New emissions caps moved from voluntary pledge to ____ mandate last spring, once the statute passed and the environmental agency gained the power to fine violators.", "options": ["prescriptive", "regulatory"], "key": "regulatory", "pair": "regulatory", "why_right": "The tell is <em>the power to fine violators<\/em> - a passed statute and an agency able to enforce it, official authority rather than a stance about how things should be done.", "why_wrong": "A stance needs no statute. This mandate rests on a passed law and an agency with <em>the power to fine violators<\/em> — official, enforceable authority."}, {"sentence": "The regional manager's ____ memo left branch staff no room for judgment: which forms to use, which hours to keep, and to whom every question must be routed.", "options": ["prescriptive", "directive"], "key": "directive", "pair": "directive", "why_right": "The tell is <em>branch staff<\/em> - authoritative instructions to particular people who answer to the memo's author, not rules binding anyone who attempts the work anywhere.", "why_wrong": "That word aims wider — at anyone who attempts the thing, whoever they are. This memo binds only the <em>branch staff<\/em> who answer to its author."}, {"sentence": "The safety bulletin is purely ____: it suggests carrying a beacon above the treeline, but rangers stress that hikers remain free to decide for themselves.", "options": ["prescriptive", "advisory"], "key": "advisory", "pair": "advisory", "why_right": "The tell is <em>free to decide for themselves<\/em> - guidance that suggests what you might do and leaves the choice open, not rules telling anyone what must be done.", "why_wrong": "That word lays down how the thing must be done. This bulletin only <em>suggests<\/em>, and hikers <em>remain free to decide for themselves<\/em>."}, {"sentence": "On the waltz the academy's manual is ____ to the last detail: heels together at the start, frame held just so, and no couple may improvise a single turn.", "options": ["prescriptive", "advisory"], "key": "prescriptive", "pair": "advisory", "why_right": "The tell is <em>no couple may improvise a single turn<\/em> - rules that tell you what you must do, not guidance suggesting what you might; the manual leaves nothing to choice.", "why_wrong": "That word offers guidance you might take or leave. This manual leaves nothing to take or leave: heels just so, frame just so, and no couple may improvise."}, {"sentence": "His self-published handbook on beekeeping is thoroughly ____, laying down how any keeper anywhere should site, feed, and split a hive, though no reader anywhere answers to him.", "options": ["prescriptive", "directive"], "key": "prescriptive", "pair": "directive", "why_right": "The tell is <em>no reader anywhere answers to him<\/em> - the rules bind anyone who attempts the craft, whether or not they answer to the author, which is this word's wider aim.", "why_wrong": "That word means instructions issued to people who answer to you - a memo to your own staff. This handbook addresses any keeper anywhere, and no reader answers to its author."}], "display_order": [7, 2, 6, 1, 3, 4, 5, 0], "dimension_order": ["directive", "regulatory", "advisory"], "dimension_feedback": {"directive": "Directive means issuing authoritative instructions to people who answer to you — a directive memo tells particular staff what to do. Prescriptive rules aim wider: they lay down how the thing itself should be done, binding anyone who attempts it, whether or not they answer to the author.", "regulatory": "Regulatory means imposing binding rules backed by official authority — the territory of agencies, statutes, and licensing boards. Prescriptive is a stance, not an office: any manual, critic, or teacher who dictates how things should be done is prescriptive, with or without the power to enforce a word of it.", "advisory": "Advisory is weaker than prescriptive: advisory guidance suggests what you might do, while prescriptive rules tell you what you must do."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show rules being laid down for how something should be done — not a description of how it is done, and not a mere suggestion. Try working in a word like <i>must<\/i>, <i>manual<\/i>, <i>exactly<\/i> or <i>insists<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

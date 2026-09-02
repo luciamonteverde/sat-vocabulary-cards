@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="e47ec955e7c3">
+<meta name="build" content="d546e035242d">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>synopsis &#8212; SAT Vocabulary, Course 1 Unit 4</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "synopsis", "gradeUrl": "/api/grade", "taskId": "synopsis", "minWords": 12, "items": {"s1": {"q": "A film festival asks each director to submit a synopsis of their entry. Which submission is one?", "opts": {"A": "a half-page walk-through of the film's story, from the opening theft to the final confession", "B": "a poster-ready tagline — 'One vault. One night. No way out.' — written to hook an audience", "C": "the complete 118-page shooting script, with every camera direction and line of dialogue", "D": "a list of the cast and crew, with each member's previous festival credits"}, "key": "A", "fb": {"correct": "Correct! A synopsis is a brief overview that walks through the story — and a half-page account running from the opening theft to the final confession does exactly that: the whole plot, start to finish, in compact form.", "B": "Not quite! A tagline exists to hook an audience, not to inform one — three punchy fragments reveal a mood, not a story. A synopsis walks through the plot; a tagline deliberately withholds it.", "C": "Not quite! The complete shooting script is the work itself at full length, camera directions and all. A synopsis must be drastically shorter than what it retells — submitting the whole film on paper is the opposite of an overview.", "D": "Not quite! A cast and crew list with festival credits describes the people who made the film. It says nothing about what happens in the story, and a synopsis is an overview of the story itself."}}, "s3a": {"q": "In this passage, a \"synopsis\" is", "opts": {"A": "a formal note on the scholarly research behind the production's staging choices", "B": "an essay laying out the writer's own opinions of the play", "C": "a brief walk through the plot from beginning to end", "D": "a list of the play's best lines"}, "key": "C", "fb": {"correct": "Right — nine compact lines walking 'the plot from beginning to end.'", "A": "Nothing scholarly is asked for; the notes exist so an audience can follow the story.", "B": "The director rejects exactly that — 'not an essay' — and Jonah 'left out his opinions.'", "D": "The quotations were in the rejected draft; the final version cut 'every quotation.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rundown", "B": "synopsis", "C": "précis", "D": "abstract"}, "key": "A", "fb": {"correct": "Right. A quick, informal pass over the main facts, delivered <em>out loud and off the record<\/em> as one shift hands a situation to the next — <em>who is stable, who worried her, which family keeps calling<\/em> — is exactly a rundown.", "B": "A synopsis is the tidy, written form, and it usually retells a story. This exchange is <em>out loud and off the record<\/em>, and it reports a situation — <em>who is stable, who worried her, which family keeps calling<\/em> — not a plot.", "D": "An abstract is the formal paragraph at the head of a scholarly paper, stating its question and findings. There is no paper here — this happens <em>at the nurses' station<\/em>, spoken between two people changing shifts.", "C": "A précis is a disciplined written miniature of a text, preserving its structure and proportions. Nothing is being written, and there is no text to compress — the handoff is <em>out loud and off the record<\/em>."}}}, "grid": {"words": ["synopsis", "abstract", "rundown", "précis"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The festival program walks through each opera's plot in one compact ____: who loves whom, who betrays whom, and how the final act ends.", "ks": ["synopsis"], "fb": {"abstract": "That word opens a scholarly paper, stating its question and findings for researchers. A program page retelling a love plot is another animal.", "rundown": "That word is quick and informal, usually said out loud about a situation. A printed program paragraph is its tidier, written cousin.", "précis": "That word is a disciplined miniature that keeps the original's structure and proportions. A program note retells the plot loosely, its own way."}}, {"s": "Before optioning the manuscript, the producer reads only the two-page ____ the agency sends over — the story walked start to finish in the agency's own brisk telling, every twist included, none of the prose.", "ks": ["synopsis"], "fb": {"abstract": "That word heads a scholarly paper and reports research. What a producer needs is the story, walked through.", "rundown": "That word is informal and usually spoken — hallway stuff. A standing two-page agency document is the tidier written form.", "précis": "That word compresses a text while keeping its exact shape and proportions. This document retells the plot its own brisk way."}}, {"s": "Skimming the journal's table of contents, Dr. Onu reads each paper's ____ first — the single dense paragraph stating the study's question and findings — before deciding which full texts to download.", "ks": ["abstract"], "fb": {"synopsis": "That word retells a story — book jackets, programs. A research paper has findings, not a plot.", "rundown": "That word is informal and usually spoken. This is the formal paragraph journals require at the head of every paper.", "précis": "That word compresses a text while keeping its shape and proportions, as an exercise. This paragraph just states the question and the findings."}}, {"s": "Conference rules cap each submission's ____ at 200 words: state the research question, the method, and the main finding, so reviewers can judge the work at a glance.", "ks": ["abstract"], "fb": {"synopsis": "That word walks through a story's plot. Submissions here are studies, judged on question and findings.", "rundown": "That word is a casual, usually spoken pass over the facts. Conference front matter is formal and word-capped.", "précis": "That word is a strict scale model of a text. This is a fixed statement of aim, method, and result."}}, {"s": "In the hallway before the press conference, the mayor asked for the quick ____, and her aide talked through the main facts of the water-main break from memory.", "ks": ["rundown"], "fb": {"synopsis": "That word is a tidy written walk through a story. This is talk — quick, informal, from memory, about a live situation.", "abstract": "That word is the formal paragraph heading a research paper. A hallway isn't a journal.", "précis": "That word is a written exercise in disciplined compression. Nothing here is written at all."}}, {"s": "For homework, reduce the essay to one-tenth its length while keeping its structure and proportions intact — the classic classroom ____, graded on discipline rather than flair.", "ks": ["précis"], "fb": {"synopsis": "That word retells a plot loosely, its own way. This assignment is graded precisely on keeping the original's shape.", "abstract": "That word states a study's question and findings at the top of a paper. This is a compression exercise on an essay.", "rundown": "That word is fast, informal, and usually out loud. This is written homework graded on discipline."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a whole story shrunk to a few lines that still run start to finish — name the work and where the little version appears. Try working in words like <i>plot<\/i>, <i>in a paragraph<\/i>, <i>book jacket<\/i> or <i>beginning to end<\/i>."}};
+  var CFG = {"word": "synopsis", "gradeUrl": "/api/grade", "taskId": "synopsis", "minWords": 12, "items": {"s1": {"q": "A film festival asks each director to submit a synopsis of their entry. Which submission is one?", "opts": {"A": "a half-page walk-through of the film's story, from the opening theft to the final confession", "B": "a poster-ready tagline — 'One vault. One night. No way out.' — written to hook an audience", "C": "the complete 118-page shooting script, with every camera direction and line of dialogue", "D": "a list of the cast and crew, with each member's previous festival credits"}, "key": "A", "fb": {"correct": "Correct! A synopsis is a brief overview that walks through the story — and a half-page account running from the opening theft to the final confession does exactly that: the whole plot, start to finish, in compact form.", "B": "Not quite! A tagline exists to hook an audience, not to inform one — three punchy fragments reveal a mood, not a story. A synopsis walks through the plot; a tagline deliberately withholds it.", "C": "Not quite! The complete shooting script is the work itself at full length, camera directions and all. A synopsis must be drastically shorter than what it retells — submitting the whole film on paper is the opposite of an overview.", "D": "Not quite! A cast and crew list with festival credits describes the people who made the film. It says nothing about what happens in the story, and a synopsis is an overview of the story itself."}}, "s3a": {"q": "In this passage, a \"synopsis\" is", "opts": {"A": "a formal note on the scholarly research behind the production's staging choices", "B": "an essay laying out the writer's own opinions of the play", "C": "a brief walk through the plot from beginning to end", "D": "a list of the play's best lines"}, "key": "C", "fb": {"correct": "Right — nine compact lines walking 'the plot from beginning to end.'", "A": "Nothing scholarly is asked for; the notes exist so an audience can follow the story.", "B": "The director rejects exactly that — 'not an essay' — and Jonah 'left out his opinions.'", "D": "The quotations were in the rejected draft; the final version cut 'every quotation.'"}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "rundown", "B": "synopsis", "C": "précis", "D": "abstract"}, "key": "A", "fb": {"correct": "Right. A quick, informal pass over the main facts, delivered <em>out loud and off the record<\/em> as one shift hands a situation to the next — <em>who is stable, who worried her, which family keeps calling<\/em> — is exactly a rundown.", "B": "A synopsis is the tidy, written form, and it usually retells a story. This exchange is <em>out loud and off the record<\/em>, and it reports a situation — <em>who is stable, who worried her, which family keeps calling<\/em> — not a plot.", "D": "An abstract is the formal paragraph at the head of a scholarly paper, stating its question and findings. There is no paper here — this happens <em>at the nurses' station<\/em>, spoken between two people changing shifts.", "C": "A précis is a disciplined written miniature of a text, preserving its structure and proportions. Nothing is being written, and there is no text to compress — the handoff is <em>out loud and off the record<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The festival program walks through each opera's plot in one compact ____: who loves whom, who betrays whom, and how the final act ends.", "options": ["synopsis", "abstract"], "key": "synopsis", "pair": "abstract", "why_right": "The tell is <em>who loves whom, who betrays whom<\/em> - a story's plot retold in a program for playgoers, not a paper's question and findings for researchers.", "why_wrong": "That word opens a scholarly paper, stating its question and findings for researchers. A program page retelling a love plot is another animal."}, {"sentence": "Before optioning the manuscript, the producer reads only the two-page ____ the agency sends over — the story walked start to finish in the agency's own brisk telling, every twist included, none of the prose.", "options": ["synopsis", "précis"], "key": "synopsis", "pair": "précis", "why_right": "The tell is <em>the agency's own brisk telling<\/em> - the plot retold loosely, its own way, not a strict miniature preserving the manuscript's structure and proportions.", "why_wrong": "That word compresses a text while keeping its exact shape and proportions. This document retells the plot its own brisk way."}, {"sentence": "Skimming the journal's table of contents, Dr. Onu reads each paper's ____ first — the single dense paragraph stating the study's question and findings — before deciding which full texts to download.", "options": ["synopsis", "abstract"], "key": "abstract", "pair": "abstract", "why_right": "The tell is <em>stating the study's question and findings<\/em> - the formal paragraph at the head of a scholarly paper, written for researchers deciding whether to read on.", "why_wrong": "That word retells a story — book jackets, programs. A research paper has findings, not a plot."}, {"sentence": "Conference rules cap each submission's ____ at 200 words: state the research question, the method, and the main finding, so reviewers can judge the work at a glance.", "options": ["synopsis", "abstract"], "key": "abstract", "pair": "abstract", "why_right": "The tell is <em>the research question, the method, and the main finding<\/em> - a formal question-and-findings paragraph for reviewers, with no story anywhere to retell.", "why_wrong": "That word walks through a story's plot. Submissions here are studies, judged on question and findings."}, {"sentence": "In the hallway before the press conference, the mayor asked for the quick ____, and her aide talked through the main facts of the water-main break from memory.", "options": ["synopsis", "rundown"], "key": "rundown", "pair": "rundown", "why_right": "The tell is <em>talked through the main facts<\/em> - a quick, informal, spoken pass over a live situation, not a tidy written retelling of a story.", "why_wrong": "That word is a tidy written walk through a story. This is talk — quick, informal, from memory, about a live situation."}, {"sentence": "For homework, reduce the essay to one-tenth its length while keeping its structure and proportions intact — the classic classroom ____, graded on discipline rather than flair.", "options": ["synopsis", "précis"], "key": "précis", "pair": "précis", "why_right": "The tell is <em>keeping its structure and proportions intact<\/em> - a strict miniature of the text, graded as an exercise in disciplined compression, not a loose retelling.", "why_wrong": "That word retells a plot loosely, its own way. This assignment is graded precisely on keeping the original's shape."}, {"sentence": "Typeset on the jacket flap, the ____ walks the novel's plot from shipwreck to rescue in five tidy printed lines that took the copywriter a week to polish.", "options": ["synopsis", "rundown"], "key": "synopsis", "pair": "rundown", "why_right": "The tell is <em>five tidy printed lines<\/em> - the tidier, written form retelling a story's plot, not a quick informal pass delivered out loud.", "why_wrong": "That word is a quick, informal run through the facts, often delivered out loud. A polished paragraph typeset on a jacket flap is the tidier, written form."}, {"sentence": "Her one-page ____ of the saga drops two subplots outright and opens with the final battle, retelling the rest in her own words for readers who just want the story.", "options": ["synopsis", "précis"], "key": "synopsis", "pair": "précis", "why_right": "The tell is <em>retelling the rest in her own words<\/em> - a synopsis is the looser form, dropping and reordering freely to keep the story clear rather than preserving the original's proportions.", "why_wrong": "That word is a strict miniature that preserves a text's structure and proportions. This page drops subplots, moves the ending up front, and retells everything its own way."}], "display_order": [0, 7, 2, 5, 4, 1, 6, 3], "dimension_order": ["abstract", "rundown", "précis"], "dimension_feedback": {"abstract": "Abstract means the formal paragraph at the head of a scholarly paper, stating its question and findings for researchers deciding whether to read on. A synopsis is its narrative cousin: it walks through a story or work, and it lives on book jackets and programs rather than in journals.", "rundown": "Rundown means a quick, informal run through the main facts, often delivered out loud — 'give me the rundown.' A synopsis is the tidier, written form, and it usually retells a story rather than reporting a situation.", "précis": "Précis means a strict miniature of a text that preserves its structure and proportions, a classroom exercise in disciplined compression. A synopsis is looser: it retells the plot in its own way, keeping whatever makes the story clear."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show a whole story shrunk to a few lines that still run start to finish — name the work and where the little version appears. Try working in words like <i>plot<\/i>, <i>in a paragraph<\/i>, <i>book jacket<\/i> or <i>beginning to end<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

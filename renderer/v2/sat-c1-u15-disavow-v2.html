@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="04d621cce087">
+<meta name="build" content="af26df39e139">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>disavow &#8212; SAT Vocabulary, Course 1 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "disavow", "gradeUrl": "/api/grade", "taskId": "disavow", "minWords": 12, "items": {"s1": {"q": "Callers claiming to represent the Lakeside Children's Fund have been phoning residents to ask for donations. At a press conference, the fund's director states that the organization employs no phone solicitors, receives none of that money, and condemns the whole operation. What is the director doing?", "opts": {"A": "Thanking the callers for raising money in the fund's name", "B": "Admitting that she organized the phone operation herself", "C": "Urging residents to give generously when the callers phone", "D": "Disavowing any connection between the fund and the calls"}, "key": "D", "fb": {"correct": "Exactly. The director publicly declares that the fund has no part in the calls and wants nothing to do with them — to disavow something is to formally deny involvement with or responsibility for it.", "A": "Thanking the callers would mean welcoming the money raised in the fund's name and accepting the help. The director announces the opposite: the fund employs no phone solicitors and receives none of that money.", "B": "Admitting she organized the operation would mean confessing to running the calls herself. The director confesses nothing — her statement denies any involvement at all, which is the opposite of taking responsibility.", "C": "Urging residents to give generously would endorse the operation. Instead the director publicly severs every tie to it: no solicitors, no money received, outright condemnation. You want the verb for formally denying a connection."}}, "s3a": {"q": "As used in the passage, \"disavow\" most nearly means", "opts": {"A": "to publicly deny any association with something", "B": "to apologize on the company's behalf for a serious mistake", "C": "to quietly remove a misleading ad from circulation", "D": "to surrender a trademark it owned"}, "key": "A", "fb": {"correct": "Right -- she publicly denied that the company had any connection to the ad: no one made it, approved it, or paid for it.", "B": "She admits no mistake -- her point is that the company had nothing to do with the ad.", "C": "She does the opposite of quiet: she answers on every channel the ad had reached.", "D": "No trademark changes hands; she denies a connection, she does not surrender a possession."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "renounce", "B": "reject", "C": "disavow", "D": "disclaim"}, "key": "B", "fb": {"correct": "Right. To reject is simply to refuse to accept something, and it can happen entirely in private — one conservator, one weekend of comparisons, and <em>a single line of her private log<\/em>.", "C": "To disavow is a public, on-the-record denial of association — it needs an audience. Here there was <em>no announcement<\/em>, and no association was being denied in the first place; the decision lives in <em>a single line of her private log<\/em>.", "D": "Disclaiming is a formal, on-paper move — stating that something is not your claim or your responsibility, the way fine print does. She filed nothing of the kind: <em>no formal notice, because none was owed<\/em>.", "A": "You renounce something you actually held — a title, a post, a belief you once professed. This technique was never hers: <em>the method had never been part of her practice, so there was nothing to hand back<\/em>."}}}, "grid": {"words": ["disavow", "disclaim", "renounce", "reject"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "When the leaked memo surfaced, the senator rushed to ____ it on camera, insisting the plan had never crossed her desk.", "ks": ["disavow"], "fb": {"disclaim": "That word lives in fine print, formally managing legal exposure. A senator answering cameras is defending her reputation, which calls for the more personal, pointed word.", "renounce": "That word means formally giving up something you actually held. She insists the plan never crossed her desk -- there is nothing of hers to give up.", "reject": "That word can happen entirely in private -- you can refuse an offer silently. This denial happens on camera and cuts off a connection, which needs an audience."}}, {"s": "The coach used the press conference to ____ the fan group's threats, declaring that the club wanted no connection with anyone behind them.", "ks": ["disavow"], "fb": {"disclaim": "That word states, usually in formal fine print, that no legal claim or liability attaches. This is a coach at a microphone protecting the club's name.", "renounce": "That word surrenders something genuinely held -- a title, a belief. The club never owned these threats; it is denying any tie to them.", "reject": "That word means refusing to accept something, and it can be done silently. Declaring 'no connection' at a press conference is a public severing, not a refusal."}}, {"s": "To take the oath of citizenship, he had to ____ the title he had inherited at birth, signing away a claim his family had held for centuries.", "ks": ["renounce"], "fb": {"disclaim": "That word states you have no claim or responsibility. The sentence says the opposite -- the claim was real and centuries old; he is giving it up.", "disavow": "That word denies a connection was ever yours. This title was his from birth -- what the oath demands is the formal surrender of something truly held.", "reject": "That word refuses something offered to you. No one is offering him the title; he already has it, and must give it up."}}, {"s": "At seventy the abbot chose to ____ his post and its comforts, handing over keys he had carried for thirty years.", "ks": ["renounce"], "fb": {"disavow": "That word denies that a connection ever existed. Thirty years of carrying the keys is a connection no one could deny -- what happens here is a surrender.", "disclaim": "That word formally states that no claim or responsibility is yours. His claim was real for thirty years; the act here is handing it over.", "reject": "That word turns down something offered. The post is not on offer -- it is already his, and he is giving it up."}}, {"s": "The rental app's terms ____ all responsibility for injuries on hosts' properties, a line the lawyers buried in paragraph forty.", "ks": ["disclaim"], "fb": {"disavow": "That word is personal and pointed -- a public figure cutting off an association before an audience. A clause buried in paragraph forty is the legal fine-print move.", "renounce": "That word gives up something actually held. The company is not surrendering a responsibility it had; the clause says it never had one.", "reject": "That word means refusing to accept something. A buried clause is not refusing an offer; it is formally stating that no liability attaches."}}, {"s": "After reading the buyout offer alone in his office, the founder decided to ____ it quietly, telling no one outside the room.", "ks": ["reject"], "fb": {"disavow": "That word requires a public, on-the-record denial of association -- it needs an audience. He tells no one outside the room, and what he refuses is an offer.", "disclaim": "That word formally states that no claim or responsibility is yours, usually in legal language. Nothing like that happens here -- an offer is simply declined.", "renounce": "That word surrenders something you actually hold, like a title or a belief. The buyout was never his; he just declines to take it."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> The act must be public and on the record -- someone denying a connection in front of an audience. Try working in words like <i>press conference<\/i>, <i>publicly<\/i>, <i>statement<\/i> or <i>nothing to do with<\/i>."}};
+  var CFG = {"word": "disavow", "gradeUrl": "/api/grade", "taskId": "disavow", "minWords": 12, "items": {"s1": {"q": "Callers claiming to represent the Lakeside Children's Fund have been phoning residents to ask for donations. At a press conference, the fund's director states that the organization employs no phone solicitors, receives none of that money, and condemns the whole operation. What is the director doing?", "opts": {"A": "Thanking the callers for raising money in the fund's name", "B": "Admitting that she organized the phone operation herself", "C": "Urging residents to give generously when the callers phone", "D": "Disavowing any connection between the fund and the calls"}, "key": "D", "fb": {"correct": "Exactly. The director publicly declares that the fund has no part in the calls and wants nothing to do with them — to disavow something is to formally deny involvement with or responsibility for it.", "A": "Thanking the callers would mean welcoming the money raised in the fund's name and accepting the help. The director announces the opposite: the fund employs no phone solicitors and receives none of that money.", "B": "Admitting she organized the operation would mean confessing to running the calls herself. The director confesses nothing — her statement denies any involvement at all, which is the opposite of taking responsibility.", "C": "Urging residents to give generously would endorse the operation. Instead the director publicly severs every tie to it: no solicitors, no money received, outright condemnation. You want the verb for formally denying a connection."}}, "s3a": {"q": "As used in the passage, \"disavow\" most nearly means", "opts": {"A": "to publicly deny any association with something", "B": "to apologize on the company's behalf for a serious mistake", "C": "to quietly remove a misleading ad from circulation", "D": "to surrender a trademark it owned"}, "key": "A", "fb": {"correct": "Right -- she publicly denied that the company had any connection to the ad: no one made it, approved it, or paid for it.", "B": "She admits no mistake -- her point is that the company had nothing to do with the ad.", "C": "She does the opposite of quiet: she answers on every channel the ad had reached.", "D": "No trademark changes hands; she denies a connection, she does not surrender a possession."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "renounce", "B": "reject", "C": "disavow", "D": "disclaim"}, "key": "B", "fb": {"correct": "Right. To reject is simply to refuse to accept something, and it can happen entirely in private — one conservator, one weekend of comparisons, and <em>a single line of her private log<\/em>.", "C": "To disavow is a public, on-the-record denial of association — it needs an audience. Here there was <em>no announcement<\/em>, and no association was being denied in the first place; the decision lives in <em>a single line of her private log<\/em>.", "D": "Disclaiming is a formal, on-paper move — stating that something is not your claim or your responsibility, the way fine print does. She filed nothing of the kind: <em>no formal notice, because none was owed<\/em>.", "A": "You renounce something you actually held — a title, a post, a belief you once professed. This technique was never hers: <em>the method had never been part of her practice, so there was nothing to hand back<\/em>."}}}, "pairwise": {"rows": [{"sentence": "The coach used the press conference to ____ the fan group's threats, declaring that the club wanted no connection with anyone behind them.", "options": ["disavow", "reject"], "key": "disavow", "pair": "reject", "why_right": "The tell is <em>wanted no connection<\/em> - the club publicly severs any association with the threats, which is a reputation defense before an audience, not a refusal of something offered.", "why_wrong": "That word means refusing to accept something, and it can be done silently. Declaring 'no connection' at a press conference is a public severing, not a refusal."}, {"sentence": "After reading the buyout offer alone in his office, the founder decided to ____ it quietly, telling no one outside the room.", "options": ["disavow", "reject"], "key": "reject", "pair": "reject", "why_right": "The tell is <em>telling no one outside the room<\/em> - an offer refused entirely in private, with no audience and no association being denied.", "why_wrong": "That word requires a public, on-the-record denial of association -- it needs an audience. He tells no one outside the room, and what he refuses is an offer."}, {"sentence": "With the press tying the movement to the arson, its founders took the rally stage to ____ the attack, denying any member had a hand in it.", "options": ["disavow", "reject"], "key": "disavow", "pair": "reject", "why_right": "The tell is <em>denying any member had a hand in it<\/em> - an attack is not something offered for acceptance; the founders publicly cut off association with it.", "why_wrong": "That word means refusing to accept something - an offer, an idea, an application. An arson already carried out is not on offer; the founders are denying any association with it."}, {"sentence": "To take the oath of citizenship, he had to ____ the title he had inherited at birth, signing away a claim his family had held for centuries.", "options": ["disavow", "renounce"], "key": "renounce", "pair": "renounce", "why_right": "The tell is <em>signing away a claim his family had held for centuries<\/em> - he formally gives up something genuinely his, rather than denying it was ever his.", "why_wrong": "That word denies a connection was ever yours. This title was his from birth -- what the oath demands is the formal surrender of something truly held."}, {"sentence": "At seventy the abbot chose to ____ his post and its comforts, handing over keys he had carried for thirty years.", "options": ["disavow", "renounce"], "key": "renounce", "pair": "renounce", "why_right": "The tell is <em>keys he had carried for thirty years<\/em> - the post was truly held and is formally surrendered, not a connection he insists never existed.", "why_wrong": "That word denies that a connection ever existed. Thirty years of carrying the keys is a connection no one could deny -- what happens here is a surrender."}, {"sentence": "A fake charity was collecting donations in the museum's name, so the director went on air to ____ it, stressing the museum had never run any street campaign.", "options": ["disavow", "renounce"], "key": "disavow", "pair": "renounce", "why_right": "The tell is <em>had never run any street campaign<\/em> - the museum denies the connection ever existed; there is nothing of its own to give up.", "why_wrong": "That word gives up something actually held - a title, a claim, a belief. The museum never ran this campaign; there is nothing of its own to surrender, only a tie to deny."}, {"sentence": "The rental app's terms ____ all responsibility for injuries on hosts' properties, a line the lawyers buried in paragraph forty.", "options": ["disavow", "disclaim"], "key": "disclaim", "pair": "disclaim", "why_right": "The tell is <em>buried in paragraph forty<\/em> - fine print formally managing legal exposure, the register of a company stating that no responsibility attaches.", "why_wrong": "That word is personal and pointed -- a public figure cutting off an association before an audience. A clause buried in paragraph forty is the legal fine-print move."}, {"sentence": "Booed at his own book launch, the historian stood to ____ the conspiracy film that quotes him, telling the crowd he wanted his name nowhere near it.", "options": ["disavow", "disclaim"], "key": "disavow", "pair": "disclaim", "why_right": "The tell is <em>telling the crowd<\/em> - a personal, pointed defense of his reputation before an audience, nothing like fine print managing a company's legal exposure.", "why_wrong": "That word states, usually in legal fine print, that no claim or liability attaches. A man facing a booing crowd is defending his own name, the personal, pointed act."}], "display_order": [3, 1, 5, 6, 2, 4, 0, 7], "dimension_order": ["reject", "renounce", "disclaim"], "dimension_feedback": {"reject": "To reject is simply to refuse to accept something - an offer, an idea, an application - and it can be entirely private. To disavow is a public, on-the-record act: openly denying any association with the thing. You can reject a plan silently in your head; disavowing it requires an audience.", "renounce": "To renounce is to formally give up something you actually held - a title, a claim, a belief you once professed. To disavow is to deny that a connection exists at all, or to reject responsibility for it. You renounce what was yours; you disavow what you insist was never yours.", "disclaim": "To disclaim is to state formally that you have no claim to or responsibility for something - companies disclaim liability in fine print. Disavow is more personal and pointed: a public figure disavows a statement or an ally to cut off any association with it. Disclaiming manages legal exposure; disavowing defends a reputation."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> The act must be public and on the record -- someone denying a connection in front of an audience. Try working in words like <i>press conference<\/i>, <i>publicly<\/i>, <i>statement<\/i> or <i>nothing to do with<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

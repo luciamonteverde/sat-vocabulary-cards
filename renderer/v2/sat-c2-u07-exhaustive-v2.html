@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="e35c4061292b">
+<meta name="build" content="5537fdceabf5">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>exhaustive &#8212; SAT Vocabulary, Course 2 Unit 7</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "exhaustive", "gradeUrl": "/api/grade", "taskId": "exhaustive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses exhaustive correctly?", "opts": {"A": "The exhaustive climb left even the sherpas too tired to speak.", "B": "Noriko's exhaustive guide touches every theorem, down to the footnotes.", "C": "By August the pantry was exhaustive, and they drove to town for supplies.", "D": "Feeling exhaustive after the double shift, she slept eleven hours straight."}, "key": "B", "fb": {"correct": "Correct. A guide that touches every theorem down to the footnotes claims complete coverage — nothing left out — which is what exhaustive means.", "A": "A climb that left 'even the sherpas too tired to speak' is exhausting — draining. Exhaustive is about completeness of coverage, a list or study that leaves no detail out, not fatigue.", "C": "By August the pantry is empty — hence the trip 'to town for supplies' — which makes it exhausted, used up. Exhaustive never means depleted; it describes a treatment so thorough that nothing is skipped.", "D": "Someone who 'slept eleven hours straight' after a double shift is exhausted — worn out. Exhaustive belongs to searches, reports, and studies that leave nothing uncovered, not to tired people."}}, "s3a": {"q": "In this passage, calling the inspection \"exhaustive by mandate\" means it is required to be", "opts": {"A": "finished faster than the usual routine checks allow", "B": "focused mainly on the usual trouble spots", "C": "covering every listed item, none skipped", "D": "performed only by specially trained inspection crews"}, "key": "C", "fb": {"correct": "Right — 'the crew may not sign off while a single line remains unticked.'", "A": "It takes a full week with the bridge closed — speed is nowhere in the mandate.", "B": "That describes the routine check, the thing the four-year sweep is contrasted with.", "D": "The crew's training is never mentioned; the mandate is about coverage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "careful", "B": "complete", "C": "exhaustive", "D": "comprehensive"}, "key": "C", "fb": {"correct": "Right. Technicians <em>pulled all 41,000 accession boxes<\/em> and <em>checked every packet against the ledger<\/em> — a sweep down the whole list, item by item, until nothing could be called skipped. That is exactly the claim exhaustive makes.", "D": "Comprehensive says a review took in every major area of its subject. This audit claims something stricter — technicians <em>opened each one<\/em> of the boxes and <em>checked every packet against the ledger<\/em>, down to single packets, which is more than area-by-area coverage ever promises.", "B": "Complete describes a finished whole with nothing missing, and this audit <em>turned up two packets missing<\/em> — the collection had gaps. The sentence needs a word for how the checking was conducted, not for the state of what was checked.", "A": "Careful promises watchfulness against error, and a watchful team could still have sampled, as <em>the insurers' offer of a freezer-log review<\/em> proposed. What the passage describes goes past caution: <em>all 41,000 accession boxes<\/em>, opened."}}}, "grid": {"words": ["exhaustive", "comprehensive", "complete", "careful"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The recall team's check of the plant's records was ____: every batch number from nine years, down to the last mislabeled carton, ticked off one by one.", "ks": ["exhaustive"], "fb": {"comprehensive": "That word promises the whole scope — every major area touched. This check promises more: not one carton in nine years escaped the list.", "complete": "That word announces a finished whole. The sentence is about how the check worked — a sweep down every line, item by item, so nothing could be called skipped.", "careful": "That word promises attention, not totality. A checker can be attentive and still skip cartons; this team ticked off every last one."}}, {"s": "Her survey of the shipwreck literature was ____ — all six hundred known accounts cited, including the two pamphlets thought lost until she traced them.", "ks": ["exhaustive"], "fb": {"comprehensive": "That word says the whole territory got covered. This claim is stricter — every one of six hundred accounts, down to two pamphlets everyone else had given up on.", "complete": "That word declares nothing missing and stops. The sentence shows the sweep itself — the whole list run down item by item, lost pamphlets included.", "careful": "That word is about attention while working. You can work attentively and still miss a pamphlet; here not one of six hundred slipped through."}}, {"s": "The new hire's orientation is ____ in scope — payroll, safety, benefits, the union contract, even parking — though each topic gets only a ten-minute overview.", "ks": ["comprehensive"], "fb": {"exhaustive": "That word promises every last item, without exception. Ten minutes a topic is breadth — every area touched, none dug through.", "complete": "That word says nothing is missing. An overview that skims each topic leaves plenty out; what it covers is the full range of areas.", "careful": "That word is about attention to detail. A ten-minute skim is designed for coverage, not scrutiny."}}, {"s": "The atlas is ____, giving every region of the continent its own spread — coasts, highlands, river basins — without pretending to name each village.", "ks": ["comprehensive"], "fb": {"exhaustive": "That word would require every last village on the map. The atlas plants a flag in every region and openly stops there.", "complete": "That word claims nothing is missing. The atlas admits the villages are — its promise is the full sweep of regions, not every dot.", "careful": "That word praises the mapmaker's attention. The sentence measures coverage — every region present — not how carefully the lines were drawn."}}, {"s": "With the missing twelfth volume recovered from the estate sale, the encyclopedia set was ____ at last — nothing absent, nothing left to find.", "ks": ["complete"], "fb": {"exhaustive": "That word promises a sweep — every line, every item checked. Here nothing was checked off; a missing volume simply came home and the whole is whole.", "comprehensive": "That word rates coverage — every major area of a subject. The sentence never says what the volumes cover, only that all twelve now stand together.", "careful": "That word describes how work is done. This is a state, not a manner: the set lacks nothing."}}, {"s": "Marta's proofreading is ____ — slow with every page, quick to catch a doubled word — though on a long manuscript a few slips still get past her.", "ks": ["careful"], "fb": {"exhaustive": "That word promises that every line, without exception, was checked. Her own slips disprove it — what she has is attentiveness.", "comprehensive": "That word claims wall-to-wall coverage. The praise here is her attention page by page, and even that lets a few slips through.", "complete": "That word says nothing is missing at the end. A few errors survive her pass, so the claim can only be about her attention."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must claim more than thoroughness — that every single item, without exception, got covered. Try working in a word like <i>every<\/i>, <i>all<\/i>, <i>each one<\/i> or <i>none skipped<\/i>."}};
+  var CFG = {"word": "exhaustive", "gradeUrl": "/api/grade", "taskId": "exhaustive", "minWords": 12, "items": {"s1": {"q": "Which sentence uses exhaustive correctly?", "opts": {"A": "The exhaustive climb left even the sherpas too tired to speak.", "B": "Noriko's exhaustive guide touches every theorem, down to the footnotes.", "C": "By August the pantry was exhaustive, and they drove to town for supplies.", "D": "Feeling exhaustive after the double shift, she slept eleven hours straight."}, "key": "B", "fb": {"correct": "Correct. A guide that touches every theorem down to the footnotes claims complete coverage — nothing left out — which is what exhaustive means.", "A": "A climb that left 'even the sherpas too tired to speak' is exhausting — draining. Exhaustive is about completeness of coverage, a list or study that leaves no detail out, not fatigue.", "C": "By August the pantry is empty — hence the trip 'to town for supplies' — which makes it exhausted, used up. Exhaustive never means depleted; it describes a treatment so thorough that nothing is skipped.", "D": "Someone who 'slept eleven hours straight' after a double shift is exhausted — worn out. Exhaustive belongs to searches, reports, and studies that leave nothing uncovered, not to tired people."}}, "s3a": {"q": "In this passage, calling the inspection \"exhaustive by mandate\" means it is required to be", "opts": {"A": "finished faster than the usual routine checks allow", "B": "focused mainly on the usual trouble spots", "C": "covering every listed item, none skipped", "D": "performed only by specially trained inspection crews"}, "key": "C", "fb": {"correct": "Right — 'the crew may not sign off while a single line remains unticked.'", "A": "It takes a full week with the bridge closed — speed is nowhere in the mandate.", "B": "That describes the routine check, the thing the four-year sweep is contrasted with.", "D": "The crew's training is never mentioned; the mandate is about coverage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "careful", "B": "complete", "C": "exhaustive", "D": "comprehensive"}, "key": "C", "fb": {"correct": "Right. Technicians <em>pulled all 41,000 accession boxes<\/em> and <em>checked every packet against the ledger<\/em> — a sweep down the whole list, item by item, until nothing could be called skipped. That is exactly the claim exhaustive makes.", "D": "Comprehensive says a review took in every major area of its subject. This audit claims something stricter — technicians <em>opened each one<\/em> of the boxes and <em>checked every packet against the ledger<\/em>, down to single packets, which is more than area-by-area coverage ever promises.", "B": "Complete describes a finished whole with nothing missing, and this audit <em>turned up two packets missing<\/em> — the collection had gaps. The sentence needs a word for how the checking was conducted, not for the state of what was checked.", "A": "Careful promises watchfulness against error, and a watchful team could still have sampled, as <em>the insurers' offer of a freezer-log review<\/em> proposed. What the passage describes goes past caution: <em>all 41,000 accession boxes<\/em>, opened."}}}, "pairwise": {"rows": [{"sentence": "The recall team's check of the plant's records was ____: every batch number from nine years, down to the last mislabeled carton, ticked off one by one.", "options": ["exhaustive", "complete"], "key": "exhaustive", "pair": "complete", "why_right": "The tell is <em>ticked off one by one<\/em> - the sweep down the whole list the card gives this word; complete only declares a finished whole, with no method in it at all.", "why_wrong": "That word announces a finished whole. The sentence is about how the check worked — a sweep down every line, item by item, so nothing could be called skipped."}, {"sentence": "With the missing twelfth volume recovered from the estate sale, the encyclopedia set was ____ at last — nothing absent, nothing left to find.", "options": ["exhaustive", "complete"], "key": "complete", "pair": "complete", "why_right": "The tell is <em>nothing absent, nothing left to find<\/em> - a finished whole, an end-state; no list was swept item by item, a missing volume simply came home.", "why_wrong": "That word promises a sweep — every line, every item checked. Here nothing was checked off; a missing volume simply came home and the whole is whole."}, {"sentence": "Her survey of the shipwreck literature was ____ — all six hundred known accounts cited, including the two pamphlets thought lost until she traced them.", "options": ["exhaustive", "comprehensive"], "key": "exhaustive", "pair": "comprehensive", "why_right": "The tell is <em>all six hundred known accounts<\/em> - every single item reached, the harder claim; comprehensive would only promise the field's major areas, wall to wall, not each account.", "why_wrong": "That word says the whole territory got covered. This claim is stricter — every one of six hundred accounts, down to two pamphlets everyone else had given up on."}, {"sentence": "The new hire's orientation is ____ in scope — payroll, safety, benefits, the union contract, even parking — though each topic gets only a ten-minute overview.", "options": ["exhaustive", "comprehensive"], "key": "comprehensive", "pair": "comprehensive", "why_right": "The tell is <em>only a ten-minute overview<\/em> - every major area is touched, wall to wall, while the item-by-item claim exhaustive makes is expressly given up.", "why_wrong": "That word promises every last item, without exception. Ten minutes a topic is breadth — every area touched, none dug through."}, {"sentence": "The atlas is ____, giving every region of the continent its own spread — coasts, highlands, river basins — without pretending to name each village.", "options": ["exhaustive", "comprehensive"], "key": "comprehensive", "pair": "comprehensive", "why_right": "The tell is <em>without pretending to name each village<\/em> - whole scope, every region covered, with the every-last-item claim openly disowned; that surrendered claim is exactly the one exhaustive makes.", "why_wrong": "That word would require every last village on the map. The atlas plants a flag in every region and openly stops there."}, {"sentence": "Marta's proofreading is ____ — slow with every page, quick to catch a doubled word — though on a long manuscript a few slips still get past her.", "options": ["exhaustive", "careful"], "key": "careful", "pair": "careful", "why_right": "The tell is <em>a few slips still get past her<\/em> - attention while working is all the sentence can claim; the every-line-without-exception promise exhaustive makes fails outright here.", "why_wrong": "That word promises that every line, without exception, was checked. Her own slips disprove it — what she has is attentiveness."}, {"sentence": "The volunteers garbled names and skipped half the script, yet the phone drive was ____: all 8,400 graduates on the alumni rolls reached, none written off.", "options": ["exhaustive", "careful"], "key": "exhaustive", "pair": "careful", "why_right": "The tell is <em>all 8,400 graduates on the alumni rolls<\/em> - totality, no name escaping the sweep; careful promises watchful work, and the garbled names show there was none.", "why_wrong": "That word means watching for errors while you work. These volunteers garbled names and skipped half the script; what the drive earned is the reach claim - not one graduate escaped it."}, {"sentence": "The headstone transcription was ____ — all 3,114 stones logged, the sunken ones dug clear just to be read — though a third of the dates came out wrong.", "options": ["exhaustive", "careful"], "key": "exhaustive", "pair": "careful", "why_right": "The tell is <em>all 3,114 stones logged<\/em> - every item reached, sunken ones included; careful is about watching for errors, and a third of the dates prove otherwise.", "why_wrong": "That word promises attention to errors, and a third of the dates came out wrong. The claim this record earns is totality - no stone, even sunken, escaped the log."}], "display_order": [6, 3, 1, 7, 4, 5, 2, 0], "dimension_order": ["comprehensive", "complete", "careful"], "dimension_feedback": {"comprehensive": "Comprehensive work takes in every major area of its subject — the whole scope, wall to wall. Exhaustive makes a harder claim: within that scope, every single item was reached. A comprehensive review covers every part of the curriculum; an exhaustive one accounts for every last worksheet.", "complete": "Complete says the finished whole has nothing missing — no piece absent, no part unaccounted for. Exhaustive is that idea with a method attached: a sweep down the whole list, item by item, until nothing could be called skipped. A jigsaw is complete; a census is exhaustive.", "careful": "A careful reader watches for errors; exhaustive promises far more — that every line, without exception, was checked."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence must claim more than thoroughness — that every single item, without exception, got covered. Try working in a word like <i>every<\/i>, <i>all<\/i>, <i>each one<\/i> or <i>none skipped<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

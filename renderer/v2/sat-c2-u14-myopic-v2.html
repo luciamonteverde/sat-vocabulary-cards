@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="9f69afc9f92f">
+<meta name="build" content="d772d6c06b97">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>myopic &#8212; SAT Vocabulary, Course 2 Unit 14</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "myopic", "gradeUrl": "/api/grade", "taskId": "myopic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses myopic correctly?", "opts": {"A": "The myopic studio apartment fit a bed or a desk, never both, and charged extra for the view.", "B": "Too myopic to wave first, Len crossed the street twice a day to dodge the neighbors' greetings.", "C": "Marisol was so myopic that at nineteen she had already funded her old age and drafted her will.", "D": "Planting the same cash crop every year was myopic; by the seventh season the soil was spent."}, "key": "D", "fb": {"correct": "Correct. Chasing this year's harvest while the soil's future drains away — near gain sharp, far cost blurred — is myopic.", "A": "An apartment that 'fit a bed or a desk, never both' is cramped — a size complaint, not a sight problem. The sentence uses myopic to mean tiny. Myopic faults thinking that ignores long-term consequences.", "B": "Len 'crossed the street twice a day' to dodge greetings — shyness or unfriendliness, not shortsightedness. Nothing here weighs the present against the future. Myopic marks choices blind to what comes later.", "C": "Funding 'her old age' and drafting a will at nineteen shows foresight stretched decades ahead — the exact reverse of this word. Myopic condemns focus on the near term while the distant future goes unseen."}}, "s3a": {"q": "In this passage, calling the move \"myopic\" means the columnist judged it", "opts": {"A": "reckless with money the company had not yet actually earned", "B": "focused on the near-term gain at the future's expense", "C": "deaf to the objections of the machinists on the factory floor", "D": "too cautious to invest the record profits in anything new at all"}, "key": "B", "fb": {"correct": "Right — real savings now, a broken pipeline later: brilliant 'for exactly as long as the current machinists stayed.'", "A": "The profits were posted and 'the savings were real' — nothing here is unearned money.", "C": "No objections appear anywhere; her charge is about time, not about ignoring voices.", "D": "Caution is the opposite of the charge — the company cut boldly and paid for it later."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "narrow", "B": "myopic", "C": "shortsighted", "D": "blinkered"}, "key": "B", "fb": {"correct": "Right. Myopic is the critic's word for a policy that trades the future for the present, and that is the panel's whole complaint: the doctrine bought <em>quiet seasons in the near term at the price of the megafires a generation would later inherit<\/em>.", "C": "Shortsighted names the same bad trade, but in everyday clothes — a kitchen-table scolding, not a federal verdict. This sentence sits in a formal policy review — <em>To the review panel<\/em> — and the question asks for the most logical and precise word for that register.", "D": "Blinkered means unable to see outside one narrow view, deaf to other perspectives. This agency <em>canvassed loggers, biologists, and tribal councils alike<\/em> — it heard every voice in the room.", "A": "A narrow plan leaves things out to the sides, but this one <em>reached every forest district in the system<\/em>, and <em>no constituency had been overlooked<\/em> — breadth was the one thing the doctrine had."}}}, "grid": {"words": ["myopic", "shortsighted", "blinkered", "narrow"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "The editorial called the budget ____: selling the transit fleet balances this year's books and guarantees a deficit in five.", "ks": ["myopic"], "fb": {"shortsighted": "Same meaning, different clothes: the card sends editorials about budgets to the critic's word, and keeps the everyday twin for kitchen-table scolding.", "blinkered": "Nobody here refuses a viewpoint; the books balance now and collapse in five years — the failure runs along time.", "narrow": "Nothing is missing to the sides. What the budget loses is the future — everything past this year's books."}}, {"s": "Analysts branded the merger ____ — a quick bump in the share price bought at the cost of the research arm the company would need within a decade.", "ks": ["myopic"], "fb": {"blinkered": "No one is deaf to colleagues or data; the merger trades a decade's research arm for a quick bump — a failure along the time axis.", "narrow": "The view isn't thin at the edges; it's blind ahead — next decade sold for next month.", "shortsighted": "The near-for-far trade is exactly right, but not the register: <em>analysts branded the merger<\/em>, professionals passing a formal verdict on a strategy — and strategies, like policies and budgets, belong to the critic's word."}}, {"s": "Inside the founder's circle the plan looked perfect: a ____ team, deaf to the two engineers who kept pointing at the battery data.", "ks": ["blinkered"], "fb": {"myopic": "The card's planner with that flaw may weigh every viewpoint in the room and still trade the future away. This team's flaw is the reverse: it won't hear the room at all.", "shortsighted": "No future is being traded for a present gain — the team is deaf to two voices right in front of it.", "narrow": "More than a scope that leaves things out: 'deaf to' is an active refusal, the racehorse's eye-shields."}}, {"s": "Decades in one archive left the historian ____, waving away oral testimony and dig reports alike as if only letters could count as evidence.", "ks": ["blinkered"], "fb": {"myopic": "Time isn't the axis here — evidence is. He isn't trading the future away; he's refusing to see sideways at all.", "shortsighted": "No near-term gain, no far cost — whole categories of evidence waved away is a different blindness.", "narrow": "A merely thin scope doesn't wave things away. This is the eye-shield: an active refusal of everything but letters."}}, {"s": "Skipping the oil change to save forty dollars was ____, Dad said — the seized engine cost us the whole vacation fund.", "ks": ["shortsighted"], "fb": {"myopic": "Right meaning, wrong register: the card sends the critic's word to editorials on policies and budgets, not to Dad and an oil change.", "blinkered": "Nobody ignored a viewpoint; forty dollars today simply cost an engine tomorrow — a trade along time.", "narrow": "The mistake wasn't missing something off to the side; it was straight ahead, a few months down the road."}}, {"s": "The committee's ____ definition of 'athlete' covered varsity players only, leaving the dancers, climbers, and cyclists out at the margins.", "ks": ["narrow"], "fb": {"myopic": "The dancers aren't in the future — they're off to the sides, outside a definition drawn too thin.", "shortsighted": "No time trade here: nothing is gained now or lost later. Groups are simply left outside the line.", "blinkered": "No deafness, no refusal — just a definition whose edges stop too soon."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Pit now against later: a visible gain today, a bigger cost down the road — and give it a critic's tone, not a kitchen-table one. Try working in a phrase like <i>this quarter<\/i>, <i>by next year<\/i>, <i>eventually<\/i> or <i>at the cost of<\/i>."}};
+  var CFG = {"word": "myopic", "gradeUrl": "/api/grade", "taskId": "myopic", "minWords": 12, "items": {"s1": {"q": "Which sentence uses myopic correctly?", "opts": {"A": "The myopic studio apartment fit a bed or a desk, never both, and charged extra for the view.", "B": "Too myopic to wave first, Len crossed the street twice a day to dodge the neighbors' greetings.", "C": "Marisol was so myopic that at nineteen she had already funded her old age and drafted her will.", "D": "Planting the same cash crop every year was myopic; by the seventh season the soil was spent."}, "key": "D", "fb": {"correct": "Correct. Chasing this year's harvest while the soil's future drains away — near gain sharp, far cost blurred — is myopic.", "A": "An apartment that 'fit a bed or a desk, never both' is cramped — a size complaint, not a sight problem. The sentence uses myopic to mean tiny. Myopic faults thinking that ignores long-term consequences.", "B": "Len 'crossed the street twice a day' to dodge greetings — shyness or unfriendliness, not shortsightedness. Nothing here weighs the present against the future. Myopic marks choices blind to what comes later.", "C": "Funding 'her old age' and drafting a will at nineteen shows foresight stretched decades ahead — the exact reverse of this word. Myopic condemns focus on the near term while the distant future goes unseen."}}, "s3a": {"q": "In this passage, calling the move \"myopic\" means the columnist judged it", "opts": {"A": "reckless with money the company had not yet actually earned", "B": "focused on the near-term gain at the future's expense", "C": "deaf to the objections of the machinists on the factory floor", "D": "too cautious to invest the record profits in anything new at all"}, "key": "B", "fb": {"correct": "Right — real savings now, a broken pipeline later: brilliant 'for exactly as long as the current machinists stayed.'", "A": "The profits were posted and 'the savings were real' — nothing here is unearned money.", "C": "No objections appear anywhere; her charge is about time, not about ignoring voices.", "D": "Caution is the opposite of the charge — the company cut boldly and paid for it later."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "narrow", "B": "myopic", "C": "shortsighted", "D": "blinkered"}, "key": "B", "fb": {"correct": "Right. Myopic is the critic's word for a policy that trades the future for the present, and that is the panel's whole complaint: the doctrine bought <em>quiet seasons in the near term at the price of the megafires a generation would later inherit<\/em>.", "C": "Shortsighted names the same bad trade, but in everyday clothes — a kitchen-table scolding, not a federal verdict. This sentence sits in a formal policy review — <em>To the review panel<\/em> — and the question asks for the most logical and precise word for that register.", "D": "Blinkered means unable to see outside one narrow view, deaf to other perspectives. This agency <em>canvassed loggers, biologists, and tribal councils alike<\/em> — it heard every voice in the room.", "A": "A narrow plan leaves things out to the sides, but this one <em>reached every forest district in the system<\/em>, and <em>no constituency had been overlooked<\/em> — breadth was the one thing the doctrine had."}}}, "pairwise": {"rows": [{"sentence": "The editorial called the budget ____: selling the transit fleet balances this year's books and guarantees a deficit in five.", "options": ["myopic", "shortsighted"], "key": "myopic", "pair": "shortsighted", "why_right": "The tell is <em>The editorial called the budget<\/em> - the card sends editorials about policies and budgets to the critic's word, and keeps the plain-English twin for everyday kitchen-table scolding.", "why_wrong": "Same meaning, different clothes: the card sends editorials about budgets to the critic's word, and keeps the everyday twin for kitchen-table scolding."}, {"sentence": "Skipping the oil change to save forty dollars was ____, Dad said — the seized engine cost us the whole vacation fund.", "options": ["myopic", "shortsighted"], "key": "shortsighted", "pair": "shortsighted", "why_right": "The tell is <em>Dad said<\/em> - an oil change scolded at the kitchen table is the everyday register, and the card keeps the critic's word for editorials about policies, budgets, and strategies.", "why_wrong": "Right meaning, wrong register: the card sends the critic's word to editorials on policies and budgets, not to Dad and an oil change."}, {"sentence": "Inside the founder's circle the plan looked perfect: a ____ team, deaf to the two engineers who kept pointing at the battery data.", "options": ["myopic", "blinkered"], "key": "blinkered", "pair": "blinkered", "why_right": "The tell is <em>deaf to the two engineers<\/em> - an active refusal of other perspectives and inconvenient facts, the racehorse's eye-shields; no near gain is traded away for a far cost.", "why_wrong": "The card's planner with that flaw may weigh every viewpoint in the room and still trade the future away. This team's flaw is the reverse: it won't hear the room at all."}, {"sentence": "Decades in one archive left the historian ____, waving away oral testimony and dig reports alike as if only letters could count as evidence.", "options": ["myopic", "blinkered"], "key": "blinkered", "pair": "blinkered", "why_right": "The tell is <em>waving away oral testimony<\/em> - whole categories of evidence refused, the eye-shield's active shutting-out; nothing here trades the future away for the present.", "why_wrong": "Time isn't the axis here — evidence is. He isn't trading the future away; he's refusing to see sideways at all."}, {"sentence": "Councilors heard every objection from the engineers, then voted the ____ plan anyway: quick cash from leasing the barges now, a channel silted shut within ten years.", "options": ["myopic", "blinkered"], "key": "myopic", "pair": "blinkered", "why_right": "The tell is <em>heard every objection<\/em> - the council weighed every viewpoint in the room and still traded ten years of open channel for one term's cash; the failure runs along time, not deafness.", "why_wrong": "That word means shut inside one narrow view, deaf to other perspectives and inconvenient facts. These councilors heard the engineers out - and still sold ten years of channel for one term's cash."}, {"sentence": "Analysts branded the merger ____ — a quick bump in the share price bought at the cost of the research arm the company would need within a decade.", "options": ["myopic", "narrow"], "key": "myopic", "pair": "narrow", "why_right": "The tell is <em>a quick bump in the share price<\/em> - a near gain bought at the cost of next decade's research arm; nothing lies unseen to the sides, the loss is straight ahead in time.", "why_wrong": "The view isn't thin at the edges; it's blind ahead — next decade sold for next month."}, {"sentence": "The committee's ____ definition of 'athlete' covered varsity players only, leaving the dancers, climbers, and cyclists out at the margins.", "options": ["myopic", "narrow"], "key": "narrow", "pair": "narrow", "why_right": "The tell is <em>out at the margins<\/em> - the dancers and climbers are lost to the sides of a definition drawn too thin, not to the future; the card gives sideways losses to this word.", "why_wrong": "The dancers aren't in the future — they're off to the sides, outside a definition drawn too thin."}, {"sentence": "The review covered every department, yet critics called it ____: each proposal scored on next quarter alone, the next decade left to fend for itself.", "options": ["myopic", "narrow"], "key": "myopic", "pair": "narrow", "why_right": "The tell is <em>covered every department<\/em> - nothing is left out to the sides; what the review loses is everything past next quarter, the near term crowding out the decade.", "why_wrong": "That word means a view that leaves things out to the sides. This review left nothing out sideways - every department covered - it only refused to look past next quarter."}], "display_order": [2, 5, 0, 6, 4, 7, 3, 1], "dimension_order": ["shortsighted", "blinkered", "narrow"], "dimension_feedback": {"shortsighted": "Shortsighted is the plain-English twin of myopic: both name the trade of far costs for near gains. The difference is register, not meaning — shortsighted scolds in everyday clothes, while myopic is the critic's word, at home in editorials about policies, budgets, and strategies.", "blinkered": "Blinkered borrows the racehorse's eye-shields: unable to see outside one narrow view, deaf to other perspectives and inconvenient facts. Myopic runs along a different axis — time. A myopic planner may weigh every viewpoint in the room and still trade next year away for next month.", "narrow": "A narrow view leaves things out to the sides; a myopic one loses everything past the near term."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Pit now against later: a visible gain today, a bigger cost down the road — and give it a critic's tone, not a kitchen-table one. Try working in a phrase like <i>this quarter<\/i>, <i>by next year<\/i>, <i>eventually<\/i> or <i>at the cost of<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

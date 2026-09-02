@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="d8b04ca26059">
+<meta name="build" content="f4e4b0beff07">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>pensive &#8212; SAT Vocabulary, Course 1 Unit 25</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -189,20 +238,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -271,7 +323,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "pensive", "gradeUrl": "/api/grade", "taskId": "pensive", "minWords": 12, "items": {"s1": {"q": "Four passengers share a train compartment on an ordinary weekday ride. Which one is pensive?", "opts": {"A": "Marta argues loudly with the conductor about the price of her ticket.", "B": "Elena sits with an unopened book in her lap, turning over a bittersweet memory of a summer long past.", "C": "Piotr flips through his tickets and rechecks the connection times over and over, afraid he will miss his transfer.", "D": "Sam gives his seatmate a cheerful play-by-play of yesterday's match, laughing at every detail."}, "key": "B", "fb": {"correct": "Right — sitting quietly, book unopened, absorbed in a bittersweet memory is the gentle, inward, slightly sad thoughtfulness that pensive describes.", "A": "Marta arguing loudly over her fare is heated and outward — the opposite of quiet reflection. Pensive people are still and inward, sunk in thought; find the passenger drifting through a wistful memory.", "C": "Piotr frantically rechecking his tickets and connection times is anxious, hurried activity, not calm reflection. Pensive describes slow, quiet thought tinged with melancholy. Who seems to be dwelling on the past?", "D": "Sam laughing through a cheerful play-by-play is loud, sociable fun in the moment. Pensive requires a quiet, wandering mind — look for the passenger absorbed in a melancholy train of thought."}}, "s3a": {"q": "As it is used in the passage, \"pensive\" most nearly means", "opts": {"A": "silent because he had simply run out of things to say", "B": "absorbed in deep memories tinged with sadness", "C": "distracted to the point of neglecting his responsibilities", "D": "gloomy and unable to enjoy anything about the day"}, "key": "B", "fb": {"correct": "Right — he is 'turning over decades,' absorbed in 'a deep current of memory with a soft ache running through it': deep reflection with a sad tint, not mere silence or gloom.", "A": "The jokes stopping is a symptom, not the state: his mind is 'somewhere else entirely,' turning over decades — far more than running out of talk.", "C": "The passage rules this out: he 'answered every radio call crisply and made the dock on the minute.' Nothing is neglected.", "D": "The passage says directly that 'It was not gloom' — the ache is soft, running under an absorbed sorting of memories."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "wistful", "B": "thoughtful", "C": "quiet", "D": "pensive"}, "key": "B", "fb": {"correct": "Right. She is absorbed in careful judgment with no mood attached — <em>testing each balsa joint, noting where a design traded strength for lightness<\/em> — and the afternoon ends <em>with a grin<\/em>. Care and attention, and not a shadow anywhere.", "D": "Pensive is deep reflection with a shadow — a faintly sad tint, often over memories. There is no shadow here: the judging ends <em>with a grin<\/em>, and her attention is on the entries in front of her — <em>testing each balsa joint<\/em> — not on anything lost or remembered.", "A": "Wistful is gentle longing for something missed or out of reach. Nothing is missed here: <em>three towers had surprised her<\/em>, and the afternoon <em>was the best hour of her week<\/em> — delight in what is in front of her, not an ache for what is gone.", "C": "Quiet says only that someone is not talking — and this judge is <em>chatting with any builder who wandered by<\/em>. The word fails on the plain facts before precision even comes into it."}}}, "grid": {"words": ["pensive", "thoughtful", "wistful", "quiet"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "At his retirement dinner the old foreman fell ____, turning forty years of shift whistles and first paychecks over in his mind — deep in a musing threaded with a gentle sadness.", "ks": ["pensive"], "fb": {"thoughtful": "That word names careful, mood-free thinking — a pause that can be perfectly cheerful. This musing is <em>threaded with a gentle sadness<\/em>, and the mood is the point.", "wistful": "That names a feeling — a soft longing for something missed. Here he is <em>turning forty years... over in his mind<\/em>: an absorbed state of mind working through the past.", "quiet": "He is doing far more than not talking — he is <em>deep in a musing<\/em>, visibly absorbed in memories with a sad shade to them."}}, {"s": "Long after the reunion ended, he sat ____ on the porch steps, going back over the argument that had ended a friendship — reflection that ran deep and carried a shade of regret.", "ks": ["pensive"], "fb": {"thoughtful": "The mood disqualifies the mood-free word: this reflection <em>carried a shade of regret<\/em>, where that word's pause can be perfectly cheerful.", "wistful": "That word is a pang of longing for something missed. He is <em>going back over the argument<\/em> — working through something, not simply missing it.", "quiet": "More than not talking is happening: the sentence shows <em>reflection that ran deep<\/em>, an absorbed and shadowed state of mind."}}, {"s": "The intern's ____ follow-up questions impressed the panel: she weighed every option evenly and cheerfully, all careful judgment and no mood behind it.", "ks": ["thoughtful"], "fb": {"pensive": "That word needs a shadow — deep thinking with a faintly sad tint. She works <em>cheerfully<\/em>, with <em>no mood behind it<\/em> at all.", "wistful": "Nothing is being missed or longed for — she is <em>weighing every option<\/em> about the matter in front of her.", "quiet": "She can hardly be merely not-talking: she is asking <em>follow-up questions<\/em> aloud, and it is the care in them that impressed the panel."}}, {"s": "Her ____ pause over the lease was a cheerful one — she was simply weighing the two apartments with care, nothing sad or faraway about it.", "ks": ["thoughtful"], "fb": {"pensive": "The sentence closes that door itself: the pause is <em>a cheerful one<\/em>, with <em>nothing sad or faraway about it<\/em> — and that word needs the shadow.", "wistful": "No longing here — she is <em>weighing the two apartments<\/em>, a decision about what comes next, not a pang over something gone.", "quiet": "The pause is full of work: she is weighing options <em>with care<\/em>, not merely failing to speak."}}, {"s": "A ____ smile crossed her face when the radio played the anthem of her hometown club — a soft pang of missing the old terraces, gone as quickly as it came.", "ks": ["wistful"], "fb": {"pensive": "That word names a deep, absorbed state of mind working through something. This is a <em>soft pang<\/em> that is <em>gone as quickly as it came<\/em> — a feeling, not a state.", "thoughtful": "No options are being weighed and no judgment is being made — this is <em>a soft pang of missing<\/em> something, a feeling with a smile in it.", "quiet": "Not talking is beside the point: the sentence describes a visible feeling — <em>a soft pang of missing the old terraces<\/em>."}}, {"s": "The new hire was simply ____ on the bus ride home, headphones in and resting — not lost in anything at all, with nothing weighing on her mind.", "ks": ["quiet"], "fb": {"pensive": "That word means visibly absorbed in deep, faintly sad reflection — and she is <em>not lost in anything at all<\/em>. She is only not talking.", "thoughtful": "Careful weighing needs something to weigh, and she has <em>nothing weighing on her mind<\/em> — she is resting, not deliberating.", "wistful": "Nothing is missed and nothing is longed for — she is <em>headphones in and resting<\/em>, simply not talking."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show deep thinking with a soft shade of sadness in it — not just someone saying nothing. Anchor it in what the person is turning over: try working in a word like <i>memories<\/i>, <i>gazing<\/i>, <i>faintly<\/i> or <i>years<\/i>."}};
+  var CFG = {"word": "pensive", "gradeUrl": "/api/grade", "taskId": "pensive", "minWords": 12, "items": {"s1": {"q": "Four passengers share a train compartment on an ordinary weekday ride. Which one is pensive?", "opts": {"A": "Marta argues loudly with the conductor about the price of her ticket.", "B": "Elena sits with an unopened book in her lap, turning over a bittersweet memory of a summer long past.", "C": "Piotr flips through his tickets and rechecks the connection times over and over, afraid he will miss his transfer.", "D": "Sam gives his seatmate a cheerful play-by-play of yesterday's match, laughing at every detail."}, "key": "B", "fb": {"correct": "Right — sitting quietly, book unopened, absorbed in a bittersweet memory is the gentle, inward, slightly sad thoughtfulness that pensive describes.", "A": "Marta arguing loudly over her fare is heated and outward — the opposite of quiet reflection. Pensive people are still and inward, sunk in thought; find the passenger drifting through a wistful memory.", "C": "Piotr frantically rechecking his tickets and connection times is anxious, hurried activity, not calm reflection. Pensive describes slow, quiet thought tinged with melancholy. Who seems to be dwelling on the past?", "D": "Sam laughing through a cheerful play-by-play is loud, sociable fun in the moment. Pensive requires a quiet, wandering mind — look for the passenger absorbed in a melancholy train of thought."}}, "s3a": {"q": "As it is used in the passage, \"pensive\" most nearly means", "opts": {"A": "silent because he had simply run out of things to say", "B": "absorbed in deep memories tinged with sadness", "C": "distracted to the point of neglecting his responsibilities", "D": "gloomy and unable to enjoy anything about the day"}, "key": "B", "fb": {"correct": "Right — he is 'turning over decades,' absorbed in 'a deep current of memory with a soft ache running through it': deep reflection with a sad tint, not mere silence or gloom.", "A": "The jokes stopping is a symptom, not the state: his mind is 'somewhere else entirely,' turning over decades — far more than running out of talk.", "C": "The passage rules this out: he 'answered every radio call crisply and made the dock on the minute.' Nothing is neglected.", "D": "The passage says directly that 'It was not gloom' — the ache is soft, running under an absorbed sorting of memories."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "wistful", "B": "thoughtful", "C": "quiet", "D": "pensive"}, "key": "B", "fb": {"correct": "Right. She is absorbed in careful judgment with no mood attached — <em>testing each balsa joint, noting where a design traded strength for lightness<\/em> — and the afternoon ends <em>with a grin<\/em>. Care and attention, and not a shadow anywhere.", "D": "Pensive is deep reflection with a shadow — a faintly sad tint, often over memories. There is no shadow here: the judging ends <em>with a grin<\/em>, and her attention is on the entries in front of her — <em>testing each balsa joint<\/em> — not on anything lost or remembered.", "A": "Wistful is gentle longing for something missed or out of reach. Nothing is missed here: <em>three towers had surprised her<\/em>, and the afternoon <em>was the best hour of her week<\/em> — delight in what is in front of her, not an ache for what is gone.", "C": "Quiet says only that someone is not talking — and this judge is <em>chatting with any builder who wandered by<\/em>. The word fails on the plain facts before precision even comes into it."}}}, "pairwise": {"rows": [{"sentence": "Long after the reunion ended, he sat ____ on the porch steps, going back over the argument that had ended a friendship — reflection that ran deep and carried a shade of regret.", "options": ["pensive", "thoughtful"], "key": "pensive", "pair": "thoughtful", "why_right": "The tell is <em>carried a shade of regret<\/em> - thoughtful thinking has no particular mood attached, while pensive is thoughtful with a shadow, and this reflection is shadowed.", "why_wrong": "The mood disqualifies the mood-free word: this reflection <em>carried a shade of regret<\/em>, where that word's pause can be perfectly cheerful."}, {"sentence": "The intern's ____ follow-up questions impressed the panel: she weighed every option evenly and cheerfully, all careful judgment and no mood behind it.", "options": ["pensive", "thoughtful"], "key": "thoughtful", "pair": "thoughtful", "why_right": "The tell is <em>all careful judgment and no mood behind it<\/em> - careful, mood-free weighing of options is thoughtful; pensive would need a wistful, faintly sad tint that is expressly absent.", "why_wrong": "That word needs a shadow — deep thinking with a faintly sad tint. She works <em>cheerfully<\/em>, with <em>no mood behind it<\/em> at all."}, {"sentence": "Her ____ pause over the lease was a cheerful one — she was simply weighing the two apartments with care, nothing sad or faraway about it.", "options": ["pensive", "thoughtful"], "key": "thoughtful", "pair": "thoughtful", "why_right": "The tell is <em>nothing sad or faraway about it<\/em> - a cheerful pause weighing two apartments is exactly a pause that weighs options, while pensive needs the shadow the sentence rules out.", "why_wrong": "The sentence closes that door itself: the pause is <em>a cheerful one<\/em>, with <em>nothing sad or faraway about it<\/em> — and that word needs the shadow."}, {"sentence": "At his retirement dinner the old foreman fell ____, turning forty years of shift whistles and first paychecks over in his mind — deep in a musing threaded with a gentle sadness.", "options": ["pensive", "wistful"], "key": "pensive", "pair": "wistful", "why_right": "The tell is <em>turning forty years of shift whistles and first paychecks over in his mind<\/em> - an absorbed state of mind working through the past, not a passing feeling of longing.", "why_wrong": "That names a feeling — a soft longing for something missed. Here he is <em>turning forty years... over in his mind<\/em>: an absorbed state of mind working through the past."}, {"sentence": "A ____ smile crossed her face when the radio played the anthem of her hometown club — a soft pang of missing the old terraces, gone as quickly as it came.", "options": ["pensive", "wistful"], "key": "wistful", "pair": "wistful", "why_right": "The tell is <em>gone as quickly as it came<\/em> - a soft pang of missing something, smile and all, is a feeling of quiet longing, not a deep absorbed state of mind.", "why_wrong": "That word names a deep, absorbed state of mind working through something. This is a <em>soft pang<\/em> that is <em>gone as quickly as it came<\/em> — a feeling, not a state."}, {"sentence": "Typing the trilogy's last page after a decade of translating it, she grew ____, paging back through old margin notes with a familiar ache, asking which early renderings she would still defend.", "options": ["pensive", "wistful"], "key": "pensive", "pair": "wistful", "why_right": "The tell is <em>asking which early renderings she would still defend<\/em> - that is a mind working through a decade, deep thought with a familiar ache, not a passing pang of longing.", "why_wrong": "That word names a feeling - quiet longing for something missed, gone in a breath. She is not missing anything here; she is working through ten years of margin notes, question by question."}, {"sentence": "The new hire was simply ____ on the bus ride home, headphones in and resting — not lost in anything at all, with nothing weighing on her mind.", "options": ["pensive", "quiet"], "key": "quiet", "pair": "quiet", "why_right": "The tell is <em>not lost in anything at all<\/em> - she is simply not talking, and merely not talking is all the weaker word requires; no absorbed, shadowed thinking is anywhere in it.", "why_wrong": "That word means visibly absorbed in deep, faintly sad reflection — and she is <em>not lost in anything at all<\/em>. She is only not talking."}, {"sentence": "Sorting her mother's ticket stubs from decades of matinees, Ana was ____ all evening, so deep in the sad-sweet arithmetic of those afternoons that she missed her name being called twice.", "options": ["pensive", "quiet"], "key": "pensive", "pair": "quiet", "why_right": "The tell is <em>missed her name being called twice<\/em> - that is visible absorption in wistful thought, not merely not talking, and deep sad-tinged musing is what pensive names.", "why_wrong": "That word says only that a person may not be talking. Ana is doing far more - so absorbed in the sad-sweet afternoons behind those stubs that her own name goes unheard twice."}], "display_order": [5, 0, 7, 3, 1, 6, 4, 2], "dimension_order": ["thoughtful", "wistful", "quiet"], "dimension_feedback": {"thoughtful": "Thoughtful means absorbed in thought or careful in judgment, with no particular mood attached — a thoughtful pause can be perfectly cheerful. Pensive is thoughtful with a shadow: the thinking runs deep and carries a wistful, faintly sad tint. A thoughtful pause weighs options; a pensive one weighs memories.", "wistful": "Wistful names a feeling: quiet longing for something missed or out of reach, often with a soft smile. Pensive names a state of mind — deep, absorbed thought that carries that wistful shade without being only about longing. A wistful sigh misses something; a pensive silence is working through something.", "quiet": "Quiet is weaker than pensive: a quiet person may simply not be talking, while a pensive one is visibly absorbed in wistful thought."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Your sentence has to show deep thinking with a soft shade of sadness in it — not just someone saying nothing. Anchor it in what the person is turning over: try working in a word like <i>memories<\/i>, <i>gazing<\/i>, <i>faintly<\/i> or <i>years<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -429,105 +481,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must

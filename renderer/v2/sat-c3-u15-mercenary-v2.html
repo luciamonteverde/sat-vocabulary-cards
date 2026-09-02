@@ -1,7 +1,7 @@
 <!DOCTYPE html>
 <html lang="en">
 <head>
-<meta name="build" content="577eae9317f7">
+<meta name="build" content="a09da43f705b">
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>mercenary &#8212; SAT Vocabulary, Course 3 Unit 15</title>
@@ -115,6 +115,54 @@
   .dims li{margin:0 0 4px}
   .done-all{margin-top:6px;padding:16px 18px;border-radius:12px;background:var(--ok-bg);
             color:var(--ok-ink);font-weight:700}
+
+  /* ---- section 2 pairwise rows ----
+     The explanation line is a SIBLING of the flex row, not a flex child, so it needs no
+     full-width flex-basis. That matters because build_card.py runs the whole document
+     through percent-formatting and would need the sign doubled, while the preview
+     substitutes this CSS as a value and would need it single. Avoiding percentages in
+     this block removes the trap -- including in this comment, which is itself part of
+     the string being formatted. Keep this block free of the percent sign. */
+  .pwitem{margin:0 0 10px;padding:14px 16px;background:#fff;
+    border:1px solid var(--line);border-radius:12px}
+  .pwrow{display:flex;align-items:stretch;gap:14px}
+  .pwrow .pws{flex:1 1 auto;align-self:center;font-size:16px;line-height:1.55}
+  .pwopts{flex:0 0 auto;display:flex;gap:10px;align-items:center}
+  .pwopts label{position:relative;display:flex;align-items:center;justify-content:center;
+    min-width:118px;min-height:46px;padding:0 14px;border:1px solid var(--line);
+    border-radius:10px;cursor:pointer;font-weight:600;font-size:15px;background:#fbfcfe}
+  .pwopts label:hover{background:var(--brand-soft);border-color:var(--brand)}
+  .pwopts input{position:absolute;opacity:0;width:0;height:0}
+  .pwopts label.sel{border-color:var(--brand);background:var(--brand-soft);
+    box-shadow:inset 0 0 0 1px var(--brand)}
+  .pwopts input:focus-visible+span{outline:3px solid var(--brand);outline-offset:4px;
+    border-radius:4px}
+  .pwopts input:disabled+span{opacity:.75}
+  .pwopts label.locked{cursor:default}
+  .pwn{flex:0 0 auto;align-self:center;width:22px;color:#8b93a7;font-size:13px;
+    font-weight:600;text-align:right}
+
+  /* the graded state of a row, and its explanation line */
+  .pwitem.ok{border-color:var(--ok-line);background:#fbfffd}
+  .pwitem.no{border-color:var(--no-line);background:#fffcfa}
+  .pwitem.ok .pwopts label.sel{border-color:var(--ok-ink);background:var(--ok-bg);
+    box-shadow:inset 0 0 0 1px var(--ok-ink)}
+  .pwitem.no .pwopts label.sel{border-color:var(--no-ink);background:var(--no-bg);
+    box-shadow:inset 0 0 0 1px var(--no-ink)}
+  .pwfb{margin:12px 0 0;padding:10px 13px;border-radius:9px;
+    font-size:15px;line-height:1.5}
+  .pwfb b{display:block;font-size:12px;letter-spacing:.05em;text-transform:uppercase;
+    margin-bottom:3px;font-weight:800}
+  .pwfb.ok{background:var(--ok-bg);color:var(--ok-ink)}
+  .pwfb.no{background:var(--no-bg);color:var(--no-ink)}
+  .pwfb em{font-style:italic}
+
+  @media (max-width:720px){
+    .pwrow{flex-direction:column;gap:10px}
+    .pwopts label{flex:1 1 0;min-width:0}
+    .pwn{align-self:flex-start;text-align:left}
+    .pwfb{margin-top:10px}
+  }
 </style>
 </head>
 <body>
@@ -160,6 +208,7 @@
     </div>
   </section>
 
+
   <!-- ---------------------------- 2. ACCURACY --------------------------- -->
   <section id="s2" hidden>
     <h2>Section 2</h2>
@@ -190,20 +239,23 @@
 
     <div class="bar" id="s2bar"><button id="s2go">Continue</button></div>
 
-    <!-- ISSUE 3: the activity heading sat hard against the Continue button and gave
-         no instruction. It now has real separation and says what to do. -->
     <div class="quiz" id="s2quiz" hidden style="margin-top:26px">
       <p class="qlab">Which word fits?</p>
       <p class="q" id="s2instr"></p>
-      <p class="lead" style="margin:-6px 0 14px">The comparisons above stay visible
+      <!-- The row count is filled in by JS from CFG.pairwise.rows, because the 6 structural
+           exception cards run the 2pair6row shape and this paragraph used to hardcode "eight".
+           A hardcoded count here is a student-visible lie on those cards, and it is prose rather
+           than logic, so nothing would have failed. -->
+      <p class="lead" style="margin:-6px 0 14px" id="s2lead">You can
+        only check once every row has an answer. The comparisons above stay visible
         &#8212; you will need them.</p>
-      <table id="grid" role="grid"><tbody></tbody></table>
+      <div id="pw"></div>
       <div class="bar"><button id="s2check" disabled>Check</button>
         <span class="msg" id="s2msg"></span>
         <span class="msg" id="s2count" style="font-weight:400;color:#5b6478"></span></div>
-      <ul class="gfb" id="s2fb"></ul>
     </div>
   </section>
+
 
   <!-- ----------------------------- 3. APPLY ----------------------------- -->
   <section id="s3" hidden>
@@ -272,7 +324,7 @@
 <script>
 (function () {
   "use strict";
-  var CFG = {"word": "mercenary", "gradeUrl": "/api/grade", "taskId": "mercenary", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mercenary correctly?", "opts": {"A": "The mercenary auditor billed every single hour honestly, padded not one invoice, and reported the very fraud that ended her own year-long contract.", "B": "Her advice turned mercenary after the buyout; every recommendation now steered clients toward the products paying the highest commission.", "C": "Reporters branded the chairman mercenary for quietly donating his entire annual bonus on the very day the company's layoffs were announced.", "D": "His mercenary streak showed itself whenever payment was offered: he refused the money flatly and took on only the causes he already loved."}, "key": "B", "fb": {"correct": "Correct! Mercenary means money has taken over the motive — and after the buyout her advice serves the commission schedule, not the clients. Pay is doing the steering, which is the word's whole accusation.", "A": "Not quite! She bills honestly and reports fraud at the cost of her own contract — money loses to duty here, which is the reverse of a mercenary motive.", "C": "Not quite! Giving an entire bonus away is money flowing out, not in. The timing may look bad, but a donation can't show a motive of personal gain.", "D": "Not quite! He turns down payment and works for love of the causes — the sentence describes a man money cannot steer, then labels him with the word for its opposite."}}, "s3a": {"q": "As it is used in the passage, \"mercenary\" most nearly means:", "opts": {"A": "careless about the quality of the work", "B": "corrupt and open to bribery", "C": "steered entirely by what pays", "D": "resentful of former bandmates"}, "key": "C", "fb": {"correct": "Right — his one test is 'Which one pays best this month': pay alone sets the calendar.", "A": "The engineers report the opposite — 'he practiced a despised jingle as carefully as a symphony.'", "B": "Nothing is sold under the table; he takes lawful work and names his price openly.", "D": "He 'cheerfully agreed' with the bandmates' label — there is no resentment in the passage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mercenary", "B": "venal", "C": "greedy", "D": "self-serving"}, "key": "C", "fb": {"correct": "Right. Fourteen <em>farms he never planted<\/em>, <em>every resale offer refused<\/em>, and in the end <em>appetite itself was the whole estate<\/em> — wanting more and more of a thing beyond any use is greed, plain and simple.", "A": "Mercenary describes conduct steered by pay — the mercenary consultant works for whoever writes the check. Money conspicuously failed to steer Crane: <em>every resale offer refused, even at triple what he had paid<\/em>. A man pay cannot move is not being run by it.", "B": "Venal means selling the powers of a position — a ruling, a permit, a signature priced for a bribe. Crane <em>held no office whose signature anyone would buy<\/em>; nothing official existed here to put up for sale.", "D": "Self-serving conduct is arranged so its doer comes out ahead in some currency — money, credit, comfort. Crane's buying delivered none of them: <em>farms he never planted<\/em>, and he <em>gained nothing he could use<\/em>. Behavior that never pays off for the person doing it isn't self-serving."}}}, "grid": {"words": ["mercenary", "greedy", "venal", "self-serving"], "instructions": "For each sentence, tick the ONE word that fits the gap best. All six must be right to continue.", "rows": [{"s": "Fans called the shortstop's exit purely ____: the rival club's offer was only slightly larger, he admitted, but it was larger, and that settled it.", "ks": ["mercenary"], "fb": {"greedy": "That word measures an appetite's size — wanting more and more. An offer <em>only slightly larger<\/em> shows no such appetite; what damns him is that the money alone decided it.", "venal": "That word means an office or duty put up for sale — a bribe. An openly admitted, lawful contract switch sells nothing under the table.", "self-serving": "That word covers advantage in any currency — credit, comfort, advancement. This sentence names one currency only: the size of the offer."}}, {"s": "Critics called the band's one-off reunion frankly ____: the members still despised one another, but the tour fee was too large to turn down.", "ks": ["mercenary"], "fb": {"greedy": "That word is about wanting more and more of something. A single <em>one-off<\/em> decision, taken for one fee, shows a compass set to pay — not a bottomless appetite.", "venal": "That word means duties or powers put up for sale. A band selling tickets sells nothing it was entrusted with.", "self-serving": "That word would need some benefit — credit, comfort, standing. Here the members <em>still despised one another<\/em> and the critics sneered; the only thing gained is the fee."}}, {"s": "The league banned a ____ linesman who, for a price, had been calling crucial offsides whichever way the gambling syndicate ordered.", "ks": ["venal"], "fb": {"greedy": "That word measures wanting more and more. The crime here is different in kind: match calls sold <em>for a price<\/em> — an entrusted duty auctioned off.", "mercenary": "That word describes work steered by pay — lawful, just priced. Selling calls <em>whichever way the ... syndicate ordered<\/em> is a duty corrupted, a darker thing.", "self-serving": "That word covers advantage of any kind, arranged in any currency. What the sentence shows is narrower and uglier: an official power exchanged for bribes."}}, {"s": "Ambassadors learned that the sultan's harbormaster was cheerfully ____: docking papers appeared within the hour once the right purse changed hands.", "ks": ["venal"], "fb": {"greedy": "That word is about wanting ever more. The sentence describes a transaction pattern — official papers issued <em>once the right purse changed hands<\/em> — corruption, not appetite.", "mercenary": "That word means steered by pay without being corrupt. A harbormaster selling his official signature has crossed into selling the office itself.", "self-serving": "That word covers benefit in any currency and needn't be corrupt at all. Papers-for-purses is specifically an office up for sale."}}, {"s": "No one dared set the dessert tray near her ____ nephew, who had already worked through two plates and was eyeing a third.", "ks": ["greedy"], "fb": {"mercenary": "That word needs pay doing the steering, and there is no money in this sentence — only a dessert tray.", "venal": "That word means an office or duty sold for bribes. A boy at a dessert tray holds no office.", "self-serving": "That word suggests things quietly arranged to one's own advantage. <em>Two plates<\/em> and an eye on a third is not an arrangement; it is an appetite."}}, {"s": "Colleagues noticed that the deputy's reforms were quietly ____: each one nudged a rival sideways and a friend of his upward, though not a cent ever changed hands.", "ks": ["self-serving"], "fb": {"mercenary": "That word needs money at the wheel, and the sentence closes the door: <em>not a cent ever changed hands<\/em>.", "venal": "That word means duties sold for bribes. Nothing here is bought or sold — the currency is position, not cash.", "greedy": "That word measures an appetite's size. Quiet reforms that move <em>a rival sideways and a friend ... upward<\/em> are calculated arrangement, not hunger for more."}}]}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show money steering the choice, not just present in it — your subject should take, drop, or switch something because of the price. Work in a word like <i>fee<\/i>, <i>paycheck<\/i>, <i>highest bidder<\/i> or <i>rate<\/i>."}};
+  var CFG = {"word": "mercenary", "gradeUrl": "/api/grade", "taskId": "mercenary", "minWords": 12, "items": {"s1": {"q": "Which sentence uses mercenary correctly?", "opts": {"A": "The mercenary auditor billed every single hour honestly, padded not one invoice, and reported the very fraud that ended her own year-long contract.", "B": "Her advice turned mercenary after the buyout; every recommendation now steered clients toward the products paying the highest commission.", "C": "Reporters branded the chairman mercenary for quietly donating his entire annual bonus on the very day the company's layoffs were announced.", "D": "His mercenary streak showed itself whenever payment was offered: he refused the money flatly and took on only the causes he already loved."}, "key": "B", "fb": {"correct": "Correct! Mercenary means money has taken over the motive — and after the buyout her advice serves the commission schedule, not the clients. Pay is doing the steering, which is the word's whole accusation.", "A": "Not quite! She bills honestly and reports fraud at the cost of her own contract — money loses to duty here, which is the reverse of a mercenary motive.", "C": "Not quite! Giving an entire bonus away is money flowing out, not in. The timing may look bad, but a donation can't show a motive of personal gain.", "D": "Not quite! He turns down payment and works for love of the causes — the sentence describes a man money cannot steer, then labels him with the word for its opposite."}}, "s3a": {"q": "As it is used in the passage, \"mercenary\" most nearly means:", "opts": {"A": "careless about the quality of the work", "B": "corrupt and open to bribery", "C": "steered entirely by what pays", "D": "resentful of former bandmates"}, "key": "C", "fb": {"correct": "Right — his one test is 'Which one pays best this month': pay alone sets the calendar.", "A": "The engineers report the opposite — 'he practiced a despised jingle as carefully as a symphony.'", "B": "Nothing is sold under the table; he takes lawful work and names his price openly.", "D": "He 'cheerfully agreed' with the bandmates' label — there is no resentment in the passage."}}, "s3c": {"q": "Which choice completes the text with the most logical and precise word or phrase?", "opts": {"A": "mercenary", "B": "venal", "C": "greedy", "D": "self-serving"}, "key": "C", "fb": {"correct": "Right. Fourteen <em>farms he never planted<\/em>, <em>every resale offer refused<\/em>, and in the end <em>appetite itself was the whole estate<\/em> — wanting more and more of a thing beyond any use is greed, plain and simple.", "A": "Mercenary describes conduct steered by pay — the mercenary consultant works for whoever writes the check. Money conspicuously failed to steer Crane: <em>every resale offer refused, even at triple what he had paid<\/em>. A man pay cannot move is not being run by it.", "B": "Venal means selling the powers of a position — a ruling, a permit, a signature priced for a bribe. Crane <em>held no office whose signature anyone would buy<\/em>; nothing official existed here to put up for sale.", "D": "Self-serving conduct is arranged so its doer comes out ahead in some currency — money, credit, comfort. Crane's buying delivered none of them: <em>farms he never planted<\/em>, and he <em>gained nothing he could use<\/em>. Behavior that never pays off for the person doing it isn't self-serving."}}}, "pairwise": {"rows": [{"sentence": "Fans called the shortstop's exit purely ____: the rival club's offer was only slightly larger, he admitted, but it was larger, and that settled it.", "options": ["mercenary", "greedy"], "key": "mercenary", "pair": "greedy", "why_right": "The tell is <em>only slightly larger<\/em> - the extra money is tiny, so no appetite for more is on show; what settles the switch is pay itself, and that is this word's ground.", "why_wrong": "That word measures an appetite's size — wanting more and more. An offer <em>only slightly larger<\/em> shows no such appetite; what damns him is that the money alone decided it."}, {"sentence": "Neighbors thought the widow plainly ____: three winters' worth of firewood already stacked to the eaves, and she still bought every cord the farmers brought.", "options": ["mercenary", "greedy"], "key": "greedy", "pair": "greedy", "why_right": "The tell is <em>still bought every cord the farmers brought<\/em> - three winters stacked and she wants more, an appetite far past need, this word's measure on the card; nothing here pays her.", "why_wrong": "That word is about what steers a choice — pay, and pay alone. The widow is paid nothing and gains nothing; she wants more firewood than three winters could burn, which is appetite."}, {"sentence": "The guide's loyalties were openly ____: he led the survey team for a modest daily wage, then led the rival team a week later for the same wage.", "options": ["mercenary", "greedy"], "key": "mercenary", "pair": "greedy", "why_right": "The tell is <em>for the same wage<\/em> - no appetite for more is in view, only allegiance that goes to whoever is paying this week; pay alone steering a choice, this word's ground.", "why_wrong": "That word measures an appetite's size — wanting more and more. A modest wage, then the same wage again, shows no appetite; what marks him is that pay decides whom he serves."}, {"sentence": "Critics called the band's one-off reunion frankly ____: the members still despised one another, but the tour fee was too large to turn down.", "options": ["mercenary", "venal"], "key": "mercenary", "pair": "venal", "why_right": "The tell is <em>the tour fee was too large to turn down<\/em> - a lawful fee steering the whole decision, priced but not corrupt; no office or entrusted duty is sold to anyone.", "why_wrong": "That word means duties or powers put up for sale. A band selling tickets sells nothing it was entrusted with."}, {"sentence": "Every contractor in town openly worked for whoever paid most; the inspector alone was ____, his signature landing on a permit only after an envelope crossed his desk.", "options": ["mercenary", "venal"], "key": "venal", "pair": "venal", "why_right": "The tell is <em>only after an envelope crossed his desk<\/em> - an office's powers sold for a bribe; every contractor already works for whoever pays, so only a duty for sale is left.", "why_wrong": "That word means steered by pay, lawful or not, and the sentence already gives it to every contractor. What sets the inspector apart is his official signature being for sale: bribery."}, {"sentence": "Colleagues noticed that the deputy's reforms were quietly ____: each one nudged a rival sideways and a friend of his upward, though not a cent ever changed hands.", "options": ["mercenary", "self-serving"], "key": "self-serving", "pair": "self-serving", "why_right": "The tell is <em>not a cent ever changed hands<\/em> - the benefit is arranged in position and favor, a currency other than money, the card's whole range for this word; money is denied.", "why_wrong": "That word needs money at the wheel, and the sentence closes the door: <em>not a cent ever changed hands<\/em>."}, {"sentence": "Everyone angled for something — recognition, a longer contract, a nephew hired on; only the engineer was ____, joining the rival bid the day it paid more.", "options": ["mercenary", "self-serving"], "key": "mercenary", "pair": "self-serving", "why_right": "The tell is <em>joining the rival bid the day it paid more<\/em> - everyone else's angling is conceded, so the blank must name what only he shows: pay steering whom he works for.", "why_wrong": "That word covers advantage in any currency — recognition, comfort, advancement — and the sentence already grants it to everyone else. What only the engineer shows is money steering a switch of sides."}, {"sentence": "The captain's ____ habit kept his own goal tally climbing — he took every penalty himself — though the club paid him the same whether he scored or not.", "options": ["mercenary", "self-serving"], "key": "self-serving", "pair": "self-serving", "why_right": "The tell is <em>the club paid him the same whether he scored or not<\/em> - the advantage arranged is credit, a goal tally, with money ruled out, so only the any-currency word fits.", "why_wrong": "That word names the money version of self-interest, and money is shut out: the club paid him the same either way. Hoarding penalties for his own tally is advantage in credit."}], "display_order": [1, 7, 4, 2, 6, 0, 3, 5], "dimension_order": ["greedy", "venal", "self-serving"], "dimension_feedback": {"greedy": "Greedy means wanting more and more of something than you need — food, money, attention; it measures the appetite's size, while mercenary is about what steers the choices: pay, and pay alone.", "venal": "Venal means open to bribery — a venal official sells the powers of an office; mercenary conduct needn't be corrupt at all, just priced: the mercenary consultant works for whoever writes the check.", "self-serving": "Self-serving means arranged to benefit oneself in whatever currency — credit, comfort, advancement; mercenary names the money version specifically."}, "instructions": "For each sentence, choose the word that fits the gap. Only one of the two is right for that sentence."}, "hint": {"context": "<b>A hint.<\/b> A reader who did not know this word should be able to work out roughly what it means from your sentence alone. Anchor it — try working in a word like <i>still<\/i>, <i>today<\/i>, <i>nobody<\/i> or <i>no longer<\/i> — so the situation itself shows the meaning.", "control": "<b>A hint.<\/b> Read it back as a single sentence: one main verb, tenses that agree with each other, and the word in a form that fits its slot. Watch for two tenses colliding — a phrase like <i>was not<\/i> sitting next to one like <i>only exists<\/i>.", "meaning": "<b>A hint.<\/b> Show money steering the choice, not just present in it — your subject should take, drop, or switch something because of the price. Work in a word like <i>fee<\/i>, <i>paycheck<\/i>, <i>highest bidder<\/i> or <i>rate<\/i>."}};
 
   // ---- the check ledger -------------------------------------------------
   // 🚨 MAXXP is derived from this list and must EXACTLY equal the resource's
@@ -430,105 +482,156 @@
   mcq("s1", { q: "s1q", opts: "s1opts", btn: "s1check", msg: "s1msg", fb: "s1fb" },
       function () { finishSection("s1"); });
 
-  // ---- section 2: the grid ---------------------------------------------
-  // Correct cells deliberately do NOT lock between attempts. Per-cell marking is
-  // itself information, so banking a correct cell turns every submit into a free
-  // probe: the grid then falls to elimination in at most 19 submits with zero word
-  // knowledge, against 1 in 4096 blind. The unchosen correct cell is NEVER revealed.
+
+  // ---- section 2: pairwise rows -----------------------------------------
+  // Every row is marked and explained on every submit, green or red. See this
+  // module's docstring for why that reverses the original no-reveal design: the
+  // XP is settled after the first failed submit, so what follows is teaching,
+  // not assessment. A correct row also gets an explanation -- confirming WHY it
+  // was right is the half the first design left out entirely.
   $("s2go").addEventListener("click", function () { enterQuiz("s2"); });
   (function () {
-    var cols = shuffled(CFG.grid.words), rows = CFG.grid.rows;
-    var tb = $("grid").querySelector("tbody");
-    var head = document.createElement("tr");
-    head.innerHTML = '<th class="s" scope="col">Sentence</th>';
-    cols.forEach(function (w) {
-      var th = document.createElement("th"); th.scope = "col"; th.textContent = w;
-      head.appendChild(th);
-    });
-    tb.appendChild(head);
-    rows.forEach(function (row, ri) {
-      var tr = document.createElement("tr");
-      var td = document.createElement("td"); td.className = "s"; td.textContent = row.s;
-      tr.appendChild(td);
-      cols.forEach(function (w) {
-        var cell = document.createElement("td"); cell.className = "c";
+    var P = CFG.pairwise, rows = P.rows, order = P.display_order;
+    var host = $("pw");
+    var graded = {};    // ri -> true once that row has been marked correct and locked
+
+    order.forEach(function (ri, slot) {
+      var row = rows[ri];
+      var item = document.createElement("div");
+      item.className = "pwitem";
+      item.id = "pwitem" + ri;
+      var d = document.createElement("div");
+      d.className = "pwrow";
+
+      var n = document.createElement("div");
+      n.className = "pwn"; n.textContent = (slot + 1) + ".";
+      d.appendChild(n);
+
+      var s = document.createElement("div");
+      s.className = "pws"; s.textContent = row.sentence;
+      d.appendChild(s);
+
+      var o = document.createElement("div");
+      o.className = "pwopts";
+      // headword first on every row: it matches the reviewed mock and keeps the
+      // comparison legible. It leaks nothing -- the student already knows which word
+      // the card teaches, and the key alternates between the two sides.
+      row.options.forEach(function (w) {
         var lab = document.createElement("label");
         var inp = document.createElement("input");
-        inp.type = "radio"; inp.name = "g" + ri; inp.value = w;
-        inp.setAttribute("aria-label", w + " for sentence " + (ri + 1));
+        inp.type = "radio"; inp.name = "pw" + ri; inp.value = w;
+        inp.setAttribute("aria-label", w + " for sentence " + (slot + 1));
         var sp = document.createElement("span");
-        sp.className = "box"; sp.textContent = "✓";  // hidden until selected
-        lab.appendChild(inp); lab.appendChild(sp); cell.appendChild(lab);
-        tr.appendChild(cell);
+        sp.textContent = w;
+        lab.appendChild(inp); lab.appendChild(sp);
+        o.appendChild(lab);
       });
-      tb.appendChild(tr);
+      d.appendChild(o);
+      item.appendChild(d);
+
+      var fb = document.createElement("div");
+      fb.className = "pwfb"; fb.id = "pwfb" + ri; fb.hidden = true;
+      fb.setAttribute("role", "status");
+      item.appendChild(fb);
+
+      host.appendChild(item);
     });
-    $("s2instr").textContent = CFG.grid.instructions;
+
+    $("s2instr").textContent = P.instructions;
+
+    // Row count is spelled out from rows.length, never hardcoded: the 6 structural-exception
+    // cards run 6 rows, and "All eight" on a 6-row card is a student-visible error that no
+    // check would catch, because it is prose. Falls back to the digit for any other length.
+    var NUMWORD = { 6: "six", 8: "eight" };
+    function nrows() { return NUMWORD[rows.length] || String(rows.length); }
+    $("s2lead").textContent = "All " + nrows() + " must be right to continue. "
+      + $("s2lead").textContent.trim();
+
     function picks() {
       return rows.map(function (_, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"]:checked');
+        var e = document.querySelector('input[name="pw' + ri + '"]:checked');
         return e ? e.value : null;
       });
     }
+    function clearRow(ri) {
+      var r = $("pwitem" + ri), f = $("pwfb" + ri);
+      r.classList.remove("ok", "no");
+      f.hidden = true; f.innerHTML = ""; f.className = "pwfb";
+    }
     function repaint() {
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
+      Array.prototype.forEach.call(host.querySelectorAll("label"), function (l) {
         l.classList.remove("sel");
       });
       picks().forEach(function (v, ri) {
         if (!v) return;
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
+        var e = document.querySelector('input[name="pw' + ri + '"][value="' + v + '"]');
         if (e) e.parentNode.classList.add("sel");
       });
       var n = picks().filter(Boolean).length;
-      $("s2check").disabled = st.s2.done || n < rows.length;
       $("s2count").textContent = st.s2.done ? "" : n + " of " + rows.length + " answered";
     }
-    $("grid").addEventListener("change", function (e) {
+
+    host.addEventListener("change", function (e) {
       if (st.s2.done || e.target.type !== "radio") return;
-      Array.prototype.forEach.call($("grid").querySelectorAll("label"), function (l) {
-        l.classList.remove("right", "wrong");
-      });
+      // this row's verdict is now stale; drop it and let them check again
+      var ri = parseInt(e.target.name.slice(2), 10);
+      clearRow(ri);
       $("s2msg").textContent = "";
-      $("s2fb").innerHTML = "";   // stale feedback would point at a changed answer
+      $("s2check").disabled = picks().filter(Boolean).length < rows.length;
       repaint();
     });
+
     $("s2check").addEventListener("click", function () {
       if (st.s2.done) return;
       var p = picks();
       if (p.some(function (v) { return !v; })) return;
       st.s2.tries++;
-      var wrong = 0, fbList = $("s2fb");
-      fbList.innerHTML = "";
+
+      var wrong = 0;
       p.forEach(function (v, ri) {
-        var e = document.querySelector('input[name="g' + ri + '"][value="' + v + '"]');
-        e.parentNode.classList.remove("sel");
-        if (rows[ri].ks.indexOf(v) >= 0) { e.parentNode.classList.add("right"); }
-        else {
-          e.parentNode.classList.add("wrong");
+        var row = rows[ri], right = (v === row.key);
+        var d = $("pwitem" + ri), f = $("pwfb" + ri);
+        d.classList.remove("ok", "no");
+        d.classList.add(right ? "ok" : "no");
+        f.className = "pwfb " + (right ? "ok" : "no");
+        f.innerHTML = "<b>" + (right ? "Right &#183; " : "Not " + v + " &#183; ")
+          + CFG.word + " vs " + row.pair + "</b>"
+          + (right ? row.why_right : row.why_wrong);
+        f.hidden = false;
+        if (right) {
+          // lock it: the verdict is already shown, and locking stops a student
+          // changing an answer that was right
+          graded[ri] = true;
+          Array.prototype.forEach.call(
+            d.querySelectorAll('input[name="pw' + ri + '"]'), function (i) {
+              i.disabled = true; i.parentNode.classList.add("locked");
+            });
+        } else {
           wrong++;
-          // ISSUE 4: say WHY the chosen word is wrong, without revealing the right one
-          var li = document.createElement("li");
-          li.innerHTML = "<b>Sentence " + (ri + 1) + " &#183; not " + v + "</b>" +
-            ((rows[ri].fb && rows[ri].fb[v]) ||
-             "That word does not fit this sentence. Re-read the comparisons above.");
-          fbList.appendChild(li);
         }
       });
+
       if (wrong === 0) {
         st.s2.done = true; st.s2.first = st.s2.tries === 1;
         $("s2check").disabled = true;
-        $("s2msg").textContent = "All six right."; $("s2msg").className = "msg ok";
+        $("s2msg").textContent = "All " + nrows() + " right."; $("s2msg").className = "msg ok";
         $("s2count").textContent = "";
         finishSection("s2"); report();
-      } else {
-        $("s2msg").textContent = wrong === 1
-          ? "One is not right yet. Change it and check again."
-          : wrong + " are not right yet. Change them and check again.";
-        $("s2msg").className = "msg no";
+        return;
       }
+
+      // the rows are marked, so an exact figure concedes nothing further
+      $("s2msg").textContent = wrong === 1
+        ? "One is not right yet. Read the note under it and change your answer."
+        : wrong + " are not right yet. Read the notes under them and change your answers.";
+      $("s2msg").className = "msg no";
+      // require a change before another submit, so repeated clicks cannot spend tries
+      $("s2check").disabled = true;
     });
+
     repaint();
   })();
+
 
   // ---- section 3: apply, TWO parts ---------------------------------------
   // Andy caps a lesson card at 5 XP (Lucia + Sarah, 2026-08-28). maxScore must
